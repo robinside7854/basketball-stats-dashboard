@@ -9,6 +9,12 @@ import { fmtDate, dateRange, type ShareInfo } from '@/lib/og/teamBoxscoreShare'
 const W = 1200, H = 630
 const COLOR = { ground: '#191714', panel: '#24211C', ink: '#F2EEE6', muted: '#A9A294', yellow: '#EAB308', win: '#34D399', loss: '#F87171' }
 
+// 한 줄 84px 는 12자 안팎까지, 그보다 길면 줄여서 최대 두 줄
+function tourSize(name: string) {
+  const n = name.length
+  return n <= 12 ? 84 : n <= 18 ? 68 : n <= 30 ? 58 : 48
+}
+
 function clip(s: string, max: number) {
   return s.length > max ? s.slice(0, max - 1) + '…' : s
 }
@@ -48,8 +54,8 @@ export async function renderShareCard(info: ShareInfo): Promise<ImageResponse> {
     const vsSize = (info.teamName.length + info.opponent.length) > 18 ? 44 : 54
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div style={{ display: 'flex', fontSize: 32, color: COLOR.muted }}>
-          {clip([info.tournamentName, info.round].filter(Boolean).join(' · '), 34)}
+        <div style={{ display: 'flex', fontSize: (info.tournamentName.length + (info.round?.length ?? 0)) > 26 ? 28 : 32, color: COLOR.muted }}>
+          {clip([info.tournamentName, info.round].filter(Boolean).join(' · '), 44)}
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', fontSize: vsSize, color: COLOR.ink, letterSpacing: -1 }}>
           <div style={{ display: 'flex' }}>{clip(info.teamName, 12)}</div>
@@ -76,8 +82,10 @@ export async function renderShareCard(info: ShareInfo): Promise<ImageResponse> {
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         <div style={{ display: 'flex', fontSize: 40, color: COLOR.muted }}>{clip(info.teamName, 20)}</div>
-        <div style={{ display: 'flex', fontSize: info.tournamentName.length > 14 ? 64 : 84, color: COLOR.ink, lineHeight: 1.15, letterSpacing: -1 }}>
-          {clip(info.tournamentName, 24)}
+        {/* 대회명은 길다(실제: 「2026 바다배 농구대회 전국 파이널 토너먼트」 26자) — 24자에서 자르던 것을
+            길이별로 글자를 줄이고 두 줄까지 단어 단위로 접는다 */}
+        <div style={{ display: 'flex', maxWidth: 1040, fontSize: tourSize(info.tournamentName), color: COLOR.ink, lineHeight: 1.2, letterSpacing: -1, wordBreak: 'keep-all' }}>
+          {clip(info.tournamentName, 44)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 8 }}>
           {rec && <div style={{ display: 'flex', fontSize: 44, color: COLOR.yellow }}>{rec}</div>}

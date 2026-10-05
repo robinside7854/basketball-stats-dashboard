@@ -119,7 +119,8 @@ export function shareTitle(info: ShareInfo): string {
     const res = !info.isComplete ? '' : info.ourScore > info.oppScore ? ' 승' : info.ourScore < info.oppScore ? ' 패' : ' 무'
     return `${info.teamName} ${info.ourScore}:${info.oppScore} ${info.opponent}${res} — 박스스코어`
   }
-  return `${info.teamName} · ${info.tournamentName} 전체 기록`
+  // 카톡은 제목을 두 줄에서 자른다 — 대회명을 앞에 둬야 잘려도 무슨 대회인지 보인다
+  return `${info.tournamentName} 전체 기록 · ${info.teamName}`
 }
 
 export function shareDescription(info: ShareInfo): string {
