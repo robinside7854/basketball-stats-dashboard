@@ -112,7 +112,7 @@ function MobileStatBody({ cells, s, quarters }: {
   )
 }
 
-// 「상대별 팀 스탯」 아래 합계 · 경기당 평균 (2026-10-05) — 종전엔 경기별 줄만 있어 대회 전체 팀 기록을 볼 수 없었다.
+// 「상대별 팀 스탯」 아래 합계 줄 (2026-10-05 · 경기당 평균 줄은 사용자 요청으로 뺐다) — 종전엔 경기별 줄만 있어 대회 전체 팀 기록을 볼 수 없었다.
 //   위 줄들과 같은 원천(game_summaries)을 더한다 — 다른 원천(선수 합계)을 쓰면 표 안에서 숫자가 어긋날 수 있다.
 const FOOT_KEYS = ['pts', 'fgm', 'fga', 'fg3m', 'fg3a', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'stl', 'blk', 'tov'] as const
 
@@ -126,20 +126,17 @@ function SummaryFoot({ games }: { games: GameSummary[] }) {
   const w = games.filter(g => g.our_score > g.opponent_score).length
   const l = games.filter(g => g.our_score < g.opponent_score).length
   const d = n - w - l
-  const avg = (v: number) => (n ? (Math.round((v / n) * 10) / 10).toFixed(1) : '-')
-  const row = (label: string, isAvg: boolean) => {
-    const v = (k: string) => (isAvg ? avg(sum[k]) : sum[k])
-    const made = (m: string, a: string) => (isAvg ? `${avg(sum[m])}-${avg(sum[a])}` : `${sum[m]}-${sum[a]}`)
+  const row = (label: string) => {
+    const v = (k: string) => sum[k]
+    const made = (m: string, a: string) => `${sum[m]}-${sum[a]}`
     return (
-      <tr className={`font-bold ${isAvg ? 'bg-[var(--mm-panel-alt)]/50' : 'bg-[var(--mm-panel-alt)] border-t-2 border-[var(--mm-ink)]'}`}>
+      <tr className="font-bold bg-[var(--mm-panel-alt)] border-t-2 border-[var(--mm-ink)]">
         <td colSpan={2} className="px-2 py-1.5 text-left text-[var(--mm-ink)] whitespace-nowrap">{label}</td>
         <td className="px-2 py-1.5 whitespace-nowrap">
-          {isAvg
-            ? <span className="text-[var(--mm-muted)]">{avg(ourPts)}-{avg(oppPts)}</span>
-            : <><span className="text-[var(--mm-ink)]">{w}승 {l}패{d ? ` ${d}무` : ''}</span><span className="text-[var(--mm-muted)] ml-1 font-normal">{ourPts}-{oppPts}</span></>}
+          <span className="text-[var(--mm-ink)]">{w}승 {l}패{d ? ` ${d}무` : ''}</span><span className="text-[var(--mm-muted)] ml-1 font-normal">{ourPts}-{oppPts}</span>
         </td>
         <td className="px-2 py-1.5 text-[var(--mm-yellow-strong)]">{v('pts')}</td>
-        {qSum.map((q, i) => <td key={i} className="px-2 py-1.5 text-[var(--mm-ink)]">{q ? (isAvg ? avg(q) : q) : '-'}</td>)}
+        {qSum.map((q, i) => <td key={i} className="px-2 py-1.5 text-[var(--mm-ink)]">{q || '-'}</td>)}
         <td className="px-2 py-1.5 text-[var(--mm-ink)] whitespace-nowrap">{made('fgm', 'fga')}</td>
         <td className="px-2 py-1.5"><Pct val={pctOf(sum.fgm, sum.fga)} kind="fg" /></td>
         <td className="px-2 py-1.5 text-[var(--mm-ink)] whitespace-nowrap">{made('fg3m', 'fg3a')}</td>
@@ -159,8 +156,7 @@ function SummaryFoot({ games }: { games: GameSummary[] }) {
   if (n === 0) return null
   return (
     <tfoot>
-      {row(`합계 (${n}경기)`, false)}
-      {row('경기당 평균', true)}
+      {row(`합계 (${n}경기)`)}
     </tfoot>
   )
 }
