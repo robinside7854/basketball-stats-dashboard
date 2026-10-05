@@ -666,14 +666,16 @@
   }
 }
 
-/* Light mode: stronger card borders */
-:root:not(.dark) .border-gray-800 { border-color: #cbd5e1; }
-:root:not(.dark) .border-gray-700 { border-color: #94a3b8; }
+/* Light mode: stronger card borders
+   :not(.dark *) — 라이트 모드 안에서도 항상 어두운 카드(className="dark" 로 감싼 섬, 예: 선수 상세 배너)는
+   이 보정을 받지 않아야 한다. 받으면 어두운 배경 위 글자가 어두워져 안 보인다(2026-10-05). */
+:root:not(.dark) .border-gray-800:not(.dark *) { border-color: #cbd5e1; }
+:root:not(.dark) .border-gray-700:not(.dark *) { border-color: #94a3b8; }
 
 /* Light mode: text contrast fixes (WCAG 4.5:1+) */
-:root:not(.dark) .text-gray-400 { color: #475569; }  /* slate-600 */
-:root:not(.dark) .text-gray-500 { color: #334155; }  /* slate-700 */
-:root:not(.dark) .text-gray-600 { color: #1e293b; }  /* slate-800 */
+:root:not(.dark) .text-gray-400:not(.dark *) { color: #475569; }  /* slate-600 */
+:root:not(.dark) .text-gray-500:not(.dark *) { color: #334155; }  /* slate-700 */
+:root:not(.dark) .text-gray-600:not(.dark *) { color: #1e293b; }  /* slate-800 */
 
 /* ===== NBA.com 오마주 — LIVE 배지 pulse-red 애니메이션 =====
    is_started && !is_complete 인 경기 표시에만 사용. 다른 요소 사용 금지. */

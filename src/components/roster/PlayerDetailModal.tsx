@@ -1,16 +1,12 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { X, Camera, Award, Zap, Flame, BookOpen, Medal, Loader2 } from 'lucide-react'
+import { X, Camera, Award, Zap, Flame, Medal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { LineChart, Line, BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
-import { evaluateAllBadges, CATEGORY_LABELS } from '@/lib/stats/badges'
-import type { EvaluatedBadge } from '@/lib/stats/badges'
-import BadgeIcon, { TIER_STYLES } from '@/components/badges/BadgeIcon'
 import { CLUB_BASELINE } from '@/lib/stats/shootingBaseline'
 
-const BadgeMasterbook = dynamic(() => import('@/components/roster/BadgeMasterbook'), { ssr: false })
 const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
 const HalfCourtShotChart = dynamic(() => import('@/components/league/HalfCourtShotChart'), { ssr: false })
 
@@ -113,11 +109,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
   const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number; warrior_count: number } | null>(null)
   const [quarterPts, setQuarterPts] = useState<{ q1: number; q2: number; q3: number; q4: number; ot?: number; gp?: number } | null>(null)
-  const [evaluatedBadges, setEvaluatedBadges] = useState<EvaluatedBadge[]>([])
-  const [activeBadgeCode, setActiveBadgeCode] = useState<string | null>(null)
-  const [masterbookOpen, setMasterbookOpen] = useState(false)
   const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
-  const [mobileTab, setMobileTab] = useState<'overview' | 'career' | 'tournaments'>('overview')
+  const [mobileTab, setMobileTab] = useState<'careerHigh' | 'offense' | 'tournaments'>('careerHigh')
   const [splits, setSplits] = useState<{
     wins: { gp: number; pts_avg: number; reb_avg: number; ast_avg: number; fg_pct: number; fg3_pct: number; gmsc_avg: number } | null
     losses: { gp: number; pts_avg: number; reb_avg: number; ast_avg: number; fg_pct: number; fg3_pct: number; gmsc_avg: number } | null
@@ -145,7 +138,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
       })
   }, [playerId])
 
-  // 팀 내 랭킹 + 뱃지 계산
+  // 팀 내 랭킹 (선수 뱃지·도감은 2026-10-05 사용자 요청으로 삭제)
   useEffect(() => {
     fetch(`/api/stats/season${team ? `?team=${team}` : ''}`)
       .then(r => r.json())
@@ -173,74 +166,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
           blk: rank(p => p.games_played > 0 ? p.blk / p.games_played : 0) ?? { rank: 0, isTie: false },
         })
 
-        // 팀 평균 계산 (뱃지용)
-        if (active.length === 0) return
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const avg = (fn: (p: any) => number) => active.reduce((s: number, p: any) => s + fn(p), 0) / active.length
-        const teamAvg = {
-          ftaPerGame:   avg(p => p.games_played > 0 ? (p.fta  ?? 0) / p.games_played : 0),
-          fg3aPerGame:  avg(p => p.games_played > 0 ? (p.fg3a ?? 0) / p.games_played : 0),
-          stlPerGame:   avg(p => p.games_played > 0 ? (p.stl  ?? 0) / p.games_played : 0),
-          blkPerGame:   avg(p => p.games_played > 0 ? (p.blk  ?? 0) / p.games_played : 0),
-          astPerGame:   avg(p => p.games_played > 0 ? (p.ast  ?? 0) / p.games_played : 0),
-          ptsPerGame:   avg(p => p.pts_avg ?? 0),
-          rebPerGame:   avg(p => p.reb_avg ?? 0),
-          hustlePerGame: avg(p => p.games_played > 0 ? ((p.stl ?? 0) + (p.blk ?? 0) + (p.dreb ?? 0)) / p.games_played : 0),
-        }
-
-        // 선수 시즌 스탯
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const me = active.find((p: any) => p.player_id === playerId)
-        if (!me) return
-
-        const gp = me.games_played
-        const fgm = me.fgm ?? 0; const fga = me.fga ?? 0
-        const fg3m = me.fg3m ?? 0; const fg3a = me.fg3a ?? 0
-        const fg2m = fgm - fg3m; const fg2a = fga - fg3a
-        const ftm = me.ftm ?? 0; const fta = me.fta ?? 0
-        const oreb = me.oreb ?? 0; const dreb = me.dreb ?? 0
-        const ast = me.ast ?? 0; const tov = me.tov ?? 0
-        const stl = me.stl ?? 0; const blk = me.blk ?? 0
-
-        // double/triple double: per-game stats에서 계산
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const gamesList: any[] = data.gamesByPlayer?.[playerId] ?? []
-        let doubleDoubles = 0; let tripleDoubles = 0
-        for (const g of gamesList) {
-          const cats = [g.pts ?? 0, g.reb ?? 0, g.ast ?? 0, g.stl ?? 0, g.blk ?? 0].filter(v => v >= 10).length
-          if (cats >= 3) tripleDoubles++
-          else if (cats >= 2) doubleDoubles++
-        }
-
-        const allBadges = evaluateAllBadges({
-          gamesPlayed: gp,
-          totalTeamGames: data.totalGames ?? gp,
-          pts: me.pts ?? 0,
-          fgm, fga, fg2m, fg2a, fg3m, fg3a, ftm, fta,
-          oreb, dreb, reb: oreb + dreb,
-          ast, stl, blk, tov,
-          ppg: me.pts_avg ?? 0,
-          rpg: me.reb_avg ?? 0,
-          apg: me.ast_avg ?? 0,
-          spg: gp > 0 ? stl / gp : 0,
-          bpg: gp > 0 ? blk / gp : 0,
-          fg3Pct: fg3a > 0 ? (fg3m / fg3a) * 100 : 0,
-          ftPct: fta > 0 ? (ftm / fta) * 100 : 0,
-          astToTov: tov > 0 ? ast / tov : ast,
-          doubleDoubles,
-          tripleDoubles,
-          q1pts: quarterPts?.q1 ?? 0,
-          q2pts: quarterPts?.q2 ?? 0,
-          q3pts: quarterPts?.q3 ?? 0,
-          q4pts: quarterPts?.q4 ?? 0,
-          ast3pts: me.ast3pts ?? 0,
-          astPaint: (me as Record<string, unknown>).astPaint as number ?? 0,
-          shotBreakdown,
-        }, teamAvg)
-
-        setEvaluatedBadges(allBadges)
       })
-  }, [playerId, quarterPts])
+  }, [playerId, team])
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -319,7 +246,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 const age = calcAge(player.birthdate)
                 const positions = player.position?.split(',').map(p => p.trim()).filter(Boolean) ?? []
                 return (
-                  <div className="space-y-0 rounded-xl overflow-hidden border border-[var(--mm-rule)]">
+                  // dark: 이 카드는 테마와 무관하게 항상 어두운 배경이다. 라이트 모드는 전역에서 text-white 를
+                  //   어두운색으로 바꿔 두므로(globals.css --color-white), 스코프를 걸지 않으면 휴대폰(라이트)에서
+                  //   이름·키·스탯 숫자가 배경에 묻혔다(2026-10-05 신고).
+                  <div className="dark space-y-0 rounded-xl overflow-hidden border border-[var(--mm-rule)]">
                     {/* 배너 */}
                     <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #070E1A 0%, #0D1A2E 100%)', minHeight: '200px' }}>
                       {/* 배경 번호 워터마크 */}
@@ -373,10 +303,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
 
                     {/* AI 수상 배지 */}
                     {awards && (awards.mvp_count > 0 || awards.xfactor_count > 0 || awards.warrior_count > 0) && (
-                      <div className="flex items-center gap-2 px-5 py-2.5 border-t border-gray-800/60" style={{ background: '#070E1A' }}>
+                      <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-t border-gray-800/60" style={{ background: '#070E1A' }}>
                         <span className="text-xs text-gray-600 uppercase tracking-wider mr-1">Awards</span>
                         {awards.mvp_count > 0 && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-900/30 border border-yellow-700/50">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-900/30 border border-yellow-700/50 whitespace-nowrap shrink-0">
                             <Award size={14} className="text-yellow-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-yellow-400">MVP</span>
                             <span className="text-xs font-black text-yellow-300 ml-0.5">{awards.mvp_count}</span>
@@ -384,7 +314,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           </div>
                         )}
                         {awards.xfactor_count > 0 && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-900/30 border border-purple-700/50">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-900/30 border border-purple-700/50 whitespace-nowrap shrink-0">
                             <Zap size={14} className="text-purple-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-purple-400">X-FACTOR</span>
                             <span className="text-xs font-black text-purple-300 ml-0.5">{awards.xfactor_count}</span>
@@ -392,7 +322,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           </div>
                         )}
                         {awards.warrior_count > 0 && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-900/30 border border-orange-700/50">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-900/30 border border-orange-700/50 whitespace-nowrap shrink-0">
                             <Flame size={14} className="text-orange-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-orange-400">투혼상</span>
                             <span className="text-xs font-black text-orange-300 ml-0.5">{awards.warrior_count}</span>
@@ -401,87 +331,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         )}
                       </div>
                     )}
-
-                    {/* 능력 뱃지 */}
-                    {evaluatedBadges.length > 0 && (() => {
-                      const earnedBadges = evaluatedBadges.filter(b => b.tier !== null)
-                      // Sort: gold first, then silver, bronze
-                      const tierOrder: Record<string, number> = { gold: 0, silver: 1, bronze: 2 }
-                      const sortedBadges = [...earnedBadges].sort((a, b) => (tierOrder[a.tier!] ?? 3) - (tierOrder[b.tier!] ?? 3))
-                      const activeBadge = evaluatedBadges.find(b => b.code === activeBadgeCode)
-
-                      const goldC   = earnedBadges.filter(b => b.tier === 'gold').length
-                      const silverC = earnedBadges.filter(b => b.tier === 'silver').length
-                      const bronzeC = earnedBadges.filter(b => b.tier === 'bronze').length
-
-                      return (
-                        <div className="border-t border-gray-800/60" style={{ background: '#070E1A' }}>
-                          <div className="px-5 py-3 space-y-2">
-                            {/* 티어 요약 */}
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="text-gray-600 uppercase tracking-wider text-[10px] mr-1">Badges</span>
-                              {goldC   > 0 && <span className="inline-flex items-center gap-0.5 text-amber-400 font-bold"><Medal size={14} aria-hidden="true" /> {goldC}</span>}
-                              {silverC > 0 && <span className="inline-flex items-center gap-0.5 text-slate-400 font-bold"><Medal size={14} aria-hidden="true" /> {silverC}</span>}
-                              {bronzeC > 0 && <span className="inline-flex items-center gap-0.5 text-orange-400 font-bold"><Medal size={14} aria-hidden="true" /> {bronzeC}</span>}
-                              <button
-                                onClick={() => setMasterbookOpen(true)}
-                                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-700/50 bg-gray-800/40 text-xs text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors cursor-pointer"
-                              >
-                                <BookOpen size={14} aria-hidden="true" />
-                                <span>도감</span>
-                              </button>
-                            </div>
-
-                            {/* 뱃지 아이콘 행 */}
-                            <div className="flex flex-wrap gap-1.5">
-                              {earnedBadges.length === 0 && (
-                                <span className="text-xs text-gray-700 italic">아직 달성한 뱃지가 없습니다</span>
-                              )}
-                              {sortedBadges.map(badge => (
-                                <button
-                                  key={badge.code}
-                                  onClick={() => setActiveBadgeCode(activeBadgeCode === badge.code ? null : badge.code)}
-                                  onMouseEnter={() => setActiveBadgeCode(badge.code)}
-                                  onMouseLeave={() => setActiveBadgeCode(null)}
-                                  className="cursor-pointer"
-                                  title={badge.name}
-                                >
-                                  <BadgeIcon code={badge.code} tier={badge.tier} size="sm" />
-                                </button>
-                              ))}
-                            </div>
-
-                            {/* 선택된 뱃지 상세 패널 */}
-                            {activeBadge && activeBadge.tier && (
-                              <div className={`rounded-xl p-3 border transition-all ${
-                                activeBadge.tier === 'gold'   ? 'bg-amber-950/50 border-amber-600/40' :
-                                activeBadge.tier === 'silver' ? 'bg-slate-800/50 border-slate-500/40' :
-                                                                'bg-orange-950/50 border-orange-700/40'
-                              }`}>
-                                <div className="flex items-start gap-2.5">
-                                  <BadgeIcon code={activeBadge.code} tier={activeBadge.tier} size="md" showLabel />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                      <span className="text-sm font-bold text-white">{activeBadge.name}</span>
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                                        activeBadge.tier === 'gold'   ? 'bg-amber-900/60 text-amber-300' :
-                                        activeBadge.tier === 'silver' ? 'bg-slate-700/60 text-slate-300' :
-                                                                         'bg-orange-900/60 text-orange-300'
-                                      }`}>{CATEGORY_LABELS[activeBadge.category]}</span>
-                                    </div>
-                                    <p className="text-xs text-gray-400 mt-0.5">{activeBadge.description}</p>
-                                  </div>
-                                </div>
-                                <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
-                                  <p className="text-[11px] text-gray-500">{activeBadge.thresholdLabel}</p>
-                                  <p className="text-sm font-bold text-white">{activeBadge.achievedLabel}</p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })()}
 
                     {/* 주요 스탯 바 */}
                     {totalGP > 0 && (() => {
@@ -528,8 +377,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               {/* 모바일 탭 (md 미만) */}
               <div className="md:hidden -mx-5 sticky top-0 z-20 bg-[var(--mm-panel)]/95 backdrop-blur-sm border-b border-[var(--mm-rule)] flex">
                 {([
-                  { id: 'overview',    label: '개요' },
-                  { id: 'career',      label: '커리어' },
+                  { id: 'careerHigh',  label: '커리어하이' },
+                  { id: 'offense',     label: '공격유형' },
                   { id: 'tournaments', label: '대회' },
                 ] as const).map(t => (
                   <button key={t.id}
@@ -543,7 +392,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               </div>
 
               {/* 커리어 하이 */}
-              <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
+              <div className={`${mobileTab === 'careerHigh' ? 'block' : 'hidden'} md:block`}>
               {(() => {
                 type ChGame = {
                   value: number; date: string; opponent: string; round: string | null
@@ -670,7 +519,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               </div>
 
               {/* 공격 스타일 */}
-              <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
+              <div className={`${mobileTab === 'offense' ? 'block' : 'hidden'} md:block`}>
               {totalShots > 0 && (
                 <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
                   <h2 className="text-base font-semibold mb-4 text-[var(--mm-ink)]">공격 스타일</h2>
@@ -725,7 +574,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
 
               {/* 쿼터별 득점 (2026-10-05) — 막대 = 경기당 평균, 가장 많이 넣는 쿼터만 노랑. 아래 표에 총득점·비율.
                   연장은 득점이 있을 때만 막대를 그린다(대부분 0 이라 매번 빈 칸이 생긴다). */}
-              <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
+              <div className={`${mobileTab === 'offense' ? 'block' : 'hidden'} md:block`}>
               {quarterPts && (() => {
                 const gp = quarterPts.gp ?? 0
                 const rows = [
@@ -788,7 +637,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               </div>
 
               {/* 슛 차트 (코트 위치별 야투율) */}
-              <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
+              <div className={`${mobileTab === 'offense' ? 'block' : 'hidden'} md:block`}>
               {(courtZones.post.a + courtZones.layup.a + courtZones.mid.a + courtZones.three.a) > 0 && (
                 <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
                   <div className="flex items-baseline justify-between mb-3">
@@ -1056,7 +905,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               </div>
 
               {/* 최근 5경기 */}
-              <div className={`${mobileTab === 'overview' ? 'block' : 'hidden'} md:block`}>
+              <div className={`${mobileTab === 'tournaments' ? 'block' : 'hidden'} md:block`}>
               {recentGames.length > 0 && (
                 <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
                   <h2 className="text-base font-semibold mb-4 text-[var(--mm-ink)]">최근 {recentGames.length}경기</h2>
@@ -1127,12 +976,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         <GameBoxScoreModal
           gameInfo={boxScoreGame}
           onClose={() => setBoxScoreGame(null)}
-        />
-      )}
-      {masterbookOpen && (
-        <BadgeMasterbook
-          evaluatedBadges={evaluatedBadges.length > 0 ? evaluatedBadges : undefined}
-          onClose={() => setMasterbookOpen(false)}
         />
       )}
     </div>
