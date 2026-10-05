@@ -43,10 +43,15 @@ export async function GET(req: Request) {
   let removed = 0
   const failed: string[] = []
 
+  // 라운드 배지(DD/TD)는 (리그, 날짜) 단위라 같은 날 게임마다 다시 셀 필요가 없다 — 날짜당 한 번만.
+  const roundDone = new Set<string>()
+
   // 게임별 순차 처리 (동시성 폭주 방지 · Supabase 커넥션 안정)
   for (const g of gameRows) {
     try {
-      const r = await syncBadgesForGame(supabase, g.id)
+      const roundKey = `${g.league_id}:${g.date}`
+      const r = await syncBadgesForGame(supabase, g.id, { skipRound: roundDone.has(roundKey) })
+      roundDone.add(roundKey)
       created += r.created
       removed += r.removed
       processed++

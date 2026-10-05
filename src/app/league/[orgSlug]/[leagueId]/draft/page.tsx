@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX, Hand, Clock, FlaskConical } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { useVisiblePolling } from '@/lib/hooks/useVisiblePolling'
 import DraftSetupStepper from '@/components/league/DraftSetupStepper'
 import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/DraftPlayerStatsModal'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
@@ -176,15 +177,16 @@ export default function LeagueDraftPage() {
 
   useEffect(() => { fetchState() }, [fetchState])
 
-  // 폴링 — 무음 갱신. 활성(진행/준비체크) 1.5초, 그 외(설정/완료) 5초로
-  // 리셋·새 세션·완료 전환도 모든 화면에 반영되게 한다.
-  const pollRef = useRef<number | null>(null)
-  useEffect(() => {
-    const st = state?.draft?.status
-    const interval = st === 'in_progress' || st === 'ready_check' ? POLL_INTERVAL_MS : 5000
-    pollRef.current = window.setInterval(fetchState, interval)
-    return () => { if (pollRef.current) window.clearInterval(pollRef.current) }
-  }, [state?.draft?.status, fetchState])
+  // 폴링 — 무음 갱신. 활성(진행/준비체크) 1.5초, 그 외(설정/추첨) 5초로
+  // 리셋·새 세션·완료 전환도 모든 화면에 반영되게 한다. 완료 뒤엔 60초(리셋만 잡으면 된다).
+  // 탭이 안 보이면 멈춘다 — 폴링이 곧 서버 함수 호출이라 Vercel CPU 한도를 깎는다.
+  const draftStatus = state?.draft?.status
+  useVisiblePolling(
+    fetchState,
+    draftStatus === 'in_progress' || draftStatus === 'ready_check' ? POLL_INTERVAL_MS
+      : draftStatus === 'completed' ? 60_000
+      : 5000,
+  )
 
   // 픽 타이머 — 1초마다 현재 시각 갱신 (진행 중일 때만)
   useEffect(() => {

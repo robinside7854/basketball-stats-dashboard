@@ -359,17 +359,21 @@ export async function computeRoundBadges(
  *   1) 게임 배지(perfect_game, winning_shot): game_id 매치 rows 삭제 후 재삽입.
  *   2) 라운드 배지(DD, TD): 그 게임 날짜의 라운드 배지 전체(같은 리그·같은 날짜·game_id=null)를
  *      삭제 후 재삽입 — 다른 게임이 같은 날 열렸을 때도 합산이 바뀌기 때문에 통째로 재계산.
+ *
+ * `skipRound` — 라운드 배지는 (리그, 날짜)에만 달려 있어 같은 날 다른 게임으로 이미 재계산했으면
+ *   결과가 같다. 전수 재계산 cron 이 하루 9경기를 9번 다시 세던 낭비(CPU 한도 초과 원인)를 막는다.
  */
 export async function syncBadgesForGame(
   supabase: SupabaseClient,
   gameId: string,
-): Promise<{ created: number; removed: number }> {
+  opts: { skipRound?: boolean } = {},
+): Promise<{ created: number; removed: number; leagueId: string | null; date: string | null }> {
   const { data: game } = await supabase
     .from('league_games')
     .select('id, league_id, date')
     .eq('id', gameId)
     .maybeSingle()
-  if (!game) return { created: 0, removed: 0 }
+  if (!game) return { created: 0, removed: 0, leagueId: null, date: null }
   const leagueId = game.league_id as string
   const date = (game as { date: string | null }).date
 
@@ -395,7 +399,7 @@ export async function syncBadgesForGame(
   }
 
   // ── (2) 라운드 배지 — 그 날짜의 라운드 배지 전체 재계산 ──
-  if (date) {
+  if (date && !opts.skipRound) {
     const { data: existingRound } = await supabase
       .from('player_badges')
       .select('id')
@@ -421,5 +425,5 @@ export async function syncBadgesForGame(
     }
   }
 
-  return { created, removed }
+  return { created, removed, leagueId, date }
 }

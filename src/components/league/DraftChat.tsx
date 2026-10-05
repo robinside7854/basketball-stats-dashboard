@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, MessageCircle, ShieldCheck, X, AlertTriangle } from 'lucide-react'
 import { playChatDing } from '@/lib/draftSounds'
 import { createClient } from '@/lib/supabase/client'
+import { useVisiblePolling } from '@/lib/hooks/useVisiblePolling'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
@@ -143,11 +144,9 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     }
   }, [leagueId, draftId, authedCode, isMine, lastReadStorageKey])
 
-  useEffect(() => {
-    fetchMsgs()
-    const t = setInterval(fetchMsgs, POLL_MS)
-    return () => clearInterval(t)
-  }, [fetchMsgs])
+  useEffect(() => { fetchMsgs() }, [fetchMsgs])
+  // 탭이 안 보이면 멈춘다 — 폴링이 곧 서버 함수 호출이라 Vercel CPU 한도를 깎는다.
+  useVisiblePolling(fetchMsgs, POLL_MS)
 
   // Supabase Realtime — 새 메시지 INSERT 즉시 fetchMsgs() 재호출 (체감 지연 <200ms)
   // 폴링은 안전망으로 유지. RLS 정책 부재로 이벤트가 발화하지 않으면 폴링이 정상 동작.

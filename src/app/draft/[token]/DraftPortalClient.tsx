@@ -28,6 +28,7 @@ import { EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep, playBeep, setMuted, isMuted } from '@/lib/draftSounds'
 import { teamInk, teamAccentOnDark, maxTintAlphaForLightText } from '@/lib/util/contrastColor'
 import { createClient } from '@/lib/supabase/client'
+import { useVisiblePolling } from '@/lib/hooks/useVisiblePolling'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one: boolean }
@@ -138,7 +139,6 @@ export default function DraftPortalClient({
   const [opsOpen, setOpsOpen] = useState<boolean | null>(null)
   // 소리 음소거 — draftSounds 모듈 전역 플래그의 UI 미러. 빔 프로젝터 한 대만 소리를 내도록.
   const [soundMuted, setSoundMuted] = useState(false)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ────────────────── 서버 시간 캘리브레이션 ──────────────────
   // 사용자 기기 시계가 어긋난 경우(±수십초) 타이머가 빗나가 잘못된 타이밍에 auto-pick 이
@@ -183,11 +183,10 @@ export default function DraftPortalClient({
     } catch { /* ignore */ }
   }, [leagueId, quarterId])
 
-  useEffect(() => {
-    fetchState()
-    pollRef.current = setInterval(fetchState, POLL_INTERVAL_MS)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [fetchState])
+  useEffect(() => { fetchState() }, [fetchState])
+  // 탭이 숨겨지면 멈추고, 다시 보이면 즉시 1회 가져온 뒤 재개 (useVisiblePolling).
+  // 완료된 드래프트는 60초 — 결과 화면을 띄워 둔 탭이 1.5초마다 서버를 부르던 것(CPU 한도 초과 원인).
+  useVisiblePolling(fetchState, state?.draft?.status === 'completed' ? 60_000 : POLL_INTERVAL_MS)
 
   // ────────────────── Supabase Realtime 구독 ──────────────────
   // 1.5s 폴링은 안전망. websocket 으로 league_drafts / league_draft_picks
@@ -208,23 +207,6 @@ export default function DraftPortalClient({
       try { supabase.removeChannel(channel) } catch { /* ignore */ }
     }
   }, [draftId, fetchState])
-
-  // 탭이 숨겨지면 폴링 중단, 다시 보이면 즉시 1회 가져온 뒤 폴링 재개 — 모바일 배터리/네트워크 절약
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    function onVisibility() {
-      if (document.visibilityState === 'hidden') {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-      } else if (document.visibilityState === 'visible') {
-        fetchState()
-        if (!pollRef.current) {
-          pollRef.current = setInterval(fetchState, POLL_INTERVAL_MS)
-        }
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [fetchState])
 
   // 코드 입력 → lookup-code 로 본인 식별
   async function submitCode() {
