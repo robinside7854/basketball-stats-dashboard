@@ -304,7 +304,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   }
 
   // ── 쿼터별 커리어 득점 합산 ──────────────────────────────────
-  const quarterPts = { q1: 0, q2: 0, q3: 0, q4: 0 }
+  // ot·gp 는 선수 상세의 「쿼터별 득점」 차트용(2026-10-05). gp = 이 선수가 뛴 경기 수(경기당 평균의 분모)
+  const quarterPts = { q1: 0, q2: 0, q3: 0, q4: 0, ot: 0, gp: playerGames.length }
   const SCORE_TYPES = new Set(['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid', 'free_throw'])
   for (const e of playerEvents) {
     if (e.result !== 'made' || !SCORE_TYPES.has(e.type)) continue
@@ -314,6 +315,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     else if (q === 2) quarterPts.q2 += pts
     else if (q === 3) quarterPts.q3 += pts
     else if (q === 4) quarterPts.q4 += pts
+    else if (q != null && q >= 5) quarterPts.ot += pts
   }
 
   const astPaint = assistEvents.filter(

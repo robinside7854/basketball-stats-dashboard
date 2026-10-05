@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { X, Camera, Award, Zap, Flame, BookOpen, Medal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
 import { evaluateAllBadges, CATEGORY_LABELS } from '@/lib/stats/badges'
 import type { EvaluatedBadge } from '@/lib/stats/badges'
@@ -112,7 +112,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
   const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number; warrior_count: number } | null>(null)
-  const [quarterPts, setQuarterPts] = useState<{ q1: number; q2: number; q3: number; q4: number } | null>(null)
+  const [quarterPts, setQuarterPts] = useState<{ q1: number; q2: number; q3: number; q4: number; ot?: number; gp?: number } | null>(null)
   const [evaluatedBadges, setEvaluatedBadges] = useState<EvaluatedBadge[]>([])
   const [activeBadgeCode, setActiveBadgeCode] = useState<string | null>(null)
   const [masterbookOpen, setMasterbookOpen] = useState(false)
@@ -721,6 +721,70 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   </div>
                 </div>
               )}
+              </div>
+
+              {/* 쿼터별 득점 (2026-10-05) — 막대 = 경기당 평균, 가장 많이 넣는 쿼터만 노랑. 아래 표에 총득점·비율.
+                  연장은 득점이 있을 때만 막대를 그린다(대부분 0 이라 매번 빈 칸이 생긴다). */}
+              <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
+              {quarterPts && (() => {
+                const gp = quarterPts.gp ?? 0
+                const rows = [
+                  { q: 'Q1', pts: quarterPts.q1 }, { q: 'Q2', pts: quarterPts.q2 },
+                  { q: 'Q3', pts: quarterPts.q3 }, { q: 'Q4', pts: quarterPts.q4 },
+                  ...((quarterPts.ot ?? 0) > 0 ? [{ q: 'OT', pts: quarterPts.ot ?? 0 }] : []),
+                ]
+                const total = rows.reduce((a, r) => a + r.pts, 0)
+                if (total === 0 || gp === 0) return null
+                const data = rows.map(r => ({ ...r, avg: Math.round((r.pts / gp) * 10) / 10, share: Math.round((r.pts / total) * 100) }))
+                const top = Math.max(...data.map(d => d.avg))
+                return (
+                  <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
+                    <div className="flex items-baseline justify-between mb-3">
+                      <h2 className="text-base font-semibold text-[var(--mm-ink)]">쿼터별 득점</h2>
+                      <span className="text-[11px] text-[var(--mm-muted)]">경기당 평균 · {gp}경기</span>
+                    </div>
+                    <div className="h-44">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data} margin={{ top: 20, right: 8, left: 8, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--mm-rule)" vertical={false} />
+                          <XAxis dataKey="q" tick={{ fill: 'var(--mm-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                          <YAxis hide domain={[0, 'dataMax']} />
+                          <Tooltip
+                            cursor={{ fill: 'var(--mm-panel-alt)' }}
+                            contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 8, fontSize: 12 }}
+                            labelStyle={{ color: 'var(--mm-ink)' }}
+                            formatter={(v) => [`${v}점`, '경기당']}
+                          />
+                          <Bar dataKey="avg" radius={[6, 6, 0, 0]} maxBarSize={56}>
+                            {data.map(d => (
+                              <Cell key={d.q} fill={d.avg === top ? 'var(--mm-yellow)' : 'var(--mm-neutral-strong)'} fillOpacity={d.avg === top ? 1 : 0.55} />
+                            ))}
+                            <LabelList dataKey="avg" position="top" style={{ fill: 'var(--mm-ink)', fontSize: 12, fontWeight: 700 }} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <table className="w-full text-xs text-center mt-3 tabular-nums">
+                      <thead>
+                        <tr className="text-[var(--mm-muted)] border-b border-[var(--mm-rule)]">
+                          <th className="py-1.5 text-left font-normal">구분</th>
+                          {data.map(d => <th key={d.q} className="py-1.5 font-normal">{d.q}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-[var(--mm-rule)]/60">
+                          <td className="py-1.5 text-left text-[var(--mm-muted)]">총득점</td>
+                          {data.map(d => <td key={d.q} className="py-1.5 font-bold text-[var(--mm-ink)]">{d.pts}</td>)}
+                        </tr>
+                        <tr>
+                          <td className="py-1.5 text-left text-[var(--mm-muted)]">비율</td>
+                          {data.map(d => <td key={d.q} className={`py-1.5 ${d.avg === top ? 'font-bold text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{d.share}%</td>)}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()}
               </div>
 
               {/* 슛 차트 (코트 위치별 야투율) */}

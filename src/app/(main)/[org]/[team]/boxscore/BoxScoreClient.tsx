@@ -112,6 +112,59 @@ function MobileStatBody({ cells, s, quarters }: {
   )
 }
 
+// 「상대별 팀 스탯」 아래 합계 · 경기당 평균 (2026-10-05) — 종전엔 경기별 줄만 있어 대회 전체 팀 기록을 볼 수 없었다.
+//   위 줄들과 같은 원천(game_summaries)을 더한다 — 다른 원천(선수 합계)을 쓰면 표 안에서 숫자가 어긋날 수 있다.
+const FOOT_KEYS = ['pts', 'fgm', 'fga', 'fg3m', 'fg3a', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'stl', 'blk', 'tov'] as const
+
+function SummaryFoot({ games }: { games: GameSummary[] }) {
+  const n = games.length
+  const sum: Record<string, number> = {}
+  for (const k of FOOT_KEYS) sum[k] = games.reduce((acc, g) => acc + (g.totals[k] ?? 0), 0)
+  const qSum = [1, 2, 3, 4, 5].map(q => games.reduce((acc, g) => acc + (g.team_quarter_pts[q] || 0), 0))
+  const ourPts = games.reduce((a, g) => a + g.our_score, 0)
+  const oppPts = games.reduce((a, g) => a + g.opponent_score, 0)
+  const w = games.filter(g => g.our_score > g.opponent_score).length
+  const l = games.filter(g => g.our_score < g.opponent_score).length
+  const d = n - w - l
+  const avg = (v: number) => (n ? (Math.round((v / n) * 10) / 10).toFixed(1) : '-')
+  const row = (label: string, isAvg: boolean) => {
+    const v = (k: string) => (isAvg ? avg(sum[k]) : sum[k])
+    const made = (m: string, a: string) => (isAvg ? `${avg(sum[m])}-${avg(sum[a])}` : `${sum[m]}-${sum[a]}`)
+    return (
+      <tr className={`font-bold ${isAvg ? 'bg-[var(--mm-panel-alt)]/50' : 'bg-[var(--mm-panel-alt)] border-t-2 border-[var(--mm-ink)]'}`}>
+        <td colSpan={2} className="px-2 py-1.5 text-left text-[var(--mm-ink)] whitespace-nowrap">{label}</td>
+        <td className="px-2 py-1.5 whitespace-nowrap">
+          {isAvg
+            ? <span className="text-[var(--mm-muted)]">{avg(ourPts)}-{avg(oppPts)}</span>
+            : <><span className="text-[var(--mm-ink)]">{w}승 {l}패{d ? ` ${d}무` : ''}</span><span className="text-[var(--mm-muted)] ml-1 font-normal">{ourPts}-{oppPts}</span></>}
+        </td>
+        <td className="px-2 py-1.5 text-[var(--mm-yellow-strong)]">{v('pts')}</td>
+        {qSum.map((q, i) => <td key={i} className="px-2 py-1.5 text-[var(--mm-ink)]">{q ? (isAvg ? avg(q) : q) : '-'}</td>)}
+        <td className="px-2 py-1.5 text-[var(--mm-ink)] whitespace-nowrap">{made('fgm', 'fga')}</td>
+        <td className="px-2 py-1.5"><Pct val={pctOf(sum.fgm, sum.fga)} kind="fg" /></td>
+        <td className="px-2 py-1.5 text-[var(--mm-ink)] whitespace-nowrap">{made('fg3m', 'fg3a')}</td>
+        <td className="px-2 py-1.5"><Pct val={pctOf(sum.fg3m, sum.fg3a)} kind="fg3" /></td>
+        <td className="px-2 py-1.5 text-[var(--mm-ink)] whitespace-nowrap">{made('ftm', 'fta')}</td>
+        <td className="px-2 py-1.5"><Pct val={pctOf(sum.ftm, sum.fta)} kind="ft" /></td>
+        <td className="px-2 py-1.5">{v('oreb')}</td>
+        <td className="px-2 py-1.5">{v('dreb')}</td>
+        <td className="px-2 py-1.5">{v('reb')}</td>
+        <td className="px-2 py-1.5 text-[var(--mm-ink)]">{v('ast')}</td>
+        <td className="px-2 py-1.5 text-green-400">{v('stl')}</td>
+        <td className="px-2 py-1.5 text-indigo-400">{v('blk')}</td>
+        <td className="px-2 py-1.5 text-red-400">{v('tov')}</td>
+      </tr>
+    )
+  }
+  if (n === 0) return null
+  return (
+    <tfoot>
+      {row(`합계 (${n}경기)`, false)}
+      {row('경기당 평균', true)}
+    </tfoot>
+  )
+}
+
 // 팀 합계(성공·시도만 있음)에 성공률을 채운다 — 표·카드·요약이 같은 계산을 쓰게
 function pctOf(made?: number, att?: number) {
   return att ? Math.round(((made ?? 0) / att) * 1000) / 10 : 0
@@ -1058,6 +1111,7 @@ export default function BoxScoreClient() {
                       )
                     })}
                   </tbody>
+                  <SummaryFoot games={gameSummaries} />
                 </table>
               </div>
             </div>
