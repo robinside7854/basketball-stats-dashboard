@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { X, Play } from 'lucide-react'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { PlayerBoxScore } from '@/types/database'
@@ -282,7 +281,6 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                           <th className="px-2 py-2">STL</th>
                           <th className="px-2 py-2">BLK</th>
                           <th className="px-2 py-2">TOV</th>
-                          <th className="px-2 py-2" title="Hollinger Game Score">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                           <th className="px-2 py-2">FG</th>
                           <th className="px-2 py-2">FG%</th>
                           <th className="px-2 py-2">3P</th>
@@ -311,7 +309,6 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                             <td className="px-2 py-2 text-green-400">{s.stl}</td>
                             <td className="px-2 py-2 text-purple-400">{s.blk}</td>
                             <td className="px-2 py-2 text-red-400">{s.tov}</td>
-                            <td className="px-2 py-2 font-bold text-amber-300">{s.game_score?.toFixed(1) ?? '-'}</td>
                             <td className="px-2 py-2 text-gray-300">{s.fgm}-{s.fga}</td>
                             <td className="px-2 py-2"><Pct val={s.fg_pct} kind="fg" /></td>
                             <td className="px-2 py-2 text-gray-300">{s.fg3m}-{s.fg3a}</td>
@@ -328,7 +325,6 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                           <td className="px-2 py-2 text-green-400">{teamTotals.stl ?? 0}</td>
                           <td className="px-2 py-2 text-purple-400">{teamTotals.blk ?? 0}</td>
                           <td className="px-2 py-2 text-red-400">{teamTotals.tov ?? 0}</td>
-                          <td className="px-2 py-2 text-gray-500">-</td>
                           <td className="px-2 py-2 text-gray-300">{teamTotals.fgm ?? 0}-{teamTotals.fga ?? 0}</td>
                           <td className="px-2 py-2"><Pct val={teamTotals.fga ? Math.round((teamTotals.fgm! / teamTotals.fga) * 1000) / 10 : 0} /></td>
                           <td className="px-2 py-2 text-gray-300">{teamTotals.fg3m ?? 0}-{teamTotals.fg3a ?? 0}</td>

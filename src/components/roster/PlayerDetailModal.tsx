@@ -1,6 +1,5 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
-import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import dynamic from 'next/dynamic'
 import { X, Camera, Award, Zap, Flame, BookOpen, Medal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -828,7 +827,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               <th className="px-3 py-2">APG</th>
                               <th className="px-3 py-2">FG%</th>
                               <th className="px-3 py-2">3P%</th>
-                              <th className="px-3 py-2 text-amber-300">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -846,10 +844,9 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                     <td className="px-3 py-2 text-[var(--mm-yellow-strong)]">{stat.ast_avg.toFixed(1)}</td>
                                     <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{stat.fg_pct > 0 ? `${stat.fg_pct.toFixed(1)}%` : '-'}</td>
                                     <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{stat.fg3_pct > 0 ? `${stat.fg3_pct.toFixed(1)}%` : '-'}</td>
-                                    <td className="px-3 py-2 font-bold text-amber-300">{stat.gmsc_avg.toFixed(1)}</td>
                                   </>
                                 ) : (
-                                  <td colSpan={7} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">기록 없음</td>
+                                  <td colSpan={6} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">기록 없음</td>
                                 )}
                               </tr>
                             ))}
@@ -874,7 +871,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               <th className="px-3 py-2">APG</th>
                               <th className="px-3 py-2">FG%</th>
                               <th className="px-3 py-2">3P%</th>
-                              <th className="px-3 py-2 text-amber-300">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -887,7 +883,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                 <td className="px-3 py-2 text-[var(--mm-yellow-strong)]">{r.ast_avg.toFixed(1)}</td>
                                 <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{r.fg_pct > 0 ? `${r.fg_pct.toFixed(1)}%` : '-'}</td>
                                 <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{r.fg3_pct > 0 ? `${r.fg3_pct.toFixed(1)}%` : '-'}</td>
-                                <td className="px-3 py-2 font-bold text-amber-300">{r.gmsc_avg.toFixed(1)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -963,7 +958,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                       {g.date}
                                       {g.round && <span className="ml-1 text-[var(--mm-muted)]">({g.round})</span>}
                                     </td>
-                                    <td className="px-3 py-1.5 text-left text-[var(--mm-muted)] whitespace-nowrap" colSpan={2}>vs {g.opponent}</td>
+                                    <td className="px-3 py-1.5 text-left text-[var(--mm-muted)] whitespace-nowrap">vs {g.opponent}</td>
                                     <td className="px-3 py-1.5">
                                       <span className={`px-1.5 py-0.5 rounded font-bold ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
                                         {isWin ? 'W' : 'L'} {g.our_score}-{g.opponent_score}
@@ -979,10 +974,9 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                         <td className="px-3 py-1.5 text-red-400">{s.tov}</td>
                                         <td className="px-3 py-1.5 text-[var(--mm-ink)]">{s.fgm}/{s.fga}</td>
                                         <td className="px-3 py-1.5 text-[var(--mm-ink)]">{s.fg3m}/{s.fg3a}</td>
-                                        <td className="px-3 py-1.5 font-bold text-amber-300">{s.game_score?.toFixed(1) ?? '-'}</td>
                                       </>
                                     ) : (
-                                      <td colSpan={9} className="px-3 py-1.5 text-[var(--mm-muted)] italic">기록 없음</td>
+                                      <td colSpan={8} className="px-3 py-1.5 text-[var(--mm-muted)] italic">기록 없음</td>
                                     )}
                                   </tr>
                                 )
@@ -1014,7 +1008,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           <th className="px-3 py-2">AST</th>
                           <th className="px-3 py-2">FG</th>
                           <th className="px-3 py-2">3P</th>
-                          <th className="px-3 py-2" title="Hollinger Game Score">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1041,10 +1034,9 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                   <td className="px-3 py-2 text-[var(--mm-yellow-strong)] text-xs">{s.ast}</td>
                                   <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{s.fgm}/{s.fga}</td>
                                   <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{s.fg3m}/{s.fg3a}</td>
-                                  <td className="px-3 py-2 font-bold text-amber-300 text-xs">{s.game_score?.toFixed(1) ?? '-'}</td>
                                 </>
                               ) : (
-                                <td colSpan={7} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">기록 없음</td>
+                                <td colSpan={6} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">기록 없음</td>
                               )}
                             </tr>
                           )
