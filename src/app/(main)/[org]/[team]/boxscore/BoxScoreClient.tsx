@@ -29,6 +29,9 @@ type ViewMode = 'game' | 'season'
 
 type SeasonBoxScore = PlayerBoxScore & { pts_avg: number; reb_avg: number; ast_avg: number; games_played: number }
 
+// 누적 ↔ 평균 전환 대상(개수 스탯). 성공률·eFG%·TS% 는 나누지 않는다.
+const COUNT_KEYS = ['pts', 'fgm', 'fga', 'fg3m', 'fg3a', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'stl', 'blk', 'tov', 'pf'] as const
+
 type GameSummary = {
   game_id: string
   date: string
@@ -68,9 +71,11 @@ function Pct({ val, kind, suffix = '' }: { val: number; kind?: PctKind; suffix?:
 //   (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
 type ShotLine = Pick<PlayerBoxScore, 'fgm' | 'fga' | 'fg_pct' | 'fg3m' | 'fg3a' | 'fg3_pct' | 'ftm' | 'fta' | 'ft_pct'>
 
-function MobileStatBody({ cells, s, quarters }: {
+function MobileStatBody({ cells, s, quarters, fmt = String }: {
   cells: { label: string; value: React.ReactNode }[]
   s: ShotLine
+  // 성공/시도 숫자 표기 — 경기당 평균 모드에서 소수 한 자리
+  fmt?: (v: number) => string
   // 경기별 카드에만 넘긴다 — 쿼터 득점은 PC 표에만 있어 폰에서 볼 수 없었다
   quarters?: { label: string; value: number }[]
 }) {
@@ -103,7 +108,7 @@ function MobileStatBody({ cells, s, quarters }: {
         {shots.map(g => (
           <div key={g.label} className="text-center">
             <div className="text-xs text-[var(--mm-muted)]">{g.label} 성공/시도</div>
-            <div className="text-sm font-bold tabular-nums text-[var(--mm-ink)]">{g.made}/{g.att}</div>
+            <div className="text-sm font-bold tabular-nums text-[var(--mm-ink)]">{fmt(g.made)}/{fmt(g.att)}</div>
             <div className="text-xs font-medium tabular-nums"><Pct val={g.pct} kind={g.kind} suffix="%" /></div>
           </div>
         ))}
@@ -111,6 +116,12 @@ function MobileStatBody({ cells, s, quarters }: {
     </>
   )
 }
+
+// 「상대별 팀 스탯」 고정 열 (2026-10-06) — 폰에서 가로로 밀면 상대 이름이 사라져 어느 경기 줄인지 알 수 없었다.
+//   상대(7rem) · 결과 두 칸을 왼쪽에 고정한다. 결과 칸의 left 는 상대 칸 폭과 같아야 한다(둘을 같이 고칠 것).
+//   고정 칸은 배경이 투명하면 밀려 들어온 숫자가 비쳐 보이므로 반드시 배경색을 준다.
+const OPP_COL = 'sticky left-0 z-10 w-28 min-w-28 max-w-28'
+const RES_COL = 'sticky left-28 z-10 shadow-[2px_0_0_var(--mm-rule)]'
 
 // 「상대별 팀 스탯」 아래 합계 줄 (2026-10-05 · 경기당 평균 줄은 사용자 요청으로 뺐다) — 종전엔 경기별 줄만 있어 대회 전체 팀 기록을 볼 수 없었다.
 //   위 줄들과 같은 원천(game_summaries)을 더한다 — 다른 원천(선수 합계)을 쓰면 표 안에서 숫자가 어긋날 수 있다.
@@ -131,9 +142,11 @@ function SummaryFoot({ games }: { games: GameSummary[] }) {
     const made = (m: string, a: string) => `${sum[m]}-${sum[a]}`
     return (
       <tr className="font-bold bg-[var(--mm-panel-alt)] border-t-2 border-[var(--mm-ink)]">
-        <td colSpan={2} className="px-2 py-1.5 text-left text-[var(--mm-ink)] whitespace-nowrap">{label}</td>
-        <td className="px-2 py-1.5 whitespace-nowrap">
-          <span className="text-[var(--mm-ink)]">{w}승 {l}패{d ? ` ${d}무` : ''}</span><span className="text-[var(--mm-muted)] ml-1 font-normal">{ourPts}-{oppPts}</span>
+        <td className={`${OPP_COL} bg-[var(--mm-panel-alt)] px-2 py-1.5 text-left text-[var(--mm-ink)] whitespace-nowrap`}>{label}</td>
+        <td className={`${RES_COL} bg-[var(--mm-panel-alt)] px-2 py-1.5 whitespace-nowrap`}>
+          {/* 두 줄 — 한 줄이면 고정 열이 넓어져 폰에서 밀어 볼 칸이 줄어든다 */}
+          <div className="text-[var(--mm-ink)]">{w}승 {l}패{d ? ` ${d}무` : ''}</div>
+          <div className="text-[10px] text-[var(--mm-muted)] font-normal leading-tight">{ourPts}-{oppPts}</div>
         </td>
         <td className="px-2 py-1.5 text-[var(--mm-yellow-strong)]">{v('pts')}</td>
         {qSum.map((q, i) => <td key={i} className="px-2 py-1.5 text-[var(--mm-ink)]">{q || '-'}</td>)}
@@ -415,6 +428,7 @@ export default function BoxScoreClient() {
   const [seasonSortKey, setSeasonSortKey] = useState<SeasonSortKey>('pts')
   const [seasonSortDir, setSeasonSortDir] = useState<'asc' | 'desc'>('desc')
   const [totalGames, setTotalGames] = useState(0)
+  const [seasonAvg, setSeasonAvg] = useState(false)
   const [gameSummaries, setGameSummaries] = useState<GameSummary[]>([])
 
   useEffect(() => { fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then(setTournaments) }, [team])
@@ -457,7 +471,19 @@ export default function BoxScoreClient() {
     else { setSeasonSortKey(key); setSeasonSortDir('desc') }
   }
 
-  const seasonSorted = [...seasonScores].sort((a, b) => {
+  // 전체 기록 보기: 누적(기본) / 경기당 평균 — 종전엔 한 표에 누적(PTS)과 평균(평균P·RPG)이 섞여 있었다(2026-10-06).
+  //   평균 모드는 개수 스탯을 그 선수가 뛴 경기 수로 나눈다. 성공률(%)은 어느 모드든 같다.
+  //   정렬도 화면에 보이는 값으로 한다 — 누적으로 정렬된 채 평균을 보여 주면 순서가 숫자와 어긋난다.
+  const seasonView: SeasonBoxScore[] = seasonAvg
+    ? seasonScores.map(s => {
+        const gp = s.games_played || 0
+        const per = (v: number) => (gp ? Math.round((v / gp) * 10) / 10 : 0)
+        const o = { ...s }
+        for (const k of COUNT_KEYS) (o as Record<string, unknown>)[k] = per(s[k])
+        return o
+      })
+    : seasonScores
+  const seasonSorted = [...seasonView].sort((a, b) => {
     if (seasonSortKey === 'player_number') {
       const r = sortJerseyNum(a.player_number, b.player_number)
       return seasonSortDir === 'desc' ? -r : r
@@ -466,6 +492,8 @@ export default function BoxScoreClient() {
     const bv = b[seasonSortKey as keyof SeasonBoxScore] as number
     return seasonSortDir === 'desc' ? bv - av : av - bv
   })
+  const fmtN = (v: number) => (seasonAvg ? v.toFixed(1) : String(v))
+  const teamN = (v?: number) => fmtN(seasonAvg ? (totalGames ? Math.round(((v ?? 0) / totalGames) * 10) / 10 : 0) : (v ?? 0))
 
   function SortTh({ label, k, className }: { label: string; k?: SortKey; className?: string }) {
     if (!k) return <th className={`px-2 py-2 border-b border-[var(--mm-rule)] font-medium whitespace-nowrap ${className ?? ''}`}>{label}</th>
@@ -1046,9 +1074,8 @@ export default function BoxScoreClient() {
                 <table className="w-full text-xs text-center border-collapse">
                   <thead>
                     <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
-                      <th className="px-2 py-1.5 text-left border-b border-[var(--mm-rule)]">날짜</th>
-                      <th className="px-2 py-1.5 text-left border-b border-[var(--mm-rule)]">상대</th>
-                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">결과</th>
+                      <th className={`${OPP_COL} bg-[var(--mm-panel-alt)] px-2 py-1.5 text-left border-b border-[var(--mm-rule)]`}>상대</th>
+                      <th className={`${RES_COL} bg-[var(--mm-panel-alt)] px-2 py-1.5 border-b border-[var(--mm-rule)]`}>결과</th>
                       <th className="px-2 py-1.5 border-b border-[var(--mm-rule)] text-[var(--mm-yellow-strong)]">PTS</th>
                       <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">Q1</th>
                       <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">Q2</th>
@@ -1077,12 +1104,12 @@ export default function BoxScoreClient() {
                       const fg3Pct = (g.totals.fg3a ?? 0) > 0 ? Math.round(((g.totals.fg3m ?? 0) / g.totals.fg3a!) * 1000) / 10 : 0
                       return (
                         <tr key={g.game_id} className="border-b border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)]">
-                          <td className="px-2 py-1.5 text-left text-[var(--mm-muted)]">{g.date}</td>
-                          <td className="px-2 py-1.5 text-left font-medium whitespace-nowrap">
-                            {g.round && <span className="text-[var(--mm-muted)] mr-1">[{g.round}]</span>}
-                            {g.opponent}
+                          {/* 날짜 열은 뺐다(사용자 요청) — 날짜는 눌러 둔 채(title)로만 남긴다 */}
+                          <td className={`${OPP_COL} bg-[var(--mm-ground)] px-2 py-1.5 text-left font-medium`} title={g.date}>
+                            <div className="truncate">{g.opponent}</div>
+                            {g.round && <div className="text-[10px] text-[var(--mm-muted)] font-normal leading-tight">{g.round}</div>}
                           </td>
-                          <td className="px-2 py-1.5 font-bold">
+                          <td className={`${RES_COL} bg-[var(--mm-ground)] px-2 py-1.5 font-bold whitespace-nowrap`}>
                             <span className={won ? 'text-[var(--mm-positive)]' : 'text-[var(--mm-negative)]'}>{won ? 'W' : 'L'}</span>
                             <span className="text-[var(--mm-muted)] ml-1">{g.our_score}-{g.opponent_score}</span>
                           </td>
@@ -1122,8 +1149,16 @@ export default function BoxScoreClient() {
               )}
               <KeyStatSummary boxScores={seasonScores} teamTotals={seasonTotals} onPlayer={setPlayerModal} gp teamGp={totalGames} />
               <h4 className="text-sm font-bold text-[var(--mm-ink)] mb-2">전체 기록</h4>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm text-[var(--mm-muted)]">총 <span className="text-[var(--mm-ink)] font-bold">{totalGames}</span>경기 · 평균은 실제 출전 경기 기준</span>
+              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                <span className="text-sm text-[var(--mm-muted)]">총 <span className="text-[var(--mm-ink)] font-bold">{totalGames}</span>경기{seasonAvg ? ' · 평균은 선수별 출전 경기 기준' : ''}</span>
+                <div className="flex rounded-lg overflow-hidden border border-[var(--mm-rule)]" role="group" aria-label="누적 또는 경기당 평균">
+                  {([['누적', false], ['경기당 평균', true]] as const).map(([label, v]) => (
+                    <button key={label} onClick={() => setSeasonAvg(v)} aria-pressed={seasonAvg === v}
+                      className={`min-h-9 px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${seasonAvg === v ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
               {/* 모바일 카드뷰 */}
               <div className="md:hidden space-y-2">
@@ -1137,16 +1172,14 @@ export default function BoxScoreClient() {
                         <div className="text-[var(--mm-muted)] text-xs">GP {s.games_played}</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-2xl font-black text-[var(--mm-yellow-strong)] leading-none">{s.pts_avg}</div>
-                        <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">PPG</div>
+                        <div className="text-2xl font-black text-[var(--mm-yellow-strong)] leading-none">{fmtN(s.pts)}</div>
+                        <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">{seasonAvg ? 'PPG' : 'PTS'}</div>
                       </div>
                     </div>
-                    <MobileStatBody s={s} cells={[
-                      { label: 'PTS', value: s.pts }, { label: 'REB', value: s.reb }, { label: 'AST', value: s.ast },
+                    <MobileStatBody s={s} fmt={fmtN} cells={[
+                      { label: 'REB', value: fmtN(s.reb) }, { label: 'AST', value: fmtN(s.ast) }, { label: 'STL', value: fmtN(s.stl) }, { label: 'BLK', value: fmtN(s.blk) },
+                      { label: 'TOV', value: fmtN(s.tov) }, { label: 'PF', value: fmtN(s.pf) }, { label: 'OR/DR', value: `${fmtN(s.oreb)}/${fmtN(s.dreb)}` },
                       { label: 'TS%', value: s.ts_pct > 0 ? s.ts_pct.toFixed(1) : '-' },
-                      { label: 'RPG', value: s.reb_avg }, { label: 'APG', value: s.ast_avg }, { label: 'STL', value: s.stl }, { label: 'BLK', value: s.blk },
-                      { label: 'TOV', value: s.tov }, { label: 'PF', value: s.pf }, { label: 'OR/DR', value: `${s.oreb}/${s.dreb}` },
-                      { label: 'eFG%', value: s.efg_pct > 0 ? s.efg_pct.toFixed(1) : '-' },
                     ]} />
                   </button>
                 ))}
@@ -1161,7 +1194,6 @@ export default function BoxScoreClient() {
                     <SeasonSortTh label="이름"                   className="text-left" />
                     <th className="px-2 py-2 border-b border-[var(--mm-rule)] font-medium whitespace-nowrap text-[var(--mm-muted)]">GP</th>
                     <SeasonSortTh label="PTS"  k="pts" />
-                    <SeasonSortTh label="평균P" k="pts_avg" />
                     <SeasonSortTh label="FG" />
                     <SeasonSortTh label="FG%"  k="fg_pct" />
                     <SeasonSortTh label="3P" />
@@ -1171,9 +1203,7 @@ export default function BoxScoreClient() {
                     <SeasonSortTh label="OR"   k="oreb" />
                     <SeasonSortTh label="DR"   k="dreb" />
                     <SeasonSortTh label="REB"  k="reb" />
-                    <SeasonSortTh label="평균R" k="reb_avg" />
                     <SeasonSortTh label="AST"  k="ast" />
-                    <SeasonSortTh label="평균A" k="ast_avg" />
                     <SeasonSortTh label="STL"  k="stl" />
                     <SeasonSortTh label="BLK"  k="blk" />
                     <SeasonSortTh label="TOV"  k="tov" />
@@ -1192,55 +1222,49 @@ export default function BoxScoreClient() {
                         </button>
                       </td>
                       <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{s.games_played}</td>
-                      <td className={`px-2 py-2 font-bold ${seasonSortKey === 'pts' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{s.pts}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'pts_avg' ? 'text-[var(--mm-yellow-strong)] font-bold' : 'text-[var(--mm-ink)]'}`}>{s.pts_avg}</td>
-                      <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fgm}-{s.fga}</td>
+                      <td className={`px-2 py-2 font-bold ${seasonSortKey === 'pts' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{fmtN(s.pts)}</td>
+                      <td className="px-2 py-2 text-[var(--mm-ink)]">{fmtN(s.fgm)}-{fmtN(s.fga)}</td>
                       <td className="px-2 py-2"><Pct val={s.fg_pct} kind="fg" /></td>
-                      <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fg3m}-{s.fg3a}</td>
+                      <td className="px-2 py-2 text-[var(--mm-ink)]">{fmtN(s.fg3m)}-{fmtN(s.fg3a)}</td>
                       <td className="px-2 py-2"><Pct val={s.fg3_pct} kind="fg3" /></td>
-                      <td className="px-2 py-2 text-[var(--mm-ink)]">{s.ftm}-{s.fta}</td>
+                      <td className="px-2 py-2 text-[var(--mm-ink)]">{fmtN(s.ftm)}-{fmtN(s.fta)}</td>
                       <td className="px-2 py-2"><Pct val={s.ft_pct} kind="ft" /></td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'oreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.oreb}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'dreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.dreb}</td>
-                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'reb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.reb}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'reb_avg' ? 'text-[var(--mm-yellow-strong)] font-bold' : 'text-[var(--mm-ink)]'}`}>{s.reb_avg}</td>
-                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'ast' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{s.ast}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'ast_avg' ? 'text-[var(--mm-yellow-strong)] font-bold' : 'text-[var(--mm-ink)]'}`}>{s.ast_avg}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'stl' ? 'text-[var(--mm-yellow-strong)]' : 'text-green-400'}`}>{s.stl}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'blk' ? 'text-[var(--mm-yellow-strong)]' : 'text-indigo-400'}`}>{s.blk}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'tov' ? 'text-[var(--mm-yellow-strong)]' : 'text-red-400'}`}>{s.tov}</td>
-                      <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{s.pf}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'oreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{fmtN(s.oreb)}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'dreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{fmtN(s.dreb)}</td>
+                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'reb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{fmtN(s.reb)}</td>
+                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'ast' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{fmtN(s.ast)}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'stl' ? 'text-[var(--mm-yellow-strong)]' : 'text-green-400'}`}>{fmtN(s.stl)}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'blk' ? 'text-[var(--mm-yellow-strong)]' : 'text-indigo-400'}`}>{fmtN(s.blk)}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'tov' ? 'text-[var(--mm-yellow-strong)]' : 'text-red-400'}`}>{fmtN(s.tov)}</td>
+                      <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{fmtN(s.pf)}</td>
                       <td className="px-2 py-2"><Pct val={s.efg_pct} /></td>
                       <td className="px-2 py-2"><Pct val={s.ts_pct} /></td>
                     </tr>
                   ))}
                   <tr className="bg-[var(--mm-panel-alt)] font-bold border-t-2 border-[var(--mm-ink)]">
-                    <td colSpan={2} className="px-2 py-2 text-left text-[var(--mm-ink)]">팀 합계</td>
+                    <td colSpan={2} className="px-2 py-2 text-left text-[var(--mm-ink)]">{seasonAvg ? '팀 경기당' : '팀 합계'}</td>
                     <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{totalGames}</td>
-                    <td className="px-2 py-2 text-[var(--mm-ink)]">{seasonTotals.pts ?? 0}</td>
-                    <td className="px-2 py-2 text-[var(--mm-muted)]">{totalGames > 0 ? Math.round(((seasonTotals.pts ?? 0) / totalGames) * 10) / 10 : '-'}</td>
-                    <td className="px-2 py-2">{seasonTotals.fgm ?? 0}-{seasonTotals.fga ?? 0}</td>
+                    <td className="px-2 py-2 text-[var(--mm-ink)]">{teamN(seasonTotals.pts)}</td>
+                    <td className="px-2 py-2">{teamN(seasonTotals.fgm)}-{teamN(seasonTotals.fga)}</td>
                     <td className="px-2 py-2"><Pct val={seasonTotals.fga ? Math.round((seasonTotals.fgm! / seasonTotals.fga!) * 1000) / 10 : 0} kind="fg" /></td>
-                    <td className="px-2 py-2">{seasonTotals.fg3m ?? 0}-{seasonTotals.fg3a ?? 0}</td>
+                    <td className="px-2 py-2">{teamN(seasonTotals.fg3m)}-{teamN(seasonTotals.fg3a)}</td>
                     <td className="px-2 py-2"><Pct val={seasonTotals.fg3a ? Math.round((seasonTotals.fg3m! / seasonTotals.fg3a!) * 1000) / 10 : 0} kind="fg3" /></td>
-                    <td className="px-2 py-2">{seasonTotals.ftm ?? 0}-{seasonTotals.fta ?? 0}</td>
+                    <td className="px-2 py-2">{teamN(seasonTotals.ftm)}-{teamN(seasonTotals.fta)}</td>
                     <td className="px-2 py-2"><Pct val={seasonTotals.fta ? Math.round((seasonTotals.ftm! / seasonTotals.fta!) * 1000) / 10 : 0} kind="ft" /></td>
-                    <td className="px-2 py-2">{seasonTotals.oreb ?? 0}</td>
-                    <td className="px-2 py-2">{seasonTotals.dreb ?? 0}</td>
-                    <td className="px-2 py-2">{seasonTotals.reb ?? 0}</td>
-                    <td className="px-2 py-2 text-[var(--mm-muted)]">{totalGames > 0 ? Math.round(((seasonTotals.reb ?? 0) / totalGames) * 10) / 10 : '-'}</td>
-                    <td className="px-2 py-2 text-[var(--mm-ink)]">{seasonTotals.ast ?? 0}</td>
-                    <td className="px-2 py-2 text-[var(--mm-ink)]">{totalGames > 0 ? Math.round(((seasonTotals.ast ?? 0) / totalGames) * 10) / 10 : '-'}</td>
-                    <td className="px-2 py-2 text-green-400">{seasonTotals.stl ?? 0}</td>
-                    <td className="px-2 py-2 text-indigo-400">{seasonTotals.blk ?? 0}</td>
-                    <td className="px-2 py-2 text-red-400">{seasonTotals.tov ?? 0}</td>
-                    <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{seasonTotals.pf ?? 0}</td>
+                    <td className="px-2 py-2">{teamN(seasonTotals.oreb)}</td>
+                    <td className="px-2 py-2">{teamN(seasonTotals.dreb)}</td>
+                    <td className="px-2 py-2">{teamN(seasonTotals.reb)}</td>
+                    <td className="px-2 py-2 text-[var(--mm-ink)]">{teamN(seasonTotals.ast)}</td>
+                    <td className="px-2 py-2 text-green-400">{teamN(seasonTotals.stl)}</td>
+                    <td className="px-2 py-2 text-indigo-400">{teamN(seasonTotals.blk)}</td>
+                    <td className="px-2 py-2 text-red-400">{teamN(seasonTotals.tov)}</td>
+                    <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{teamN(seasonTotals.pf)}</td>
                     <td colSpan={2} />
                   </tr>
                 </tbody>
               </table>
               </div>
-              <p className="hidden md:block text-xs text-[var(--mm-muted)] mt-2">헤더 클릭 시 해당 스탯 기준 정렬 · 평균P/R/A = 경기당 평균</p>
+              <p className="hidden md:block text-xs text-[var(--mm-muted)] mt-2">헤더 클릭 시 해당 스탯 기준 정렬{seasonAvg ? ' · 경기당 평균' : ' · 대회 누적'}</p>
             </div>
           )}
         </>
