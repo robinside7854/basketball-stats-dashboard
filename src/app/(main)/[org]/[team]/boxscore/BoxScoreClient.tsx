@@ -1149,9 +1149,11 @@ export default function BoxScoreClient() {
               )}
               <KeyStatSummary boxScores={seasonScores} teamTotals={seasonTotals} onPlayer={setPlayerModal} gp teamGp={totalGames} />
               <h4 className="text-sm font-bold text-[var(--mm-ink)] mb-2">전체 기록</h4>
-              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                <span className="text-sm text-[var(--mm-muted)]">총 <span className="text-[var(--mm-ink)] font-bold">{totalGames}</span>경기{seasonAvg ? ' · 평균은 선수별 출전 경기 기준' : ''}</span>
-                <div className="flex rounded-lg overflow-hidden border border-[var(--mm-rule)]" role="group" aria-label="누적 또는 경기당 평균">
+              {/* 버튼 위치가 모드에 따라 움직이지 않게 — 왼쪽 글자는 모드와 무관하게 고정하고 줄바꿈하지 않는다.
+                  (종전엔 평균 모드에서 설명이 붙어 줄이 넘어가면서 버튼이 다음 줄 왼쪽으로 튀었다) */}
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <span className="text-sm text-[var(--mm-muted)] whitespace-nowrap">총 <span className="text-[var(--mm-ink)] font-bold">{totalGames}</span>경기</span>
+                <div className="flex shrink-0 rounded-lg overflow-hidden border border-[var(--mm-rule)]" role="group" aria-label="누적 또는 경기당 평균">
                   {([['누적', false], ['경기당 평균', true]] as const).map(([label, v]) => (
                     <button key={label} onClick={() => setSeasonAvg(v)} aria-pressed={seasonAvg === v}
                       className={`min-h-9 px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${seasonAvg === v ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}>
@@ -1160,6 +1162,7 @@ export default function BoxScoreClient() {
                   ))}
                 </div>
               </div>
+              <p className="text-[11px] text-[var(--mm-muted)] mb-3 h-4">{seasonAvg ? '경기당 평균 = 각 선수가 실제 뛴 경기 수로 나눈 값' : '대회 누적 기록'}</p>
               {/* 모바일 카드뷰 */}
               <div className="md:hidden space-y-2">
                 {seasonSorted.map(s => (
