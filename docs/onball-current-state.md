@@ -1,18 +1,7 @@
 # 온볼 현재 상태 — 이어서 작업할 때 먼저 읽는 문서
 
-최종 갱신 2026-10-08. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
+최종 갱신 2026-10-05. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
-
-**최근 결정 (2026-10-08, superpowers 스킬을 저장소에 설치):**
-- https://github.com/obra/superpowers 의 스킬 15개(brainstorming · systematic-debugging · test-driven-development ·
-  writing-plans · executing-plans 등)를 `.claude/skills/` 에 **복사**해 넣었다. 세션 시작 안내문은
-  `.claude/hooks/superpowers-session-start.js`(SessionStart 훅, `.claude/settings.json`)가 넣는다.
-- ⚠ **플러그인(`enabledPlugins`/`extraKnownMarketplaces`) 방식은 클라우드 세션에서 설치되지 않는다** —
-  공식 문서가 그렇게 명시한다(신뢰 대화상자를 거칠 수 없음). 저장소 안 `.claude/skills/` 만 로컬·클라우드
-  양쪽에서 확실히 읽힌다. 실제로 복사 직후 그 세션의 스킬 목록에 15개가 바로 올라왔다.
-- 업데이트: `node scripts/update-superpowers.mjs` → diff 확인 → 커밋. 복사한 커밋 해시는
-  `.claude/skills/SUPERPOWERS-UPSTREAM.md` 에 기록. 스킬 파일은 손으로 고치지 않는다(덮어써진다).
-- 스킬 본문의 `superpowers:brainstorming` 표기는 여기서는 접두어 없이 `brainstorming` 으로 부른다.
 
 **최근 결정 (2026-10-06, 파란날개 「대회 전체」 모바일 정리):**
 - **상대별 팀 스탯**: `날짜` 열 삭제(날짜는 상대 칸 title 로만). `상대`(7rem)·`결과` 두 칸을 **왼쪽 고정**(`OPP_COL`·`RES_COL`)

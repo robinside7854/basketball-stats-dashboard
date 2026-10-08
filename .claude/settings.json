@@ -22,17 +22,6 @@
           }
         ]
       }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "startup|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/superpowers-session-start.js"
-          }
-        ]
-      }
     ]
   },
   "permissions": {
