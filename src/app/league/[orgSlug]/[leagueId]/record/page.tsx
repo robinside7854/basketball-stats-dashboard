@@ -24,6 +24,7 @@ import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
 import GameLogModal from '@/components/league/GameLogModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { rotationFromFirstTwo, generateRotation } from '@/lib/league/rotation'
 
 // YouTube 영상 제목 규칙. 서버(`lib/youtube/syncYoutubeForLeague`)의 TitleRule 과 같은 축이다.
 //   'legacy'  `260919 경기1`              → 그날 1번 슬롯의 대표 영상
@@ -782,7 +783,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         const b = await r.json().catch(() => ({}))
         if (!r.ok) { toast.error(b.error ?? `팀 교체 실패 (${r.status})`, { duration: 8000 }); return }
         toast.success(`팀 교체 완료 — 기록 ${b.moved ?? 0}건 이관${b.swapped_scores ? ' · 스코어 좌우 교체' : ''}`)
-        await refreshSlots()
+        const fresh = await refreshSlots()
+        if (fresh) await autoFillRotation(fresh)
         const updated = slots.find(x => x.id === selectedSlotId)
         if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
         setStatsRefresh(v => v + 1)
@@ -801,7 +803,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     setSavingTeam(false)
     if (res.ok) {
       toast.success('팀 저장 완료')
-      await refreshSlots()
+      const fresh = await refreshSlots()
+      if (fresh) await autoFillRotation(fresh)
       const updated = slots.find(s => s.id === selectedSlotId)
       if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
     } else {
@@ -811,12 +814,66 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
-  // ── 대진 자동 편성 — 2026-09-07 제거 ─────────────────────────────
-  // 「승자 잔류 · 2연속 뛰면 휴식」은 **하루 9경기 로테이션** 규칙이었다. 9/5 부터 미라클은
-  // 3대진 라운드로빈(대진당 3~4쿼터)으로 바뀌어, 이 버튼이 짜 주는 대진이 실제와 달라졌다.
-  // 게다가 영상 자동 매핑이 제목(`260905 지피티vs빅현욱 1Q`)에서 대진을 읽어 빈 슬롯의 팀을
-  // 채워 주므로 하는 일도 겹친다. 규칙 자체는 src/lib/league/rotation.ts 에 남겨 뒀다 —
-  // 로테이션 방식으로 돌아가면 이 함수와 버튼만 다시 붙이면 된다.
+  // ── 대진 자동 편성 (2026-10-10 재도입) ─────────────────────────────
+  // 1·2경기 팀을 저장하면 3경기부터 끝 슬롯까지 「승자 잔류 · 2연속 휴식」 순서로 채운다.
+  //   규칙은 src/lib/league/rotation.ts — 1·2경기에 같이 나온 팀이 1경기 승자다(점수 불필요).
+  //   운영자는 각 경기 직전에 좌우만 뒤집으면 된다(팀 선택 사이의 ⇄ 버튼).
+  // ⚠ 건드리는 슬롯: 기록 전(시작·마감 아님)만. 기록이 있는 경기의 팀은 이벤트 이관이
+  //   필요하므로(reassign-teams) 여기서 절대 바꾸지 않는다.
+  // ⚠ 이미 같은 대진이면 그대로 둔다 — 운영자가 좌우를 바꿔 둔 것을 1·2경기 재저장이 되돌리지 않게.
+  // 친선전 날·대회에서는 돌지 않는다(대진이 그날 짠 팀이거나 상대가 외부 팀).
+  //   onlyEmpty: 팀이 빈 칸만 채운다 — 1·2경기를 저장한 게 아니라 칸이 새로 생긴 경우(영상 연동).
+  async function autoFillRotation(fresh: GameSlot[], opts: { onlyEmpty?: boolean } = {}) {
+    if (isTournament) return
+    const ordered = [...fresh].filter(x => x.slot_num != null).sort((a, b) => a.slot_num - b.slot_num)
+    if (ordered.some(x => x.is_exhibition)) return
+    const g1 = ordered.find(x => x.slot_num === 1)
+    const g2 = ordered.find(x => x.slot_num === 2)
+    // 1·2경기를 저장할 때만 — 다른 슬롯을 손으로 고친 것이 덮이지 않게
+    const savedNum = fresh.find(x => x.id === selectedSlotId)?.slot_num
+    if (!g1 || !g2) return
+    if (!opts.onlyEmpty && savedNum !== 1 && savedNum !== 2) return
+    const r = rotationFromFirstTwo(
+      { home: g1.home_team_id ?? null, away: g1.away_team_id ?? null },
+      { home: g2.home_team_id ?? null, away: g2.away_team_id ?? null },
+    )
+    if (!r) {
+      if (!opts.onlyEmpty && g1.home_team_id && g2.home_team_id) {
+        toast.info('3경기 이후 자동 배정 안 함', {
+          description: '1·2경기에 같이 나온 팀(1경기 승자)이 한 팀이어야 순서를 정할 수 있습니다',
+        })
+      }
+      return
+    }
+    const targets = ordered.filter(x => x.slot_num >= 3)
+    if (targets.length === 0) return
+    const seq = generateRotation(r.winnerId, r.loserId, r.restingId, targets[targets.length - 1].slot_num - 1)
+    let filled = 0
+    let skippedRecorded = 0
+    for (const slot of targets) {
+      const want = seq[slot.slot_num - 2]
+      if (!want) continue
+      const samePair = [slot.home_team_id, slot.away_team_id].sort().join() === [want.homeTeamId, want.awayTeamId].sort().join()
+      if (samePair) continue
+      if (slot.is_started || slot.is_complete) { skippedRecorded++; continue }
+      if (opts.onlyEmpty && (slot.home_team_id || slot.away_team_id)) continue
+      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${slot.id}`, {
+        method: 'PATCH',
+        headers: leagueHeaders,
+        body: JSON.stringify({ home_team_id: want.homeTeamId, away_team_id: want.awayTeamId }),
+      })
+      if (res.ok) filled++
+    }
+    if (filled > 0) {
+      await refreshSlots()
+      const last = targets[targets.length - 1].slot_num
+      toast.success(`3~${last}경기 대진 자동 배정 (${filled}경기)`, {
+        description: '좌우가 다르면 경기마다 팀 선택 사이의 ⇄ 버튼만 누르세요'
+          + (skippedRecorded > 0 ? ` · 이미 기록된 ${skippedRecorded}경기는 그대로 뒀습니다` : ''),
+        duration: 6000,
+      })
+    }
+  }
 
   // 좌우(홈↔어웨이) 뒤집기 — 코트 배치가 무작위라 매번 손으로 다시 고르지 않게 한다.
   // 이미 기록이 들어간 경기는 점수 대응이 어긋나므로 막는다.
@@ -1172,7 +1229,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         } else {
           toast.success(`${data.mapped}개 영상 YouTube 연동 완료${ruleNote ? ` · ${ruleNote}` : ''}`)
         }
-        await refreshSlots()
+        // 연동이 칸을 새로 늘렸으면(예: 4~9경기) 그 빈 칸에도 대진을 채운다
+        const fresh = await refreshSlots()
+        if (fresh) await autoFillRotation(fresh, { onlyEmpty: true })
         fetch(`/api/leagues/${leagueId}/games/date-summary`).then(r => r.json()).then(applyDateSummaries).catch(() => null)
       } else {
         const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
@@ -1326,8 +1385,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
-  async function refreshSlots() {
-    if (!selectedDate) return
+  async function refreshSlots(): Promise<GameSlot[] | null> {
+    if (!selectedDate) return null
     const res = await fetch(`/api/leagues/${leagueId}/games?date=${selectedDate}`, { cache: 'no-store' })
     if (res.ok) {
       const updated: GameSlot[] = await res.json()
@@ -1340,7 +1399,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           setGameStarted(s.is_started ?? false)
         }
       }
+      return updated
     }
+    return null
   }
 
   // 선발 체크 모달 열기 (기본: 모두 해제)

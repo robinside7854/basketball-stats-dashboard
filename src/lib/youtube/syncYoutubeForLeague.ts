@@ -20,6 +20,8 @@
 //     이중으로 붙어 화면마다 다른 것이 재생된다. 고르되, 고르지 않은 쪽 영상이 몇 개였는지는
 //     ruleCounts 로 알려서 화면이 "다른 규칙으로 다시 연동" 을 권할 수 있게 한다.
 //
+// ⚠ (2026-10-10 갱신) 번호형에서 칸이 모자라면 **그 날짜의 친선 여부를 상속해** 칸을 늘린다(mapLegacyVideos).
+//   쿼터형 경로는 여전히 슬롯을 만들지 않는다. 아래는 원래 이유 —
 // ⚠ 이 함수는 **슬롯(경기 행)을 새로 만들지 않는다.** 영상 때문에 슬롯을 만들면 is_exhibition
 //   기본값 false 로 들어가 친선 날짜에 정규전 슬롯이 끼고, 거기 기록한 게 순위·개인 스탯에
 //   섞인다(2026-08-22 실제 사고). 빈 슬롯이 이미 있으면 그 칸을 **쓰기만** 한다.
@@ -577,6 +579,38 @@ async function mapLegacyVideos(
     }
   }
 
+  // 칸이 모자라면 **자동으로 늘린다** (2026-10-10, 사용자 요청 — 기본 3칸이라 영상이 3개까지만 붙었다).
+  //   종전엔 사람이 「+ 추가」를 눌러야 했다. 2026-08-22 사고(영상이 만든 칸이 정규전으로 들어가
+  //   친선 날짜에 섞임)의 원인은 is_exhibition 을 안 넘긴 것이었으므로, 「+ 추가」와 똑같이
+  //   **그 날짜의 친선 여부를 상속**해서 만든다. 그 날짜에 칸이 하나도 없으면 상속할 근거가 없으니
+  //   만들지 않는다(기록 화면에서 날짜를 열면 칸이 먼저 생긴다).
+  if (!dryRun) {
+    const { data: cur } = await supabase
+      .from('league_games')
+      .select('slot_num, is_exhibition')
+      .eq('league_id', leagueId)
+      .eq('date', date)
+    const rows = (cur ?? []) as { slot_num: number | null; is_exhibition: boolean | null }[]
+    if (rows.length > 0) {
+      const have = new Set(rows.map(r => r.slot_num))
+      const isExhibition = rows.some(r => r.is_exhibition === true)
+      const missing = [...new Set(matched.map(m => m.gameNum))].filter(n => !have.has(n)).sort((a, b) => a - b)
+      if (missing.length > 0) {
+        const { error: insErr } = await supabase.from('league_games').insert(missing.map(n => ({
+          league_id: leagueId, date, slot_num: n, round_num: n,
+          home_score: 0, away_score: 0, is_complete: false, is_started: false,
+          is_exhibition: isExhibition,
+        })))
+        // 23505 = 동시에 같은 번호가 생긴 경우 — 이미 있으니 그대로 진행한다
+        if (insErr && insErr.code !== '23505') {
+          details.push({ title: '(칸 자동 추가)', url: '', action: `err:${insErr.message}` })
+        } else if (!insErr) {
+          details.push({ title: `(칸 자동 추가) ${missing.join('·')}경기`, url: '', action: 'slots-added' })
+        }
+      }
+    }
+  }
+
   const { data: existingGames, error: gErr } = await supabase
     .from('league_games')
     .select('id, slot_num')
@@ -594,9 +628,8 @@ async function mapLegacyVideos(
 
   for (const { video, gameNum } of matched) {
     if (!slotToId.has(gameNum)) {
-      // 슬롯을 새로 만들지 않는다 (2026-08-22 사고 — 영상이 만든 슬롯은 is_exhibition 이
-      //   기본값 false 로 들어가, 친선 날짜에 정규전 칸이 끼고 거기 기록한 게 순위에 섞였다).
-      //   대신 **몇 번 칸이 없는지**를 남겨 사람이 「+ 추가」로 늘릴 수 있게 한다.
+      // 위 자동 추가가 실패했거나(dry-run 포함) 그 날짜에 칸이 하나도 없던 경우만 여기로 온다.
+      //   **몇 번 칸이 없는지**를 남겨 사람이 「+ 추가」로 늘릴 수 있게 한다.
       details.push({
         title: video.title, url: video.url, gameNum,
         action: `skipped:${gameNum}경기 슬롯이 없습니다 (이 날짜는 ${slotCount}칸) — 기록 화면에서 칸을 늘린 뒤 다시 연동하세요`,
@@ -622,7 +655,7 @@ async function mapLegacyVideos(
   const maxGameNum = Math.max(...matched.map(m => m.gameNum))
   const needSlots = Math.max(0, maxGameNum - maxSlot)
 
-  const mapped = details.filter(d => !d.action.startsWith('err') && !d.action.startsWith('skipped')).length
+  const mapped = details.filter(d => !d.action.startsWith('err') && !d.action.startsWith('skipped') && d.action !== 'slots-added').length
   return {
     ok: true, mapped, totalVideos: videos.length, channelId, details, mode: 'legacy', dryRun,
     ruleCounts, needSlots,

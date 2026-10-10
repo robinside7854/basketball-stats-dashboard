@@ -1,12 +1,11 @@
 // 3팀 킹오브더코트 대진 자동 편성.
 //
-// ⚠ **2026-09-07 현재 호출부가 없다.** 미라클이 하루 9경기 로테이션에서 **3대진 라운드로빈**
-//   (대진당 3~4쿼터)으로 바뀌면서 기록 화면의 「대진 자동 채우기」 버튼을 걷어냈다 —
-//   이 규칙이 짜 주는 대진이 실제와 달라졌고, 영상 자동 매핑이 제목에서 대진을 읽어
-//   빈 슬롯의 팀을 채우므로 하는 일도 겹쳤다.
-//   규칙 자체는 틀린 게 아니라 **지금 방식이 아닐 뿐**이라 지우지 않고 남긴다.
-//   로테이션으로 돌아가면 이 파일은 그대로 쓰고 호출부(버튼 + 핸들러)만 다시 붙이면 된다.
-//
+// 호출부 이력
+//   2026-09-07 「대진 자동 채우기」 버튼 제거 — 미라클이 잠시 3대진 라운드로빈으로 바뀌었다.
+//   2026-10-10 **다시 붙였다.** 하루 9경기 로테이션으로 돌아왔고(사용자 확인), 이번에는 버튼이 아니라
+//     기록 화면에서 **1·2경기 팀을 저장하는 순간** 3경기 이후가 채워진다(`rotationFromFirstTwo`).
+//     점수를 기다릴 필요가 없다 — 1경기 승자는 2경기에도 남으므로 "1·2경기에 같이 나온 팀"이 곧 승자다.
+
 // ## 이 리그의 실제 규칙 (2026-08-10 사용자 확인)
 //
 // 팀은 셋이고 코트에는 둘만 선다. 1경기는 현장에서 **가위바위보**로 정하므로 사람이 넣는다.
@@ -82,4 +81,27 @@ export function resolveFirstGame(
   return homeScore > awayScore
     ? { winnerId: homeTeamId, loserId: awayTeamId, restingId }
     : { winnerId: awayTeamId, loserId: homeTeamId, restingId }
+}
+
+/**
+ * 1·2경기 대진만으로 승자/패자/쉰 팀을 가려낸다 (2026-10-10).
+ *
+ * 승자 잔류 규칙상 2경기 = 1경기 승자 vs 1경기를 쉰 팀이다. 그러므로
+ *   W = 두 경기에 모두 나온 팀 · L = 1경기의 나머지 · R = 2경기의 나머지.
+ * 세 팀이 아니거나(같은 대진 반복 등) 공통 팀이 없으면 null — 규칙대로 진행되지 않은 날이다.
+ */
+export function rotationFromFirstTwo(
+  g1: { home: string | null; away: string | null },
+  g2: { home: string | null; away: string | null },
+): { winnerId: string; loserId: string; restingId: string } | null {
+  if (!g1.home || !g1.away || !g2.home || !g2.away) return null
+  const a = [g1.home, g1.away]
+  const b = [g2.home, g2.away]
+  const common = a.filter(id => b.includes(id))
+  if (common.length !== 1) return null
+  const winnerId = common[0]
+  const loserId = a.find(id => id !== winnerId)!
+  const restingId = b.find(id => id !== winnerId)!
+  if (loserId === restingId) return null
+  return { winnerId, loserId, restingId }
 }

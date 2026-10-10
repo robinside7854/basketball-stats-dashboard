@@ -115,6 +115,46 @@ export async function GET(
 // 하루에 만들 수 있는 슬롯 상한. 실수로 버튼을 연타했을 때의 방어선일 뿐 의미 있는 규칙은 아니다.
 const MAX_SLOTS_PER_DATE = 30
 
+/**
+ * 시즌 초에 미리 깔린 대진을 비운다 (2026-10-10, 「1경기가 늘 빅현욱vs락다운」).
+ *
+ * 예전 CEO 콘솔의 「일정 생성」(`/schedule` POST)은 토요일마다 **팀이 박힌 경기 1행**을 시즌 끝까지
+ * 만들었다. 그때는 slot_num 을 안 넣었는데 022 가 `slot_num INT DEFAULT 1` 이라 전부 **1번 슬롯**이
+ * 됐다. 그래서 날짜를 열면 1경기에 그 시절 순환표(A-B, A-C, B-C)의 대진이, quarter_id 도 없어
+ * 옛 팀명(락다운 등)으로 떠 있었다. 실제 대진은 현장 가위바위보로 정하므로 이 값은 쓸모가 없다.
+ *
+ * 판정: 기록 전(시작·마감 아님) + 팀이 차 있음 + **경기 날짜보다 14일 이상 먼저 만들어진 행** + 이벤트 0건.
+ *   날짜를 열 때 만드는 슬롯은 그날 근처에 생기므로 걸리지 않는다. 운영자가 그 슬롯에 직접 넣은
+ *   팀도 마찬가지다(그 슬롯 자체가 최근에 생겼다). 영상(youtube_url)은 남긴다 — 팀만 비운다.
+ */
+async function clearStalePrescheduledTeams(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+  date: string,
+) {
+  const cutoff = new Date(`${date}T00:00:00Z`)
+  cutoff.setUTCDate(cutoff.getUTCDate() - 14)
+  const { data: stale } = await supabase
+    .from('league_games')
+    .select('id')
+    .eq('league_id', leagueId)
+    .eq('date', date)
+    .eq('is_started', false)
+    .eq('is_complete', false)
+    .not('home_team_id', 'is', null)
+    .lt('created_at', cutoff.toISOString())
+  const ids = (stale ?? []).map(g => g.id)
+  if (ids.length === 0) return
+  const { data: ev } = await supabase
+    .from('league_game_events')
+    .select('league_game_id')
+    .in('league_game_id', ids)
+  const withEvents = new Set((ev ?? []).map(e => e.league_game_id))
+  const clear = ids.filter(id => !withEvents.has(id))
+  if (clear.length === 0) return
+  await supabase.from('league_games').update({ home_team_id: null, away_team_id: null }).in('id', clear)
+}
+
 // 날짜에 대한 게임 슬랏 초기화 (games_per_round 개수만큼 생성)
 //   `addSlot: true` 면 초기화 대신 **슬롯 한 칸만** 뒤에 덧붙인다 (2026-08-23).
 //   games_per_round 는 시즌 설정이라 특정 날짜만 늘릴 수단이 없었다 — 8/22 친선전처럼
@@ -200,6 +240,9 @@ export async function POST(
 
     return NextResponse.json({ added_slot: nextSlot, is_exhibition: isExhibition, slots: after ?? [] })
   }
+
+  // 시즌 초 일괄 생성된 「미리 짜 둔 대진」을 걷어낸다 (2026-10-10).
+  await clearStalePrescheduledTeams(supabase, leagueId, date)
 
   // 리그 설정에서 games_per_round 가져오기
   const { data: league } = await supabase.from('leagues').select('games_per_round').eq('id', leagueId).single()
