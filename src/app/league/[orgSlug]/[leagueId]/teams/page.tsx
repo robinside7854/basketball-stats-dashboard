@@ -1,4 +1,5 @@
 'use client'
+import HeadToHeadSection from '@/components/league/HeadToHeadSection'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
@@ -1383,6 +1384,9 @@ function LeagueTeamsPageInner() {
 
         {/* 명단 편집 중에는 팀별 선수 이하(섹션 2~4)를 편집 화면(아래 RosterEditor)이 대신한다 */}
         {!editing && (<>
+        {/* ── 섹션 1.5: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
+        <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} />
+
         {/* ── 섹션 2: 팀별 선수 ── */}
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">

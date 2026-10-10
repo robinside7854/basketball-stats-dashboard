@@ -275,6 +275,14 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   (스코어는 `league_games.home_score/away_score` 라 이벤트 `team_id` 로 계산되어 정상이었다)
 - 기록원은 이벤트마다 팀을 함께 저장한다 — 배정 행이 없어도 **2 번으로 항상 판정할 수 있다.**
 
+### 누적 맞대결 (팀 탭, 2026-10-10)
+
+- `GET /api/leagues/[leagueId]/head-to-head?quarterId=<id|all>` → 대진(정체성 쌍)별 전적 + 팀 합계.
+  마감된 정규전 · **실제로 맞붙은 경기만**. 팀은 `(team_id, quarter_id)` 정체성으로 묶는다.
+- 한 줄 누적 규칙은 `src/lib/stats/boxLine.ts` 하나 — `daily-boxscore` 도 이걸 쓴다(종전엔 라우트 안 switch).
+  ⚠ 두 벌로 갈라지면 날짜별 비교와 누적 비교의 숫자가 어긋난다.
+- 막대 그림은 `HeadToHeadBars` 하나 — 날짜별 「팀별 비교」와 팀 탭 「누적 맞대결」 공용.
+
 ### 대진 롤업 (`daily-boxscore`)
 
 - 슬롯을 **쿼터 단위**로 쓴 날은 화면상 경기 수·승패·`gp` 가 전부 쿼터 수가 된다. 그래서

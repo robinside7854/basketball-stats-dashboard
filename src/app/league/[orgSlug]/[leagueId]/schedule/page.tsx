@@ -528,7 +528,10 @@ function ScheduleContent() {
             const isFuture = sd.date >= today
             // 앞으로 있을 경기. 접힌 날은 제외한다 — 접혔다는 건 '안 모인다'는 뜻이라
             // 예정으로 부르면 거짓말이 되고, 참여신청도 받으면 안 된다.
-            const upcoming = isFuture && !sd.is_skipped
+            // ⚠ 오늘도 isFuture 다(`>=`). 경기를 마감한 당일에는 이미 결과가 있는데 '예정'으로 남아
+            //   박스스코어 버튼이 숨었다(2026-10-10 신고 — 홈 「최근 라운드」에선 열리는데 일정표엔 없다).
+            //   마감된 경기가 있는 날은 예정이 아니다.
+            const upcoming = isFuture && !sd.is_skipped && !datesWithStats.has(sd.date)
             // 이 날만의 예외가 있는가 — 편집 버튼 라벨('시간·장소' vs '수정')을 가른다.
             const hasOwnDetails = !!(sd.start_time || sd.place || sd.capacity)
             // 화면에 실제로 보일 값. 고정 대관은 예정 일정에만 씌운다 —

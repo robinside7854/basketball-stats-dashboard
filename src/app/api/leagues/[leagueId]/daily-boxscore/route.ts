@@ -5,6 +5,7 @@ import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { fetchQuarterVideos } from '@/lib/youtube/gameVideo'
+import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, type BoxLine } from '@/lib/stats/boxLine'
 
 // GET /api/leagues/[leagueId]/daily-boxscore?date=YYYY-MM-DD
 export async function GET(
@@ -90,8 +91,9 @@ export async function GET(
     gpTeamMap[r.league_game_id][r.league_player_id] = r.team_id
   }
 
-  type GS = { pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number; tov: number; pf: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number }
-  const emptyGS = (): GS => ({ pts:0,reb:0,oreb:0,dreb:0,ast:0,stl:0,blk:0,tov:0,pf:0,fgm:0,fga:0,fg3m:0,fg3a:0,ftm:0,fta:0 })
+  // 한 줄 누적 규칙은 lib/stats/boxLine.ts — 누적 맞대결(head-to-head)과 공용
+  type GS = BoxLine
+  const emptyGS = emptyBoxLine
 
   // per game → per player stats
   const gamePlayerStats: Record<string, Record<string, GS>> = {}
@@ -104,42 +106,16 @@ export async function GET(
   const gameById = Object.fromEntries(games.map(g => [g.id, g]))
   const quarterScores: Record<string, Record<number, { home: number; away: number }>> = {}
 
-  const SHOT_TYPES = ['shot_3p','shot_2p_mid','shot_layup','shot_post']
-
   for (const e of events ?? []) {
     const gId = e.league_game_id as string
     const pid = e.league_player_id as string
-    const made = e.result === 'made'
     const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet, (e.quarter as number | null) ?? null)
     const pts = scorePoints(e.type as string, e.result as string | null, isP1, scoringRules)
     if (!gamePlayerStats[gId]) continue
     if (!gamePlayerStats[gId][pid]) gamePlayerStats[gId][pid] = emptyGS()
     const s = gamePlayerStats[gId][pid]
 
-    switch (e.type) {
-      case 'shot_3p':
-        s.fg3a++; s.fga++
-        if (made) { s.fg3m++; s.fgm++; s.pts += pts }
-        break
-      case 'shot_2p_mid': case 'shot_layup': case 'shot_post':
-        s.fga++
-        if (made) { s.fgm++; s.pts += pts }
-        break
-      case 'and_one':
-        if (made) { s.pts += pts }; break
-      case 'ft_2pt':
-        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
-      case 'ft_3pt_1':
-        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
-      case 'ft_3pt_2': case 'free_throw':
-        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
-      case 'oreb': s.oreb++; s.reb++; break
-      case 'dreb': s.dreb++; s.reb++; break
-      case 'steal': s.stl++; break
-      case 'block': s.blk++; break
-      case 'turnover': s.tov++; break
-      case 'foul': s.pf++; break
-    }
+    applyEventToBoxLine(s, e.type as string, e.result as string | null, pts)
     // 쿼터별 스코어 — 득점이 난 이벤트만 홈/어웨이로 가른다.
     if (pts > 0) {
       const gm = gameById[gId] as { quarter_id: string | null; home_team_id: string | null; away_team_id: string | null } | undefined
@@ -158,7 +134,7 @@ export async function GET(
     }
 
     // assists
-    if (e.related_player_id && made && SHOT_TYPES.includes(e.type as string)) {
+    if (isAssistEvent(e.type as string, e.result as string | null, e.related_player_id as string | null)) {
       const ap = e.related_player_id as string
       if (!gamePlayerStats[gId][ap]) gamePlayerStats[gId][ap] = emptyGS()
       gamePlayerStats[gId][ap].ast++
