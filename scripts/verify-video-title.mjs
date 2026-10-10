@@ -10,7 +10,7 @@
 //   통째로 안 붙는다. 그런데 안 붙어도 에러가 안 나고 토스트도 그럴듯해서 아무도 모른다 —
 //   9/12 에 9개 중 3개만 붙은 것을 사람이 재생목록을 세어 보고서야 알았다.
 //   규칙을 손댈 때마다 이 스크립트를 돌린다.
-import { parseQuarterTitle, parseLegacyGameNumber, MAX_LEGACY_GAME_NUMBER } from '../src/lib/youtube/videoTitle.ts'
+import { parseQuarterTitle, parseLegacyGameNumber, MAX_LEGACY_GAME_NUMBER, dateSearchKeys, isOtherDateTitle } from '../src/lib/youtube/videoTitle.ts'
 
 let failed = 0
 function check(name, fn) {
@@ -54,6 +54,26 @@ check('꼬리말이 붙어도 읽는다', () => eq(parseQuarterTitle('260905 지
 check('쿼터형 제목은 경기 번호로 읽지 않는다', () =>
   eq(parseLegacyGameNumber('260822 준비팀vs대항팀B 1쿼터'), null))
 check('번호형 제목은 쿼터형으로 읽지 않는다', () => eq(parseQuarterTitle('260919 경기1'), null))
+
+// ── 8자리 날짜 (2026-10-10 업로드 형식 `20261010 경기 1`) ──────────────
+// 6자리로만 검색하면 YouTube 가 이 제목을 돌려주지 않는다 — 10/10 영상이 하나도 안 붙은 원인.
+check('`20261010 경기 1` → 1번 슬롯', () => eq(parseLegacyGameNumber('20261010 경기 1'), 1))
+check('`20261010 경기10` → 10번 슬롯', () => eq(parseLegacyGameNumber('20261010 경기10'), 10))
+check('NFD `20261010 경기 3` 도 읽는다', () => eq(parseLegacyGameNumber('20261010 경기 3'.normalize('NFD')), 3))
+check('`20261010 경기 1` 은 쿼터형이 아니다', () => eq(parseQuarterTitle('20261010 경기 1'), null))
+check('8자리 날짜의 쿼터형도 대진을 읽는다', () => {
+  const p = parseQuarterTitle('20261010 지피티vs빅현욱 2Q')
+  return (p?.teamA === '지피티' && p?.dateKey === '261010' && p?.quarter === 2) || `실제 ${JSON.stringify(p)}`
+})
+check('검색어는 6자리·8자리 두 벌', () => {
+  const k = dateSearchKeys('2026-10-10')
+  return (k.short === '261010' && k.long === '20261010') || `실제 ${JSON.stringify(k)}`
+})
+check('같은 날짜(8자리)는 남긴다', () => eq(isOtherDateTitle('20261010 경기 1', '2026-10-10'), false))
+check('같은 날짜(6자리)는 남긴다', () => eq(isOtherDateTitle('261010 경기1', '2026-10-10'), false))
+// 검색이 느슨해 앞뒤 날짜 영상이 섞이면 번호형은 엉뚱한 날 슬롯에 붙는다
+check('다른 날짜 영상은 뺀다', () => eq(isOtherDateTitle('20261003 경기 1', '2026-10-10'), true))
+check('날짜 없는 제목은 그대로 둔다', () => eq(isOtherDateTitle('경기 1 하이라이트', '2026-10-10'), false))
 
 console.log(failed === 0 ? '\n전부 통과' : `\n실패 ${failed}건`)
 process.exit(failed === 0 ? 0 : 1)

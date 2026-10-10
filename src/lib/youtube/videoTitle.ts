@@ -12,7 +12,7 @@
 
 /** 제목에서 읽어낸 쿼터형 정보. */
 export interface QuarterTitle {
-  /** 제목 앞머리의 `YYMMDD`. 없으면 null (검색 자체가 날짜로 걸러져 있어 필수는 아니다). */
+  /** 제목 앞머리의 날짜를 `YYMMDD` 로 맞춘 값(`20261010` 도 `261010`). 없으면 null. */
   dateKey: string | null
   /** 제목에 적힌 순서 그대로 — 홈/어웨이를 뜻하지 않는다. */
   teamA: string
@@ -39,7 +39,7 @@ export function normalizeName(s: string): string {
 //   뒤에 글자가 이어지면(`1Quarterback` 같은) 쿼터가 아니다 — 경계를 확인한다.
 const Q_SUFFIX = /(?:^|[\s([\-_])(\d)\s*(?:q|쿼터)(?![0-9a-z가-힣])/i
 const Q_PREFIX = /(?:^|[\s([\-_])q\s*(\d)(?![0-9a-z가-힣])/i
-const DATE_KEY = /(?:^|\s)(\d{6})(?=\s|$)/
+const DATE_KEY = /(?:^|\s)(\d{8}|\d{6})(?=\s|$)/
 const VS_SPLIT = /^\s*(.+?)\s*vs\s*(.+?)\s*$/i
 
 /**
@@ -62,7 +62,7 @@ export function parseQuarterTitle(rawTitle: string): QuarterTitle | null {
   let rest = title.replace(qm[0], ' ')
 
   const dm = rest.match(DATE_KEY)
-  const dateKey = dm ? dm[1] : null
+  const dateKey = dm ? toShortDateKey(dm[1]) : null
   if (dm) rest = rest.replace(dm[0], ' ')
 
   const vm = rest.match(VS_SPLIT)
@@ -114,4 +114,39 @@ export function parseLegacyGameNumber(rawTitle: string): number | null {
     .map(Number)
     .filter(n => n >= 1 && n <= 9)
   return candidates.length > 0 ? candidates[0] : null
+}
+
+// ── 제목의 날짜 ─────────────────────────────────────────────────────
+//
+// 날짜 표기도 두 가지다 (2026-10-10).
+//   `261010 경기 1`   — 6자리 YYMMDD (9월까지의 습관)
+//   `20261010 경기 1` — 8자리 YYYYMMDD (10/10 부터, "한동안 이 방식" — 운영진 확인)
+// ⚠ YouTube 검색은 단어 단위라 `261010` 으로 찾으면 `20261010` 제목이 **걸리지 않는다.**
+//   10/10 영상이 하나도 안 붙은 원인이 이것이다. 검색은 반드시 두 표기를 다 쓴다(searchByDate.ts).
+
+const DATE_TOKEN = /(?<!\d)(\d{8}|\d{6})(?!\d)/g
+
+/** `20261010` → `261010`, `261010` → 그대로. */
+function toShortDateKey(token: string): string {
+  return token.length === 8 ? token.slice(2) : token
+}
+
+/** `YYYY-MM-DD` → 검색어 두 벌 `{ short:'261010', long:'20261010' }`. */
+export function dateSearchKeys(date: string): { short: string; long: string } {
+  const long = date.slice(0, 4) + date.slice(5, 7) + date.slice(8, 10)
+  return { short: long.slice(2), long }
+}
+
+/**
+ * 제목에 **다른 날짜**가 적혀 있으면 true.
+ *
+ * YouTube 검색은 느슨해서 `261010` 을 찾아도 앞뒤 일주일 영상이 섞여 들어올 수 있다.
+ * 번호형은 `경기 1` 만 보고 1번 슬롯에 꽂으므로, 남의 날짜 영상이 섞이면 조용히 엉뚱한
+ * 날에 붙는다. 날짜가 **없는** 제목은 그대로 둔다(종전 동작 — 검색어로 이미 걸러졌다).
+ */
+export function isOtherDateTitle(rawTitle: string, date: string): boolean {
+  const tokens = rawTitle.normalize('NFC').match(DATE_TOKEN)
+  if (!tokens || tokens.length === 0) return false
+  const want = dateSearchKeys(date).short
+  return !tokens.some(t => toShortDateKey(t) === want)
 }

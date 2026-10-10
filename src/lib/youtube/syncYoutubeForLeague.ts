@@ -8,6 +8,8 @@
 // 제목 규칙이 두 가지다 (2026-09-07, 2026-09-19 갱신)
 //   ┌ 쿼터형 `260905 지피티vs빅현욱 1Q` → **대진 + 쿼터**. 경기 1행 + league_game_videos 로 붙는다.
 //   └ 옛 번호형 `260919 경기3`          → 그날 3번 슬롯의 대표 영상 한 칸.
+//     번호형은 10/10 부터 날짜가 8자리다 — `20261010 경기 1` (운영진: "한동안 이 방식").
+//     날짜 6자리·8자리 모두 읽고 모두 검색한다(searchByDate.ts).
 //
 //   **어느 쪽도 폐기되지 않았다.** 업로더의 습관이 날마다 다르다 — 9/5 는 쿼터형이었고
 //   9/19 는 다시 번호형(`260919 경기1` ~ `경기9`)이었다. 그래서 규칙은 **날짜마다** 고른다:
@@ -26,6 +28,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { parseQuarterTitle, parseLegacyGameNumber, type QuarterTitle } from './videoTitle'
+import { searchChannelVideosByDate } from './searchByDate'
 import { loadTeamNameIndex, type TeamNameIndex } from './teamNameIndex'
 import { pickRepresentative } from './gameVideo'
 
@@ -156,41 +159,12 @@ export async function getChannelId(
 }
 
 /**
- * 그 날짜(yymmdd)로 채널 영상을 찾는다.
- *
- * ⚠ 검색어에 `경기` 같은 단어를 덧붙이지 말 것. 제목 규칙이 바뀌면 그 단어가 없는 날 영상이
- *   통째로 빠진다 — 9/5 영상 10개가 하나도 안 걸린 이유 중 하나다. 목록 라우트
- *   (`youtube-videos`)는 이미 날짜만으로 검색한다. 두 경로가 같은 영상을 봐야 한다.
+ * 그 날짜로 채널 영상을 찾는다 — 검색 자체는 `searchByDate.ts` 가 한다(목록 라우트와 공용).
+ * 날짜 표기 두 가지(`261010` · `20261010`)를 모두 찾는다.
  */
-async function searchVideos(channelId: string, dateStr: string, apiKey: string): Promise<VideoItem[]> {
-  const parts = dateStr.split('-')
-  const yymmdd = parts[0].slice(2) + parts[1] + parts[2] // e.g. 260905
-
-  const after = new Date(dateStr)
-  after.setDate(after.getDate() - 7)
-  const before = new Date(dateStr)
-  before.setDate(before.getDate() + 30)
-
-  const url = `${YT_API}/search?part=snippet&channelId=${channelId}&q=${encodeURIComponent(yymmdd)}`
-    + `&type=video&maxResults=50&order=date`
-    + `&publishedAfter=${after.toISOString()}&publishedBefore=${before.toISOString()}&key=${apiKey}`
-  const res = await fetch(url)
-  const json = await res.json()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ((json.items ?? []) as any[])
-    .map(it => ({
-      videoId: (it.id?.videoId ?? '') as string,
-      // ⚠ NFC 정규화 필수 — YouTube API 는 한글 제목을 **NFD(자모 분리형)** 으로 돌려준다.
-      //   화면에는 똑같이 '쿼터' 로 보이지만 문자열로는 U+110F U+116F U+1110 U+1165 라
-      //   소스에 적은 완성형 '쿼터'(U+CFFC U+D130) 와 절대 일치하지 않는다.
-      //   2026-08-22 에 쿼터 가드를 넣고도 그대로 뚫린 원인이 이것이었다 — 정규식은 맞았고
-      //   비교 대상이 다른 표현이었을 뿐이라 로그만 봐서는 원인이 드러나지 않는다.
-      title: ((it.snippet?.title ?? '') as string).normalize('NFC'),
-      publishedAt: (it.snippet?.publishedAt ?? '') as string,
-      url: `https://www.youtube.com/watch?v=${it.id?.videoId}`,
-    }))
-    .filter(v => !!v.videoId)
+async function searchVideos(channelId: string, dateStr: string, apiKey: string): Promise<{ videos: VideoItem[]; error: string | null }> {
+  const { videos, error } = await searchChannelVideosByDate(channelId, dateStr, apiKey)
+  return { videos: videos.map(v => ({ videoId: v.videoId, title: v.title, publishedAt: v.publishedAt, url: v.url })), error }
 }
 
 /**
@@ -239,9 +213,15 @@ export async function syncYoutubeForLeague(
   if (!channelId) return { ok: false, reason: `채널을 찾을 수 없습니다: ${channelHandle}` }
 
   // 2. 영상 목록 검색
-  const videos = await searchVideos(channelId, date, apiKey)
+  const { videos, error: searchError } = await searchVideos(channelId, date, apiKey)
   if (videos.length === 0) {
-    return { ok: false, reason: `이 날짜(${date})에 올라온 영상을 찾지 못했습니다`, channelId, searchedVideos: 0 }
+    return {
+      ok: false,
+      reason: searchError
+        ? `YouTube 검색에 실패했습니다: ${searchError}`
+        : `이 날짜(${date})에 올라온 영상을 찾지 못했습니다`,
+      channelId, searchedVideos: 0,
+    }
   }
 
   // 3. 제목 해석 — 두 규칙 중 **하나**를 고른다.
@@ -569,7 +549,7 @@ async function mapLegacyVideos(
     if (gameNum == null) {
       details.push({
         title: v.title, url: v.url,
-        action: `skipped:제목에서 경기 번호를 읽지 못했습니다 (\`${date.slice(2).replace(/-/g, '')} 경기3\` 형식)`,
+        action: `skipped:제목에서 경기 번호를 읽지 못했습니다 (\`${date.replace(/-/g, '')} 경기 3\` 형식)`,
       })
       continue
     }

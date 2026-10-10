@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { getChannelId } from '@/lib/youtube/syncYoutubeForLeague'
+import { searchChannelVideosByDate } from '@/lib/youtube/searchByDate'
 
-const YT_API = 'https://www.googleapis.com/youtube/v3'
 
 /**
  * GET /api/leagues/[leagueId]/youtube-videos?date=YYYY-MM-DD
@@ -72,37 +72,17 @@ export async function GET(
     return NextResponse.json({ error: `채널을 찾을 수 없습니다: ${handle}` }, { status: 404 })
   }
 
-  // 검색어는 날짜(yymmdd) 하나뿐 — "경기" 같은 단어를 붙이면 제목 규칙이 다른 날 영상이 통째로 빠진다.
-  //   (자동 매핑이 이번에 2개밖에 못 찾은 이유가 정확히 그것이다)
-  const yymmdd = date.slice(2, 4) + date.slice(5, 7) + date.slice(8, 10)
-  const after = new Date(date); after.setDate(after.getDate() - 7)
-  const before = new Date(date); before.setDate(before.getDate() + 30)
-
-  const url = `${YT_API}/search?part=snippet&channelId=${channelId}`
-    + `&q=${encodeURIComponent(yymmdd)}&type=video&maxResults=50&order=date`
-    + `&publishedAfter=${after.toISOString()}&publishedBefore=${before.toISOString()}&key=${apiKey}`
-
-  const res = await fetch(url)
-  const json = await res.json()
-  if (!res.ok) {
-    const msg = json?.error?.message ?? `YouTube 검색 실패 (${res.status})`
-    return NextResponse.json({ error: msg }, { status: 502 })
+  // 검색은 자동 연동과 같은 함수 — 날짜뿐인 검색어 · 6자리/8자리 두 표기(searchByDate.ts).
+  const { videos: found, error } = await searchChannelVideosByDate(channelId, date, apiKey)
+  if (error && found.length === 0) {
+    return NextResponse.json({ error }, { status: 502 })
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const videos = (json.items ?? []).map((it: any) => ({
-    video_id: it.id?.videoId as string,
-    // NFC 정규화 — YouTube 는 한글 제목을 NFD 로 준다. 정렬·검색·비교가 전부 어긋난다.
-    title: ((it.snippet?.title ?? '') as string).normalize('NFC'),
-    published_at: (it.snippet?.publishedAt ?? '') as string,
-    thumbnail: (it.snippet?.thumbnails?.default?.url ?? null) as string | null,
-    url: `https://www.youtube.com/watch?v=${it.id?.videoId}`,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  })).filter((v: any) => !!v.video_id)
+  const videos = found.map(v => ({
+    video_id: v.videoId, title: v.title, published_at: v.publishedAt, thumbnail: v.thumbnail, url: v.url,
+  }))
 
   // 제목 오름차순 — 같은 매치업의 1~4쿼터가 붙어 나와야 고르기 쉽다(업로드 순은 뒤섞여 있다).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  videos.sort((a: any, b: any) => a.title.localeCompare(b.title, 'ko'))
+  videos.sort((a, b) => a.title.localeCompare(b.title, 'ko', { numeric: true }))
 
   return NextResponse.json({ channel: handle, count: videos.length, videos })
 }
