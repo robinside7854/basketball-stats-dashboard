@@ -12,6 +12,7 @@ import { Toaster } from '@/components/ui/sonner'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
+import PlayerSearch from '@/components/league/PlayerSearch'
 import { rememberLeague } from '@/lib/lastLeague'
 import { usePendingSignups } from '@/lib/hooks/usePendingSignups'
 
@@ -203,6 +204,8 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
               2026-08-15 에 '어디서든 필요한 것'만 다시 올렸다 — 화면 모드와 프로필.
               로그아웃·접속현황은 그대로 /me 에 둔다(자주 쓰지 않는다). */}
           <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
+            {/* 선수 검색 — 헤더는 모든 화면에 뜨므로 어디서든 닿는다 (2026-10-10). 게스트 제외. */}
+            <PlayerSearch leagueId={leagueId} />
             {!authLoading && !user && (
               <button
                 onClick={onOpenLogin}
