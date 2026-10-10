@@ -1,4 +1,5 @@
 'use client'
+import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -241,7 +242,7 @@ function LeagueStatsPageInner() {
         let saved: string | null = null
         try { saved = localStorage.getItem(quarterStorageKey(leagueId)) } catch { /* private mode */ }
         if (!saved && selectedQuarterId === 'all') {
-          const current = qs.find(q => q.is_current)
+          const current = pickCurrentQuarter(qs)
           if (current) setSelectedQuarterId(current.id)
         }
       })

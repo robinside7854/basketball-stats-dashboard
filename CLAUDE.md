@@ -456,6 +456,16 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - MVP 공식: `pts × 1.5 + 효율득점보너스 - 비효율페널티`
 - X-FACTOR: 허슬 스탯 중심 (rebs, steals, blocks, charges)
 
+### "지금 분기" 판정 — 정본은 `src/lib/league/currentQuarter.ts` (2026-10-10)
+
+- `pickCurrentQuarter()` = ① 오늘(KST)이 `start_date~end_date` 안에 드는 분기 → ② `is_current` → ③ 가장 최근.
+  홈(순위표·리그 리더·최근 라운드) · 스탯 탭 · 팀 탭 · 분기 컨텍스트가 전부 이걸 쓴다.
+  ⚠ `qs.find(q => q.is_current)` 를 새로 쓰지 말 것 — 운영자가 깃발을 늦게 옮기면 화면마다 분기가 갈린다.
+- 그 분기의 **경기**는 기간이 있으면 **날짜로** 고른다(`gameDateRange`). `league_games.quarter_id` 는
+  기록 화면을 열 때 뒤늦게 채워지고, 새 분기 행을 만들기 전에 기록한 경기는 옛 분기로 박힌다.
+- **홈 리그 리더는 분기 기준**이다(종전 시즌 누적). 최소 출전은 분기 초에 열린 라운드 수까지 낮춘다.
+- 분기 컨텍스트는 「지난번 본 현재 분기」(`league:<id>:lastCurrentQuarterId`)가 바뀐 날 **한 번** 기억값을 새 분기로 옮긴다.
+
 ## Critical 규칙
 
 - ⚠ **미라클 리그는 분기마다 팀 구성이 바뀐다.** 같은 `team_id` 라도 분기가 다르면 다른 팀이다.

@@ -18,6 +18,10 @@ import type { PlayerStat } from '@/types/league'
 interface Props {
   leagueId: string
   minGP?: number
+  /** 집계 분기 표시 (`26.4Q`). 없으면 시즌 전체 */
+  quarterLabel?: string | null
+  /** 클라이언트 폴백 조회도 같은 분기로 */
+  quarterId?: string | null
   /** SSR 프리페치 결과 — 있으면 초기 fetch skip (홈 waterfall 제거용) */
   initialPlayers?: PlayerStat[]
   /** SSR 프리페치 결과 — 있으면 초기 fetch skip */
@@ -54,7 +58,7 @@ function initials(name: string): string {
   return name.slice(0, 2)
 }
 
-export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPhotoMap }: Props) {
+export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, initialPlayers, initialPhotoMap }: Props) {
   const hasInitial = !!initialPlayers && !!initialPhotoMap
   const [players, setPlayers] = useState<PlayerStat[]>(initialPlayers ?? [])
   const [photoMap, setPhotoMap] = useState<Record<string, string | null>>(initialPhotoMap ?? {})
@@ -69,7 +73,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
     if (hasInitial) return
     setLoading(true)
     Promise.all([
-      fetch(`/api/leagues/${leagueId}/stats?unit=round`).then(r => r.json()).catch(() => ({ players: [] })),
+      fetch(`/api/leagues/${leagueId}/stats?unit=round${quarterId ? `&quarterId=${quarterId}` : ''}`).then(r => r.json()).catch(() => ({ players: [] })),
       fetch(`/api/leagues/${leagueId}/players`).then(r => r.json()).catch(() => []),
     ]).then(([statsD, playersD]) => {
       setPlayers(statsD.players ?? [])
@@ -83,7 +87,9 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
   }, [leagueId])
 
   const maxGP = players.reduce((m, p) => Math.max(m, p.gp), 0)
-  const effectiveMinGP = minGP ?? Math.max(3, Math.ceil(maxGP / 2))
+  // 최소 출전 — 평소엔 3라운드 이상(하루 반짝한 선수가 1위에 앉지 않게).
+  //   분기 초에는 아무도 3라운드를 못 채워 카드가 통째로 비므로, 지금까지 열린 라운드 수까지 낮춘다.
+  const effectiveMinGP = minGP ?? Math.max(1, Math.min(3, maxGP), Math.ceil(maxGP / 2))
 
   return (
     <>
@@ -99,7 +105,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
             리그 리더
           </h3>
           <span className="t-label break-keep">
-            최소 {effectiveMinGP} R
+            {quarterLabel ? `${quarterLabel} · ` : ''}최소 {effectiveMinGP} R
           </span>
         </header>
 

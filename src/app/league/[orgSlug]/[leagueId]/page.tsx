@@ -28,6 +28,7 @@ import TournamentBoard from '@/components/league/TournamentBoard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { pickRecentRounds, RECENT_ROUNDS } from '@/lib/league/recentRounds'
 import type { League } from '@/types/league'
+import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
 
 // 기록이 있는 최근 RECENT_ROUNDS 라운드 요약 — NbaRoundsSummary 용.
 // 미라클모닝은 하루 = 1라운드 (여러 경기 진행). 각 라운드마다 팀별 W-L-득실차 요약.
@@ -54,8 +55,16 @@ async function computeRecentRounds(
     resolverPromise,
   ])
 
+  // 분기가 바뀌면 지난 분기 라운드는 뺀다(팀 구성이 달라 같은 줄에 놓으면 헷갈린다).
+  //   단, 새 분기에 아직 기록이 없으면 빈 섹션 대신 지난 라운드를 그대로 보여 준다.
+  const currentQ = await loadCurrentQuarter(supabase, leagueId)
+  const qStart = currentQ ? (currentQ.start_date ?? null) : null
+  const inQuarter = (g: { date: string; quarter_id: unknown }) =>
+    !currentQ ? true : qStart ? g.date >= qStart : g.quarter_id === currentQ.id
+  const quarterGames = (games ?? []).filter(inQuarter)
+
   // 라운드(=date) 별로 grouping — 최신순, 기록 있는 날만 RECENT_ROUNDS 개
-  const recent = pickRecentRounds(games ?? [])
+  const recent = pickRecentRounds(quarterGames.length > 0 ? quarterGames : (games ?? []))
 
   const fmtWeek = (iso: string): string => {
     const d = new Date(iso + 'T00:00:00')
@@ -113,18 +122,12 @@ async function computeCurrentQuarterStandings(
   leagueId: string,
   resolverPromise: IdentityResolverPromise,
 ): Promise<{ standings: StandingRow[]; quarterLabel: string; gamesCount: number }> {
-  // 분기 조회와 resolver await 병렬
-  const [{ data: quarters }, resolver] = await Promise.all([
-    supabase
-      .from('league_quarters')
-      .select('id, year, quarter, is_current')
-      .eq('league_id', leagueId)
-      .order('year', { ascending: false })
-      .order('quarter', { ascending: false }),
+  // 지금 분기 — 홈의 세 섹션(순위·리더·최근 라운드)이 같은 판정을 쓴다(lib/league/currentQuarter.ts).
+  const [currentQ, resolver] = await Promise.all([
+    loadCurrentQuarter(supabase, leagueId),
     resolverPromise,
   ])
 
-  const currentQ = (quarters ?? []).find(q => q.is_current) ?? (quarters ?? [])[0]
   let quarterLabel = '시즌 전체'
   let gameQuery = supabase
     .from('league_games')
@@ -134,8 +137,12 @@ async function computeCurrentQuarterStandings(
     .eq('is_exhibition', false)
 
   if (currentQ) {
-    quarterLabel = `${String(currentQ.year).slice(2)}.${currentQ.quarter}Q`
-    gameQuery = gameQuery.eq('quarter_id', currentQ.id)
+    quarterLabel = currentQ.label
+    // 기간이 있으면 날짜로 — 4분기 행을 만들기 전에 기록한 경기는 quarter_id 가 3분기로 박혀 있다
+    const range = gameDateRange(currentQ)
+    gameQuery = range
+      ? gameQuery.gte('date', range.from).lte('date', range.to)
+      : gameQuery.eq('quarter_id', currentQ.id)
   }
 
   const { data: games } = await gameQuery
@@ -177,9 +184,12 @@ async function computeCurrentQuarterStandings(
     return t
   }
 
+  // 팀명은 **이 분기 이름**으로 — 경기의 quarter_id 가 옛 분기로 박혀 있어도 순위표에 지난 분기
+  //   팀명(락다운 등)이 섞이지 않게 한다. 이 표는 정의상 한 분기짜리다.
+  const qidFor = (g: { quarter_id: unknown }) => currentQ?.id ?? (g.quarter_id as string | null)
   for (const g of games) {
-    const h = ensureTeam(g.home_team_id as string | null, g.quarter_id as string | null)
-    const a = ensureTeam(g.away_team_id as string | null, g.quarter_id as string | null)
+    const h = ensureTeam(g.home_team_id as string | null, qidFor(g))
+    const a = ensureTeam(g.away_team_id as string | null, qidFor(g))
     if (!h || !a) continue
     // 같은 팀끼리 잡힌 경기(데이터 이상 · 팀 통합 후 옛 경기 등)는 상대전적에서 뺀다.
     // 안 그러면 "자기 자신에게 1승 1패" 같은 항목이 생긴다.
@@ -258,9 +268,17 @@ const getCachedLeaderStats = (leagueId: string) =>
   unstable_cache(
     async () => {
       const sb = createClient()
-      return computeLeagueStats(sb, leagueId, { unit: 'round' })
+      // 리그 리더는 **지금 분기** 기준 (2026-10-10 — 분기가 바뀌면 리더보드도 새로 시작한다).
+      //   종전엔 시즌 누적이라 4분기가 돼도 3분기까지의 1위가 그대로 떠 있었다.
+      const q = await loadCurrentQuarter(sb, leagueId)
+      const range = q ? gameDateRange(q) : null
+      const stats = await computeLeagueStats(sb, leagueId, {
+        unit: 'round',
+        ...(range ? { from: range.from, to: range.to } : q ? { quarterId: q.id } : {}),
+      })
+      return { ...stats, quarterLabel: q?.label ?? null, quarterId: q?.id ?? null }
     },
-    ['home-leader-stats', leagueId],
+    ['home-leader-stats-q', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
   )
 
@@ -477,6 +495,8 @@ export default async function LeagueDetailPage({
         leaders={
           <NbaLeaders
             leagueId={leagueId}
+            quarterLabel={leaderStats.quarterLabel}
+            quarterId={leaderStats.quarterId}
             initialPlayers={leaderStats.players}
             initialPhotoMap={initialPhotoMap}
           />

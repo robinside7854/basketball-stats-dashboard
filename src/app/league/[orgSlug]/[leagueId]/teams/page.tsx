@@ -1,4 +1,5 @@
 'use client'
+import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
@@ -901,7 +902,7 @@ function LeagueTeamsPageInner() {
     ]).then(([qs, ts]) => {
       setQuarters(qs ?? [])
       setTeams(ts ?? [])
-      const cur = (qs ?? []).find((q: Quarter) => q.is_current) ?? (qs ?? []).at(-1)
+      const cur = pickCurrentQuarter((qs ?? []) as Quarter[])
       // 팀순위의 기본은 「현재 분기」였다. 다른 화면에서 고른 적이 없을 때(저장값 없음)만 그 기본을 적용해
       // 사용자가 이미 고른 분기(「전체」 포함)를 덮어쓰지 않는다. 저장 키는 LeagueQuarterContext 와 같다.
       let saved: string | null = null
