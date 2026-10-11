@@ -6,7 +6,6 @@ import { sortJerseyNum } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Flame, Award, Zap, Sparkles, StickyNote } from 'lucide-react'
 
 const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
@@ -18,12 +17,6 @@ import { ROUND_PRIORITY, UNKNOWN_ROUND_PRIORITY, KNOCKOUT_ROUNDS } from '@/lib/t
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'
 
-type AwardEntry = { player_id: string; player_name: string; reason: string }
-type MvpResult = {
-  mvp?: AwardEntry | null
-  x_factor?: AwardEntry | null
-  warrior?: AwardEntry | null
-}
 type SeasonSortKey = SortKey | 'pts_avg' | 'reb_avg' | 'ast_avg'
 type ViewMode = 'game' | 'season'
 
@@ -256,8 +249,7 @@ function KeyStatSummary({ boxScores, teamTotals, onPlayer, gp, teamGp }: {
 
 export default function BoxScoreClient() {
   const team = useTeam()
-  // teamHeaders = 편집 PIN(X-Team-Pin). AI 선정/삭제는 서버에서 팀 PIN 을 요구하므로 함께 보낸다.
-  const { isEditMode, teamHeaders } = useEditMode()
+  const { isEditMode } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [selectedTId, setSelectedTId] = useState('')
@@ -286,37 +278,6 @@ export default function BoxScoreClient() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const [playerModal, setPlayerModal] = useState<string | null>(null)
-  const [mvpResults, setMvpResults] = useState<Record<string, MvpResult | 'loading' | 'error'>>({})
-
-  // 전체 AI 생성 상태
-  const [generatingAll, setGeneratingAll] = useState(false)
-  const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null)
-
-  // 후보 힌트 모달
-  const [hintGameId, setHintGameId] = useState<string | null>(null)
-  const [hintIsLoss, setHintIsLoss] = useState(false)
-  const [hintMvp, setHintMvp] = useState('')
-  const [hintXf, setHintXf] = useState('')
-  const [hintWarrior, setHintWarrior] = useState('')
-  const [hintMemo, setHintMemo] = useState('')
-
-  function getHintPlayers(gameId: string) {
-    const data = gameData[gameId]
-    if (!data || data === 'loading') return []
-    return [...data.boxScores]
-      .sort((a, b) => sortJerseyNum(a.player_number, b.player_number))
-      .map(s => ({ id: s.player_id, name: s.player_name, number: s.player_number }))
-  }
-
-  function openHintModal(gameId: string) {
-    const g = games.find(g => g.id === gameId)
-    setHintIsLoss(!!g && g.our_score < g.opponent_score)
-    setHintGameId(gameId)
-    setHintMvp('')
-    setHintXf('')
-    setHintWarrior('')
-    setHintMemo('')
-  }
 
   async function toggleExpand(gameId: string) {
     // 이미 펼쳐진 경기는 닫기
@@ -345,82 +306,6 @@ export default function BoxScoreClient() {
       }
     }
 
-    // 저장된 MVP 자동 로드 (캐시만, AI 실행 안 함)
-    if (!mvpResults[gameId]) {
-      fetch(`/api/ai/mvp?gameId=${gameId}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data) setMvpResults(prev => ({ ...prev, [gameId]: data })) })
-        .catch(() => {})
-    }
-  }
-
-  async function fetchMvp(gameId: string, mvpHintId?: string, xfactorHintId?: string, gameMemo?: string, warriorHintId?: string) {
-    setMvpResults(prev => ({ ...prev, [gameId]: 'loading' }))
-    try {
-      const body: Record<string, string> = {}
-      if (mvpHintId) body.mvpHintId = mvpHintId
-      if (xfactorHintId) body.xfactorHintId = xfactorHintId
-      if (warriorHintId) body.warriorHintId = warriorHintId
-      if (gameMemo) body.gameMemo = gameMemo
-      const res = await fetch(`/api/ai/mvp?gameId=${gameId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...teamHeaders },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? '오류 발생')
-      }
-      const data: MvpResult = await res.json()
-      setMvpResults(prev => ({ ...prev, [gameId]: data }))
-    } catch (err) {
-      console.error(err)
-      setMvpResults(prev => ({ ...prev, [gameId]: 'error' }))
-    }
-  }
-
-  async function submitHint() {
-    if (!hintGameId) return
-    const gid = hintGameId
-    const isLoss = hintIsLoss
-    const memo = hintMemo.trim() || undefined
-    setHintGameId(null)
-    setHintMvp('')
-    setHintXf('')
-    setHintWarrior('')
-    setHintMemo('')
-    if (isLoss) {
-      await fetchMvp(gid, undefined, undefined, memo, hintWarrior || undefined)
-    } else {
-      await fetchMvp(gid, hintMvp || undefined, hintXf || undefined, memo)
-    }
-  }
-
-  async function resetMvp(gameId: string) {
-    await fetch(`/api/ai/mvp?gameId=${gameId}`, { method: 'DELETE', headers: teamHeaders })
-    setMvpResults(prev => { const n = { ...prev }; delete n[gameId]; return n })
-  }
-
-  async function generateAllMvp() {
-    if (games.length === 0) return
-
-    const ok = window.confirm(
-      `총 ${games.length}개 경기를 AI 선정합니다.\n기존 선정 결과도 새로 덮어씌워집니다.\n\n계속하시겠습니까?`
-    )
-    if (!ok) return
-
-    // 기존 결과 전체 삭제 (DB + 상태 초기화)
-    await Promise.all(games.map(g => fetch(`/api/ai/mvp?gameId=${g.id}`, { method: 'DELETE', headers: teamHeaders })))
-    setMvpResults({})
-
-    setGeneratingAll(true)
-    setGenProgress({ current: 0, total: games.length })
-    for (let i = 0; i < games.length; i++) {
-      setGenProgress({ current: i + 1, total: games.length })
-      await fetchMvp(games[i].id)
-    }
-    setGeneratingAll(false)
-    setGenProgress(null)
   }
 
   const [seasonScores, setSeasonScores] = useState<SeasonBoxScore[]>([])
@@ -437,20 +322,7 @@ export default function BoxScoreClient() {
     if (!selectedTId) return
     fetch(`/api/games?tournamentId=${selectedTId}`)
       .then(r => r.json())
-      .then(async (loadedGames: Game[]) => {
-        setGames(loadedGames)
-        // 대회 선택 시 모든 경기 MVP 결과 백그라운드 프리로드 → 아이콘 즉시 표시
-        const pairs = await Promise.all(
-          loadedGames.map(g =>
-            fetch(`/api/ai/mvp?gameId=${g.id}`)
-              .then(r => r.ok ? r.json().then((d: MvpResult) => [g.id, d] as const) : null)
-              .catch(() => null)
-          )
-        )
-        const updates: Record<string, MvpResult> = {}
-        for (const p of pairs) { if (p) updates[p[0]] = p[1] }
-        if (Object.keys(updates).length > 0) setMvpResults(prev => ({ ...prev, ...updates }))
-      })
+      .then((loadedGames: Game[]) => setGames(loadedGames))
     if (viewMode === 'season') {
       fetch(`/api/stats/season?tournamentId=${selectedTId}&team=${team}`).then(r => r.json()).then(d => {
         setSeasonScores(d.players || [])
@@ -536,101 +408,6 @@ export default function BoxScoreClient() {
 
   return (
     <div>
-      {/* 후보 힌트 모달 */}
-      {hintGameId && (() => {
-        const players = getHintPlayers(hintGameId)
-        return (
-          <div className="fixed inset-0 z-[200] bg-[var(--mm-ink)]/70 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={e => { if (e.target === e.currentTarget) { setHintGameId(null); setHintMvp(''); setHintXf(''); setHintWarrior('') } }}>
-            <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-2xl">
-              <div className="text-center">
-                <div className="text-xl font-bold mb-1 flex items-center justify-center gap-1.5">
-                  {hintIsLoss ? <><Flame size={16} className="text-orange-400" aria-hidden /> 투혼상 후보 힌트</> : '후보 힌트 지정'}
-                </div>
-                <p className="text-[var(--mm-muted)] text-xs leading-relaxed">
-                  선택사항입니다. AI가 해당 선수를 우선 검토하며,<br/>
-                  통계상 더 적합한 선수가 있으면 그쪽이 선정될 수 있습니다.
-                </p>
-              </div>
-              <div className="space-y-3">
-                {hintIsLoss ? (
-                  <div>
-                    <label className="text-xs text-orange-400 font-semibold mb-1.5 flex items-center gap-1"><Flame size={14} aria-hidden /> 투혼상 추천 (선택)</label>
-                    <select
-                      value={hintWarrior}
-                      onChange={e => setHintWarrior(e.target.value)}
-                      className="w-full bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-xl px-3 py-2 text-sm text-[var(--mm-ink)] focus:outline-none focus:border-orange-500 cursor-pointer"
-                    >
-                      <option value="">-- 추천 없음</option>
-                      {players.map(p => (
-                        <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <label className="text-xs text-[var(--mm-yellow-strong)] font-semibold mb-1.5 flex items-center gap-1"><Award size={14} aria-hidden /> MVP 추천 (선택)</label>
-                      <select
-                        value={hintMvp}
-                        onChange={e => setHintMvp(e.target.value)}
-                        className="w-full bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-xl px-3 py-2 text-sm text-[var(--mm-ink)] focus:outline-none focus:border-yellow-500 cursor-pointer"
-                      >
-                        <option value="">-- 추천 없음</option>
-                        {players.map(p => (
-                          <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-purple-400 font-semibold mb-1.5 flex items-center gap-1"><Zap size={14} aria-hidden /> X-FACTOR 추천 (선택)</label>
-                      <select
-                        value={hintXf}
-                        onChange={e => setHintXf(e.target.value)}
-                        className="w-full bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-xl px-3 py-2 text-sm text-[var(--mm-ink)] focus:outline-none focus:border-purple-500 cursor-pointer"
-                      >
-                        <option value="">-- 추천 없음</option>
-                        {players.map(p => (
-                          <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </>
-                )}
-                <div>
-                  <label className="text-xs text-[var(--mm-muted)] font-semibold mb-1.5 flex items-center gap-1"><StickyNote size={14} aria-hidden /> 경기 메모 (선택)</label>
-                  <textarea
-                    value={hintMemo}
-                    onChange={e => setHintMemo(e.target.value)}
-                    placeholder={hintIsLoss ? '예: 4번이 끝까지 포기하지 않고 팀을 이끌었음' : '예: 3번이 수비에서 팀 분위기를 살렸고, 후반 흐름을 바꿨음'}
-                    rows={3}
-                    className="w-full bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-xl px-3 py-2 text-sm text-[var(--mm-ink)] placeholder-[var(--mm-muted)] focus:outline-none focus:border-[var(--mm-muted)] resize-none"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setHintGameId(null); setHintMvp(''); setHintXf(''); setHintWarrior('') }}
-                  className="flex-1 py-2.5 rounded-xl border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:bg-[var(--mm-panel-alt)] text-sm font-medium transition-colors cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={submitHint}
-                  className={`flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition-all cursor-pointer ${
-                    hintIsLoss
-                      ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500'
-                      : 'bg-gradient-to-r from-yellow-600 to-purple-600 hover:from-yellow-500 hover:to-purple-500'
-                  }`}
-                >
-                  선정 시작
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
       <SubTabNav tabs={gameSubTabs(isEditMode)} />
 
       <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -656,7 +433,6 @@ export default function BoxScoreClient() {
             setSelectedTId(v ?? '')
             setExpandedGIds(new Set())
             setGameData({})
-            setMvpResults({})
           }}
         >
           <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] min-w-52 max-w-xs w-auto">
@@ -667,29 +443,6 @@ export default function BoxScoreClient() {
           </SelectContent>
         </Select>
 
-        {/* 전체 AI 선정 버튼 — 편집 모드 전용 */}
-        {isEditMode && viewMode === 'game' && selectedTId && games.length > 0 && (
-          <button
-            onClick={generateAllMvp}
-            disabled={generatingAll}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
-              ${generatingAll
-                ? 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-muted)] cursor-not-allowed'
-                : 'bg-gradient-to-r from-[var(--mm-yellow)]/20 to-purple-600/20 border-[color:var(--mm-yellow)]/40 text-[var(--mm-yellow-strong)] hover:from-[var(--mm-yellow)]/40 hover:to-purple-600/40 cursor-pointer'
-              }`}
-          >
-            {generatingAll ? (
-              <>
-                <span className="inline-block w-3.5 h-3.5 border-2 border-[var(--mm-yellow-strong)] border-t-transparent rounded-full animate-spin" />
-                {genProgress ? `${genProgress.current}/${genProgress.total} 생성 중...` : '준비 중...'}
-              </>
-            ) : (
-              <>
-                <Sparkles size={16} aria-hidden /> 전체 AI 선정
-              </>
-            )}
-          </button>
-        )}
       </div>
 
       {viewMode === 'game' && selectedTId && games.length > 0 && (() => {
@@ -745,16 +498,6 @@ export default function BoxScoreClient() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {/* 수상 배지 표시 */}
-                  {mvpResults[g.id] && mvpResults[g.id] !== 'loading' && mvpResults[g.id] !== 'error' && (() => {
-                    const r = mvpResults[g.id] as MvpResult
-                    return r.warrior
-                      ? <Flame size={14} className="text-orange-400" aria-hidden />
-                      : <div className="flex items-center gap-1">
-                          <Award size={14} className="text-[var(--mm-yellow-strong)]" aria-hidden />
-                          <Zap size={14} className="text-purple-400" aria-hidden />
-                        </div>
-                  })()}
                   <div className="text-right shrink-0">
                     <div className="text-xl font-black">
                       <span className={isWin ? 'text-[var(--mm-positive)]' : isDraw ? 'text-[var(--mm-neutral-strong)]' : 'text-[var(--mm-negative)]'}>{g.our_score}</span>
@@ -931,94 +674,6 @@ export default function BoxScoreClient() {
                       {/* 색이 무슨 뜻인지 밝히지 않으면 "38%인데 왜 초록?" 이 된다 */}
                       <p className="text-[11px] text-[var(--mm-muted)] mt-1 break-keep">{baselineCaption(CLUB_BASELINE)}</p>
 
-                      {/* ── AI MVP + X-FACTOR 선정 ── */}
-                      <div className="mt-4 pt-3 border-t border-[var(--mm-rule)]">
-                        {!mvpResults[g.id] ? (
-                          isEditMode ? (
-                            <button
-                              onClick={() => openHintModal(g.id)}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer ${
-                                g.our_score < g.opponent_score
-                                  ? 'bg-gradient-to-r from-orange-600/30 to-red-600/30 border-orange-700/40 text-orange-300 hover:from-orange-600/50 hover:to-red-600/50'
-                                  : 'bg-gradient-to-r from-[var(--mm-yellow)]/30 to-purple-600/30 border-[color:var(--mm-yellow)]/40 text-[var(--mm-yellow-strong)] hover:from-[var(--mm-yellow)]/50 hover:to-purple-600/50'
-                              }`}
-                            >
-                              <Sparkles size={16} aria-hidden />
-                              {g.our_score < g.opponent_score ? 'AI 투혼상 선정' : 'AI MVP + X-FACTOR 선정'}
-                            </button>
-                          ) : null
-                        ) : mvpResults[g.id] === 'loading' ? (
-                          <div className="flex items-center gap-2 text-sm text-[var(--mm-muted)] py-2">
-                            <span className="inline-block w-4 h-4 border-2 border-[var(--mm-ink)] border-t-transparent rounded-full animate-spin" />
-                            AI 분석 중...
-                          </div>
-                        ) : mvpResults[g.id] === 'error' ? (
-                          isEditMode ? (
-                            <div className="flex items-center gap-3">
-                              <p className="text-sm text-red-400">분석 실패</p>
-                              <button onClick={() => fetchMvp(g.id)} className="text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] underline cursor-pointer">재시도</button>
-                            </div>
-                          ) : null
-                        ) : (() => {
-                          const result = mvpResults[g.id] as MvpResult
-                          return (
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-xs text-[var(--mm-muted)] font-semibold uppercase tracking-wide">AI 경기 시상</p>
-                                {isEditMode && (
-                                  <button
-                                    onClick={() => resetMvp(g.id)}
-                                    className="text-xs text-[var(--mm-muted)] hover:text-orange-400 transition-colors cursor-pointer"
-                                    title="재선정 (기존 기록 삭제 후 다시 분석)"
-                                  >
-                                    ↺ 재선정
-                                  </button>
-                                )}
-                              </div>
-                              {result.warrior ? (
-                                /* 투혼상 카드 (패배 경기) */
-                                <div className="rounded-xl bg-orange-900/20 border border-orange-600/40 p-3.5">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Flame size={16} className="text-orange-400" aria-hidden />
-                                    <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">투혼상</span>
-                                  </div>
-                                  <p className="text-base font-bold text-[var(--mm-ink)] mb-1.5">{result.warrior.player_name}</p>
-                                  <p className="text-xs text-orange-200/70 leading-relaxed">{result.warrior.reason}</p>
-                                </div>
-                              ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {/* MVP 카드 */}
-                                  {result.mvp && (
-                                    <div className="rounded-xl bg-[var(--mm-yellow-soft)] border border-[color:var(--mm-yellow)]/40 p-3.5">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <Award size={16} className="text-[var(--mm-yellow-strong)]" aria-hidden />
-                                        <span className="text-xs font-bold text-[var(--mm-yellow-strong)] uppercase tracking-widest">MVP</span>
-                                      </div>
-                                      <p className="text-base font-bold text-[var(--mm-ink)] mb-1.5">{result.mvp.player_name}</p>
-                                      <p className="text-xs text-[var(--mm-yellow-strong)]/70 leading-relaxed">{result.mvp.reason}</p>
-                                    </div>
-                                  )}
-                                  {/* X-FACTOR 카드 */}
-                                  {result.x_factor ? (
-                                    <div className="rounded-xl bg-purple-900/20 border border-purple-600/40 p-3.5">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <Zap size={16} className="text-purple-400" aria-hidden />
-                                        <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">X-FACTOR</span>
-                                      </div>
-                                      <p className="text-base font-bold text-[var(--mm-ink)] mb-1.5">{result.x_factor.player_name}</p>
-                                      <p className="text-xs text-purple-200/70 leading-relaxed">{result.x_factor.reason}</p>
-                                    </div>
-                                  ) : result.mvp ? (
-                                    <div className="rounded-xl bg-[var(--mm-panel-alt)]/40 border border-[var(--mm-rule)]/40 p-3.5 flex items-center justify-center">
-                                      <p className="text-xs text-[var(--mm-muted)]">X-FACTOR 해당 없음</p>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </div>
                     </>
                   )}
                 </div>

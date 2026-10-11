@@ -278,31 +278,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     }
   }).filter(Boolean)
 
-  // ── AI 수상 횟수 ──────────────────────────────────────────────
-  const [mvpGamesRes, xfGamesRes, warriorGamesRes] = await Promise.all([
-    supabase
-      .from('games')
-      .select('id')
-      .in('tournament_id', teamTournamentIds)
-      .contains('ai_mvp', { mvp: { player_id: id } }),
-    supabase
-      .from('games')
-      .select('id')
-      .in('tournament_id', teamTournamentIds)
-      .contains('ai_mvp', { x_factor: { player_id: id } }),
-    supabase
-      .from('games')
-      .select('id')
-      .in('tournament_id', teamTournamentIds)
-      .contains('ai_mvp', { warrior: { player_id: id } }),
-  ])
-
-  const awards = {
-    mvp_count: (mvpGamesRes.data ?? []).length,
-    xfactor_count: (xfGamesRes.data ?? []).length,
-    warrior_count: (warriorGamesRes.data ?? []).length,
-  }
-
   // ── 쿼터별 커리어 득점 합산 ──────────────────────────────────
   // ot·gp 는 선수 상세의 「쿼터별 득점」 차트용(2026-10-05). gp = 이 선수가 뛴 경기 수(경기당 평균의 분모)
   const quarterPts = { q1: 0, q2: 0, q3: 0, q4: 0, ot: 0, gp: playerGames.length }
@@ -411,7 +386,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   return NextResponse.json({
     player, recentGames, shotBreakdown, totalShotAttempts, freeThrow,
-    tournamentStats, awards, quarterPts, astPaint, splits,
+    tournamentStats, quarterPts, astPaint, splits,
     shotZones, totalZonedAttempts, untaggedAttempts, courtZones,
   })
 }

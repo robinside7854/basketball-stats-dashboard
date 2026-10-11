@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
+import { Loader2, X, Crown, Pencil, Camera, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -14,7 +14,6 @@ import { CountUp } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { LEAGUE_BASELINE, tierAgainst, type ShootingBaseline } from '@/lib/stats/shootingBaseline'
-import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 
@@ -168,15 +167,6 @@ interface Props {
 }
 
 export default function PlayerQuickViewModal({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted }: Props) {
-  // AI 프로필 생성 버튼 노출 판단용 — isEditMode(= 어드민 role ∥ 편집 PIN)가 아니라
-  // isAdminSession(= 어드민 role 만)을 쓴다. CLAUDE.md "PIN 폐지 방향"에 따라 서버
-  // 가드(/photo/generate)가 PIN 을 더 이상 통과시키지 않으므로, PIN 으로 편집 모드에
-  // 들어온 사용자에게 버튼을 보여주면 눌러도 401 만 받는 죽은 버튼이 된다.
-  // ⚠ 이건 어디까지나 보조다 — 실제 인가는 서버의 isIdentifiedAdmin 이 매 요청 DB 를
-  //   재조회해 판정한다. 여기서 감추는 건 "누를 수 없는 버튼을 안 보이게" 하는 UI 처리일 뿐,
-  //   이 조건을 우회해도 서버에서 막힌다.
-  // Provider 밖에서 렌더되더라도 컨텍스트 기본값이 false 라 fail-closed 로 숨겨진다.
-  const { isAdminSession } = useLeagueEditMode()
 
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
   const [stats, setStats] = useState<SeasonStats | null>(null)
@@ -194,11 +184,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', position: '', birth_date: '' })
   const [savingEdit, setSavingEdit] = useState(false)
-  // 사진 업로드 · AI 프로필 생성 state
+  // 사진 업로드 state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
-  const [originalPhotoUrl, setOriginalPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [generatingAI, setGeneratingAI] = useState(false)
   // 뷰 모드에서 아바타 클릭 시 라이트박스 확대
   const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false)
 
@@ -216,7 +204,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     edgeGuardPx: 0,  // 헤더 영역이므로 엣지 가드 불필요
   })
   // 현재 photo 가 AI 생성물인지 판단 — 재생성 버튼 노출 조건
-  const isAIGenerated = Boolean(originalPhotoUrl && photoUrl && originalPhotoUrl !== photoUrl)
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   // 미니 탭 — 세로 스크롤 과다 해소 (2026-08-03). 탭 전환 시 본문 최상단으로 스크롤 복귀.
   const [activeTab, setActiveTab] = useState<PlayerTabKey>('season')
@@ -297,7 +284,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     if (player) {
       setEditForm({ name: player.name, position: player.position ?? '', birth_date: player.birth_date ?? '' })
       setPhotoUrl(player.photo_url ?? null)
-      setOriginalPhotoUrl(player.original_photo_url ?? null)
     }
   }, [player])
 
@@ -505,7 +491,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     ? <Loader2 size={20} className="animate-spin text-white" />
                     : <span className="text-white text-xs font-bold text-center px-2 inline-flex items-center gap-1"><Camera size={14} aria-hidden /> 사진</span>}
                   <input type="file" accept="image/*" className="hidden"
-                    disabled={uploadingPhoto || generatingAI}
+                    disabled={uploadingPhoto}
                     onChange={async e => {
                       const file = e.target.files?.[0]
                       if (!file || !leagueHeaders) return
@@ -525,7 +511,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           const d = await res.json()
                           setPhotoUrl(d.url)
                           // 새 원본 업로드 = original_photo_url 도 갱신됨 (서버에서)
-                          setOriginalPhotoUrl(d.url)
                           toast.success('사진 저장됨')
                           onSaved?.()
                         } else {
@@ -539,52 +524,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     }}
                   />
                 </label>
-              )}
-              {/* 어드민 세션 + 사진 있음 — 우하단 AI 프로필 생성/재생성 버튼.
-                  PIN 편집 모드에는 노출하지 않는다 (위 isAdminSession 주석 참조). */}
-              {isAdminSession && photoUrl && (
-                <button
-                  type="button"
-                  disabled={generatingAI || uploadingPhoto}
-                  onClick={async () => {
-                    const promptText = isAIGenerated
-                      ? 'AI 프로필을 재생성하시겠어요?\n\n원본 사진에서 새 결과를 만듭니다 (매번 조금씩 달라짐).\n\n예상 시간 10-20초 · 비용 ~$0.04'
-                      // 멀티테넌트 전환(온볼): 서버 프롬프트가 노란/검정 유니폼으로 고정 생성하므로(club 무관, 별도 이슈로 보고)
-                      // 다이얼로그 문구는 실제 동작과 일치하되 특정 클럽명은 노출하지 않음
-                      : 'AI 로 실사 프로필을 생성하시겠어요?\n\n노란/검정 유니폼을 입은 프로필 사진으로 변환됩니다.\n원본은 별도 보관되어 재생성 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04'
-                    if (!window.confirm(promptText)) return
-                    setGeneratingAI(true)
-                    try {
-                      // 인증은 어드민 세션 쿠키(mm_auth)로만 한다 — X-League-Pin 은 서버가
-                      // 더 이상 받지 않으므로 실어 보내지 않는다.
-                      const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo/generate`, {
-                        method: 'POST',
-                      })
-                      if (res.ok) {
-                        const d = await res.json()
-                        setPhotoUrl(d.url)
-                        toast.success(isAIGenerated ? '재생성 완료' : 'AI 프로필 생성 완료')
-                        onSaved?.()
-                      } else {
-                        const err = await res.json().catch(() => ({}))
-                        toast.error(`생성 실패: ${err.error ?? res.status}`)
-                      }
-                    } catch { toast.error('네트워크 오류') } finally { setGeneratingAI(false) }
-                  }}
-                  className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
-                  style={{
-                    background: 'var(--mm-yellow)',
-                    color: 'var(--mm-black)',
-                    border: '1px solid var(--mm-black)',
-                  }}
-                  title={isAIGenerated ? '동일 원본에서 AI 프로필 재생성' : 'Gemini 2.5 로 실사 프로필 생성'}
-                >
-                  {generatingAI
-                    ? <><Loader2 size={14} className="animate-spin" /> 생성중</>
-                    : isAIGenerated
-                      ? <><RefreshCw size={14} aria-hidden /> 재생성</>
-                      : <><Sparkles size={14} aria-hidden /> AI 프로필</>}
-                </button>
               )}
             </div>
 

@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { X, Camera, Award, Zap, Flame, Medal, Loader2 } from 'lucide-react'
+import { X, Camera, Medal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { LineChart, Line, BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
@@ -107,7 +107,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [expandedTournament, setExpandedTournament] = useState<string | null>(null)
   const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
-  const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number; warrior_count: number } | null>(null)
   const [quarterPts, setQuarterPts] = useState<{ q1: number; q2: number; q3: number; q4: number; ot?: number; gp?: number } | null>(null)
   const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
   const [mobileTab, setMobileTab] = useState<'careerHigh' | 'offense' | 'tournaments'>('careerHigh')
@@ -130,7 +129,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         setTotalShots(d.totalShotAttempts || 0)
         setFreeThrow(d.freeThrow || null)
         setTournamentStats(d.tournamentStats || [])
-        setAwards(d.awards ?? null)
         setQuarterPts(d.quarterPts ?? null)
         setSplits(d.splits ?? null)
         setCourtZones(d.courtZones ?? EMPTY_COURT_ZONES)
@@ -300,37 +298,6 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         </div>
                       </div>
                     </div>
-
-                    {/* AI 수상 배지 */}
-                    {awards && (awards.mvp_count > 0 || awards.xfactor_count > 0 || awards.warrior_count > 0) && (
-                      <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-t border-gray-800/60" style={{ background: '#070E1A' }}>
-                        <span className="text-xs text-gray-600 uppercase tracking-wider mr-1">Awards</span>
-                        {awards.mvp_count > 0 && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-900/30 border border-yellow-700/50 whitespace-nowrap shrink-0">
-                            <Award size={14} className="text-yellow-400" aria-hidden="true" />
-                            <span className="text-xs font-bold text-yellow-400">MVP</span>
-                            <span className="text-xs font-black text-yellow-300 ml-0.5">{awards.mvp_count}</span>
-                            <span className="text-xs text-yellow-600">회</span>
-                          </div>
-                        )}
-                        {awards.xfactor_count > 0 && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-900/30 border border-purple-700/50 whitespace-nowrap shrink-0">
-                            <Zap size={14} className="text-purple-400" aria-hidden="true" />
-                            <span className="text-xs font-bold text-purple-400">X-FACTOR</span>
-                            <span className="text-xs font-black text-purple-300 ml-0.5">{awards.xfactor_count}</span>
-                            <span className="text-xs text-purple-600">회</span>
-                          </div>
-                        )}
-                        {awards.warrior_count > 0 && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-900/30 border border-orange-700/50 whitespace-nowrap shrink-0">
-                            <Flame size={14} className="text-orange-400" aria-hidden="true" />
-                            <span className="text-xs font-bold text-orange-400">투혼상</span>
-                            <span className="text-xs font-black text-orange-300 ml-0.5">{awards.warrior_count}</span>
-                            <span className="text-xs text-orange-600">회</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                     {/* 주요 스탯 바 */}
                     {totalGP > 0 && (() => {
