@@ -11,7 +11,6 @@
 
 - **Framework**: Next.js 16 (App Router) + React 19 + TypeScript
 - **DB / Auth**: Supabase (PostgreSQL, RLS, Service Role)
-- **AI**: Anthropic SDK (`claude-sonnet-4-6`) — MVP / X-Factor 자동 선정
 - **UI**: Tailwind 4 + shadcn/ui 패턴 + lucide-react + sonner (toast)
 - **State**: Zustand
 - **Charts**: recharts
@@ -74,7 +73,7 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
 | 역할 | 누구 | 어디서 | 인증 |
 |------|------|--------|------|
 | **CEO** | 이 플랫폼(온볼)의 제작자·운영자 = 사용자 본인 | `/admin/*` (플랫폼 콘솔) | NextAuth (`src/lib/auth.ts`) |
-| **어드민** | **각 팀의 운영진** (동호회 총무 등) | 자기 팀 화면의 편집 모드 · `/league/.../settings` | `league_user_accounts.role='admin'` 또는 팀 PIN |
+| **어드민** | **각 팀의 운영진** (동호회 총무 등) | 자기 팀 화면의 편집 모드 · `/league/.../settings` | `league_user_accounts.role='admin'` (리그) · 팀 PIN (파란날개만) |
 
 - `/admin` 은 **CEO 전용**이다. 동호회 운영진이 들어올 자리가 아니다 — 화면 문구도 그렇게 읽히게 둔다.
 - 코드의 `league_user_accounts.role='admin'` 은 **팀 어드민**을 뜻한다. CEO 권한이 아니다.
@@ -82,18 +81,21 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
 
 ### 리그 편집 권한 (2026-08-04 전환)
 - **`canEditLeague(req, leagueId)`** (`src/lib/auth/leagueAdmin.ts`) — 모든 리그 mutation API의 필수 가드
-  - `league_user_accounts.role='admin'` 회원 세션(쿠키 `mm_auth`) **또는** 리그 PIN
-  - PIN은 **전환기 폴백** — 어드민 지정이 자리잡으면 제거 예정 (`verifyLeaguePin`은 내부 전용으로 격하)
+  - **CEO 세션 ∥ `league_user_accounts.role='admin'` 회원 세션(쿠키 `mm_auth`)** — 이 둘뿐이다.
+  - ⚠ **리그 편집 PIN 은 2026-10-11 폐지했다(운영진 결정).** `leaguePinAuth.ts`·`/api/auth/league-pin`·
+    `/edit-pin` 라우트·PIN 모달이 모두 없다. 되살리지 말 것 — 어드민이 없는 리그는 CEO 가 `/admin` 에서 지정한다.
 - ⚠ **role은 세션 토큰에 넣지 않는다** — 쿠키가 30일 만료라 권한 회수가 지연됨.
   매 요청 DB 재조회 (`guard.ts`가 status를 재확인하는 것과 동일 철학) → 강등 즉시 반영
 - 어드민 지정: 어드민 대시보드 `/admin/leagues/[leagueId]` → "어드민 권한 관리",
   또는 리그 `/settings` → 회원 승인 패널
-- 프론트: `useLeagueEditMode()`의 `isEditMode`(= 어드민 role ∥ PIN) / `isAdminSession`(어드민 role만)
+- 프론트: `useLeagueEditMode()`의 `isEditMode`(= 어드민 role ∥ CEO) / `isAdminSession` / `isCeo` / `openLogin()`
+  - CEO 여부는 `GET /api/auth/ceo-session` 으로 안다(화면 표시용 — 인가는 서버가 재확인)
   - `LeagueAuthProvider`가 `LeagueEditModeProvider`보다 **바깥**이어야 함 (role을 읽어야 하므로)
 
-### PIN 폐지 방향 (2026-08-10 확정) ⚠
+### PIN 폐지 (2026-08-10 방침 · 2026-10-11 리그 완료) ⚠
 
-**편집 PIN은 폐지한다. 모든 운영은 어드민 권한으로 한다.** 새 기능에 PIN 가드를 추가하지 말 것 —
+**리그(미라클 등)의 편집 PIN 은 2026-10-11 에 폐지됐다.** 남은 것은 파란날개(팀 트리)의 팀 PIN 뿐이다(아래).
+**모든 운영은 어드민 권한으로 한다.** 새 기능에 PIN 가드를 추가하지 말 것 —
 어드민 role 가드를 쓰고, PIN이 필요하면 기존 폴백에 얹지 말고 별도로 상의한다.
 
 이미 끊어낸 것(2026-08-10): PIN으로는 **어드민 지정·비밀번호 초기화·어드민 계정 변경**을 할 수 없다.
@@ -459,10 +461,11 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   ⚠ **기록·스탯은 `league_id` 로 완전히 갈린다** — 집계가 전부 경기를 league_id 로 먼저 거르므로
   대회 기록이 리그 순위·배지에 섞이지 않는다. 공유되는 건 이름·사진뿐이다.
 
-### AI 기능
-- `src/app/api/ai/mvp/route.ts` — DB 영구 저장 `games.ai_mvp jsonb`
-- MVP 공식: `pts × 1.5 + 효율득점보너스 - 비효율페널티`
-- X-FACTOR: 허슬 스탯 중심 (rebs, steals, blocks, charges)
+### 폐지된 기능 (2026-10-11 운영진 결정) — 되살리지 말 것
+- **배지 제도** — 자동 배지(퍼펙트·DD/TD·위닝샷)·리더 배지·특성 배지·배지 도감·배지 cron 전부. DB 표(`player_badges` 등)는 보존.
+  박스스코어의 DD/TD 칩은 배지가 아니라 표시라 남았다(`lib/stats/doubleDouble.ts`). 명경기 위닝샷 문구는 `classicGames.ts` 가 직접 판정.
+- **AI 기능** — 파란날개 AI MVP/X-FACTOR/투혼상, 리그 AI 프로필 사진. SDK 2종 제거. `games.ai_mvp` 값은 보존.
+- **참여신청(RSVP)**, 어드민 콘솔 「일정 자동 생성」·`manage` 페이지.
 
 ### "지금 분기" 판정 — 정본은 `src/lib/league/currentQuarter.ts` (2026-10-10)
 
