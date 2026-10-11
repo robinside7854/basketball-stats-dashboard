@@ -1428,7 +1428,7 @@ function LeagueTeamsPageInner() {
                         background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                         color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
                       }}>
-                      {m === 'avg' ? '평균' : '누적'}
+                      {m === 'avg' ? '하루 평균' : '누적'}
                     </button>
                   )
                 })}
@@ -1452,10 +1452,10 @@ function LeagueTeamsPageInner() {
 
           {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
           <StatsReadingGuide items={[
-            { term: 'PPG', text: '한 경기에 평균 몇 점을 넣는지예요. 높을수록 득점력이 좋아요.' },
-            { term: 'RPG', text: '한 경기에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
-            { term: 'APG', text: '한 경기에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
-            { term: 'TOPG', text: '한 경기에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
+            { term: 'PPG', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
+            { term: 'RPG', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
+            { term: 'APG', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
+            { term: 'TOPG', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
           ]} />
 
           {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).

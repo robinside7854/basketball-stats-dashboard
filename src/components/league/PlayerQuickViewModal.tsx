@@ -806,16 +806,17 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
                 ) : (
                   <>
-                    <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>시즌 스탯</p>
+                    <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>{selectedQuarterId ? '이 분기' : '전체 기간'} · 하루 평균</p>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
-                        // #5a: R/G 은 gp 랭킹 (신규 { rank, total } 형태)
-                        { label: 'R', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: detail?.rankings.gp?.rank ?? 0, total: detail?.rankings.gp?.total ?? 0 },
-                        { label: 'PPG', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: detail?.rankings.ppg ?? 0, total: detail?.rankings.total ?? 0 },
-                        { label: 'RPG', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: detail?.rankings.rpg ?? 0, total: detail?.rankings.total ?? 0 },
-                        { label: 'APG', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: detail?.rankings.apg ?? 0, total: detail?.rankings.total ?? 0 },
-                        { label: 'STL', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: detail?.rankings.spg ?? 0, total: detail?.rankings.total ?? 0 },
-                        { label: 'BLK', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: detail?.rankings.bpg ?? 0, total: detail?.rankings.total ?? 0 },
+                        // 값은 하루(경기한 날) 평균. 순위도 값과 같은 기간(선택한 분기)의 순위를 쓴다 —
+                        //   예전엔 분기를 골라도 순위만 전체 기간 기준이라 숫자와 순위가 어긋났다(2026-10-11).
+                        { label: '출전일', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: (activeDetail ?? detail)?.rankings.gp?.rank ?? 0, total: (activeDetail ?? detail)?.rankings.gp?.total ?? 0 },
+                        { label: '득점', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.ppg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
+                        { label: '리바', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.rpg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
+                        { label: '어시', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.apg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
+                        { label: '스틸', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.spg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
+                        { label: '블락', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.bpg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
                       ].map(({ label, value, decimals, rank, total }) => {
                         const isChamp = rank === 1
                         return (

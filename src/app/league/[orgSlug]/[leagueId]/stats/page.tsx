@@ -682,10 +682,10 @@ function LeagueStatsPageInner() {
 
           {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
           <StatsReadingGuide items={[
-            { term: 'PPG', text: '한 경기에 평균 몇 점을 넣는지예요. 높을수록 득점력이 좋아요.' },
-            { term: 'RPG', text: '한 경기에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
-            { term: 'APG', text: '한 경기에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
-            { term: 'TOPG', text: '한 경기에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
+            { term: 'PPG', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
+            { term: 'RPG', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
+            { term: 'APG', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
+            { term: 'TOPG', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
             { term: 'USG%', text: '팀 내 공격 점유율 · 본인이 뛴 경기에서 팀 야투+0.44×자유투+턴오버 중 본인 몫' },
           ]} />
 
@@ -708,7 +708,7 @@ function LeagueStatsPageInner() {
                         ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }
                         : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
                       }>
-                      {m === 'avg' ? '평균' : '누적'}
+                      {m === 'avg' ? '하루 평균' : '누적'}
                     </button>
                   ))}
                 </div>
@@ -718,7 +718,7 @@ function LeagueStatsPageInner() {
                   style={{ color: 'var(--mm-muted)' }}
                   title={`이 기간에 열린 ${roundBase}라운드의 30% 이상 참여 · 정규 참여자 자동 필터`}
                 >
-                  {showAll ? `전체 명단 · 자격 최소 ${autoMinGP}R` : `최소 ${autoMinGP}R 자격 · 전체 ${roundBase}R`}
+                  {showAll ? `전체 명단 · 자격 최소 ${autoMinGP}일 출전` : `최소 ${autoMinGP}일 출전 · 전체 ${roundBase}일`}
                 </span>
                 <button
                   type="button"

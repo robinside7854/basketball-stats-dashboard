@@ -20,7 +20,7 @@ export interface StatDef {
 export const GLOSSARY: Record<string, StatDef> = {
   // ── 기본 카운팅 ────────────────────────────
   GP:   { short: 'GP',   long: '경기 수',        description: '해당 시즌/분기 참가 경기 수' },
-  R:    { short: 'R',    long: '라운드 수',      description: '경기일 기준 참가 라운드 수 (하루 = 1R)' },
+  R:    { short: 'R',    long: '출전일 수',      description: '경기한 날 수 (하루 = 1R). 하루 평균 스탯의 분모' },
   G:    { short: 'G',    long: '게임 슬롯 수',   description: '개별 경기 슬롯 기준 참가 수 (하루 여러 경기면 별개)' },
   PTS:  { short: 'PTS',  long: '득점 (누적)',    description: '해당 기간 누적 득점' },
   // 교체가 기록된 경기가 11%뿐이라 대부분 "경기 끝까지 뛴 것으로 본" 값이다 —
@@ -39,14 +39,14 @@ export const GLOSSARY: Record<string, StatDef> = {
   FTM:  { short: 'FT',   long: '자유투 성공',    description: '자유투 성공' },
 
   // ── 평균 (Per Game) ──────────────────────
-  PPG:  { short: 'PPG',  long: '경기당 득점',    formula: 'PTS / GP', description: '경기당 평균 득점' },
-  RPG:  { short: 'RPG',  long: '경기당 리바운드', formula: 'REB / GP', description: '경기당 평균 리바운드' },
-  APG:  { short: 'APG',  long: '경기당 도움',    formula: 'AST / GP', description: '경기당 평균 어시스트' },
-  SPG:  { short: 'SPG',  long: '경기당 스틸',    formula: 'STL / GP', description: '경기당 평균 스틸' },
-  BPG:  { short: 'BPG',  long: '경기당 블락',    formula: 'BLK / GP', description: '경기당 평균 블락' },
-  TOPG: { short: 'TOPG', long: '경기당 턴오버',  formula: 'TOV / GP', description: '경기당 평균 턴오버 · 낮을수록 좋음', direction: 'low' },
-  ORpg: { short: 'ORpg', long: '경기당 공격리바', formula: 'OREB / GP', description: '경기당 평균 공격 리바운드' },
-  DRpg: { short: 'DRpg', long: '경기당 수비리바', formula: 'DREB / GP', description: '경기당 평균 수비 리바운드' },
+  PPG:  { short: 'PPG',  long: '하루 평균 득점',    formula: 'PTS / R', description: '경기한 날 하루에 평균 몇 점 넣는지 (하루 여러 경기를 합친 값)' },
+  RPG:  { short: 'RPG',  long: '하루 평균 리바운드', formula: 'REB / R', description: '경기한 날 하루 평균 리바운드' },
+  APG:  { short: 'APG',  long: '하루 평균 어시스트', formula: 'AST / R', description: '경기한 날 하루 평균 어시스트' },
+  SPG:  { short: 'SPG',  long: '하루 평균 스틸',    formula: 'STL / R', description: '경기한 날 하루 평균 스틸' },
+  BPG:  { short: 'BPG',  long: '하루 평균 블락',    formula: 'BLK / R', description: '경기한 날 하루 평균 블락' },
+  TOPG: { short: 'TOPG', long: '하루 평균 턴오버',  formula: 'TOV / R', description: '경기한 날 하루 평균 턴오버 · 낮을수록 좋음', direction: 'low' },
+  ORpg: { short: 'ORpg', long: '하루 평균 공격리바', formula: 'OREB / R', description: '경기한 날 하루 평균 공격 리바운드' },
+  DRpg: { short: 'DRpg', long: '하루 평균 수비리바', formula: 'DREB / R', description: '경기한 날 하루 평균 수비 리바운드' },
 
   // ── 슈팅 % ────────────────────────────
   'FG%': { short: 'FG%', long: '야투 성공률',    formula: 'FGM / FGA', description: '전체 야투 성공률 (2점+3점)' },

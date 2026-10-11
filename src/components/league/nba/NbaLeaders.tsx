@@ -35,22 +35,28 @@ interface CategoryDef {
   format: (v: number) => string
   subFormat?: (p: PlayerStat) => string       // FT% 처럼 값 아래 하위 표시 (17/20 등)
   minAttempts?: (p: PlayerStat) => boolean    // 백분율 카테고리 최소 시도 필터
+  get?: (p: PlayerStat) => number             // 저장 필드가 아닌 파생값(3점 하루 평균 등)
 }
+// 값은 전부 **하루(경기한 날) 평균**이다 — 스탯 집계가 라운드(하루) 단위로 통일돼 있다(2026-08-10).
+//   예전엔 'PPG(경기당)' 라고 써서 하루 3경기를 뛴 사람의 숫자가 경기당 숫자처럼 읽혔고,
+//   3점 성공만 누적 개수라 한 위젯 안에 단위가 섞여 있었다(2026-10-11 정리).
 const CATEGORIES: CategoryDef[] = [
-  { key: 'ppg',    term: 'PPG',  label: '득점 · PPG',       format: v => v.toFixed(1) },
-  { key: 'rpg',    term: 'RPG',  label: '리바운드 · RPG',   format: v => v.toFixed(1) },
-  { key: 'apg',    term: 'APG',  label: '어시스트 · APG',   format: v => v.toFixed(1) },
-  { key: 'fg3m',   term: '3PM',  label: '3점 성공 · 3PM',   format: v => String(Math.round(v)) },
-  { key: 'spg',    term: 'SPG',  label: '스틸 · SPG',       format: v => v.toFixed(1) },
-  { key: 'bpg',    term: 'BPG',  label: '블락 · BPG',       format: v => v.toFixed(1) },
-  { key: 'orp',    term: 'ORP',  label: '공격 리바 · ORP',  format: v => v.toFixed(1) },
+  { key: 'ppg',    term: '득점',     label: '득점',       format: v => v.toFixed(1) },
+  { key: 'rpg',    term: '리바',     label: '리바운드',   format: v => v.toFixed(1) },
+  { key: 'apg',    term: '어시',     label: '어시스트',   format: v => v.toFixed(1) },
+  { key: 'fg3m',   term: '3점',      label: '3점 성공',   format: v => v.toFixed(1), get: p => (p.gp > 0 ? p.fg3m / p.gp : 0) },
+  { key: 'spg',    term: '스틸',     label: '스틸',       format: v => v.toFixed(1) },
+  { key: 'bpg',    term: '블락',     label: '블락',       format: v => v.toFixed(1) },
+  { key: 'orp',    term: '공격리바', label: '공격 리바운드', format: v => v.toFixed(1) },
   {
-    key: 'ft_pct', term: 'FT%',  label: '자유투 · FT%',
+    key: 'ft_pct', term: '자유투',   label: '자유투 성공률',
     format: v => `${v.toFixed(1)}%`,
     subFormat: p => `${Math.round(p.ftm)}/${Math.round(p.fta)}`,
     minAttempts: p => p.fta >= 5,   // 최소 시도 5개 이상
   },
 ]
+
+const valueOf = (cat: CategoryDef, p: PlayerStat): number => (cat.get ? cat.get(p) : (p[cat.key] as number))
 
 type PlayerMeta = { id: string; name: string; photo_url: string | null }
 
@@ -105,7 +111,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
             리그 리더
           </h3>
           <span className="t-label break-keep">
-            {quarterLabel ? `${quarterLabel} · ` : ''}최소 {effectiveMinGP} R
+            {quarterLabel ? `${quarterLabel} · ` : ''}하루 평균 · 최소 {effectiveMinGP}일 출전
           </span>
         </header>
 
@@ -145,7 +151,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                 if (cat.minAttempts && !cat.minAttempts(p)) return false
                 return true
               })
-              const sorted = [...eligible].sort((a, b) => (b[cat.key] as number) - (a[cat.key] as number))
+              const sorted = [...eligible].sort((a, b) => valueOf(cat, b) - valueOf(cat, a))
               const top3 = sorted.slice(0, 3)
               if (top3.length === 0) return null
               // 모바일: 선택된 카테고리만 렌더 · sm+: 전체 그리드
@@ -271,7 +277,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                                 fontSize: isTop ? 'clamp(32px, 8vw, 42px)' : 'clamp(26px, 6.5vw, 34px)',
                               }}
                             >
-                              {cat.format(p[cat.key] as number)}
+                              {cat.format(valueOf(cat, p))}
                             </span>
                             {cat.subFormat && (
                               <span className="t-num text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
