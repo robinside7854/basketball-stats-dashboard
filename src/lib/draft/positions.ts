@@ -74,7 +74,3 @@ export function primaryPosition(raw: string | null | undefined): PositionGroup {
   return code ? CODE_TO_GROUP[code] : OTHER
 }
 
-/** 알 수 없는 코드가 들어와도 화면이 비지 않도록 항상 메타를 돌려준다. */
-export function positionMeta(raw: string | null | undefined): PositionMeta {
-  return POSITION_META[primaryPosition(raw)]
-}

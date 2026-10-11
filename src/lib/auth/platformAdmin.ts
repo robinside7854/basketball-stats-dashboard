@@ -378,20 +378,6 @@ export async function createPasswordReset(
   return { token, reset: data as PlatformPasswordReset }
 }
 
-export async function revokePasswordReset(id: string): Promise<void> {
-  const sb = createClient()
-  // PostgREST 는 아무 행도 못 바꿔도 204 를 준다(감사 04 ② 패턴) — 반환 행으로 판정한다.
-  const { data, error } = await sb
-    .from('platform_admin_password_resets')
-    .update({ revoked_at: new Date().toISOString() })
-    .eq('id', id)
-    .is('used_at', null)
-    .is('revoked_at', null)
-    .select('id')
-  if (error) throw new Error(`재설정 링크 회수 실패 — ${error.message}`)
-  if (!data || data.length === 0) throw new Error('이미 사용되었거나 회수된 링크입니다')
-}
-
 export type PasswordResetCheck =
   | { ok: true; maskedEmail: string; resetId: string; adminId: string }
   | { ok: false; reason: 'not_found' | 'expired' | 'used' | 'revoked' }

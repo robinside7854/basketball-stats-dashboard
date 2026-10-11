@@ -8,11 +8,6 @@ export const TEAM_LABELS: Record<TeamType, string> = {
   senior: '장년부',
 }
 
-export const TEAM_COLORS: Record<TeamType, { accent: string; border: string; text: string }> = {
-  youth:  { accent: 'blue',   border: 'border-blue-500/60',   text: 'text-blue-400'   },
-  senior: { accent: 'orange', border: 'border-orange-500/60', text: 'text-orange-400' },
-}
-
 const TeamContext = createContext<TeamType>('youth')
 
 export function useTeam() {

@@ -60,7 +60,7 @@ export default function AdminDraftPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Link href={`/admin/leagues/${leagueId}/manage`} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors p-1.5 rounded-md hover:bg-[var(--mm-panel-alt)] cursor-pointer min-h-11 min-w-11 flex items-center justify-center">
+        <Link href={`/admin/leagues/${leagueId}`} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors p-1.5 rounded-md hover:bg-[var(--mm-panel-alt)] cursor-pointer min-h-11 min-w-11 flex items-center justify-center">
           <ArrowLeft size={20} />
         </Link>
         <div>

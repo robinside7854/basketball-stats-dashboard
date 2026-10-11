@@ -58,15 +58,6 @@ export const LEAGUE_BASELINE: ShootingBaseline = {
 
 export type PctKind = 'fg' | 'fg3' | 'ft'
 
-/**
- * 2단계 색 판정 (박스스코어·시즌 스탯 표)
- * 기준선을 정한 적 없는 지표(eFG%·TS%)는 `kind` 를 넘기지 않으면 무채색이 된다 —
- * 근거 없는 값으로 칭찬/감점하지 않기 위해서다.
- */
-export function isAboveBaseline(val: number, kind: PctKind, base: ShootingBaseline): boolean {
-  return val >= base[kind]
-}
-
 export type Tier = 'high' | 'mid' | 'low' | 'none'
 
 /** '평균 대비 잘함/못함'으로 볼 여유 폭 (±15%) */

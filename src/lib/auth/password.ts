@@ -21,13 +21,3 @@ export function verifyPassword(pw: string, stored: string): boolean {
   return timingSafeEqual(a, b)
 }
 
-// birth_date (Date) → 'YYMMDD' 6자리
-export function birthDateToPassword(birthDate: string | Date | null): string | null {
-  if (!birthDate) return null
-  const d = typeof birthDate === 'string' ? new Date(birthDate + 'T00:00:00') : birthDate
-  if (Number.isNaN(d.getTime())) return null
-  const yy = String(d.getFullYear()).slice(-2)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yy}${mm}${dd}`
-}

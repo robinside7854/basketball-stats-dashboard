@@ -63,27 +63,6 @@ export function generateRotation(
 }
 
 /**
- * 1경기의 팀·점수로 승자/패자/쉰 팀을 가려낸다.
- * 무승부이거나 점수가 없으면 null — 그때는 자동 편성을 할 수 없다(어느 팀이 남는지 모른다).
- */
-export function resolveFirstGame(
-  homeTeamId: string | null,
-  awayTeamId: string | null,
-  homeScore: number | null,
-  awayScore: number | null,
-  allTeamIds: string[],
-): { winnerId: string; loserId: string; restingId: string } | null {
-  if (!homeTeamId || !awayTeamId) return null
-  if (homeScore == null || awayScore == null) return null
-  if (homeScore === awayScore) return null
-  const restingId = allTeamIds.find(id => id !== homeTeamId && id !== awayTeamId)
-  if (!restingId) return null
-  return homeScore > awayScore
-    ? { winnerId: homeTeamId, loserId: awayTeamId, restingId }
-    : { winnerId: awayTeamId, loserId: homeTeamId, restingId }
-}
-
-/**
  * 1·2경기 대진만으로 승자/패자/쉰 팀을 가려낸다 (2026-10-10).
  *
  * 승자 잔류 규칙상 2경기 = 1경기 승자 vs 1경기를 쉰 팀이다. 그러므로

@@ -347,9 +347,3 @@ export function tsPct(b: StatBlock): number {
   return denom > 0 ? +(b.pts / denom * 100).toFixed(1) : 0
 }
 
-export const CLUTCH_CONFIG = {
-  timeWindowSeconds: CLUTCH_TIME_WINDOW_SECONDS,
-  marginBeforeMax: CLUTCH_MARGIN_BEFORE_MAX,
-  marginAfterMax: CLUTCH_MARGIN_AFTER_MAX,
-  minGames: MIN_CLUTCH_GAMES,
-}

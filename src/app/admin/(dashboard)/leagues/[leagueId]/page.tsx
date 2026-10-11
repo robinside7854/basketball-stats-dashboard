@@ -9,7 +9,6 @@ import Link from 'next/link'
 import LeagueAdminRolePanel from '@/components/admin/LeagueAdminRolePanel'
 import type { League } from '@/types/league'
 import { siteUrl } from '@/lib/siteUrl'
-import { countLeagueScale } from '@/lib/admin/leagueScale'
 
 const DOW_LABELS: Record<string, string> = {
   monday: '월요일', tuesday: '화요일', wednesday: '수요일', thursday: '목요일',
@@ -131,18 +130,6 @@ export default function LeagueAdminSettingsPage() {
         </div>
       </div>
 
-      {/* 팀 구성·일정·결과 */}
-      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">팀 구성·일정·결과</h2>
-        <p className="text-xs text-[var(--mm-muted)]">참가 팀 구성, 선수 배정, 일정 생성, 경기 결과 입력을 관리합니다.</p>
-        <Link
-          href={`/admin/leagues/${leagueId}/manage`}
-          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] hover:border-[var(--mm-muted)] text-sm font-medium transition-colors cursor-pointer min-h-11"
-        >
-          관리 화면 열기
-        </Link>
-      </div>
-
       {/* 드래프트 관리 */}
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-[var(--mm-ink)] text-sm">드래프트</h2>
@@ -225,33 +212,6 @@ export default function LeagueAdminSettingsPage() {
         )}
       </div>
 
-      {/* 일정 생성 */}
-      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">일정 관리</h2>
-        <p className="text-xs text-[var(--mm-muted)]">리그 팀 구성 완료 후 일정을 자동 생성합니다. 기존 일정과 그 경기의 기록이 함께 삭제되므로, 기록이 있는 리그에서는 서버가 거절합니다.</p>
-        <Button
-          onClick={async () => {
-            // "일정이 삭제됩니다"는 운영자가 '설정 몇 줄'로 읽는다 — 실제로 사라질 경기 수를 세어 보여준다.
-            const scale = await countLeagueScale(leagueId)
-            const scope = scale
-              ? `현재 등록된 ${scale.games}경기와 그 경기의 기록(이벤트)이 모두 삭제되고 새 일정이 만들어집니다.`
-              : '삭제될 경기 수를 확인하지 못했습니다. 기존 일정과 그 경기의 기록(이벤트)이 모두 사라집니다.'
-            if (!confirm(`${scope}\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?`)) return
-            const res = await fetch(`/api/leagues/${leagueId}/schedule`, { method: 'POST' })
-            const d = await res.json().catch(() => ({}))
-            if (res.ok) {
-              toast.success(`일정 ${d.count}개 생성 완료`)
-            } else {
-              toast.error(d.error ?? '생성 실패')
-            }
-          }}
-          variant="outline"
-          // 이 버튼은 '생성'이라는 이름과 달리 기존 경기·기록을 먼저 지운다 — 파괴 액션 색으로 분리한다
-          className="w-full border-[var(--mm-negative)]/40 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 hover:bg-[var(--mm-negative-bg)] hover:text-[var(--mm-negative)] cursor-pointer min-h-11 focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]"
-        >
-          일정 자동 생성 (기존 기록 삭제)
-        </Button>
-      </div>
     </div>
   )
 }

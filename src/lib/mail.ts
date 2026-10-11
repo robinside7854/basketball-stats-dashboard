@@ -20,10 +20,6 @@ const DEFAULT_FROM = '온볼 <onboarding@resend.dev>'
 
 export type SendResult = { sent: boolean; reason?: string }
 
-export function isMailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY)
-}
-
 /** 접근 요청 등 운영 알림을 받을 주소. 미설정이면 ADMIN_EMAIL 로 떨어진다. */
 export function ownerNotifyAddress(): string | null {
   return process.env.OWNER_NOTIFY_EMAIL || process.env.ADMIN_EMAIL || null

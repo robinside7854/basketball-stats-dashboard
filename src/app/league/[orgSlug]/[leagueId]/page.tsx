@@ -11,8 +11,6 @@ import { computeMilestones } from '@/lib/stats/milestones'
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import { ChevronRight } from 'lucide-react'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
-// 참여신청(다음 경기 일정 카드) 은 2026-08-15 홈에서 내렸다 — 아래 렌더 지점 주석 참조.
-// import NextGameRsvp from '@/components/league/NextGameRsvp'
 import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 import PendingSignupsAlert from '@/components/league/PendingSignupsAlert'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
@@ -512,14 +510,6 @@ export default async function LeagueDetailPage({
         highlightsAvailable={isMember && highlightsAvailable}
       />
 
-      {/* 다음 경기 참여신청(일정 카드) — 2026-08-15 홈에서 숨김.
-          기능 자체가 2026-08-14 부터 공동 CEO 논의 대기(보류)인데 화면에는 계속 떠 있었다.
-          보류 중인 기능이 홈 최상단에 있으면 회원들이 여기다 응답을 쌓고, 나중에 설계가 바뀌면
-          그 데이터가 근거 없이 남는다. 그래서 노출만 끊는다 —
-          컴포넌트·API(`/api/leagues/[id]/rsvp`)·마이그레이션(099·100)은 그대로 두었으므로
-          재개할 때 아래 한 줄과 상단 import 주석만 되살리면 원상 복구된다.
-          원래 위치: 헤더(리그 이름) 바로 아래, 실질적인 첫 카드.
-      <NextGameRsvp leagueId={leagueId} /> */}
 
       {/* "내 기록" 진입 CTA — PersonalDashboard 전체는 이제 /me 전용(Important 1, 중복 제거).
           로그인 상태(서버에서 이미 판정된 approvedSession 재사용, 신규 쿼리 아님)일 때만 한 줄

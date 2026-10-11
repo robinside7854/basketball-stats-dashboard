@@ -26,13 +26,6 @@ export function normalizeTournamentName(raw: string | null | undefined): string 
     .toLowerCase()
 }
 
-/** 두 대회 이름이 같은 대회를 가리키는가(연도는 보지 않는다 — 호출부가 따로 대조한다). */
-export function isSameTournamentName(a: string | null | undefined, b: string | null | undefined): boolean {
-  const na = normalizeTournamentName(a)
-  if (!na) return false
-  return na === normalizeTournamentName(b)
-}
-
 type NamedTournament = { name: string; year: number | null }
 
 /**
