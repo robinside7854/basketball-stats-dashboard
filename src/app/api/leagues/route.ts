@@ -69,7 +69,6 @@ export async function POST(req: Request) {
     ? b.slug
     : (typeof b.org_slug === 'string' ? b.org_slug : '')
   const slug = rawSlug.trim().toLowerCase()
-  const editPin = b.edit_pin === undefined || b.edit_pin === null ? '' : String(b.edit_pin).trim()
   const teamId = typeof b.team_id === 'string' ? b.team_id.trim() : ''
   const mode = typeof b.mode === 'string' && b.mode.trim() ? b.mode.trim() : 'league'
   const startDate = typeof b.start_date === 'string' && b.start_date.trim()
@@ -80,7 +79,6 @@ export async function POST(req: Request) {
   if (!name) errors.push('리그 이름을 입력하세요')
   if (!slug) errors.push('URL 슬러그를 입력하세요')
   else if (!SLUG_RE.test(slug)) errors.push('URL 슬러그는 영문 소문자·숫자·하이픈만 쓸 수 있습니다')
-  if (!/^\d{4}$/.test(editPin)) errors.push('편집 PIN 은 숫자 4자리여야 합니다')
   if (!MODES.has(mode)) errors.push("mode 는 'league' 또는 'tournament' 여야 합니다")
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) errors.push('시작일은 YYYY-MM-DD 형식이어야 합니다')
   if (!teamId) {
@@ -125,7 +123,6 @@ export async function POST(req: Request) {
     org_slug: team.org_slug,   // 팀에서 파생 — 입력값을 쓰지 않는다(위 주석 참고)
     slug,
     name,
-    edit_pin: editPin,
     season_year: seasonYear,
     start_date: startDate,
     mode,

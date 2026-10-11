@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { siteHost } from '@/lib/siteUrl'
 
@@ -23,8 +23,6 @@ export default function NewLeaguePage() {
   const searchParams = useSearchParams()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
-  const [pin, setPin] = useState('')
-  const [pinVisible, setPinVisible] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const [teams, setTeams] = useState<AdminTeam[]>([])
@@ -61,23 +59,17 @@ export default function NewLeaguePage() {
     setSlug(auto || '')
   }
 
-  function randomPin() {
-    setPin(String(Math.floor(1000 + Math.random() * 9000)))
-    setPinVisible(true)
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!teamId) { toast.error('어느 팀의 리그인지 선택하세요'); return }
     if (!name.trim()) { toast.error('리그 이름을 입력하세요'); return }
     if (!slug.trim()) { toast.error('슬러그 URL을 입력하세요'); return }
-    if (!/^\d{4}$/.test(pin)) { toast.error('PIN은 숫자 4자리여야 합니다'); return }
 
     setLoading(true)
     const res = await fetch('/api/leagues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ team_id: teamId, name: name.trim(), slug: slug.trim(), edit_pin: pin }),
+      body: JSON.stringify({ team_id: teamId, name: name.trim(), slug: slug.trim() }),
     })
     setLoading(false)
 
@@ -165,38 +157,6 @@ export default function NewLeaguePage() {
               {siteHost()}/league/{slug}
             </p>
           )}
-        </div>
-
-        {/* PIN */}
-        <div className="space-y-1.5">
-          <label className="text-xs text-[var(--mm-muted)] font-medium">편집 PIN *</label>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                type={pinVisible ? 'text' : 'password'}
-                value={pin}
-                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="4자리 숫자"
-                maxLength={4}
-                className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] font-mono text-xl tracking-[0.5em] pr-10"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setPinVisible(v => !v)}
-              className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0"
-            >
-              {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-            <button
-              type="button"
-              onClick={randomPin}
-              className="px-3 py-2 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] text-xs transition-colors cursor-pointer shrink-0"
-            >
-              랜덤
-            </button>
-          </div>
-          <p className="text-xs text-[var(--mm-muted)]">리그 대시보드의 편집 모드 진입 시 사용합니다</p>
         </div>
 
         <Button type="submit" disabled={loading} className="w-full bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer mt-2">

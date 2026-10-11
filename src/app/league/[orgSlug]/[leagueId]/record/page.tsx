@@ -75,7 +75,7 @@ type IrregularPlayer = LeaguePlayer & { team_id: string | null; is_regular: bool
 export default function LeagueRecordPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
-  const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
+  const { isEditMode, leagueHeaders, openLogin } = useLeagueEditMode()
 
   if (!isEditMode) {
     return (
@@ -86,18 +86,18 @@ export default function LeagueRecordPage() {
             className="font-black text-2xl"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
-            편집 모드 전용
+            어드민 전용
           </h3>
           <p className="text-sm mt-1" style={{ color: 'var(--mm-muted)' }}>
-            경기 기록은 편집 모드에서만 가능합니다
+            경기 기록은 어드민 계정으로 로그인해야 할 수 있습니다
           </p>
         </div>
         <button
-          onClick={openPinModal}
+          onClick={openLogin}
           className="px-5 py-2 min-h-11 whitespace-nowrap text-sm font-bold cursor-pointer transition-colors"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
         >
-          PIN 입력
+          어드민 로그인
         </button>
       </div>
     )

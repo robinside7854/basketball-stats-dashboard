@@ -159,7 +159,7 @@ function GamesTab() {
 function ScheduleContent() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
-  const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
+  const { isEditMode, leagueHeaders, openLogin } = useLeagueEditMode()
   const searchParams = useSearchParams()
   // 구 /boxscore 목록에서 리다이렉트로 들어온 ?quarter= 보존 — 공유된 링크의 분기 필터가 이어지게 한다.
   const quarterFromRedirect = searchParams.get('quarter')
@@ -430,7 +430,7 @@ function ScheduleContent() {
           </button>
         ) : (
           <button
-            onClick={openPinModal}
+            onClick={openLogin}
             className="inline-flex items-center justify-center gap-1.5 text-sm font-medium whitespace-nowrap px-4 py-2 min-h-[44px] transition-colors cursor-pointer"
             style={{
               border: '1px solid var(--mm-rule)',
@@ -438,7 +438,7 @@ function ScheduleContent() {
               background: 'var(--mm-panel)',
             }}
           >
-            <Lock size={14} />편집 모드
+            <Lock size={14} />어드민 로그인
           </button>
         )}
       </div>

@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
-import { Lock, Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon } from 'lucide-react'
+import { Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
@@ -55,7 +55,7 @@ function ThemeToggleButton() {
 
 function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; leagueName: string | null; onOpenLogin: () => void; showDraft: boolean }) {
   const pathname = usePathname()
-  const { isEditMode, isAdminSession, openPinModal, exitEditMode } = useLeagueEditMode()
+  const { isEditMode, isAdminSession } = useLeagueEditMode()
   // 대기 중인 가입 신청 건수 — 톱니바퀴 배지용. 홈 카드와 같은 훅을 보므로 요청은 한 번만 나가고
   // 승인 직후 둘이 함께 사라진다. 어드민이 아니면 훅이 아예 요청하지 않는다.
   const pendingCount = usePendingSignups(leagueId).length
@@ -220,24 +220,15 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                 {signupPending && <span aria-hidden className="sm:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[color:var(--color-hoop-orange-500)]" />}
               </button>
             )}
-            {isAdminSession ? (
-              /* 어드민 role 로 켜진 편집 모드는 계정 권한이라 클라이언트에서 끌 수 없다 →
-                 해제 버튼 대신 상태 표시. (PIN 폴백일 때만 아래 '편집 중' 버튼으로 해제) */
+            {/* 편집 권한 표시 — 2026-10-11 편집 PIN 폐지로 「편집」 잠금 버튼이 사라졌다.
+                편집은 어드민 회원 로그인 또는 CEO 로그인으로만 켜지고, 계정 권한이라 화면에서 끌 수 없다.
+                권한이 없는 사람에게는 아무것도 보이지 않는다(누를 수 있는 게 없으므로). */}
+            {isEditMode && (
               <span
-                title="어드민 권한으로 편집 모드가 켜져 있습니다"
+                title={isAdminSession ? '어드민 권한으로 편집할 수 있습니다' : 'CEO(온볼 운영자) 권한으로 편집할 수 있습니다'}
                 className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] border border-[color:var(--mm-yellow)] font-semibold">
-                <Unlock size={16} /><span className="hidden sm:inline">어드민</span>
+                <Unlock size={16} /><span className="hidden sm:inline">{isAdminSession ? '어드민' : 'CEO'}</span>
               </span>
-            ) : isEditMode ? (
-              <button onClick={exitEditMode}
-                className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] border border-[color:var(--mm-yellow)] hover:brightness-95 font-semibold transition-colors cursor-pointer btn-press">
-                <Unlock size={16} /><span className="hidden sm:inline">편집 중</span>
-              </button>
-            ) : (
-              <button onClick={openPinModal} aria-label="편집 모드 켜기"
-                className="flex items-center justify-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] min-w-[44px] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer btn-press">
-                <Lock size={16} /><span className="hidden sm:inline">편집</span>
-              </button>
             )}
             {/* 어드민 설정 진입점 — 편집/어드민 칩 옆 아이콘 버튼. 2026-08-15 부터 설정으로 가는
                 입구는 **여기 하나뿐**이다(데스크톱 상단 '설정' 탭 삭제 — 같은 곳으로 가는 중복이었고

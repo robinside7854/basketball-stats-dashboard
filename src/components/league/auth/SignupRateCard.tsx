@@ -27,24 +27,19 @@ interface SignupRate {
 interface Props {
   leagueId: string
   leagueHeaders: Record<string, string>
-  /** 편집 모드일 때만 명단 요청 (PIN 헤더 유효) */
+  /** 편집 권한(어드민·CEO 쿠키)이 바뀌면 다시 받는다 — 서버가 권한자에게만 명단을 싣는다 */
   isEditMode: boolean
 }
 
-export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: Props) {
+export default function SignupRateCard({ leagueId, isEditMode }: Props) {
   const [data, setData] = useState<SignupRate | null>(null)
   const [loading, setLoading] = useState(true)
   const [showNames, setShowNames] = useState(false)
-
-  // leagueHeaders 는 컨텍스트에서 매 렌더 새 객체로 만들어짐 → PIN 문자열만 의존성으로 뽑아
-  // 불필요한 재요청(PIN 모달 입력 등 부모 리렌더)을 막는다.
-  const pin = leagueHeaders['X-League-Pin'] ?? ''
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/auth/signup-rate`, {
-        headers: isEditMode && pin ? { 'X-League-Pin': pin } : undefined,
         cache: 'no-store',
       })
       if (!r.ok) { setData(null); return }
@@ -52,7 +47,8 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
     } catch {
       setData(null)   // 집계 실패는 조용히 카드만 숨김 — 로스터 본체는 영향 없음
     } finally { setLoading(false) }
-  }, [leagueId, pin, isEditMode])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isEditMode 는 재요청 트리거
+  }, [leagueId, isEditMode])
 
   useEffect(() => { load() }, [load])
 

@@ -2,9 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, ExternalLink, Eye, EyeOff, RefreshCw, KeyRound } from 'lucide-react'
+import { ArrowLeft, Loader2, ExternalLink, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 import LeagueAdminRolePanel from '@/components/admin/LeagueAdminRolePanel'
 import type { League } from '@/types/league'
@@ -29,35 +28,17 @@ export default function LeagueAdminSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState('')
-  const [pin, setPin] = useState('')
-  const [pinVisible, setPinVisible] = useState(false)
-  const [pinLoadFailed, setPinLoadFailed] = useState(false)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
-      // 리그 조회와 PIN 조회를 분리한다 — 공개 GET /api/leagues/[id] 에는 더 이상
-      // edit_pin 이 실리지 않는다(전용 GET .../edit-pin). CEO 는 NextAuth 세션(쿠키)이
-      // 같은 오리진 fetch 에 자동 동봉되므로 별도 헤더 없이 통과한다.
-      const [res, pinRes] = await Promise.all([
-        fetch(`/api/leagues/${leagueId}`),
-        fetch(`/api/leagues/${leagueId}/edit-pin`),
-      ])
+      const res = await fetch(`/api/leagues/${leagueId}`)
       if (res.ok) {
         const data: League = await res.json()
         setLeague(data)
         setStatus(data.status)
       } else {
         router.push('/admin/leagues')
-      }
-      if (pinRes.ok) {
-        const pinData: { edit_pin: string } = await pinRes.json()
-        setPin(pinData.edit_pin ?? '')
-        setPinLoadFailed(false)
-      } else {
-        // 실패 시 '0000' 같은 가짜 기본값을 넣지 않는다 — 그대로 저장하면 PIN 이 진짜 0000 으로 바뀐다.
-        setPin('')
-        setPinLoadFailed(true)
       }
       setLoading(false)
     }
@@ -74,25 +55,6 @@ export default function LeagueAdminSettingsPage() {
     setSaving(false)
     if (res.ok) toast.success('상태 저장 완료')
     else toast.error('저장 실패')
-  }
-
-  async function savePin() {
-    if (!/^\d{4}$/.test(pin)) { toast.error('PIN은 숫자 4자리여야 합니다'); return }
-    setSaving(true)
-    const res = await fetch(`/api/leagues/${leagueId}/edit-pin`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ edit_pin: pin }),
-    })
-    setSaving(false)
-    if (res.ok) { toast.success('PIN 저장 완료'); setPinLoadFailed(false) }
-    else toast.error('저장 실패')
-  }
-
-  function reissuePin() {
-    if (!confirm('PIN을 재발급하면 기존 PIN은 즉시 무효화됩니다.')) return
-    setPin(String(Math.floor(1000 + Math.random() * 9000)))
-    setPinVisible(true)
   }
 
   if (loading) return <div className="flex justify-center items-center h-40"><Loader2 size={24} className="animate-spin text-[var(--mm-muted)]" /></div>
@@ -166,51 +128,8 @@ export default function LeagueAdminSettingsPage() {
         </Button>
       </div>
 
-      {/* 어드민 권한 관리 — 편집 권한을 PIN 에서 로그인 회원으로 이관 */}
+      {/* 어드민 권한 관리 — 편집은 어드민 회원(또는 CEO)만 한다 (편집 PIN 은 2026-10-11 폐지) */}
       <LeagueAdminRolePanel leagueId={leagueId} />
-
-      {/* PIN 관리 */}
-      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">편집 PIN 관리</h2>
-        <p className="text-xs text-[var(--mm-muted)]">
-          리그 대시보드에서 편집 모드 진입 시 사용하는 4자리 PIN입니다.
-          위 어드민 권한으로 대체 중이며, 어드민 지정이 자리잡으면 제거될 예정입니다.
-        </p>
-        {/* 375px 에서 입력 + 버튼 3개가 한 줄에 안 들어간다 — 줄바꿈 허용 */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-0 basis-40">
-            <Input
-              type={pinVisible ? 'text' : 'password'}
-              value={pin}
-              onChange={e => setPin(e.target.value.slice(0, 4))}
-              maxLength={4}
-              placeholder={pinLoadFailed ? '조회 실패 — 새 PIN 입력' : '4자리 PIN'}
-              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] font-mono text-xl tracking-[0.5em]"
-            />
-          </div>
-          <button
-            onClick={() => setPinVisible(v => !v)}
-            aria-label={pinVisible ? 'PIN 숨기기' : 'PIN 보기'}
-            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0 min-h-11 min-w-11 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]"
-          >
-            {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-          <button
-            onClick={reissuePin}
-            title="랜덤 재발급"
-            aria-label="랜덤 PIN 재발급"
-            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0 min-h-11 min-w-11 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]"
-          >
-            <RefreshCw size={14} />
-          </button>
-          <Button onClick={savePin} disabled={saving} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer shrink-0 min-h-11">
-            저장
-          </Button>
-        </div>
-        {pinLoadFailed && (
-          <p className="text-xs text-[var(--mm-negative)]">현재 PIN을 불러오지 못했습니다. 확인이 필요하면 다시 시도하거나, 새 PIN을 입력해 재발급하세요.</p>
-        )}
-      </div>
 
     </div>
   )

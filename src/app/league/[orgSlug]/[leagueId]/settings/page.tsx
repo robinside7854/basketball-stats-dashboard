@@ -6,7 +6,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight, Globe, MapPin, Users } from 'lucide-react'
+import { Loader2, Lock, Youtube, Calendar, Instagram, ChevronRight, Globe, MapPin, Users } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import type { League } from '@/types/league'
@@ -32,10 +32,10 @@ export default function LeagueSettingsPage() {
   const pathname = usePathname()
   // 미들웨어 slug→UUID rewrite 때문에 params.leagueId 는 UUID → 링크는 브라우저 경로(slug) 기준으로.
   const socialHref = `${pathname.replace(/\/settings.*$/, '')}/social`
-  const { isEditMode, isInitialized, leagueHeaders, openPinModal, updateStoredPin } = useLeagueEditMode()
+  const { isEditMode, isInitialized, leagueHeaders, openLogin } = useLeagueEditMode()
 
   // 서버 가드 대체 — 편집 모드 확인 후 미인증이면 리그 홈으로 리다이렉트.
-  //   PIN 이 sessionStorage 기반이라 middleware 로는 검증 불가 → 클라이언트 마운트 시점 가드.
+  //   로그인 판정이 클라이언트 컨텍스트에 있어 middleware 로는 검증 불가 → 클라이언트 마운트 시점 가드.
   //   isInitialized=true 이후에만 판단 (초기 렌더 flash 방지).
   useEffect(() => {
     if (isInitialized && !isEditMode) {
@@ -52,9 +52,6 @@ export default function LeagueSettingsPage() {
   const [startDate, setStartDate] = useState('')
   const [seasonType, setSeasonType] = useState<'annual' | 'quarterly'>('annual')
   const [gamesPerRound, setGamesPerRound] = useState(1)
-  const [pin, setPin] = useState('')
-  const [pinVisible, setPinVisible] = useState(false)
-  const [pinLoadFailed, setPinLoadFailed] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
 
   // 공개/비공개 — 값은 팀에 저장되어 있고(teams.is_public), 이 리그의 소속 팀 값을 그대로 쓴다.
@@ -269,28 +266,6 @@ export default function LeagueSettingsPage() {
     loadQuarterTeamNames()
   }, [leagueId, isInitialized, isEditMode])
 
-  // 현재 PIN 은 전용 엔드포인트(GET .../edit-pin)로만 조회한다 — 공개 GET /api/leagues/[id] 에는
-  // 더 이상 edit_pin 이 실리지 않는다. leagueHeaders 가 정해지는 시점(어드민 role 또는 PIN 확인 완료)
-  // 이후에 호출해야 하므로 isInitialized && isEditMode 를 조건으로 건다.
-  async function loadPin() {
-    const res = await fetch(`/api/leagues/${leagueId}/edit-pin`, { headers: leagueHeaders })
-    if (res.ok) {
-      const data: { edit_pin: string } = await res.json()
-      setPin(data.edit_pin ?? '')
-      setPinLoadFailed(false)
-    } else {
-      // 실패 시 가짜 기본값('0000')을 넣지 않는다 — 사용자가 그걸 진짜 PIN으로 착각해
-      // 그대로 저장하면 PIN이 실제로 0000으로 바뀐다. 대신 입력란을 비우고 안내를 띄운다.
-      setPin('')
-      setPinLoadFailed(true)
-    }
-  }
-
-  useEffect(() => {
-    if (isInitialized && isEditMode) loadPin()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitialized, isEditMode, leagueId])
-
   async function save(field: string, body: object) {
     setSaving(field)
     const res = await fetch(`/api/leagues/${leagueId}`, {
@@ -303,25 +278,6 @@ export default function LeagueSettingsPage() {
     else toast.error('저장 실패')
   }
 
-  async function savePin() {
-    if (!/^\d{4}$/.test(pin)) { toast.error('PIN은 숫자 4자리여야 합니다'); return }
-    setSaving('pin')
-    const res = await fetch(`/api/leagues/${leagueId}/edit-pin`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...leagueHeaders },
-      body: JSON.stringify({ edit_pin: pin }),
-    })
-    setSaving(null)
-    if (res.ok) {
-      // 세션의 PIN 도 함께 갱신 — 안 하면 leagueHeaders 가 계속 옛 PIN 을 보내
-      // 이후 이 세션의 모든 편집 요청이 403 으로 조용히 실패한다.
-      updateStoredPin(pin)
-      toast.success('PIN 변경 완료 — 이 세션에는 즉시 적용됩니다')
-      setPinLoadFailed(false)
-    }
-    else toast.error('저장 실패')
-  }
-
   if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
   if (!league) return null
 
@@ -330,14 +286,14 @@ export default function LeagueSettingsPage() {
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 text-center">
         <Lock size={24} className="text-[color:var(--mm-muted)]" />
         <div>
-          <div className="font-bold text-xl text-[color:var(--mm-ink)]">편집 모드에서 설정 가능합니다</div>
-          <p className="text-[color:var(--mm-muted)] text-sm mt-1">PIN을 입력해 편집 모드를 활성화하세요</p>
+          <div className="font-bold text-xl text-[color:var(--mm-ink)]">어드민만 설정할 수 있습니다</div>
+          <p className="text-[color:var(--mm-muted)] text-sm mt-1">어드민 계정으로 로그인하세요</p>
         </div>
         <button
-          onClick={openPinModal}
+          onClick={openLogin}
           className="px-6 py-2.5 min-h-11 whitespace-nowrap bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors hover:brightness-95"
         >
-          PIN 입력
+          어드민 로그인
         </button>
       </div>
     )
@@ -686,49 +642,6 @@ export default function LeagueSettingsPage() {
         {league.plus_one_age && (
           <p className="text-xs text-[color:var(--mm-muted)]">현재 기준: <span className="text-[color:var(--mm-yellow-strong)] font-mono">만 {league.plus_one_age}세</span> 이상</p>
         )}
-      </div>
-
-      {/* PIN 변경 */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-        <h3 className="font-black text-lg text-[color:var(--mm-ink)]">편집 PIN 변경</h3>
-        <div className="flex items-center gap-2">
-          <Input
-            type={pinVisible ? 'text' : 'password'}
-            inputMode="numeric"
-            pattern="[0-9]*"
-            autoComplete="off"
-            value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            maxLength={4}
-            placeholder={pinLoadFailed ? '조회 실패 — 새 PIN 입력' : '4자리 PIN'}
-            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] font-mono text-xl flex-1 rounded-none"
-          />
-          <button
-            onClick={() => setPinVisible(v => !v)}
-            className="p-2.5 border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] cursor-pointer shrink-0 transition-colors"
-          >
-            {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-          <button
-            onClick={() => { setPin(String(Math.floor(1000 + Math.random() * 9000))); setPinVisible(true) }}
-            className="p-2.5 border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] cursor-pointer shrink-0 transition-colors"
-            title="랜덤 재발급"
-          >
-            <RefreshCw size={14} />
-          </button>
-          <Button
-            onClick={savePin}
-            disabled={saving === 'pin'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none"
-            size="sm"
-          >
-            저장
-          </Button>
-        </div>
-        {pinLoadFailed && (
-          <p className="text-xs text-[color:var(--mm-negative)]">현재 PIN을 불러오지 못했습니다. 확인이 필요하면 다시 시도하거나, 새 PIN을 입력해 재발급하세요.</p>
-        )}
-        <p className="text-xs text-[color:var(--mm-muted)]">PIN 변경 시 이 세션에는 즉시 적용됩니다. 어드민 로그인 세션은 PIN을 쓰지 않아 영향 없고, 다른 기기의 PIN 세션은 새 PIN을 다시 입력해야 합니다.</p>
       </div>
 
       {/* 분기별 팀 이름 —

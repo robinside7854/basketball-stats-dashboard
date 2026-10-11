@@ -1,8 +1,8 @@
 // 리그 편집 권한 게이트 (2026-08-04)
 //   정책: 로그인 회원 중 role='admin' 인 계정 = 기존 편집 PIN 과 동일한 편집 권한.
 //
-//   전환기 동안 PIN(X-League-Pin)도 계속 통과시킨다 (OR 게이트).
-//   어드민 지정·실사용 검증이 끝나면 canEditLeague 에서 PIN 분기만 걷어내면 된다.
+//   편집 PIN(X-League-Pin) 폴백은 2026-10-11 폐지했다(운영진 결정). 이제 편집은
+//   CEO 세션 ∥ 어드민 회원 세션 둘뿐이다 — 누가 바꿨는지 감사 로그에 사람으로 남는다.
 //
 //   ⚠ role 을 세션 토큰(mm_auth)에서 읽지 않고 매 요청 DB 를 재조회한다.
 //      쿠키가 30일 만료라 토큰에 실으면 권한 회수가 최대 30일 지연되기 때문.
@@ -11,7 +11,6 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { requireCeoSession } from './ceo'
 import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 import { sessionMatchesLeague } from './teamMatch'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
@@ -28,8 +27,7 @@ export async function getLeagueAdminSession(leagueId: string): Promise<SessionPa
   //   같은 팀의 다른 경기묶음(대회)으로 넘어온 어드민이 여기서 막힌다.
   const teamId = await resolveTeamId(leagueId)
 
-  // 마이그레이션 072 실행 전이면 role 컬럼이 없어 이 쿼리가 실패한다 → acc=null →
-  // 어드민 불가로 "닫히고" canEditLeague 는 PIN 폴백으로 넘어간다 (fail-closed, 안전).
+  // 조회가 실패하면 acc=null → 어드민 불가로 닫힌다 (fail-closed).
   const sb = createClient()
   const { data: acc } = await sb
     .from('league_user_accounts')
@@ -45,9 +43,8 @@ export async function isLeagueAdmin(leagueId: string): Promise<boolean> {
   return (await getLeagueAdminSession(leagueId)) !== null
 }
 
-// mutation API 라우트용 편집 권한 가드 —
-//   CEO/공동관리자 세션 ∥ 어드민 회원 세션 ∥ (전환기) 리그 편집 PIN.
-// verifyLeaguePin 과 시그니처가 같아 기존 호출부를 그대로 치환할 수 있다.
+// mutation API 라우트용 편집 권한 가드 — CEO/공동관리자 세션 ∥ 어드민 회원 세션.
+// req 는 예전 PIN 헤더를 읽던 시절의 시그니처를 유지하려고 남겨 둔다(호출부 40여 곳).
 //
 // ⚠ CEO 분기를 맨 앞에 두는 이유(2026-08-15): 이게 없으면 운영 콘솔(/admin)에 CEO 로
 //   로그인해도 리그 관리 탭이 전부 401 이라, CEO 가 실제로 일하려면 팀 대시보드로 가서
@@ -59,6 +56,6 @@ export async function isLeagueAdmin(leagueId: string): Promise<boolean> {
 //   여기서는 세션이 있을 때만 true 이고, 없으면 아래 기존 경로로 그대로 내려간다.
 export async function canEditLeague(req: Request, leagueId: string): Promise<boolean> {
   if (await requireCeoSession()) return true
-  if (await isLeagueAdmin(leagueId)) return true
-  return verifyLeaguePin(req, leagueId)
+  void req
+  return isLeagueAdmin(leagueId)
 }

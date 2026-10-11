@@ -498,14 +498,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       setUploadingPhoto(true)
                       try {
                         // Vercel 서버리스 413 방지 — 800x600 리사이즈 + JPEG 재인코딩
-                        // AI 생성용 원본 품질도 이 정도로 충분 (Gemini 는 저해상도로도 잘 인식)
                         const compressed = await compressImage(file, 600, 800, 0.82)
                         const fd = new FormData()
                         fd.append('file', compressed)
-                        const photoHeaders: Record<string, string> = {}
-                        if (leagueHeaders['X-League-Pin']) photoHeaders['X-League-Pin'] = leagueHeaders['X-League-Pin']
                         const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo`, {
-                          method: 'POST', headers: photoHeaders, body: fd,
+                          method: 'POST', body: fd,
                         })
                         if (res.ok) {
                           const d = await res.json()

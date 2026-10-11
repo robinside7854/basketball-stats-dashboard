@@ -19,7 +19,7 @@ export async function POST(
   try {
     const { leagueId } = await params
     if (!await canEditLeague(req, leagueId)) {
-      return NextResponse.json({ error: 'Unauthorized — X-League-Pin 헤더 확인' }, { status: 401 })
+      return NextResponse.json({ error: '어드민 로그인이 필요합니다' }, { status: 401 })
     }
 
     const apiKey = process.env.YOUTUBE_API_KEY

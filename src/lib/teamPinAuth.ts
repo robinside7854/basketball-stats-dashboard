@@ -6,7 +6,12 @@ import {
   recordFailedAttempt,
 } from '@/lib/auth/attemptThrottle'
 import { secretsMatch } from '@/lib/auth/constantTime'
-import type { PinVerifyResult } from '@/lib/leaguePinAuth'
+
+// 팀 PIN 검증 결과 (리그 PIN 은 2026-10-11 폐지 — 이 타입은 팀 PIN 전용으로 남았다)
+export type PinVerifyResult =
+  | { status: 'ok' }
+  | { status: 'invalid' }
+  | { status: 'locked'; retryAfterSec: number }
 
 // 2026-08-15 보안 수정 — 감사 02 항목(리그 PIN 과 같은 구멍이 팀 PIN 에도 그대로 있었다).
 //   1) (팀, IP) 조합 시도 제한. 잠금 중엔 정답이라도 통과시키지 않는다 — 정답만 통과시키면

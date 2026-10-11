@@ -28,7 +28,6 @@ import { createClient } from '@/lib/supabase/admin'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { isBootstrapEmail } from '@/lib/auth/platformAdmin'
 import { getLeagueAdminSession } from '@/lib/auth/leagueAdmin'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 import { lookupDraftCode } from '@/lib/leagueDraftAuth'
 
 const TABLE = 'admin_audit_log'
@@ -166,17 +165,6 @@ function requestPath(req: Request): string | null {
   }
 }
 
-/** 표시용 리그 이름. 실패해도 로깅을 막지 않으므로 조용히 null. */
-async function leagueName(leagueId: string): Promise<string | null> {
-  try {
-    const sb = createClient()
-    const { data } = await sb.from('leagues').select('name').eq('id', leagueId).maybeSingle()
-    return (data?.name as string) ?? null
-  } catch {
-    return null
-  }
-}
-
 /**
  * 이 요청을 만든 행위자를 확정한다.
  *
@@ -216,25 +204,6 @@ export async function resolveAuditActor(
           kind: 'league_admin',
           id: admin.uid,
           label: `팀 어드민 ${admin.loginId}`,
-        }
-      }
-    } catch {
-      /* 계속 */
-    }
-  }
-
-  // 3) 리그 편집 PIN — 여기가 기존에 NULL 로 사라지던 자리다.
-  //    PIN 은 단톡방을 떠도는 4자리 공유 비밀이라 개인을 특정할 수 없다. 그래도
-  //    "리그 X 의 PIN 으로 들어왔다" 는 사실은 남길 수 있고, 남겨야 한다.
-  //    ⚠ PIN 값 자체는 저장하지 않는다.
-  if (leagueId && req.headers.get('X-League-Pin')) {
-    try {
-      if (await verifyLeaguePin(req, leagueId)) {
-        const name = await leagueName(leagueId)
-        return {
-          kind: 'league_pin',
-          id: `league:${leagueId}`,
-          label: `리그 PIN (${name ?? leagueId})`,
         }
       }
     } catch {

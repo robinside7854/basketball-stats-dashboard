@@ -110,7 +110,7 @@ function fmtPeriod(start: string | null, end: string | null): string {
 }
 
 export default function TournamentSchedule({ leagueId, base }: { leagueId: string; base: string }) {
-  const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
+  const { isEditMode, leagueHeaders, openLogin } = useLeagueEditMode()
   const [quarters, setQuarters] = useState<ApiQuarter[] | null>(null)
   const [games, setGames] = useState<ApiGame[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -244,12 +244,12 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
           ) : (
             <button
               type="button"
-              onClick={openPinModal}
+              onClick={openLogin}
               className="inline-flex items-center gap-1.5 min-h-[44px] px-4 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95"
               style={{ background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }}
             >
               <Lock size={14} aria-hidden />
-              편집 모드
+              어드민 로그인
             </button>
           )}
         </div>
