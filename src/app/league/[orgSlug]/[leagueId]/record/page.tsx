@@ -160,7 +160,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
   const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number; complete: number; started: number; unused: number; pending: number }>>({})
   const [quarters, setQuarters] = useState<{ id: string; year: number; quarter: number }[]>([])
-  const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>('all')
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
@@ -1728,7 +1727,15 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         throw new Error((err.error as string) ?? `완료 처리 실패 (${patchRes.status})`)
       }
       setShowComplete(false)
-      toast.success('경기 완료 처리됨')
+      // 마감 → 다음 경기로 한 번에 (2026-10-11). 종전엔 위로 올라가 슬롯을 다시 골라야 했다.
+      const cur = slots.find(s => s.id === selectedSlotId)
+      const next = cur
+        ? [...slots].filter(s => s.slot_num > cur.slot_num && !s.is_complete).sort((a, b) => a.slot_num - b.slot_num)[0]
+        : undefined
+      toast.success('경기 완료 처리됨', next ? {
+        duration: 10000,
+        action: { label: `${next.slot_num}경기 기록하기 →`, onClick: () => { selectSlot(next) } },
+      } : undefined)
       refreshSlots()
 
       // ── 라운드 전수 마감 감지 → 인스타 카드 준비 안내 ──────────────────
@@ -1905,185 +1912,48 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     )
   }
 
-  // ── 날짜 선택 화면 ─────────────────────────────────────────
+  // ── 날짜 미선택 ───────────────────────────────────────────
+  //   날짜 목록은 「일정」 탭 하나로 합쳤다 (2026-10-11, 운영진 결정).
+  //   종전엔 일정 탭과 이 화면이 같은 날짜 목록을 두 벌 갖고 있어 "어디서 시작하지"가 갈렸다.
+  //   일정 카드의 「기록하기」가 `?date=` 로 들어온다. 주소만 치고 들어온 경우를 위해
+  //   경기일(오늘 이전 가장 최근 · 없으면 가장 가까운 다음 날짜) 바로가기 하나만 남긴다.
   if (!selectedDate) {
-    // 전체 요약 집계
-    const totalGames    = Object.values(dateStats).reduce((s, d) => s + d.total,    0)
-    const totalComplete = Object.values(dateStats).reduce((s, d) => s + d.complete, 0)
-    const totalStarted  = Object.values(dateStats).reduce((s, d) => s + d.started,  0)
-    const totalPending  = Object.values(dateStats).reduce((s, d) => s + (d.pending ?? 0), 0)
-    const totalUnused   = Object.values(dateStats).reduce((s, d) => s + (d.unused ?? 0), 0)
-    // 진행률은 미사용 슬롯 분모에서 제외 → 실제 진행할 경기 대비 비율
-    const totalActive = totalGames - totalUnused
-    const completionPct = totalActive > 0 ? (totalComplete / totalActive * 100) : 0
-
-    // 필터 + 역순 정렬
-    const filteredDates = [...scheduleDates]
-      .filter(sd => selectedQFilter === 'all' || dateQuarterMap[sd.date] === selectedQFilter)
-      .sort((a, b) => b.date.localeCompare(a.date))
-
+    const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+    const sorted = [...scheduleDates].map(sd => sd.date).sort()
+    const pick = [...sorted].reverse().find(d => d <= today) ?? sorted.find(d => d > today) ?? null
+    const pd = pick ? new Date(pick + 'T00:00:00') : null
     return (
       <div className="mm-brand space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2
-              className="font-black text-3xl"
-              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+        <h2 className="font-black text-3xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+          경기 기록
+        </h2>
+        <div
+          className="p-5 space-y-3"
+          style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+        >
+          <p className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
+            「일정」 탭의 날짜 카드에서 <b>기록하기</b>를 누르면 그날 경기로 바로 들어옵니다.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {pick && pd && (
+              <button
+                onClick={() => selectDate(pick)}
+                className="inline-flex items-center gap-1.5 px-4 min-h-11 text-sm font-bold cursor-pointer"
+                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
+              >
+                <Play size={14} aria-hidden />
+                {pd.getMonth() + 1}월 {pd.getDate()}일 기록하기
+              </button>
+            )}
+            <a
+              href={`/league/${orgSlug}/${leagueId}/schedule`}
+              className="inline-flex items-center gap-1.5 px-4 min-h-11 text-sm font-bold"
+              style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
             >
-              경기 기록
-            </h2>
-            <p className="text-sm mt-1" style={{ color: 'var(--mm-muted)' }}>
-              기록할 날짜를 선택하세요
-            </p>
+              <CalendarDays size={14} aria-hidden />
+              일정에서 다른 날짜 고르기
+            </a>
           </div>
-          {/* '전체 날짜 YouTube 연동' 버튼은 2026-08-10 제거 — 일정 페이지의
-              '일정 등록 + 영상 연동' 하나로 합쳤다. 날짜 등록과 영상 붙이기는 항상
-              함께 일어나는데 두 화면에 흩어져 있어 두 번 들어가야 했다.
-              아래 날짜별 개별 연동 버튼은 남긴다 — 특정 날짜만 다시 붙일 때 쓴다. */}
-        </div>
-
-        {/* 전체 경기 완료 현황 요약 */}
-        {totalGames > 0 && (
-          <div
-            className="px-5 py-3 flex items-center gap-6 flex-wrap"
-            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-          >
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={14} style={{ color: 'var(--mm-positive)' }} />
-              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>완료</span>
-              <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-positive)' }}>{totalComplete}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Play size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
-              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>기록 중</span>
-              <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-yellow-strong)' }}>{totalStarted}</span>
-            </div>
-            <div className="flex items-center gap-1.5" title="아직 진행되지 않은 미래·오늘 슬롯">
-              <Circle size={14} style={{ color: 'var(--mm-muted)' }} />
-              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>미시작</span>
-              <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-ink-soft)' }}>{totalPending}</span>
-            </div>
-            {/* '미사용' 칸은 2026-09-07 제거 — 설명이 "영상 9개 미만 진행된 날의 잔여"였다.
-                하루 9경기 로테이션 시절의 개념이라 3대진 방식에서는 뜻이 통하지 않는다.
-                집계(totalUnused)는 진행률 분모에 그대로 쓰인다 — 숫자가 아니라 그 칸만 뺐다. */}
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>진행 대상 {totalActive}/{totalGames}경기</span>
-              <div className="w-24 h-1.5 overflow-hidden" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                <div className="h-full transition-all" style={{ width: `${completionPct}%`, background: 'var(--mm-positive)' }} />
-              </div>
-              <span className="text-xs font-bold" style={{ color: 'var(--mm-positive)' }}>{Math.round(completionPct)}%</span>
-            </div>
-          </div>
-        )}
-
-        {/* 분기 필터 탭 */}
-        {quarters.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedQFilter(tab.id)}
-                className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-xs font-bold transition-colors cursor-pointer"
-                style={
-                  selectedQFilter === tab.id
-                    ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
-                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
-                }
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          {filteredDates.map(sd => {
-            const d = new Date(sd.date + 'T00:00:00')
-            const days = ['일', '월', '화', '수', '목', '금', '토']
-            const stat = dateStats[sd.date]
-            const allLinked = stat && stat.total > 0 && stat.yt === stat.total
-            // 진행 대상 = 전체 - 미사용. 진행 대상이 모두 완료되면 그 날 완료로 처리
-            const activeTotal = stat ? stat.total - stat.unused : 0
-            const allDone = stat && activeTotal > 0 && stat.complete === activeTotal
-            return (
-              <button
-                key={sd.id}
-                onClick={() => selectDate(sd.date)}
-                className={`w-full text-left rounded-xl px-4 py-3 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-all duration-200 cursor-pointer`}
-                style={{
-                  background: 'var(--mm-panel)',
-                  border: allDone
-                    ? '1px solid color-mix(in srgb, #16a34a 55%, var(--mm-rule))'
-                    : '1px solid var(--mm-rule)',
-                }}
-              >
-                <div className="flex items-center gap-3 flex-wrap">
-                  {/* 날짜 */}
-                  <span
-                    className="font-bold text-lg whitespace-nowrap"
-                    style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-                  >
-                    {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
-                    <span className="ml-1.5 text-sm" style={{ color: 'var(--mm-muted)' }}>({days[d.getDay()]})</span>
-                  </span>
-
-                  {/* 상태 배지들 — 날짜 바로 옆 */}
-                  {stat && stat.total > 0 && (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5"
-                      style={
-                        allDone
-                          ? { background: 'var(--mm-positive-bg)', color: 'var(--mm-positive-fg)', border: '1px solid var(--mm-positive)', borderRadius: '4px' }
-                          : stat.complete > 0
-                          ? { background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
-                          : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
-                      }
-                    >
-                      <CheckCircle2 size={14} />
-                      {stat.complete}/{activeTotal}
-                      {allDone && <span className="ml-0.5">완료</span>}
-                    </span>
-                  )}
-
-                  {stat && stat.started > 0 && !allDone && (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5"
-                      style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
-                    >
-                      <Play size={14} />
-                      {stat.started} 진행
-                    </span>
-                  )}
-
-                  {stat && stat.pending > 0 && (
-                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                      미시작 {stat.pending}
-                    </span>
-                  )}
-
-                  {stat && stat.unused > 0 && (
-                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }} title="영상이 없거나 진행 안 한 잔여 슬롯">
-                      미사용 {stat.unused}
-                    </span>
-                  )}
-
-                  {/* YouTube 연동 — 다른 배지들과 같은 줄, 인접 배치.
-                      원래 유튜브 브랜드 레드를 그대로 썼는데 다크 패널에서 3.3:1 이었다.
-                      같은 빨강 계열인 --mm-negative 로 바꿔 색은 지키고 대비만 확보한다.
-                      (가드가 주석 속 hex 리터럴도 센다 — 값은 globals.css 에서 확인) */}
-                  {stat && stat.total > 0 && stat.yt > 0 && (
-                    <span
-                      className="flex items-center gap-1 text-xs font-mono"
-                      style={{ color: allLinked ? 'var(--mm-negative)' : 'var(--mm-muted)' }}
-                    >
-                      <Youtube size={14} />
-                      {stat.yt}/{stat.total}
-                    </span>
-                  )}
-                </div>
-              </button>
-            )
-          })}
         </div>
       </div>
     )
@@ -2144,14 +2014,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
       {/* 날짜 헤더 + YouTube 연동 (1행) */}
       <div className="flex items-center gap-3 flex-wrap">
-        <button
-          onClick={() => { setSelectedDate(''); setSelectedSlotId(''); setSlots([]) }}
+        <a
+          href={`/league/${orgSlug}/${leagueId}/schedule`}
           className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors cursor-pointer shrink-0"
           style={{ color: 'var(--mm-muted)' }}
-          aria-label="날짜 선택으로 돌아가기"
+          aria-label="일정으로 돌아가기"
         >
           <ChevronLeft size={20} />
-        </button>
+        </a>
         <h2
           className="font-black text-xl"
           style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}

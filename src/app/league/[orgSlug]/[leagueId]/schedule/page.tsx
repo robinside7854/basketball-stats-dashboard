@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff, PenLine } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
@@ -648,6 +648,18 @@ function ScheduleContent() {
               {/* 편집 액션 — 폭이 모자라면 줄바꿈된다. 날짜를 밀지 않는다. */}
               {isEditMode && (
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* 기록 진입점 — 날짜 목록은 여기 하나다 (2026-10-11). 기록 화면에 따로 있던
+                      날짜 목록을 걷어냈다. 오늘·지난 날짜에만 둔다(앞날은 기록할 것이 없다). */}
+                  {!sd.is_skipped && sd.date <= today && (
+                    <Link
+                      href={`/league/${orgSlug}/${leagueId}/record?date=${sd.date}`}
+                      className="inline-flex items-center gap-1.5 justify-center text-sm font-bold whitespace-nowrap px-3 py-2 min-h-[44px] transition-colors cursor-pointer"
+                      style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
+                    >
+                      <PenLine size={14} aria-hidden />
+                      기록하기
+                    </Link>
+                  )}
                   {!upcoming && boxscoreEl}
                   {/* 대관 없음 토글 — 지정하면 그 주는 참여신청을 받지 않는다.
                       되돌릴 수 있어야 한다: 대관이 뒤늦게 잡히는 일이 흔하다. */}
