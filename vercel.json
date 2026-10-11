@@ -8,10 +8,6 @@
   },
   "crons": [
     {
-      "path": "/api/cron/badges-recompute",
-      "schedule": "0 20 * * *"
-    },
-    {
       "path": "/api/cron/youtube-sync",
       "schedule": "0 13 * * 6"
     }

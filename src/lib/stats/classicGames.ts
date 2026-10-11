@@ -105,12 +105,12 @@ export async function computeClassicGames(
 
   // 득점 이벤트 — 역전 횟수와 최다 득점자를 같은 스캔에서 뽑는다.
   // ⚠ 1000행 페이지네이션 필수. 조용히 잘리면 역전 횟수가 과소 집계돼 명경기가 바뀐다.
-  type Ev = { id: number; league_game_id: string; team_id: string | null; league_player_id: string | null; points: number | null }
+  type Ev = { id: number; league_game_id: string; team_id: string | null; league_player_id: string | null; points: number | null; video_timestamp: number | null }
   const events: Ev[] = []
   for (let page = 0; ; page++) {
     const { data, error } = await sb
       .from('league_game_events')
-      .select('id, league_game_id, team_id, league_player_id, points')
+      .select('id, league_game_id, team_id, league_player_id, points, video_timestamp')
       .in('league_game_id', gameIds)
       .gt('points', 0)
       // ⚠ ORDER BY 없이 range 를 쓰면 페이지 경계에서 중복·누락된다. id 는 기록 순서다.
@@ -126,16 +126,21 @@ export async function computeClassicGames(
   const playerName = new Map((playerRows ?? []).map((p: { id: string; name: string }) => [p.id, p.name]))
   const playerPhoto = new Map((playerRows ?? []).map((p: { id: string; photo_url: string | null }) => [p.id, p.photo_url]))
 
-  // 위닝샷 배지 — 이미 계산된 판정을 재사용한다. 같은 판정을 두 곳에서 하면 언젠가 어긋난다.
-  const { data: wsRows } = await sb
-    .from('player_badges')
-    .select('game_id, player_id')
-    .eq('league_id', leagueId)
-    .eq('badge_type', 'winning_shot')
-    .not('game_id', 'is', null)
-  const winningShot = new Map(
-    ((wsRows ?? []) as Array<{ game_id: string; player_id: string }>).map(r => [r.game_id, r.player_id]),
-  )
+  // 위닝샷 — 배지 제도 폐지(2026-10-11)로 player_badges 를 더는 채우지 않으므로 여기서 직접 판정한다.
+  //   정의는 옛 배지와 같다: 영상 시각상 **마지막 득점**이 승자 팀이고, 그 득점 없이는 못 이겼을 것
+  //   (승리 마진 ≤ 그 득점). 영상 시각이 없는 이벤트는 실제 순서를 알 수 없어 후보에서 뺀다.
+  const winningShotOf = (g: { home_team_id: string | null; away_team_id: string | null; home_score: number | null; away_score: number | null }, evs: Ev[]): string | null => {
+    const hs = g.home_score ?? 0, as_ = g.away_score ?? 0
+    if (hs === as_) return null
+    const winner = hs > as_ ? g.home_team_id : g.away_team_id
+    let last: Ev | null = null
+    for (const e of evs) {
+      if (e.video_timestamp == null || !e.league_player_id || !e.team_id) continue
+      if (!last || e.video_timestamp > (last.video_timestamp ?? -1)) last = e
+    }
+    if (!last || last.team_id !== winner) return null
+    return Math.abs(hs - as_) <= (last.points ?? 0) ? last.league_player_id : null
+  }
 
   // 경기별 집계
   const byGame = new Map<string, Ev[]>()
@@ -174,7 +179,7 @@ export async function computeClassicGames(
 
     const margin = Math.abs(hs - as_)
     const total = hs + as_
-    const wsPlayerId = winningShot.get(g.id) ?? null
+    const wsPlayerId = winningShotOf(g, evs)
 
     const hasWS = wsPlayerId !== null
     const hasLead = leadChanges >= LEAD_CHANGES

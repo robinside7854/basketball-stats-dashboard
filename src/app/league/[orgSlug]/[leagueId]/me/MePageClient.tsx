@@ -11,12 +11,10 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
-import { LogOut, ChevronRight, ClipboardList, Film, HelpCircle } from 'lucide-react'
+import { LogOut, ChevronRight, ClipboardList, Film } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
-import TraitBadgePanel from '@/components/league/TraitBadgePanel'
-import BadgeDexModal from '@/components/league/BadgeDexModal'
 import SectionCard from '@/components/league/ui/SectionCard'
 import InstallAppButton from '@/components/InstallAppButton'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -39,7 +37,6 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // 다시 호출한다(신규 쿼리 아님 · 새 페이지가 기존 것을 그대로 쓰는 Global Constraint 1 의 예외).
   const [showDraft, setShowDraft] = useState(false)
   // 배지 도감 — 자동·특성 두 계열 전체 목록과 내 보유 여부를 한 번에 본다.
-  const [dexOpen, setDexOpen] = useState(false)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -65,39 +62,6 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       ) : user ? (
         <>
           <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
-          {/* 내 특성 배지 — "내 기록이 게임처럼 남는" 자리. 선수 상세 모달까지 들어가지 않아도
-              자기 유형을 바로 보게 한다. */}
-          {user.player_id && (
-            <SectionCard variant="standalone" pad="base">
-              <div className="space-y-2">
-                {/* 도움말 버튼은 라벨 줄에 둔다 — 배지가 없는 회원에게도 "받을 수 있는 게 뭔지"로
-                    가는 입구가 항상 보여야 한다(패널 안에 넣으면 빈 상태에서 같이 사라진다). */}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
-                    내 특성
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setDexOpen(true)}
-                    aria-label="배지 도감 열기 — 전체 배지와 달성 조건 보기"
-                    className="inline-flex items-center gap-1.5 min-h-11 px-3 -mr-1 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-                    style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
-                  >
-                    <HelpCircle size={16} aria-hidden />
-                    배지 도감
-                  </button>
-                </div>
-                <TraitBadgePanel leagueId={leagueId} playerId={user.player_id} />
-              </div>
-            </SectionCard>
-          )}
-          {dexOpen && user.player_id && (
-            <BadgeDexModal
-              leagueId={leagueId}
-              playerId={user.player_id}
-              onClose={() => setDexOpen(false)}
-            />
-          )}
         </>
       ) : (
         <LoginTeaser />

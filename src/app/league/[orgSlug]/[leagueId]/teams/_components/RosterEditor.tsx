@@ -15,7 +15,6 @@ import SectionCard from '@/components/league/ui/SectionCard'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import SignupRateCard from '@/components/league/auth/SignupRateCard'
-import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
 import type { LeaguePlayer, LeagueTeam, Quarter } from '@/types/league'
 import type { Team } from '../_types'
 
@@ -161,7 +160,6 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
   const [quarters, setQuarters] = useState<Quarter[]>(initialQuarters)
   const [membershipMap, setMembershipMap] = useState<PlayerQuarterMap>({})
   const [leaderMap, setLeaderMap] = useState<LeaderMap>({})
-  const [leaderBadges, setLeaderBadges] = useState<Record<string, import('@/components/league/LeaderBadgePanel').LeaderBadgeCounts>>({})
   // (quarter_id → team_id → {name, color}) 분기별 팀명/색상 override 룩업
   const [teamOverrides, setTeamOverrides] = useState<Record<string, Record<string, { name: string | null; color: string | null }>>>({})
   const [loading, setLoading] = useState(true)
@@ -338,12 +336,6 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
       setMembershipMap(newMembership)
       setLeaderMap(newLeader)
     }
-
-    // 리더 뱃지 (경기일 부문별 1등 카운트) — 실패해도 UI 나머지는 그대로
-    fetch(`/api/leagues/${leagueId}/leader-badges`)
-      .then(r => r.ok ? r.json() : {})
-      .then(data => setLeaderBadges(data ?? {}))
-      .catch(() => null)
 
     // 분기별 팀명/색상 override 룩업 — 각 셀 표시에 사용
     fetch(`/api/leagues/${leagueId}/team-overrides`)
@@ -783,11 +775,6 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                       </span>
                     )}
                   </div>
-
-                  {/* 리더 뱃지 요약 (경기일 부문별 1등 카운트) */}
-                  {leaderBadges[p.id] && (
-                    <LeaderBadgeInline badges={leaderBadges[p.id]} className="mb-2" />
-                  )}
 
                   {/* 분기별 팀 배정 — 팀명을 버튼(chip) 형태로 */}
                   {displayQuarters.length > 0 && (

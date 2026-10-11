@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
-import { syncBadgesForGame } from '@/lib/badges/computeBadges'
 import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 import { logAudit } from '@/lib/audit'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -790,19 +789,6 @@ export async function PATCH(
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
-
-  // 자동 배지 재계산 훅 —
-  //   경기 마감(is_complete=true) 순간 즉시 배지 재계산.
-  //   실패해도 경기 마감 자체는 성공하도록 try/catch 로 격리 (fire-and-forget 계열).
-  //   sync 함수는 idempotent 이므로 중복 호출/실패 재시도에 안전.
-  if (body?.is_complete === true) {
-    try {
-      const r = await syncBadgesForGame(supabase, gameId)
-      console.log(`[badges/auto-sync] gameId=${gameId} created=${r.created} removed=${r.removed}`)
-    } catch (err) {
-      console.error(`[badges/auto-sync] gameId=${gameId} failed:`, err)
-    }
-  }
 
   // YouTube 자동 연동 훅 (Option A) —
   //   is_started=true 로 전이할 때 backgroud sync 시도. 실패하면 조용히 스킵.

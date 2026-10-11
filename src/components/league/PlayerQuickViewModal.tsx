@@ -2,15 +2,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn, HelpCircle } from 'lucide-react'
+import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
-import PlayerBadgeStrip, { type BadgeSummary } from '@/components/league/PlayerBadgeStrip'
-import TraitBadgePanel from '@/components/league/TraitBadgePanel'
 import PlayerBestShotBanner from '@/components/league/PlayerBestShotBanner'
 import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { CountUp } from '@/components/league/StatCell'
@@ -20,7 +17,6 @@ import { LEAGUE_BASELINE, tierAgainst, type ShootingBaseline } from '@/lib/stats
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
-import { type EvaluatedBadge } from '@/lib/stats/badges'
 
 // Recharts (~90KB gz) 는 모달 열림 시점에만 로드 — 초기 번들 감량
 // ssr:false 로 hydration 오류 방지 (client component 내부 chart)
@@ -41,7 +37,6 @@ const PlayerShotDonut = dynamic(
   { ssr: false, loading: () => <div style={{ height: 180 }} /> },
 )
 // 배지 도감 — 버튼을 눌렀을 때만 필요하므로 지연 로드(카드 첫 렌더 비용에 얹지 않는다)
-const BadgeDexModal = dynamic(() => import('@/components/league/BadgeDexModal'), { ssr: false })
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -68,8 +63,6 @@ type Detail = {
   }
   active_streaks?: { ten: number; twenty: number; three: number; win: number }
   dynamic_duo?: DuoEntry[]
-  badges: EvaluatedBadge[]
-  badges_summary?: BadgeSummary
   pinned_event_ids?: string[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
@@ -190,8 +183,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [detail, setDetail] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(true)
   const [gated, setGated] = useState(false)  // 401 — 상세 스탯은 승인 회원 전용 (2026-07-28)
-  const [leaderBadges, setLeaderBadges] = useState<LeaderBadgeCounts | null>(null)
-  const [dexOpen, setDexOpen] = useState(false)   // 배지 도감 (성과 탭에서 열림)
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [career, setCareer] = useState<CareerSummary | null>(null)
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
@@ -260,12 +251,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [playersRes, statsRes, detailRes, quartersRes, leaderRes, careerRes] = await Promise.all([
+      const [playersRes, statsRes, detailRes, quartersRes, careerRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
         fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`),
         fetch(`/api/leagues/${leagueId}/quarters`),
-        fetch(`/api/leagues/${leagueId}/leader-badges?playerId=${playerId}`),
         // 팀 전체 통산 — 묶음이 1개뿐이면 어차피 length<2 라 안 보인다. 401(미승인 회원)은
         // gated 상태(detailRes 401)로 이미 처리되므로 여기선 실패를 조용히 무시.
         fetch(`/api/leagues/${leagueId}/players/${playerId}/career`),
@@ -283,10 +273,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       if (quartersRes.ok) {
         const qs: Quarter[] = await quartersRes.json()
         setQuarters(qs)
-      }
-      if (leaderRes.ok) {
-        const lb = await leaderRes.json()
-        setLeaderBadges(lb[playerId] ?? null)
       }
       if (careerRes.ok) setCareer(await careerRes.json())
     } finally { setLoading(false) }
@@ -335,7 +321,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   // 데이터가 있는 탭만 노출 — 빈 탭 클릭 후 아무것도 안 나오는 상황 방지
   const availableTabs = useMemo(() => {
     const s = new Set<PlayerTabKey>(['season'])
-    if (detail?.badges_summary || leaderBadges) s.add('badges')
     if ((detail?.dynamic_duo?.length ?? 0) > 0) s.add('duo')
     if ((activeDetail?.shot_breakdown?.total_fga ?? 0) > 0) s.add('shot')
     if (detail?.career_high && Object.keys(detail.career_high).length > 0) s.add('career')
@@ -343,7 +328,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       || (activeDetail?.game_log?.length ?? 0) >= 3
       || (detail?.recent_games?.length ?? 0) > 0) s.add('trend')
     return s
-  }, [detail, activeDetail, leaderBadges])
+  }, [detail, activeDetail])
 
   // 선택된 탭이 사라지면(분기 전환 등) 시즌 스탯으로 복귀
   useEffect(() => {
@@ -1177,50 +1162,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               >아직 기록된 스탯이 없습니다</div>
             ))}
 
-            {/* ── 성과 뱃지 (스탯 리더 + 자동 배지) ────────── */}
-            {activeTab === 'badges' && (
-              <>
-                {/* 개인특성 배지 — "이 선수는 어떤 유형인가". 자동 배지가 잘한 순간을 세는 것과
-                    달리 누적 성향을 본다. 득점이 적어도 자기 색깔로 받을 수 있어야 해서 맨 위에 둔다. */}
-                <div className="space-y-2">
-                  {/* 도감 입구 — 전에는 '내 기록' 화면에만 있어서, 선수 카드에서 배지를 보다가
-                      "이건 뭐고 어떻게 받나"가 궁금해지면 갈 곳이 없었다. 배지를 보고 있는 이 자리가
-                      가장 궁금해지는 지점이라 여기에도 둔다(2026-08-15).
-                      playerId 를 넘기므로 도감의 보유/미보유 표시는 '지금 보고 있는 선수' 기준이다. */}
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
-                      특성
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setDexOpen(true)}
-                      aria-label="배지 도감 열기 — 전체 배지와 달성 조건 보기"
-                      className="inline-flex items-center gap-1.5 min-h-11 px-3 -mr-1 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-                      style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
-                    >
-                      <HelpCircle size={16} aria-hidden />
-                      배지 도감
-                    </button>
-                  </div>
-                  <TraitBadgePanel leagueId={leagueId} playerId={playerId} />
-                </div>
-
-                {/* 자동 배지 — 퍼펙트/DD/TD/위닝샷 · 클릭 시 획득 게임 상세 */}
-                {detail?.badges_summary && (
-                  <PlayerBadgeStrip
-                    leagueId={leagueId}
-                    playerId={playerId}
-                    summary={detail.badges_summary}
-                  />
-                )}
-
-                {/* 게임 스탯 리더 — 부문별 1등 카운트 (POTM) · 클릭 시 등극 날짜 목록 */}
-                {leaderBadges && (
-                  <LeaderBadgePanel badges={leaderBadges} leagueId={leagueId} playerId={playerId} />
-                )}
-              </>
-            )}
-
             {/* ── 다이나믹 듀오 ─────────────────────────── */}
             {activeTab === 'duo' && (
               <DynamicDuoPanel
@@ -1565,16 +1506,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           </div>
         )}
       </div>
-    )}
-
-    {/* 배지 도감 — 선수 카드(z-50)·사진 라이트박스(z-60) 위에 뜬다.
-        도감이 자체적으로 z-[70] 을 갖고 있어 여기서 따로 올릴 필요가 없다. */}
-    {dexOpen && (
-      <BadgeDexModal
-        leagueId={leagueId}
-        playerId={playerId}
-        onClose={() => setDexOpen(false)}
-      />
     )}
 
     </>

@@ -4,11 +4,10 @@
 // 모바일에서 가로 스크롤 칩, 데스크탑에서는 한 줄에 정렬.
 // sticky 로 붙여 스크롤 중에도 탭 전환이 가능하도록 한다.
 
-export type PlayerTabKey = 'season' | 'badges' | 'duo' | 'shot' | 'career' | 'trend'
+export type PlayerTabKey = 'season' | 'duo' | 'shot' | 'career' | 'trend'
 
 export const PLAYER_TABS: { key: PlayerTabKey; label: string }[] = [
   { key: 'season', label: '시즌 스탯' },
-  { key: 'badges', label: '성과 뱃지' },
   { key: 'duo',    label: '다이나믹 듀오' },
   { key: 'shot',   label: '공격 스타일' },
   { key: 'career', label: '커리어 하이' },

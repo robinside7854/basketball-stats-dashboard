@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { evaluateAllBadges, type PlayerCareerInput, type TeamAverages } from '@/lib/stats/badges'
 import { canViewStats } from '@/lib/auth/guard'
 import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -80,16 +79,6 @@ export async function GET(
     overrideMap[ov.quarter_id][ov.team_id] = { name: ov.name ?? undefined, color: ov.color ?? undefined }
   }
 
-  // quarterId 필터가 있으면 그 분기 기준으로 teamsForDisplay 를 미리 치환 (기존 동작 유지).
-  let teamsForDisplay = (teams ?? []) as { id: string; name: string; color?: string }[]
-  if (quarterId) {
-    const ovMap = overrideMap[quarterId] ?? {}
-    teamsForDisplay = teamsForDisplay.map(t => {
-      const ov = ovMap[t.id]
-      return ov ? { ...t, name: ov.name ?? t.name, color: ov.color ?? t.color } : t
-    })
-  }
-
   // 게임의 quarter_id 기반 팀 이름/색상 조회 (누적 뷰에서 게임별로 정확히 적용됨)
   const baseTeamMap = Object.fromEntries((teams ?? []).map(t => [t.id, { name: t.name, color: t.color ?? '#9ca3af' }]))
   function resolveTeamName(teamId: string, qId: string | null | undefined): string {
@@ -103,8 +92,6 @@ export async function GET(
   const playerMetaMap: Record<string, LPMeta> = Object.fromEntries(
     ((leaguePlayers ?? []) as unknown as LPMeta[]).map(p => [p.id, p])
   )
-  const teamMap = Object.fromEntries(teamsForDisplay.map(t => [t.id, t.name]))
-  const teamFullMap = Object.fromEntries(teamsForDisplay.map(t => [t.id, { id: t.id, name: t.name, color: t.color ?? '#9ca3af' }]))
   const gameIds = (games ?? []).map(g => g.id)
   const gameMap = Object.fromEntries((games ?? []).map(g => [g.id, g]))
   const gamePlusOneMap: Record<string, GamePlusOne> = {}
@@ -577,213 +564,6 @@ export async function GET(
     ft_pct:  getRankTotal('ft_pct',  'fta'),
   }
 
-  // ── 배지: 분기 필터와 무관하게 항상 시즌 전체 기준 ───────────
-  // badgeAllEvents: 시즌 전체 이벤트 (quarterId 무관)
-  let badgeAllEvents: AllEventRow[] = allEvents
-  let badgeMap: Record<string, AS> = allMap
-  let badgeGp: Record<string, Set<string>> = allGp
-  let badgeGameMap: Record<string, { date?: string }> = Object.fromEntries(
-    (games ?? []).map(g => [g.id as string, g as { date?: string }])
-  )
-  if (quarterId) {
-    // 분기 필터가 적용된 상태 → allMap은 부분 집합. 시즌 전체를 별도 페치/집계.
-    const seasonGameIds = (allGames ?? []).map(g => g.id)
-    if (seasonGameIds.length > 0) {
-      const seasonEvents: AllEventRow[] = []
-      const PAGE = 1000
-      let pg = 0
-      while (true) {
-        const { data: chunk } = await supabase
-          .from('league_game_events')
-          .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id, quarter')
-          .in('league_game_id', seasonGameIds)
-          .not('league_player_id', 'is', null)
-          .order('id', { ascending: true })
-          .range(pg * PAGE, (pg + 1) * PAGE - 1)
-        if (chunk && chunk.length > 0) seasonEvents.push(...(chunk as AllEventRow[]))
-        if (!chunk || chunk.length < PAGE) break
-        pg++
-      }
-      badgeAllEvents = seasonEvents
-      badgeGameMap = Object.fromEntries(
-        (allGames ?? []).map(g => [g.id as string, g as { date?: string }])
-      )
-      badgeMap = {}
-      badgeGp = {}
-      for (const e of seasonEvents) {
-        const pid = e.league_player_id as string
-        const made = e.result === 'made'
-        const gId = e.league_game_id as string
-        const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
-        const pts = scorePoints(e.type, e.result, isP1, scoringRules)
-        if (!badgeMap[pid]) badgeMap[pid] = emptyAS()
-        if (e.type !== 'sub_in' && e.type !== 'sub_out') {
-          if (!badgeGp[pid]) badgeGp[pid] = new Set()
-          badgeGp[pid].add(unit === 'round' ? (badgeGameMap[gId]?.date ?? gId) : gId)
-        }
-        const s = badgeMap[pid]
-        if (made) {
-          if (e.type === 'shot_3p') { s.pts += pts; s.fg3m++; s.fgm++ }
-          else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(e.type)) { s.pts += pts; s.fgm++ }
-          else if (e.type === 'ft_2pt') { s.pts += pts; s.ftm++ }
-          else if (e.type === 'ft_3pt_1') { s.pts += pts; s.ftm++ }
-          else if (['free_throw', 'ft_3pt_2'].includes(e.type)) { s.pts += pts; s.ftm++ }
-          else if (e.type === 'and_one') { s.pts += pts; s.andOneM++ }
-        }
-        if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
-        else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
-        else if (e.type === 'shot_layup')    { s.fga++; s.slashA++ }
-        else if (e.type === 'shot_post')     { s.fga++; s.postA++ }
-        else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type)) s.fta++
-        else if (e.type === 'oreb') { s.oreb++; s.reb++ }
-        else if (e.type === 'dreb') { s.dreb++; s.reb++ }
-        else if (e.type === 'steal') s.stl++
-        else if (e.type === 'block') s.blk++
-        else if (e.type === 'turnover') s.tov++
-        else if (e.type === 'foul') s.pf++
-        if (e.related_player_id && made && (SHOT_TYPES as readonly string[]).includes(e.type)) {
-          const ap = e.related_player_id as string
-          if (!badgeMap[ap]) badgeMap[ap] = emptyAS()
-          if (!badgeGp[ap]) badgeGp[ap] = new Set()
-          badgeGp[ap].add(unit === 'round' ? (badgeGameMap[gId]?.date ?? gId) : gId)
-          badgeMap[ap].ast++
-        }
-      }
-      for (const pid of Object.keys(badgeMap)) badgeMap[pid].gp = badgeGp[pid]?.size ?? 0
-    }
-  }
-
-  // ── 파란날개 19개 배지 평가 (PlayerCareerInput + TeamAverages) ───
-  // 1. 타겟 선수의 슛 유형별 made/attempted + 어시스트 세부 (3P/Paint) + 주 팀 결정
-  const tShot: Record<string, { attempted: number; made: number }> = {
-    shot_post:     { attempted: 0, made: 0 },
-    shot_layup:    { attempted: 0, made: 0 },
-    shot_2p_mid:   { attempted: 0, made: 0 },
-    shot_3p:       { attempted: 0, made: 0 },
-  }
-  let ast3pts = 0
-  let astPaint = 0
-  const playerTeamCount: Record<string, number> = {}
-  for (const e of badgeAllEvents) {
-    if (e.league_player_id === playerId) {
-      if (e.team_id && e.type !== 'sub_in' && e.type !== 'sub_out') {
-        playerTeamCount[e.team_id] = (playerTeamCount[e.team_id] ?? 0) + 1
-      }
-      if (tShot[e.type]) {
-        tShot[e.type].attempted++
-        if (e.result === 'made') tShot[e.type].made++
-      }
-    }
-    if (e.related_player_id === playerId && e.result === 'made') {
-      if (e.type === 'shot_3p') ast3pts++
-      else if (e.type === 'shot_layup' || e.type === 'shot_post') astPaint++
-    }
-  }
-  let primaryTeamId: string | undefined
-  {
-    let maxCnt = 0
-    for (const [tid, c] of Object.entries(playerTeamCount)) {
-      if (c > maxCnt) { maxCnt = c; primaryTeamId = tid }
-    }
-  }
-
-  // 2. 팀별 평균 산출 (선수-단위 평균: 같은 팀에 속한 선수들의 합계 / 선수-단위 출전 수)
-  type TeamAgg = {
-    pts: number; reb: number; dreb: number; ast: number
-    stl: number; blk: number; fta: number; fg3a: number
-    playerUnits: Set<string>
-  }
-  const teamAgg: Record<string, TeamAgg> = {}
-  const ensureTeamAgg = (tid: string): TeamAgg => {
-    if (!teamAgg[tid]) teamAgg[tid] = {
-      pts: 0, reb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, fta: 0, fg3a: 0,
-      playerUnits: new Set(),
-    }
-    return teamAgg[tid]
-  }
-  for (const e of badgeAllEvents) {
-    const tid = e.team_id
-    if (!tid) continue
-    const t = ensureTeamAgg(tid)
-    const gId = e.league_game_id
-    const unitKey = unit === 'round' ? (badgeGameMap[gId]?.date ?? gId) : gId
-    const pid = e.league_player_id
-    const made = e.result === 'made'
-    const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
-    const pts = scorePoints(e.type, e.result, isP1, scoringRules)
-    if (pid && e.type !== 'sub_in' && e.type !== 'sub_out') {
-      t.playerUnits.add(`${pid}:${unitKey}`)
-    }
-    if (made) {
-      if (e.type === 'shot_3p') t.pts += pts
-      else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') t.pts += pts
-      else if (e.type === 'ft_2pt' || e.type === 'ft_3pt_1') t.pts += pts
-      else if (e.type === 'free_throw' || e.type === 'ft_3pt_2') t.pts += pts
-      else if (e.type === 'and_one') t.pts += pts
-    }
-    if (e.type === 'shot_3p') t.fg3a++
-    else if (e.type === 'free_throw' || e.type === 'ft_2pt' || e.type === 'ft_3pt_1' || e.type === 'ft_3pt_2') t.fta++
-    else if (e.type === 'oreb') t.reb++
-    else if (e.type === 'dreb') { t.reb++; t.dreb++ }
-    else if (e.type === 'steal') t.stl++
-    else if (e.type === 'block') t.blk++
-    if (made && e.related_player_id && (SHOT_TYPES as readonly string[]).includes(e.type)) {
-      t.ast++
-      t.playerUnits.add(`${e.related_player_id}:${unitKey}`)
-    }
-  }
-  const teamAverages: TeamAverages = primaryTeamId && teamAgg[primaryTeamId]
-    ? (() => {
-        const t = teamAgg[primaryTeamId!]
-        const n = t.playerUnits.size || 1
-        return {
-          ptsPerGame: t.pts / n,
-          rebPerGame: t.reb / n,
-          astPerGame: t.ast / n,
-          stlPerGame: t.stl / n,
-          blkPerGame: t.blk / n,
-          ftaPerGame: t.fta / n,
-          fg3aPerGame: t.fg3a / n,
-          hustlePerGame: (t.stl + t.blk + t.dreb) / n,
-        }
-      })()
-    : { ptsPerGame: 0, rebPerGame: 0, astPerGame: 0, stlPerGame: 0, blkPerGame: 0, ftaPerGame: 0, fg3aPerGame: 0, hustlePerGame: 0 }
-
-  // 3. PlayerCareerInput 빌드 후 평가
-  const ps = badgeMap[playerId] ?? emptyAS()
-  const psGp = ps.gp || 0
-  const careerInput: PlayerCareerInput = {
-    gamesPlayed: psGp,
-    totalTeamGames: psGp,
-    pts: ps.pts,
-    fgm: ps.fgm, fga: ps.fga,
-    fg2m: ps.fgm - ps.fg3m, fg2a: ps.fga - ps.fg3a,
-    fg3m: ps.fg3m, fg3a: ps.fg3a,
-    ftm: ps.ftm, fta: ps.fta,
-    oreb: ps.oreb, dreb: ps.dreb, reb: ps.reb,
-    ast: ps.ast, stl: ps.stl, blk: ps.blk, tov: ps.tov,
-    ppg: psGp > 0 ? ps.pts / psGp : 0,
-    rpg: psGp > 0 ? ps.reb / psGp : 0,
-    apg: psGp > 0 ? ps.ast / psGp : 0,
-    spg: psGp > 0 ? ps.stl / psGp : 0,
-    bpg: psGp > 0 ? ps.blk / psGp : 0,
-    fg3Pct: ps.fg3a > 0 ? ps.fg3m / ps.fg3a * 100 : 0,
-    ftPct:  ps.fta  > 0 ? ps.ftm  / ps.fta  * 100 : 0,
-    astToTov: ps.tov > 0 ? ps.ast / ps.tov : ps.ast,
-    doubleDoubles: 0,
-    tripleDoubles: 0,
-    q1pts: 0, q2pts: 0, q3pts: 0, q4pts: 0,  // 리그엔 쿼터별 분리 데이터 없음 → CLUTCH_Q4 자동 미부여
-    ast3pts,
-    astPaint,
-    shotBreakdown: Object.fromEntries(
-      Object.entries(tShot).map(([k, v]) => [k, {
-        attempted: v.attempted,
-        made: v.made,
-        pct: v.attempted > 0 ? +(v.made / v.attempted * 100).toFixed(1) : 0,
-      }])
-    ),
-  }
-  const badges = evaluateAllBadges(careerInput, teamAverages).filter(b => b.tier !== null)
 
   // ── Win/Loss impact ──────────────────────────────────────────
   type WLS = { pts: number; reb: number; ast: number; stl: number; blk: number; gp: number }
@@ -911,21 +691,6 @@ export async function GET(
   }
   const active_streaks = { ten: s10, twenty: s20, three: s3p, win: sWin }
 
-  // ── 자동 배지 요약 (player_badges) ─────────────────────────
-  // 시즌 전체 기준 — 4종 카운트만 반환. 개별 목록은 별도 엔드포인트.
-  const badges_summary = { perfect_game: 0, double_double: 0, triple_double: 0, winning_shot: 0 }
-  {
-    const { data: pbRows } = await supabase
-      .from('player_badges')
-      .select('badge_type')
-      .eq('league_id', leagueId)
-      .eq('player_id', playerId)
-    for (const r of pbRows ?? []) {
-      const t = r.badge_type as keyof typeof badges_summary
-      if (t in badges_summary) badges_summary[t]++
-    }
-  }
-
   // ── 다이나믹 듀오 (Dynamic Duo) ───────────────────────────────
   //   정의: 나와 상대 선수 사이의 "어시스트 → 득점" 합작 점수 합계 (양방향 모두 합산).
   //         pair_pts = Σ points  WHERE (scorer, assister) ∈ {(me, X), (X, me)}
@@ -1002,8 +767,6 @@ export async function GET(
     rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
     recent_games: recentGames,
     game_log: gameLog,
-    badges, badges_scope: 'season' as const,
-    badges_summary,
     win_loss: winLoss, player_stats, monthly_stats, unit,
     active_streaks,
     dynamic_duo,
