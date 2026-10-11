@@ -5,11 +5,5 @@
       "claude/**": false,
       "ccr-*": false
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/youtube-sync",
-      "schedule": "0 13 * * 6"
-    }
-  ]
+  }
 }

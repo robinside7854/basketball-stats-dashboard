@@ -225,9 +225,8 @@ function ScheduleContent() {
   // 분기 필터를 바꾸면 이전 필터 기준으로 늘려둔 "더 보기" 상태를 초기값으로 되돌린다.
   useEffect(() => { setVisibleCount(INITIAL_VISIBLE) }, [selectedQFilter])
 
-  // 일정 등록과 영상 연동을 한 번에 — 원래 두 화면에 흩어져 있던 두 버튼을 합쳤다(2026-08-10).
-  // 실제 운영에서는 늘 붙어서 일어난다: 경기를 하고 나면 날짜를 등록하고 영상을 붙인다.
-  // 유튜브 채널이 없거나 키가 없으면 일정 등록만 하고 그 사실을 안내한다(전체 실패로 만들지 않는다).
+  // 정기 일정 등록 — 첫 정기일부터 매주 같은 요일을 8주 앞까지 채우고, 지난 빈 날짜는 미실시로 접는다.
+  //   (2026-10-11 까지는 영상 연동도 같이 했지만, 운영진 결정으로 영상은 기록 화면에서 수동으로 붙인다)
   async function autoGenerate() {
     setAutoGenerating(true)
     try {
@@ -245,10 +244,8 @@ function ScheduleContent() {
           const future = data.inserted_future ?? 0
           parts.push(future > 0 ? `일정 ${data.inserted}개 등록 (예정 ${future}개)` : `일정 ${data.inserted}개 등록`)
         }
-        if (data.synced_dates > 0) parts.push(`영상 ${data.synced_videos}개 연동 (${data.synced_dates}일)`)
         if (data.skipped_marked > 0) parts.push(`미실시 ${data.skipped_marked}일 정리`)
         toast.success(parts.length > 0 ? parts.join(' · ') : '변경 사항 없음 — 이미 최신입니다')
-        if (data.youtube_note) toast.message(data.youtube_note, { duration: 6000 })
         load()
       } else {
         toast.error(data.error ?? '동기화 실패')
@@ -426,7 +423,7 @@ function ScheduleContent() {
             }}
           >
             {autoGenerating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-            일정 등록 + 영상 연동
+            정기 일정 등록
           </button>
         ) : (
           <button
@@ -497,7 +494,7 @@ function ScheduleContent() {
           title="등록된 일정이 없습니다"
           description="경기 일정을 추가하면 여기에 목록으로 표시됩니다."
           isEditMode={isEditMode}
-          editorHint="위 입력창에서 날짜를 추가하거나 '일정 등록 + 영상 연동' 을 눌러 보세요"
+          editorHint="위 입력창에서 날짜를 추가하거나 '정기 일정 등록' 을 눌러 보세요"
         />
       ) : (
         <>

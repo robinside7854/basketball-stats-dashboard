@@ -1227,7 +1227,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             action: retryAction,
           })
         } else {
-          toast.success(`${data.mapped}개 영상 YouTube 연동 완료${ruleNote ? ` · ${ruleNote}` : ''}`)
+          // 이미 영상이 붙은 경기는 서버가 덮어쓰지 않는다(kept) — 그 수를 함께 알린다.
+          const kept = ((data.details as { action: string }[] | undefined) ?? []).filter(d => d.action.startsWith('kept')).length
+          toast.success(
+            `${data.mapped}개 영상 새로 연동${kept > 0 ? ` · ${kept}개는 이미 붙어 있어 그대로 둠` : ''}`,
+            { description: ruleNote ? `${ruleNote}으로 읽었습니다` : undefined },
+          )
         }
         // 연동이 칸을 새로 늘렸으면(예: 4~9경기) 그 빈 칸에도 대진을 채운다
         const fresh = await refreshSlots()

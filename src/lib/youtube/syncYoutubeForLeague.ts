@@ -1,9 +1,8 @@
 // YouTube 자동 매핑 로직 — 리그의 채널 핸들 + 날짜 → 그날 경기에 영상 붙이기
 //
-// 사용처
-//   1. POST /api/leagues/[leagueId]/youtube-sync (수동, 편집 권한)
-//   2. GET  /api/cron/youtube-sync                (매주 토 22:00 KST 자동)
-//   3. PATCH /api/leagues/[leagueId]/games       (게임 저장 시 백그라운드 시도)
+// 사용처 — **수동 하나뿐** (2026-10-11 운영진 결정: 영상 연동은 수동으로 한다)
+//   POST /api/leagues/[leagueId]/youtube-sync — 기록 화면의 「YouTube 연동」 버튼
+//   ~~주간 cron · 경기 시작 훅 · 일정 탭 일괄 연동~~ 은 삭제했다. 번호형은 영상이 비어 있는 경기만 채운다.
 //
 // 제목 규칙이 두 가지다 (2026-09-07, 2026-09-19 갱신)
 //   ┌ 쿼터형 `260905 지피티vs빅현욱 1Q` → **대진 + 쿼터**. 경기 1행 + league_game_videos 로 붙는다.
@@ -613,15 +612,16 @@ async function mapLegacyVideos(
 
   const { data: existingGames, error: gErr } = await supabase
     .from('league_games')
-    .select('id, slot_num')
+    .select('id, slot_num, youtube_url')
     .eq('league_id', leagueId)
     .eq('date', date)
     .order('id', { ascending: true })
   if (gErr) return { ok: false, reason: `DB error: ${gErr.message}`, channelId, ruleCounts }
 
   const slotToId = new Map<number, string>()
-  for (const g of (existingGames ?? []) as { id: string; slot_num: number }[]) {
-    if (!slotToId.has(g.slot_num)) slotToId.set(g.slot_num, g.id)
+  const slotUrl = new Map<number, string | null>()
+  for (const g of (existingGames ?? []) as { id: string; slot_num: number; youtube_url: string | null }[]) {
+    if (!slotToId.has(g.slot_num)) { slotToId.set(g.slot_num, g.id); slotUrl.set(g.slot_num, g.youtube_url) }
   }
   const slotCount = slotToId.size
   const maxSlot = Math.max(0, ...slotToId.keys())
@@ -633,6 +633,17 @@ async function mapLegacyVideos(
       details.push({
         title: video.title, url: video.url, gameNum,
         action: `skipped:${gameNum}경기 슬롯이 없습니다 (이 날짜는 ${slotCount}칸) — 기록 화면에서 칸을 늘린 뒤 다시 연동하세요`,
+      })
+      continue
+    }
+    // ⚠ 이미 영상이 붙은 경기는 덮어쓰지 않는다 (2026-10-11, 영상 수동 연동 전환).
+    //   운영진이 목록에서 직접 고른 영상을 번호대로 다시 덮어쓰던 문제가 있었다.
+    //   바꾸려면 기록 화면에서 그 경기의 영상을 지우고 다시 붙인다.
+    const existingUrl = slotUrl.get(gameNum)
+    if (existingUrl) {
+      details.push({
+        title: video.title, url: video.url, gameNum, slotNum: gameNum,
+        action: existingUrl === video.url ? 'kept:이미 연결됨' : 'kept:이미 다른 영상이 붙어 있어 그대로 뒀습니다',
       })
       continue
     }
@@ -655,7 +666,7 @@ async function mapLegacyVideos(
   const maxGameNum = Math.max(...matched.map(m => m.gameNum))
   const needSlots = Math.max(0, maxGameNum - maxSlot)
 
-  const mapped = details.filter(d => !d.action.startsWith('err') && !d.action.startsWith('skipped') && d.action !== 'slots-added').length
+  const mapped = details.filter(d => !d.action.startsWith('err') && !d.action.startsWith('skipped') && !d.action.startsWith('kept') && d.action !== 'slots-added').length
   return {
     ok: true, mapped, totalVideos: videos.length, channelId, details, mode: 'legacy', dryRun,
     ruleCounts, needSlots,

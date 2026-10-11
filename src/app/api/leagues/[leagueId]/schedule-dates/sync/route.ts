@@ -18,7 +18,6 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 
 /** 미실시로 접기까지 기다리는 기간. "다음 주가 되면" = 7일. */
 const SKIP_AFTER_DAYS = 7
@@ -148,37 +147,8 @@ export async function POST(
     if (skipErr) return NextResponse.json({ error: skipErr.message }, { status: 500 })
   }
 
-  // ── 3) 영상 연동 ──────────────────────────────────────────────────────
-  const apiKey = process.env.YOUTUBE_API_KEY
-  const channel = league.youtube_channel
-  let syncedDates = 0
-  let syncedVideos = 0
-  let youtubeNote: string | null = null
-
-  if (!apiKey) youtubeNote = 'YouTube API 키가 설정되지 않아 영상 연동은 건너뛰었습니다'
-  else if (!channel) youtubeNote = '설정 탭에서 YouTube 채널을 지정하면 영상까지 자동 연동됩니다'
-  else {
-    const skippedSet = new Set([...newlySkipped, ...[...existing].filter(([, sk]) => sk).map(([d]) => d)])
-    // 영상이 이미 다 붙은 날짜는 다시 찾지 않는다 — 유튜브 API 할당량을 아낀다.
-    const targets = allDates
-      .filter(d => !skippedSet.has(d))
-      // 아직 오지 않은 날짜는 찾을 영상이 없다. 빼지 않으면 미래 8주치마다 유튜브 검색이
-      // 한 번씩 나가 할당량만 태운다(매번 0건).
-      .filter(d => d <= todayYmd)
-      .filter(d => {
-        const s = byDate.get(d)
-        if (!s) return true                 // 경기가 아직 없는 날 — 영상이 먼저 올라온 경우가 있다
-        return s.yt < Math.max(1, s.started) // 시작된 경기 수보다 영상이 적으면 대상
-      })
-      .sort()
-
-    for (const date of targets) {
-      try {
-        const outcome = await syncYoutubeForLeague(supabase, leagueId, channel, date, apiKey)
-        if (outcome.ok && outcome.mapped > 0) { syncedDates++; syncedVideos += outcome.mapped }
-      } catch { /* 한 날짜가 실패해도 나머지는 계속 — 부분 성공이 전부 실패보다 낫다 */ }
-    }
-  }
+  // 영상 연동은 2026-10-11 부터 하지 않는다 — 운영진 결정으로 영상은 기록 화면에서 수동으로 붙인다.
+  //   (예전엔 여기서 지난 날짜마다 자동 연동을 돌렸고, 사람이 고른 영상을 번호대로 덮어쓰는 일이 있었다)
 
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
@@ -189,9 +159,6 @@ export async function POST(
     // 총무가 알 수 없다.
     inserted_future: newDates.filter(d => d > todayYmd).length,
     skipped_marked: newlySkipped.length,
-    synced_dates: syncedDates,
-    synced_videos: syncedVideos,
-    youtube_note: youtubeNote,
     from: wanted[0],
     to: wanted[wanted.length - 1],
   })
