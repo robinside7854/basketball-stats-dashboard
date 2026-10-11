@@ -1,3 +1,4 @@
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
@@ -98,15 +99,9 @@ export async function GET(
     })
   }
 
-  // 팀 메타 (상대팀 이름 조회용)
-  const { data: teams, error: teamsErr } = await supabase
-    .from('league_teams')
-    .select('id, name, color')
-    .eq('league_id', leagueId)
-  if (teamsErr) {
-    return NextResponse.json({ error: `league_teams 조회 실패 — ${teamsErr.message}` }, { status: 500 })
-  }
-  const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t]))
+  // 상대팀 이름 — 반드시 (team_id, quarter_id) 로 푼다. league_teams.name 을 직접 읽으면
+  //   3분기 이후 경기에 1분기 팀명(락다운 등)이 붙는다(CLAUDE.md Critical 규칙, 2026-10-11 수정).
+  const resolveTeam = await loadIdentityResolver(supabase, leagueId)
 
   // plus_one 판정용 — 게임별 오버라이드 우선, 없으면 선수 영구 플래그
   const { data: leaguePlayers, error: playersErr } = await supabase
@@ -154,7 +149,7 @@ export async function GET(
   for (const g of games) {
     const isHome = g.home_team_id === teamId
     const oppId = isHome ? g.away_team_id : g.home_team_id
-    const oppName = oppId ? (teamMap[oppId]?.name ?? '상대') : '상대'
+    const oppName = oppId ? (resolveTeam(oppId, (g.quarter_id as string | null) ?? null)?.display_name ?? '상대') : '상대'
     const teamScore = isHome ? g.home_score : g.away_score
     const oppScore  = isHome ? g.away_score : g.home_score
     byGame[g.id] = { team: emptyAgg(), opp: emptyAgg(), date: g.date, oppName, teamScore, oppScore }

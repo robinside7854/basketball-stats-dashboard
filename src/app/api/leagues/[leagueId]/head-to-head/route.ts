@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/admin'
+import { fetchAllPaged } from '@/lib/supabase/paged'
 import { NextResponse } from 'next/server'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -67,9 +68,12 @@ export async function GET(
     if (!chunk || chunk.length < PAGE) break
   }
 
-  const [{ data: players }, { data: gpRows }, { data: memberships }] = await Promise.all([
+  const [{ data: players }, gpRows, { data: memberships }] = await Promise.all([
     supabase.from('league_players').select('id, plus_one').eq('team_id', teamId),
-    supabase.from('league_game_players').select('league_game_id, league_player_id, team_id').in('league_game_id', gameIds),
+    // 시즌 전체면 1,000행을 넘는다 — 끝까지 읽는다
+    fetchAllPaged<{ league_game_id: string; league_player_id: string; team_id: string }>((from, to) => supabase
+      .from('league_game_players').select('league_game_id, league_player_id, team_id')
+      .in('league_game_id', gameIds).order('id', { ascending: true }).range(from, to)),
     supabase.from('league_player_quarters').select('league_player_id, quarter_id, team_id').eq('league_id', leagueId),
   ])
   const plusOneSet = new Set((players ?? []).filter(p => p.plus_one).map(p => p.id as string))

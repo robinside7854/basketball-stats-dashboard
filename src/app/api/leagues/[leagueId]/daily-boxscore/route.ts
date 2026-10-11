@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/admin'
+import { fetchAllPaged } from '@/lib/supabase/paged'
 import { NextResponse } from 'next/server'
 import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
@@ -60,11 +61,17 @@ export async function GET(
   // 쿼터별 영상 — 경기 하나에 쿼터 영상이 붙어 있으면 카드에 쿼터 탭으로 내려준다.
   //   붙은 게 없으면 빈 Map 이라 종전대로 대표 영상 하나만 나간다.
   const quarterVideos = await fetchQuarterVideos(supabase, gameIds)
-  const { data: events } = await supabase
+  // ⚠ 하루 9경기면 이벤트가 1,000건을 넘는다 — 끝까지 나눠 읽는다(넘치면 뒤쪽 경기가 조용히 빠졌다).
+  const events = await fetchAllPaged<{
+    league_game_id: string; league_player_id: string; related_player_id: string | null
+    type: string; result: string | null; points: number | null; quarter: number | null; team_id: string | null
+  }>((from, to) => supabase
     .from('league_game_events')
     .select('league_game_id, league_player_id, related_player_id, type, result, points, quarter, team_id')
     .in('league_game_id', gameIds)
     .not('league_player_id', 'is', null)
+    .order('id', { ascending: true })
+    .range(from, to))
 
   // teamMap 제거 — identityResolver 로 대체 (Q3 override 반영)
   const playerMap = Object.fromEntries((players ?? []).map(p => [p.id, p]))
@@ -81,10 +88,12 @@ export async function GET(
   }
 
   // 비정규 선수: league_game_players (game_id → player_id → team_id)
-  const { data: gamePlayerRows } = await supabase
+  const gamePlayerRows = await fetchAllPaged<{ league_game_id: string; league_player_id: string; team_id: string }>((from, to) => supabase
     .from('league_game_players')
     .select('league_game_id, league_player_id, team_id')
     .in('league_game_id', gameIds)
+    .order('id', { ascending: true })
+    .range(from, to))
   const gpTeamMap: Record<string, Record<string, string>> = {}
   for (const r of gamePlayerRows ?? []) {
     if (!gpTeamMap[r.league_game_id]) gpTeamMap[r.league_game_id] = {}

@@ -45,6 +45,8 @@ const getCached = (leagueId: string) =>
             .select('league_game_id, league_player_id')
             .in('league_game_id', gameIds)
             .not('league_player_id', 'is', null)
+            // ⚠ 정렬 없이 나눠 읽으면 페이지 사이에서 줄이 빠지거나 겹친다
+            .order('id', { ascending: true })
             .range(pg * PAGE, (pg + 1) * PAGE - 1)
           if (!chunk || chunk.length === 0) break
           for (const r of chunk as Array<{ league_game_id: string; league_player_id: string }>) {

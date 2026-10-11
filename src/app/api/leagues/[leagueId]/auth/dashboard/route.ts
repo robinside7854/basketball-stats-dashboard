@@ -113,6 +113,8 @@ export async function GET(
         .from('league_game_events')
         .select('league_game_id')
         .eq('league_player_id', pid)
+        // ⚠ 정렬 없이 나눠 읽으면 페이지 사이에서 줄이 빠지거나 겹친다
+        .order('id', { ascending: true })
         .range(p * PAGE, (p + 1) * PAGE - 1)
       if (!chunk || chunk.length === 0) break
       for (const r of chunk as Array<{ league_game_id: string }>) gids.add(r.league_game_id)

@@ -1,6 +1,7 @@
 // 인스타 매거진 카드 생성기용 '라운드' 데이터 집계 (서버 전용).
 // 라운드 = 특정 경기 날짜(date). 리더 값은 그 날의 합계.
 // 기존 집계(computeLeagueStats)·팀 식별(loadIdentityResolver)·마일스톤(computeMilestones) 재사용.
+import { fetchAllPaged } from '@/lib/supabase/paged'
 import { createClient } from '@/lib/supabase/admin'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { computeMilestones, type UpcomingEntry } from '@/lib/stats/milestones'
@@ -139,9 +140,10 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
   const playerTeamKey = new Map<string, string>()
   const playerTeamName = new Map<string, { name: string; color: string }>()
   if (gameIds.length) {
-    const { data: evs, error: evsErr } = await sb.from('league_game_events').select('league_player_id, team_id').in('league_game_id', gameIds)
-    // 실패를 조용히 넘기면 선수 소속팀을 못 찾아 리더 카드의 팀명/컬러가 전부 빈 값(회색)으로 나온다.
-    if (evsErr) throw new Error(`getRoundMagazineData: leagueId=${leagueId} date=${date} league_game_events(팀 소속 판정) 조회 실패 — ${evsErr.message}`)
+    // 하루 9경기면 1,000건을 넘는다 — 끝까지 읽는다. 실패는 throw(조용히 넘기면 리더 카드 팀색이 회색이 된다).
+    const evs = await fetchAllPaged<{ league_player_id: string | null; team_id: string | null }>((from, to) => sb
+      .from('league_game_events').select('league_player_id, team_id').in('league_game_id', gameIds)
+      .order('id', { ascending: true }).range(from, to))
     const counts = new Map<string, Map<string, number>>()
     for (const e of evs ?? []) {
       const pid = e.league_player_id as string | null, tid = e.team_id as string | null

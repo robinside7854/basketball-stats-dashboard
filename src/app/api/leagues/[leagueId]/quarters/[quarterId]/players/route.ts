@@ -1,3 +1,4 @@
+import { fetchAllPaged } from '@/lib/supabase/paged'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
@@ -59,19 +60,23 @@ export async function GET(
   //   지우면 그 사람 점수가 명단에서 사라진 채로 박스스코어에 남는다.
   const playedIds = new Set<string>()
   if (gameIds.length > 0) {
-    const [{ data: gameAssigns }, { data: eventRows, error: evErr }] = await Promise.all([
-      supabase
+    // ⚠ 분기 전체라 둘 다 1,000건을 훌쩍 넘는다 — 끝까지 나눠 읽는다. 잘리면 실제로 뛴 선수가
+    //   "기록 없음"으로 판정돼 명단에서 지울 수 있게 된다. 실패는 fetchAllPaged 가 throw 한다.
+    const [gameAssigns, eventRows] = await Promise.all([
+      fetchAllPaged<{ league_player_id: string | null; team_id: string | null }>((from, to) => supabase
         .from('league_game_players')
         .select('league_player_id, team_id')
-        .in('league_game_id', gameIds),
-      supabase
+        .in('league_game_id', gameIds)
+        .order('id', { ascending: true })
+        .range(from, to)),
+      fetchAllPaged<{ league_player_id: string | null }>((from, to) => supabase
         .from('league_game_events')
         .select('league_player_id')
         .in('league_game_id', gameIds)
-        .not('league_player_id', 'is', null),
+        .not('league_player_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, to)),
     ])
-    // 조용히 넘기면 실제로 뛴 선수의 해제 차단이 풀려 기록이 붕 뜰 수 있다 — throw.
-    if (evErr) throw new Error(`league_game_events: quarterId=${quarterId} 조회 실패 — ${evErr.message}`)
     for (const a of gameAssigns ?? []) {
       if (!a.league_player_id || !a.team_id) continue
       if (!playerGameTeams[a.league_player_id]) playerGameTeams[a.league_player_id] = {}
