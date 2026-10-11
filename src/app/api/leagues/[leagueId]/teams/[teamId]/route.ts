@@ -10,7 +10,7 @@ export async function PATCH(
   { params }: { params: Promise<{ leagueId: string; teamId: string }> }
 ) {
   const { leagueId, teamId } = await params
-  // 어드민 세션 또는 X-League-Pin 둘 중 하나면 허용 — 어드민 드래프트 관리
+  // CEO 또는 어드민 회원 세션이면 허용 — 어드민 드래프트 관리
   // 페이지에서 팀명·색상을 인라인 수정할 수 있게 하기 위함.
   if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()

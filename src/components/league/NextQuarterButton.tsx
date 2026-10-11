@@ -17,7 +17,7 @@ import type { Quarter } from '@/types/league'
 interface Props {
   leagueId: string
   quarters: Quarter[]
-  /** 인증 헤더 — 어드민은 {} (쿠키), 리그 페이지는 X-League-Pin */
+  /** 인증 헤더 — 쿠키 인증이라 Content-Type 정도만 실린다 (편집 PIN 은 2026-10-11 폐지) */
   authHeaders?: Record<string, string>
   /** 생성 성공 후 — 부모가 분기 목록을 다시 읽고 새 분기를 선택한다 */
   onCreated: (newQuarterId: string) => void

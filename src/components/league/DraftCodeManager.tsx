@@ -65,7 +65,7 @@ interface Props {
   leagueId: string
   quarterId: string
   teams: Team[]
-  /** 인증 헤더 — 어드민은 {} (쿠키), 리그 페이지는 X-League-Pin */
+  /** 인증 헤더 — 쿠키 인증이라 Content-Type 정도만 실린다 (편집 PIN 은 2026-10-11 폐지) */
   authHeaders?: Record<string, string>
   /** 팀 정보 갱신 콜백 — 팀명·색상 수정 시 부모 페이지가 다시 fetch 하도록 */
   onTeamsChanged?: () => void

@@ -20,7 +20,7 @@ export default function CompetitionSwitcher({
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   // 편집 모드(어드민 role ∥ PIN)가 켜지면 노출 규칙이 바뀌어 빈 대회 묶음도 보여야 한다.
-  //   leagueHeaders 는 PIN 폴백일 때만 X-League-Pin 을 싣는다(어드민 role 은 쿠키로 충분).
+  //   인증은 쿠키(어드민·CEO)로 한다 — 편집 PIN 은 2026-10-11 폐지.
   const { isEditMode, leagueHeaders } = useLeagueEditMode()
 
   useEffect(() => {
