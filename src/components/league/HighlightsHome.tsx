@@ -124,7 +124,8 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   lineHeight: 1.1,
                 }}
               >
-                이번 주 클러치샷
+                {/* 「이번 주」는 경기가 없던 주에 틀린 말이 된다 — 실제 경기일로 쓴다 (2026-10-11) */}
+                {dateLabel} 클러치샷
               </h3>
               <InfoTip text="경기 마지막 2분, 6점차 이내 접전에서 3점차 이내로 좁힌 '결정타' 슛만 모아 보여줘요. 카드를 누르면 순차 재생됩니다." label="클러치샷 설명" />
               {hasClutch && (
@@ -140,12 +141,6 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   {data.clips.length}
                 </span>
               )}
-              <span
-                className="text-xs font-bold ml-1"
-                style={{ color: 'var(--mm-muted)' }}
-              >
-                {dateLabel}
-              </span>
             </div>
             {/* 클러치샷 정의 부연 설명 (작은 카피) */}
             <p
@@ -354,7 +349,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
         <HighlightsClipModal
           clips={data.clips}
           startIdx={openIdx}
-          title="이번 주 클러치샷"
+          title={`${dateLabel} 클러치샷`}
           icon={<HeartCrack size={16} style={{ color: '#ef4444' }} aria-hidden />}
           onClose={() => setOpenIdx(null)}
           ariaLabel="클러치샷 재생"

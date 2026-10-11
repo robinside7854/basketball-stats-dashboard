@@ -758,7 +758,17 @@ function LeagueStatsPageInner() {
               {visibleBasic.map((p, i) => {
                 const sortTerm = sortKey === 'gp' ? 'R' : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
-                const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
+                // 보조 4칸은 고정 우선순위로 고른다 — 예전엔 표 순서대로 앞 4칸이라, 득점순일 때
+                //   R·RPG·ORpg·DRpg(리바운드만 세 번)가 나오고 어시스트가 빠졌다(2026-10-11).
+                //   출전일(R)은 이름 아래에 이미 있으므로 넣지 않는다.
+                const subPref: SortKey[] = viewMode === 'avg'
+                  ? ['ppg', 'rpg', 'apg', 'fg_pct', 'spg', 'fg3_pct', 'bpg']
+                  : ['pts', 'reb', 'ast', 'fg_pct', 'stl', 'fg3m', 'blk']
+                const subCols = subPref
+                  .filter(k => k !== sortKey)
+                  .slice(0, 4)
+                  .map(k => COLS.find(c => c.key === k)!)
+                  .filter(Boolean)
                 const rt = rankTier(i + 1)
                 const openPlayer = () => setQuickViewPlayer({ id: p.player_id, name: p.name })
                 return (

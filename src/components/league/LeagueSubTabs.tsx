@@ -1,6 +1,7 @@
 'use client'
 import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 
 // 선수 명단(/roster)·팀 순위(/teams)는 스탯 우산으로 옮겨졌다(2026-08-08, stats-umbrella-move).
 // 박스스코어 목록(/boxscore 인덱스)은 2026-08-09 '일정' 으로 통합 흡수됐다 — 완료 경기만 보여주는
@@ -23,7 +24,11 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
   const base = (seg[1] === 'league' && seg[2] && seg[3])
     ? `/${seg[1]}/${seg[2]}/${seg[3]}`
     : `/league/${params.orgSlug}/${params.leagueId}`
-  const items = GROUPS[group]
+  // 「경기 기록」은 어드민 입력 화면이다 — 회원에게는 눌러도 "어드민 전용" 만 보이는 탭이라 감춘다(2026-10-11).
+  const { isEditMode } = useLeagueEditMode()
+  const items = GROUPS[group].filter(t => t.seg !== 'record' || isEditMode)
+  // 탭이 하나만 남으면 탭 줄 자체가 의미가 없다
+  if (items.length < 2) return null
 
   return (
     <nav

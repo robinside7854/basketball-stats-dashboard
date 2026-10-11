@@ -444,7 +444,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
   const completedCount = games.filter(g => g.is_complete).length
   const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
-  const skippedCount = games.length - recordedCount
   const allRecordedComplete = recordedCount > 0 && recordedCount === completedCount
 
   return (
@@ -473,9 +472,9 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             )}
           </div>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
-            진행 {recordedCount}경기 · <span className="font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>{completedCount}완료</span>
-            {recordedCount - completedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · {recordedCount - completedCount}미완료</span>}
-            {skippedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · 미사용 슬롯 {skippedCount}</span>}
+            {/* 회원 화면이라 운영 용어(슬롯·미사용 슬롯)는 쓰지 않는다 (2026-10-11) */}
+            <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{recordedCount}경기</span>
+            {recordedCount - completedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · 기록 중 {recordedCount - completedCount}</span>}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -695,10 +694,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                         {/* 상단 라인: 슬롯 · 상태 배지 · YT · 화살표 */}
                         <div className="flex items-center gap-2 mb-2">
                           {/* 묶인 경기는 슬롯 범위를 보여준다 — "#1" 만 뜨면 나머지 세 칸이 어디 갔는지 알 수 없다 */}
-                          <span className="text-xs font-mono shrink-0" style={{ color: 'var(--mm-muted)' }}>
+                          <span className="text-xs font-bold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                             {g.slot_nums && g.slot_nums.length > 1
-                              ? `#${g.slot_nums[0]}~${g.slot_nums[g.slot_nums.length - 1]}`
-                              : `#${g.slot_num}`}
+                              ? `${g.slot_nums[0]}~${g.slot_nums[g.slot_nums.length - 1]}경기`
+                              : `${g.slot_num}경기`}
                           </span>
                           {g.is_complete && (
                             <span
@@ -738,7 +737,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                               className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{
                                 color: homeWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
-                                textDecoration: g.is_complete && !homeWin && !draw ? 'line-through' : 'none',
                                 letterSpacing: '-0.005em',
                               }}
                             >{g.home_team?.name ?? '미정'}</span>
@@ -762,7 +760,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                               className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{
                                 color: awayWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
-                                textDecoration: g.is_complete && !awayWin && !draw ? 'line-through' : 'none',
                                 letterSpacing: '-0.005em',
                               }}
                             >{g.away_team?.name ?? '미정'}</span>

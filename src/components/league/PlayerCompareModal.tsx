@@ -103,27 +103,27 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl mm-modal-in">
-        <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 py-4 flex items-center justify-between">
+      <div className="relative bg-[color:var(--mm-panel)] border-0 sm:border border-[color:var(--mm-rule)] rounded-none sm:rounded-2xl w-full max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl mm-modal-in">
+        <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] backdrop-blur-sm border-b border-[color:var(--mm-rule)] px-5 py-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-500 font-bold">선수 비교</p>
-            <h2 className="text-white font-black text-base mt-0.5">
+            <p className="text-xs text-[color:var(--mm-muted)] font-bold">선수 비교</p>
+            <h2 className="text-[color:var(--mm-ink)] font-black text-base mt-0.5">
               <span style={{ color: COLOR1 }}>{player1Name}</span>
-              <span className="text-gray-600 mx-2">VS</span>
+              <span className="text-[color:var(--mm-muted)] mx-2">VS</span>
               <span style={{ color: COLOR2 }}>{player2Name}</span>
             </h2>
           </div>
-          <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+          <button onClick={onClose} className="rounded-lg hover:bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={20} />
           </button>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-600" /></div>
+          <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-[color:var(--mm-muted)]" /></div>
         ) : (
           <div className="p-5 space-y-5">
             {/* 레이더 차트 */}
-            <div className="bg-gray-800/40 rounded-2xl p-3 border border-gray-700/40">
+            <div className="bg-[color:var(--mm-panel-alt)] rounded-2xl p-3 border border-[color:var(--mm-rule)]">
               <PlayerCompareRadarChart
                 data={radarData}
                 player1Name={player1Name}
@@ -132,13 +132,13 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
                 color2={COLOR2}
               />
               {/* 축이 무슨 값인지 밝힌다 — 안 밝히면 '득점 80' 을 80점으로 읽는다. */}
-              <p className="text-xs text-center mt-0.5 font-bold text-gray-500">
+              <p className="text-xs text-center mt-0.5 font-bold text-[color:var(--mm-muted)]">
                 리그 백분위 (100 = 1위)
               </p>
             </div>
 
             {/* 스탯 비교 테이블 */}
-            <div className="bg-gray-800/30 rounded-2xl border border-gray-700/40 overflow-hidden">
+            <div className="bg-[color:var(--mm-panel-alt)] rounded-2xl border border-[color:var(--mm-rule)] overflow-hidden">
               {ROWS.map(({ key, label, isPct }) => {
                 const v1 = (ps1?.[key] ?? 0) as number
                 const v2 = (ps2?.[key] ?? 0) as number
@@ -146,10 +146,10 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
                 const v2Better = v2 > v1
                 const fmt = (v: number) => isPct ? `${v.toFixed(1)}%` : (key === 'gp' ? String(v) : v.toFixed(1))
                 return (
-                  <div key={key} className="grid grid-cols-3 items-center px-4 py-2.5 border-b border-gray-700/40 last:border-0">
-                    <p className={`text-base font-black text-right ${v1Better ? '' : 'text-gray-500'}`} style={v1Better ? { color: COLOR1 } : undefined}>{fmt(v1)}</p>
-                    <p className="text-xs text-gray-500 font-bold text-center">{label}</p>
-                    <p className={`text-base font-black text-left ${v2Better ? '' : 'text-gray-500'}`} style={v2Better ? { color: COLOR2 } : undefined}>{fmt(v2)}</p>
+                  <div key={key} className="grid grid-cols-3 items-center px-4 py-2.5 border-b border-[color:var(--mm-rule)] last:border-0">
+                    <p className={`text-base font-black text-right ${v1Better ? '' : 'text-[color:var(--mm-muted)]'}`} style={v1Better ? { color: COLOR1 } : undefined}>{fmt(v1)}</p>
+                    <p className="text-xs text-[color:var(--mm-muted)] font-bold text-center">{label}</p>
+                    <p className={`text-base font-black text-left ${v2Better ? '' : 'text-[color:var(--mm-muted)]'}`} style={v2Better ? { color: COLOR2 } : undefined}>{fmt(v2)}</p>
                   </div>
                 )
               })}

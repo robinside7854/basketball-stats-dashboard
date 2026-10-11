@@ -172,8 +172,8 @@ export default async function HighlightsLandingPage({
             const StatusIcon = isReady ? PlayCircle : isPendingRecord ? Clock : VideoOff
             const statusLabel = isReady ? null : isPendingRecord ? '기록 대기 중' : '영상 없음'
             const statusHint = isReady ? null : isPendingRecord
-              ? '영상은 있으나 유튜브 시각과 매핑된 성공 슛 없음'
-              : '유튜브 영상 미매핑'
+              ? '영상은 있지만 아직 장면 기록이 없어요'
+              : '아직 영상이 올라오지 않았어요'
 
             const cardInner = (
               <>
@@ -225,7 +225,7 @@ export default async function HighlightsLandingPage({
                       {r.games_with_video}
                       <span className="text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>/{r.games_count}</span>
                     </span>
-                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>영상 매핑</span>
+                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>경기 영상</span>
                   </div>
                 </div>
 
@@ -308,8 +308,8 @@ export default async function HighlightsLandingPage({
       {/* 각주 안내 */}
       {rounds.some(r => r.status !== 'ready') && (
         <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}>
-          <span className="font-bold">클립 수</span>는 유튜브 영상 시각과 매핑된 성공 슛(video_timestamp)만 집계합니다.
-          영상 매핑 없는 게임은 재생 불가.
+          <span className="font-bold">클립</span>은 영상 속 시각이 함께 기록된 득점 장면만 셉니다.
+          영상이 없는 경기는 재생할 수 없어요.
         </p>
       )}
     </div>

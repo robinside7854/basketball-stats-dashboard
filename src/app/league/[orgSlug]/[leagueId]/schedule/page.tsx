@@ -6,11 +6,12 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
 import TournamentSchedule from '@/components/league/TournamentSchedule'
+import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
@@ -21,6 +22,36 @@ type ScheduleDate = {
   start_time?: string | null; place?: string | null; capacity?: number | null
 }
 type Quarter = { id: string; year: number; quarter: number; start_date?: string | null; end_date?: string | null }
+// 날짜 카드에 보여 줄 그날 결과 — 팀별 승패. 정규전만 센다(친선은 따로 경기 수만).
+type DayTeam = { name: string; color: string | null; w: number; l: number; d: number }
+type DayResult = { teams: DayTeam[]; games: number; exhibition: number }
+type CompleteGame = {
+  date: string; quarter_id?: string; is_exhibition?: boolean
+  home_score: number | null; away_score: number | null
+  home_team_id: string | null; away_team_id: string | null
+  home_team?: { name: string; color: string | null } | null
+  away_team?: { name: string; color: string | null } | null
+}
+
+function buildDayResults(games: CompleteGame[]): Record<string, DayResult> {
+  const out: Record<string, DayResult> = {}
+  for (const g of games) {
+    const r = (out[g.date] ??= { teams: [], games: 0, exhibition: 0 })
+    if (g.is_exhibition) { r.exhibition++; continue }
+    if (!g.home_team_id || !g.away_team_id) continue
+    r.games++
+    const team = (id: string, t: CompleteGame['home_team']) => {
+      let row = r.teams.find(x => x.name === (t?.name ?? id))
+      if (!row) { row = { name: t?.name ?? '팀', color: t?.color ?? null, w: 0, l: 0, d: 0 }; r.teams.push(row) }
+      return row
+    }
+    const h = team(g.home_team_id, g.home_team), a = team(g.away_team_id, g.away_team)
+    const hs = g.home_score ?? 0, as_ = g.away_score ?? 0
+    if (hs > as_) { h.w++; a.l++ } else if (as_ > hs) { a.w++; h.l++ } else { h.d++; a.d++ }
+  }
+  for (const r of Object.values(out)) r.teams.sort((x, y) => (y.w - y.l) - (x.w - x.l) || y.w - x.w)
+  return out
+}
 
 /** 오늘(로컬) YYYY-MM-DD. 미래 일정 판정 기준 — 문자열 비교로 시간대 문제를 피한다. */
 function todayYmd(): string {
@@ -159,7 +190,7 @@ function GamesTab() {
 function ScheduleContent() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
-  const { isEditMode, leagueHeaders, openLogin } = useLeagueEditMode()
+  const { isEditMode, leagueHeaders } = useLeagueEditMode()
   const searchParams = useSearchParams()
   // 구 /boxscore 목록에서 리다이렉트로 들어온 ?quarter= 보존 — 공유된 링크의 분기 필터가 이어지게 한다.
   const quarterFromRedirect = searchParams.get('quarter')
@@ -174,6 +205,7 @@ function ScheduleContent() {
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>(quarterFromRedirect || 'all')
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
+  const [dayResults, setDayResults] = useState<Record<string, DayResult>>({})
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
   const [venueDefaults, setVenueDefaults] = useState<{ start_time: string | null; place: string | null; capacity: number | null } | null>(null)
   const [editingDate, setEditingDate] = useState<string | null>(null)
@@ -200,15 +232,24 @@ function ScheduleContent() {
       })
     }
     if (gRes.ok) {
-      const games: { date: string; quarter_id?: string }[] = await gRes.json()
+      const games: CompleteGame[] = await gRes.json()
       setDatesWithStats(new Set(games.map(g => g.date)))
+      setDayResults(buildDayResults(games))
       const dqMap: Record<string, string> = {}
       for (const g of games) {
         if (g.date && g.quarter_id && !dqMap[g.date]) dqMap[g.date] = g.quarter_id
       }
       setDateQuarterMap(dqMap)
     }
-    if (qRes.ok) setQuarters(await qRes.json())
+    if (qRes.ok) {
+      const qs: Quarter[] = await qRes.json()
+      setQuarters(qs)
+      // 기본 필터는 이번 분기 — 스탯·팀 탭과 같은 기준(2026-10-11). 리다이렉트로 분기가 지정됐으면 그걸 쓴다.
+      if (!quarterFromRedirect) {
+        const cur = pickCurrentQuarter(qs)
+        if (cur) setSelectedQFilter(cur.id)
+      }
+    }
     setLoading(false)
   }
 
@@ -425,19 +466,7 @@ function ScheduleContent() {
             {autoGenerating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
             정기 일정 등록
           </button>
-        ) : (
-          <button
-            onClick={openLogin}
-            className="inline-flex items-center justify-center gap-1.5 text-sm font-medium whitespace-nowrap px-4 py-2 min-h-[44px] transition-colors cursor-pointer"
-            style={{
-              border: '1px solid var(--mm-rule)',
-              color: 'var(--mm-muted)',
-              background: 'var(--mm-panel)',
-            }}
-          >
-            <Lock size={14} />어드민 로그인
-          </button>
-        )}
+        ) : null}
       </div>
 
       {/* 날짜 추가 */}
@@ -655,6 +684,35 @@ function ScheduleContent() {
                       ? <Loader2 size={14} className="animate-spin" />
                       : <Trash2 size={14} />}
                   </button>
+                </div>
+              )}
+
+              {/* 그날 결과 — 팀별 승패 (2026-10-11). 예전엔 「일정·결과」인데 결과가 하나도 없어서
+                  누가 이겼는지 보려면 날짜마다 박스스코어를 열어야 했다. 승패는 색만이 아니라 숫자로 쓴다. */}
+              {!upcoming && dayResults[sd.date] && (dayResults[sd.date].games > 0 || dayResults[sd.date].exhibition > 0) && (
+                <div className="flex flex-wrap items-center gap-1.5 pl-[30px]">
+                  {dayResults[sd.date].games > 0 && (
+                    <span className="text-xs font-bold mr-0.5" style={{ color: 'var(--mm-muted)' }}>{dayResults[sd.date].games}경기</span>
+                  )}
+                  {dayResults[sd.date].teams.map((t, ti) => (
+                    <span key={t.name}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-1 whitespace-nowrap"
+                      style={{
+                        background: ti === 0 ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
+                        border: `1px solid ${ti === 0 ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                        color: 'var(--mm-ink)',
+                        borderRadius: 'var(--mm-radius-chip)',
+                      }}>
+                      <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color ?? 'var(--mm-muted)' }} />
+                      {t.name}
+                      <span className="tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
+                        {t.w}승 {t.l}패{t.d > 0 ? ` ${t.d}무` : ''}
+                      </span>
+                    </span>
+                  ))}
+                  {dayResults[sd.date].exhibition > 0 && (
+                    <span className="text-xs font-medium" style={{ color: 'var(--mm-muted)' }}>친선 {dayResults[sd.date].exhibition}경기</span>
+                  )}
                 </div>
               )}
 
