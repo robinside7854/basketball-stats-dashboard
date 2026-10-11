@@ -656,6 +656,36 @@ function LeagueStatsPageInner() {
             metricFullLabel={topFive.fullLabel}
             players={topFive.players}
             onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
+            controls={<>
+          {/* 모바일 정렬 칩 — TOP 5 카드 안, 사진 바로 위 (2026-10-11).
+              종전엔 표 카드 안(비교 바·읽는 법·표 컨트롤 아래)에 있어서, 칩을 누르면 바뀌는 TOP 5 가
+              화면 위로 멀리 떨어져 "무엇이 바뀌었는지"가 한눈에 안 보였다. 누르는 곳과 바뀌는 곳을 붙인다.
+              세 모드(기본·슈팅·고급)의 칩 행을 하나로 합쳤다 — 지금 모드의 열·정렬 상태만 보여준다. */}
+          {(() => {
+            const chipRow = statMode === 'basic'
+              ? { cols: COLS.map(c => ({ key: c.key as string, label: c.key === 'gp' ? 'R' : c.label })), active: sortKey as string, dir: sortDir, onPick: (k: string) => handleSort(k as SortKey) }
+              : statMode === 'shooting'
+              ? { cols: SHOOTING_COLS.map(c => ({ key: c.key as string, label: c.label })), active: shootSortKey as string, dir: shootSortDir, onPick: (k: string) => handleShootSort(k as typeof shootSortKey) }
+              : { cols: ADV_COLS.map(c => ({ key: c.key as string, label: c.label })), active: advSortKey as string, dir: advSortDir, onPick: (k: string) => handleAdvSort(k as typeof advSortKey) }
+            return (
+              <div className="md:hidden -mx-1 px-1 mb-2 overflow-x-auto" role="group" aria-label="정렬 기준 (TOP 5 함께 바뀜)">
+                <div className="flex gap-1.5 whitespace-nowrap pb-1">
+                  {chipRow.cols.map(({ key, label }) => (
+                    <button key={key} onClick={() => chipRow.onPick(key)}
+                      aria-pressed={chipRow.active === key}
+                      className="px-3 min-h-9 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                      style={chipRow.active === key
+                        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
+                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
+                      }>
+                      {label}{chipRow.active === key && (chipRow.dir === 'desc' ? ' ↓' : ' ↑')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+            </>}
           />
 
           {/* 비교하기 버튼 */}
@@ -736,23 +766,6 @@ function LeagueStatsPageInner() {
             </div>
 
             {statMode === 'basic' ? (<>
-            {/* Basic — 모바일 정렬 칩 */}
-            <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <div className="flex gap-1.5 whitespace-nowrap">
-                {COLS.map(({ key, label }) => (
-                  <button key={key} onClick={() => handleSort(key)}
-                    className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0"
-                    style={sortKey === key
-                      ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
-                      : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
-                    }>
-                    {key === 'gp' ? 'R' : label}
-                    {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Basic — 모바일 카드뷰 */}
             <div className="md:hidden">
               {visibleBasic.map((p, i) => {
@@ -955,22 +968,6 @@ function LeagueStatsPageInner() {
               )}
             </div>
             </>) : statMode === 'shooting' ? (<>
-            {/* Shooting — 모바일 정렬 칩 */}
-            <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <div className="flex gap-1.5 whitespace-nowrap">
-                {SHOOTING_COLS.map(({ key, label }) => (
-                  <button key={key} onClick={() => handleShootSort(key)}
-                    className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0"
-                    style={shootSortKey === key
-                      ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
-                      : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
-                    }>
-                    {label}{shootSortKey === key && (shootSortDir === 'desc' ? ' ↓' : ' ↑')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Shooting — 모바일 카드뷰 */}
             <div className="md:hidden">
               {visibleShoot.map(({ p, sh }, i) => {
@@ -1079,22 +1076,6 @@ function LeagueStatsPageInner() {
               </div>
             </div>
             </>) : (<>
-            {/* Advanced — 모바일 정렬 칩 */}
-            <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <div className="flex gap-1.5 whitespace-nowrap">
-                {ADV_COLS.map(({ key, label }) => (
-                  <button key={key} onClick={() => handleAdvSort(key)}
-                    className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0"
-                    style={advSortKey === key
-                      ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
-                      : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
-                    }>
-                    {label}{advSortKey === key && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Advanced — 모바일 카드뷰 */}
             <div className="md:hidden">
               {visibleAdv.map(({ p, adv }, i) => {

@@ -1,4 +1,5 @@
 'use client'
+import type React from 'react'
 import { Trophy } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 
@@ -19,6 +20,8 @@ interface Props {
   metricFullLabel: string | null     // 예: '득점', '야투율'
   players: TopFivePlayer[]           // 최대 5명 · 이미 정렬됨
   onPlayerClick?: (id: string, name: string) => void
+  /** 헤더와 사진 사이에 끼우는 컨트롤(모바일 정렬 칩). 누르는 곳과 바뀌는 곳을 붙여 두려고 받는다. */
+  controls?: React.ReactNode
 }
 
 function initials(name: string): string {
@@ -65,7 +68,7 @@ function BigAvatar({ photo, name }: { photo?: string | null; name: string }) {
   )
 }
 
-export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, players, onPlayerClick }: Props) {
+export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, players, onPlayerClick, controls }: Props) {
   const active = metricKey !== null && players.length > 0
 
   return (
@@ -92,6 +95,8 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
         )}
       </div>
 
+      {controls}
+
       {!active ? (
         <div
           className="flex items-center justify-center py-8 sm:py-10 text-center"
@@ -105,7 +110,9 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
         // key={metricKey} → 지표 전환 시 컴포넌트 자체가 재마운트되어 stagger 애니메이션 재생
         <div
           key={metricKey}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3"
+          // 모바일: 한 줄 가로 스크롤(카드 폭 30% → 3장 + 다음 장 끝이 보여 넘길 수 있음을 알린다).
+          //   종전 2열 그리드는 5명이 3줄 · 화면 한 장 높이를 차지해, 정렬을 바꾸면 결과가 화면 밖에 있었다.
+          className="flex overflow-x-auto snap-x gap-2 -mx-1 px-1 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-3"
         >
           {players.slice(0, 5).map((p, i) => {
             const rank = i + 1
@@ -123,7 +130,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
               <button
                 key={p.id}
                 onClick={onPlayerClick ? () => onPlayerClick(p.id, p.name) : undefined}
-                className="topfive-slot text-left flex flex-col cursor-pointer overflow-hidden rounded-md transition-shadow duration-200 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.20)]"
+                className="topfive-slot w-[30%] min-w-[104px] shrink-0 snap-start sm:w-auto sm:min-w-0 text-left flex flex-col cursor-pointer overflow-hidden rounded-md transition-shadow duration-200 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.20)]"
                 style={{
                   background: isFirst ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: '1px solid var(--mm-rule)',
@@ -151,12 +158,12 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                   </span>
                 </div>
                 {/* 하단: 이름 + 값 + 지표 라벨 */}
-                <div className="flex flex-col gap-1 px-2.5 py-2">
+                <div className="flex flex-col gap-1 px-2 py-1.5 sm:px-2.5 sm:py-2">
                   <div
                     className="font-bold break-keep truncate"
                     style={{
                       color: 'var(--mm-ink)',
-                      fontSize: 'clamp(16px, 3.2vw, 17px)',
+                      fontSize: 'clamp(14px, 3.2vw, 17px)',
                       lineHeight: 1.15,
                       letterSpacing: '-0.005em',
                     }}
@@ -166,7 +173,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                   <div className="flex items-baseline gap-1.5">
                     <span
                       className="font-jersey font-black tabular-nums leading-none"
-                      style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 5vw, 30px)', letterSpacing: '-0.015em' }}
+                      style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5vw, 30px)', letterSpacing: '-0.015em' }}
                     >
                       {p.value}
                     </span>
