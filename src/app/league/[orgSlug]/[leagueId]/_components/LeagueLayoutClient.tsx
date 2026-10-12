@@ -9,6 +9,7 @@ import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
+import { Basketball } from '@/components/league/BasketballIcons'
 import type { Quarter } from '@/types/league'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
@@ -147,11 +148,13 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                 모바일·태블릿은 상한을 없애고, 우측 액션(shrink-0)이 자리를 잡은 뒤 남는 폭을
                 이 링크가 쓰게 한다(min-w-0 → 정말 모자랄 때만 말줄임). lg 는 탭 자리를 지켜야
                 하므로 220px 상한을 유지. 헤더 높이·탭 동작은 그대로. */}
-            <span
-              className="font-jersey font-black text-sm sm:text-base lg:text-lg truncate lg:max-w-[220px]"
-              style={{ color: 'var(--mm-ink)' }}
-            >
-              {leagueName ?? '온볼'}
+            {/* 2026-10-12 사용자 요청: 좌측 상단은 리그 이름 대신 온볼 로고 + 브랜드명.
+                리그 이름은 홈 상단 카드(「목동 미라클모닝농구단」)가 맡는다. */}
+            <span className="flex items-center gap-1.5 shrink-0">
+              <Basketball size={22} />
+              <span className="font-bold text-base sm:text-lg" style={{ color: 'var(--mm-ink)' }}>
+                OnBall
+              </span>
             </span>
           </Link>
 

@@ -461,8 +461,12 @@ export default async function LeagueDetailPage({
         <h1 className="sr-only">{l.name}</h1>
         <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-        <p className="text-sm sm:text-base font-medium break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
-          매주 아침을 여는 농구 · 우리끼리 진짜 리그처럼 기록합니다
+        {/* 2026-10-12 사용자 요청: 소개 문구 대신 팀 이름을 크게 — 줄바꿈 없이 한 줄(360px 에서도 들어가도록 vw 로 축소) */}
+        <p
+          className="font-jersey font-black whitespace-nowrap leading-tight"
+          style={{ color: 'var(--mm-ink)', fontSize: 'clamp(18px, 5.2vw, 30px)', letterSpacing: '-0.01em' }}
+        >
+          목동 미라클모닝농구단
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           <span>멤버 {memberCount}명</span>
