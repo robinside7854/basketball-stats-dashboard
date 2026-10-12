@@ -6,6 +6,7 @@
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { HeadToHead } from './RecordDisplay'
+import { RecordBar } from '@/components/league/ui/viz'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
 
@@ -154,40 +155,6 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
         })}
       </div>
     </SectionCard>
-  )
-}
-
-// 승·패·무를 길이로 — 숫자 칩 세 개를 막대 하나로 바꿨다. 칸 안에 「4승」처럼 글자도 남겨
-// 색만으로 읽히지 않게 한다(색각 이상·흑백 인쇄).
-function RecordBar({ wins, losses, draws }: { wins: number; losses: number; draws: number }) {
-  const total = wins + losses + draws
-  if (total === 0) return <span className="t-label">아직 경기 없음</span>
-  const segs = [
-    { n: wins, label: '승', bg: 'var(--mm-positive-bg)', fg: 'var(--mm-positive-fg)', bd: 'var(--mm-positive)' },
-    { n: losses, label: '패', bg: 'var(--mm-negative-bg)', fg: 'var(--mm-negative-fg)', bd: 'var(--mm-negative)' },
-    { n: draws, label: '무', bg: 'var(--mm-neutral-bg)', fg: 'var(--mm-neutral-fg)', bd: 'var(--mm-rule)' },
-  ].filter(x => x.n > 0)
-  return (
-    <div
-      className="flex w-full h-7 overflow-hidden"
-      style={{ borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)' }}
-      role="img"
-      aria-label={`${wins}승 ${losses}패${draws > 0 ? ` ${draws}무` : ''}`}
-    >
-      {segs.map((x, i) => (
-        <div
-          key={x.label}
-          className="flex items-center justify-center text-xs sm:text-sm font-black tabular-nums whitespace-nowrap px-1.5"
-          style={{
-            flexGrow: x.n, flexBasis: 0, minWidth: '2.75rem',
-            background: x.bg, color: x.fg,
-            borderLeft: i > 0 ? `2px solid var(--mm-panel)` : 'none',
-          }}
-        >
-          {x.n}{x.label}
-        </div>
-      ))}
-    </div>
   )
 }
 
