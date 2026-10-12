@@ -15,6 +15,7 @@ import StatHeader from '@/components/league/StatHeader'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { ProgressBar } from '@/components/league/ui/viz'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import { useLeagueQuarter, quarterStorageKey } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
@@ -367,7 +368,7 @@ function LeagueStatsPageInner() {
 
   // Shooting stats 컬럼 — 슈팅 정확도 + 야투 분포
   // SHOOTING 컬럼 (2026-07-19 재개편)
-  //   · 개별 % 지표는 텍스트만 (바 그래프 삭제 · 100% 만점 척도가 의미 약함)
+  //   · 개별 % 지표는 텍스트 (모바일 카드는 2026-10-12 부터 숫자 아래 미니 막대 + 자격자 평균 기준선)
   //   · 야투 존별 비중 (DS/LU/MD/3P) 4개 컬럼 → SHOT MIX 스택 막대 단일 컬럼으로 통합
   //     한 선수의 슛 성향을 한눈에 파악
   const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string }[] = [
@@ -437,6 +438,24 @@ function LeagueStatsPageInner() {
   // 정렬만 다시 한 것이라 남은 인원 수도 항상 같다.
   const visibleBasic = filtered.slice(0, visibleCount)
   const visibleShoot = filteredShoot.slice(0, visibleCount)
+
+  // 슈팅 카드 막대의 기준선 = 지금 목록의 자격자 평균(시도 0인 선수는 빼고 낸다 — 0% 로 끌어내리지 않게)
+  const SHOOT_ATTEMPTS: Record<ShootingKey, (p: PlayerStat) => number> = {
+    fg_pct: p => p.fga,
+    fg2_pct: p => p.fga - p.fg3a,
+    fg3_pct: p => p.fg3a,
+    ft_pct: p => p.fta,
+    ts_pct: p => p.fga + p.fta,
+    shot_mix: p => p.fga,
+  }
+  const shootAvg = (key: ShootingKey): number | null => {
+    const rows = filteredShoot.filter(({ p }) => !isIneligible(p) && SHOOT_ATTEMPTS[key](p) > 0)
+    if (rows.length === 0) return null
+    return rows.reduce((s, r) => s + r.sh[key], 0) / rows.length
+  }
+  const shootMarks = Object.fromEntries(
+    SHOOTING_COLS.map(c => [c.key, shootAvg(c.key)])
+  ) as Record<ShootingKey, number | null>
   const visibleAdv = filteredAdv.slice(0, visibleCount)
   const hiddenCount = Math.max(0, filtered.length - visibleCount)
 
@@ -970,6 +989,10 @@ function LeagueStatsPageInner() {
             </>) : statMode === 'shooting' ? (<>
             {/* Shooting — 모바일 카드뷰 */}
             <div className="md:hidden">
+              <div className="px-4 py-1.5 text-xs flex items-center gap-1.5" style={{ color: 'var(--mm-muted)', borderBottom: '1px solid var(--mm-rule)' }}>
+                <span aria-hidden className="inline-block" style={{ width: 2, height: 10, background: 'var(--mm-ink)' }} />
+                막대 위 세로선 = 자격자 평균
+              </div>
               {visibleShoot.map(({ p, sh }, i) => {
                 const rt = rankTier(i + 1)
                 return (
@@ -989,6 +1012,12 @@ function LeagueStatsPageInner() {
                           <div key={key} className="text-center">
                             <div className="text-xs font-bold" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{label}</div>
                             <div className="t-num text-base font-black mt-0.5" style={{ color: 'var(--mm-ink)' }}>{fmt1(sh[key])}%</div>
+                            <ProgressBar
+                              value={sh[key]} max={100}
+                              mark={shootMarks[key] != null ? shootMarks[key]! / 100 : null}
+                              height={5} className="mt-1"
+                              label={`${label} ${fmt1(sh[key])}%${shootMarks[key] != null ? ` · 평균 ${fmt1(shootMarks[key]!)}%` : ''}`}
+                            />
                           </div>
                         )
                       })}

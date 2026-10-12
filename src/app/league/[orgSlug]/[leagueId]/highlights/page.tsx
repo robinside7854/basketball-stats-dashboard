@@ -6,6 +6,7 @@ import { Film, PlayCircle, ChevronRight, Clock, VideoOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
+import { ProgressBar } from '@/components/league/ui/viz'
 import EmptyState from '@/components/league/EmptyState'
 import HighlightsPlayerPicker from '@/components/highlights/HighlightsPlayerPicker'
 import { loadRecentRounds } from '@/lib/highlights/loader'
@@ -220,12 +221,23 @@ export default async function HighlightsLandingPage({
                     <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>{r.clips_count}</span>
                     <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>클립</span>
                   </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>
-                      {r.games_with_video}
-                      <span className="text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>/{r.games_count}</span>
-                    </span>
-                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>경기 영상</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>
+                        {r.games_with_video}
+                        <span className="text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>/{r.games_count}</span>
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>경기 영상</span>
+                    </div>
+                    {r.games_count > 0 && (
+                      <ProgressBar
+                        value={r.games_with_video}
+                        max={r.games_count}
+                        height={5}
+                        className="w-24"
+                        label={`${r.games_count}경기 중 ${r.games_with_video}경기 영상`}
+                      />
+                    )}
                   </div>
                 </div>
 

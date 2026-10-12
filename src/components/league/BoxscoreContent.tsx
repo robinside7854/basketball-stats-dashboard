@@ -14,6 +14,7 @@ import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camer
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
+import { ProgressBar } from '@/components/league/ui/viz'
 // html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
@@ -319,9 +320,20 @@ function LineGrid({ r }: { r: TotalLine }) {
       <div><L>BLK</L><V>{r.blk}</V></div>
       <div><L>TOV</L><V>{r.tov}</V></div>
       <div><L>PF</L><V>{r.pf ?? 0}</V></div>
-      <div className="col-span-2"><L>FT</L><V>{r.ftm}/{r.fta}</V>{ft != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({ft}%)</span>}</div>
-      <div className="col-span-2"><L>FG</L><V>{r.fgm}/{r.fga}</V>{r.fg_pct != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({r.fg_pct}%)</span>}</div>
-      <div className="col-span-2"><L>3P</L><V>{r.fg3m}/{r.fg3a}</V>{r.fg3_pct != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({r.fg3_pct}%)</span>}</div>
+      <ShootCell label="FT" made={r.ftm} att={r.fta} pct={ft} />
+      <ShootCell label="FG" made={r.fgm} att={r.fga} pct={r.fg_pct} />
+      <ShootCell label="3P" made={r.fg3m} att={r.fg3a} pct={r.fg3_pct} />
+    </div>
+  )
+}
+
+// 슛 한 칸 — 「m/a (pct%)」 글자 아래 성공/시도 미니 막대. 카드 높이가 거의 안 늘게 4px.
+//   시도가 0이면 막대를 빈 채로 둬 칸 높이를 맞춘다(옆 칸과 줄이 어긋나지 않게).
+function ShootCell({ label, made, att, pct }: { label: string; made: number; att: number; pct: number | null }) {
+  return (
+    <div className="col-span-2">
+      <L>{label}</L><V>{made}/{att}</V>{pct != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({pct}%)</span>}
+      <ProgressBar value={made} max={att} height={4} className="mt-0.5 max-w-[9rem]" label={`${label} ${att}개 중 ${made}개 성공`} />
     </div>
   )
 }

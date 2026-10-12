@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Crosshair, Heart, Users, Layers, ChevronDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { accentOrInk } from '@/lib/util/contrastColor'
+import { ProgressBar } from '@/components/league/ui/viz'
 
 // gsap · PlayerQuickView · AwardDetail 은 카드 클릭 후 실행되는 인터랙션 — 초기 번들에서 분리
 // gsap 3.15 은 ~70KB, PlayerQuickView 는 1441줄 (recharts 4종 내부 lazy)
@@ -579,18 +580,19 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                   </div>
                   {a.winner.supportingStats && (
                     <div
-                      className={`mt-3 pt-3 grid ${isDuo ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-3'} gap-x-2 gap-y-1.5`}
+                      className="mt-3 pt-3 flex flex-wrap gap-1.5"
                       style={{ borderTop: '1.5px solid rgba(0,0,0,0.18)' }}
                     >
+                      {/* 보조 지표 — 「키: 값」 글줄 대신 칩. 값이 먼저 눈에 들어오게 크게, 키는 작게 */}
                       {Object.entries(a.winner.supportingStats).map(([key, val]) => (
-                        <div key={key} className="text-xs min-w-0">
-                          <span className="font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>
-                            {key}:{' '}
-                          </span>
-                          <span className="font-black tabular-nums" style={{ color: 'var(--mm-black)' }}>
-                            {val}
-                          </span>
-                        </div>
+                        <span
+                          key={key}
+                          className="inline-flex items-baseline gap-1 px-2 py-1 min-w-0"
+                          style={{ background: 'rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.14)', borderRadius: 'var(--mm-radius-chip)' }}
+                        >
+                          <span className="text-[11px] font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>{key}</span>
+                          <span className="text-sm font-black tabular-nums leading-none" style={{ color: 'var(--mm-black)' }}>{val}</span>
+                        </span>
                       ))}
                     </div>
                   )}
@@ -632,7 +634,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--mm-yellow-soft)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
-                        <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2 md:gap-2.5 min-w-0 max-w-[60%]">
                           <span
                             className="t-num font-bold w-4 md:w-5 shrink-0 text-right"
                             style={{ color: 'var(--mm-muted)', fontSize: '16px', lineHeight: 1 }}
@@ -664,6 +666,17 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                             )}
                           </span>
                         </div>
+                        {/* 1위 대비 길이 — 숫자만으로는 「얼마나 차이 나는지」가 안 읽힌다 */}
+                        {a.winner && a.winner.value > 0 && (
+                          <ProgressBar
+                            value={r.value}
+                            max={a.winner.value}
+                            color={accentOrInk(accent)}
+                            height={6}
+                            className="flex-1 min-w-[32px] max-w-[160px] ml-auto"
+                            label={`1위 ${a.winner.displayValue} 대비 ${r.displayValue}`}
+                          />
+                        )}
                         <span
                           className="t-num font-bold shrink-0 text-base"
                           style={{ color: accentOrInk(accent), lineHeight: 1 }}
