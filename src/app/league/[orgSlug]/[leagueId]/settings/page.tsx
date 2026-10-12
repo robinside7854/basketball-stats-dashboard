@@ -273,7 +273,10 @@ export default function LeagueSettingsPage() {
     })
     setSaving(null)
     if (res.ok) { toast.success('저장 완료'); load() }
-    else toast.error('저장 실패')
+    else {
+      const err = await res.json().catch(() => null) as { error?: string } | null
+      toast.error('저장 실패', { description: res.status === 401 ? '어드민으로 로그인했는지 확인해 주세요' : err?.error })
+    }
   }
 
   if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>

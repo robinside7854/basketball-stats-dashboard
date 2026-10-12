@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { requireCeoSession } from '@/lib/auth/ceo'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
 import { logAudit } from '@/lib/audit'
 
@@ -42,9 +43,13 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
-  const session = await requireCeoSession()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { leagueId } = await params
+  // 리그 설정 화면(/settings)은 팀 어드민이 쓴다 — 종전엔 CEO 만 통과시켜 어드민의 저장이 전부
+  // 401 「저장 실패」였다(2026-10-12 발견). 설정 화면 항목은 canEditLeague, 나머지는 CEO 만.
+  const isCeo = !!(await requireCeoSession())
+  if (!isCeo && !(await canEditLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const body = await req.json()
 
   // 허용 컬럼만 통과시킨다. 받은 객체를 그대로 update 에 넘기면 요청 하나로 edit_pin·slug·
@@ -54,9 +59,18 @@ export async function PATCH(
     'season_type', 'games_per_round', 'youtube_channel', 'plus_one_age', 'rules',
     'default_start_time', 'default_place', 'default_capacity',
   ])
+  // 팀 어드민이 바꿀 수 있는 항목 = 설정 화면에 있는 것. 이름·시즌·규칙은 CEO 콘솔 전용.
+  const ADMIN_ALLOWED = new Set([
+    'status', 'match_day', 'start_date', 'season_type', 'games_per_round', 'youtube_channel',
+    'plus_one_age', 'default_start_time', 'default_place', 'default_capacity',
+  ])
   const patch: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(body ?? {})) {
-    if (ALLOWED.has(k)) patch[k] = v
+    if (!ALLOWED.has(k)) continue
+    if (!isCeo && !ADMIN_ALLOWED.has(k)) {
+      return NextResponse.json({ error: `'${k}' 는 온볼 운영자만 바꿀 수 있습니다` }, { status: 403 })
+    }
+    patch[k] = v
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: '변경할 수 있는 항목이 없습니다' }, { status: 400 })
