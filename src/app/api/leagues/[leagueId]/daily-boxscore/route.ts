@@ -196,6 +196,8 @@ export async function GET(
         player_id: pid,
         name: p?.name ?? '?',
         number: p?.number ?? null,
+        // 표의 이름 옆 얼굴(2026-10-12 「글자·숫자만 너무 많다」) — 없으면 화면이 첫 글자로 대체
+        photo_url: (p as { photo_url?: string | null } | undefined)?.photo_url ?? null,
         team_id: teamId ?? null,
         team_name: playerIdentity?.display_name ?? null,
         team_color: playerIdentity?.color ?? null,
@@ -352,8 +354,8 @@ export async function GET(
   const rolledUp = groups.some(g => g.slot_nums.length > 1)
 
   // Aggregate daily stats per player (팀 정보 포함)
-  // photo_url: playerMap 에서 직접 조회(게임별 row 에는 안 실어둠 — StatTable 은 안 쓰므로 불필요한
-  // 필드 증식 방지) · "그날의 주인공" 히어로(2026-08-10, BoxscoreContent 최다득점자 얼굴)용
+  // photo_url: 히어로(2026-08-10) · 하루 합산표 · 리더 카드 · 어시스트 네트워크의 얼굴.
+  //   경기별 row 에도 같은 값이 실려 있다(2026-10-12 — 펼친 경기 표의 이름 옆 얼굴).
   type DailyEntry = GS & { gp: number; name: string; number: number | null; team_id: string | null; team_name: string | null; team_color: string | null; photo_url: string | null }
   const dailyMap: Record<string, DailyEntry> = {}
   for (const g of gameList) {
@@ -361,7 +363,7 @@ export async function GET(
       if (!dailyMap[row.player_id]) dailyMap[row.player_id] = {
         ...emptyGS(), gp: 0, name: row.name, number: row.number,
         team_id: row.team_id ?? null, team_name: row.team_name ?? null, team_color: row.team_color ?? null,
-        photo_url: (playerMap[row.player_id] as { photo_url?: string | null } | undefined)?.photo_url ?? null,
+        photo_url: row.photo_url,
       }
       const d = dailyMap[row.player_id]
       d.gp++; d.pts+=row.pts; d.reb+=row.reb; d.oreb+=row.oreb; d.dreb+=row.dreb

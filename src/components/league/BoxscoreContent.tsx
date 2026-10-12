@@ -68,6 +68,8 @@ function DdLegend() {
 
 type PlayerRow = {
   player_id: string; name: string; number: number | null
+  /** 이름 옆 얼굴 — 없으면 Avatar 가 첫 글자로 대체 */
+  photo_url?: string | null
   team_id: string | null; team_name: string | null; team_color: string | null
   pts: number; reb: number; oreb: number; dreb: number
   ast: number; stl: number; blk: number; tov: number; pf: number
@@ -145,10 +147,13 @@ function PlayerName({ row, onPlayerPick, className = 'whitespace-nowrap' }: { ro
   )
 }
 
+/** 얼굴 테두리 — 팀 색을 두 테마 대비에 맞춰(accentOrInk). 팀을 모르면 null → Avatar 의 1px rule */
+const ringOf = (color: string | null | undefined) => color ? accentOrInk(color) : null
+
 const ftPct = (r: { ftm: number; fta: number }) => r.fta > 0 ? Math.round(r.ftm / r.fta * 1000) / 10 : null
 
 /** 팀 합계 한 줄 — 경기별 표의 맨 아래 */
-type TotalLine = Omit<PlayerRow, 'player_id' | 'name' | 'number' | 'team_id' | 'team_name' | 'team_color'>
+type TotalLine = Omit<PlayerRow, 'player_id' | 'name' | 'number' | 'photo_url' | 'team_id' | 'team_name' | 'team_color'>
 
 function sumLine(rows: PlayerRow[]): TotalLine {
   const t = { pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0 }
@@ -252,9 +257,10 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
               >
-                <td className="py-2.5 px-3 sticky left-0" style={{ background: 'inherit' }}>
+                <td className="py-2 px-3 sticky left-0" style={{ background: 'inherit' }}>
                   <div className="flex items-center gap-2">
-                    {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
+                    {/* 팀 색 점 대신 얼굴(팀 색 테두리) — 점(8px)보다 16px 넓을 뿐이라 이름 칸 min-w 안에 든다 */}
+                    <Avatar src={rr.photo_url} name={rr.name} size={24} ringColor={ringOf(rr.team_color)} decorative />
                     <div className="leading-tight min-w-0">
                       {/* 선수명은 본문체 600 — 유니폼체(좁음)와 900 굵기를 뺀 것이 이번 작업의 요지 */}
                       <span className="flex items-center gap-1.5 min-w-0">
@@ -376,7 +382,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
           <div key={rr.player_id} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
+                <Avatar src={rr.photo_url} name={rr.name} size={32} ringColor={ringOf(rr.team_color)} decorative />
                 <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0" />
                 {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
                 {rr.team_name && <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</span>}
@@ -466,24 +472,30 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
         {leaders.map(({ Icon, label, p, val, sub }) => (
           <div
             key={label}
-            className="shrink-0 w-[8.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
+            className="shrink-0 w-[9.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
           >
             <div className="flex items-center gap-1.5">
               <Icon size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
               <span className="t-label">{label}</span>
             </div>
-            {/* 칩이 이름에 밀려 잘리지 않게 이름 쪽만 줄어든다(min-w-0 + shrink-0). */}
-            <div className="flex items-center gap-1 min-w-0">
-              {p
-                ? <PlayerName row={p} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
-                : <span className="text-base font-semibold leading-tight" style={{ color: 'var(--mm-ink)' }}>—</span>}
-              {p && ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}
+            {/* 얼굴(40) 옆에 이름·기록 두 줄. 카드 폭 9.5rem 에서 이름 칸이 ~80px — 세 글자 이름이 안 잘린다.
+                칩이 이름에 밀려 잘리지 않게 이름 쪽만 줄어든다(min-w-0 + shrink-0). */}
+            <div className="flex items-center gap-2 min-w-0 mt-0.5">
+              {p && <Avatar src={p.photo_url} name={p.name} size={40} ringColor={ringOf(p.team_color)} decorative />}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1 min-w-0">
+                  {p
+                    ? <PlayerName row={p} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
+                    : <span className="text-base font-semibold leading-tight" style={{ color: 'var(--mm-ink)' }}>—</span>}
+                  {p && ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}
+                </div>
+                <p className="t-num text-base font-black leading-tight" style={{ color: 'var(--mm-yellow-strong)' }}>
+                  {val ?? ''}
+                  {sub && <span className="block text-xs font-semibold truncate" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
+                </p>
+              </div>
             </div>
-            <p className="t-num text-base font-black leading-tight" style={{ color: 'var(--mm-yellow-strong)' }}>
-              {val ?? ''}
-              {sub && <span className="ml-1.5 text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
-            </p>
           </div>
         ))}
       </div>

@@ -11,6 +11,7 @@ import { useId, useMemo, useState, type CSSProperties } from 'react'
 import { Handshake } from 'lucide-react'
 import { accentOrInk } from '@/lib/util/contrastColor'
 import EmptyState from '@/components/league/ui/EmptyState'
+import Avatar from '@/components/league/ui/Avatar'
 
 export interface AssistLink {
   game_id: string
@@ -36,6 +37,12 @@ export interface AssistPlayer {
 }
 
 const MAX_NODES = 8
+
+// SVG <image> 는 next/image 를 못 쓴다 — 원본(수백 KB)을 노드 수만큼 받지 않도록, Avatar 와 같은 기준
+//   (옵티마이저 허용 호스트 = Supabase)일 때만 옵티마이저 URL 로 줄여 받는다. 96 은 next.config imageSizes 안의 값
+//   (노드 지름 36 · 최대 확대 ~1.3배 · 2~3배 밀도). 허용 밖 호스트는 원본 그대로.
+const OPTIMIZABLE = /^https:\/\/[^/]+\.supabase\.(co|in)\//
+const nodePhotoHref = (src: string) => OPTIMIZABLE.test(src) ? `/_next/image?url=${encodeURIComponent(src)}&w=96&q=75` : src
 
 const chipStyle = (on: boolean): CSSProperties => on
   ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
@@ -137,7 +144,11 @@ export default function AssistNetwork({ links, games, players }: {
                   style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                 >
                   <span className="t-num text-sm font-black w-5 shrink-0" style={{ color: 'var(--mm-muted)' }}>{i + 1}</span>
-                  <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: e.team.color ?? 'var(--mm-muted)' }} />
+                  {/* 두 얼굴이 겹쳐 「패스 → 득점」 한 쌍으로 읽힌다. 팀 색은 테두리로(점 대신). */}
+                  <span aria-hidden className="flex shrink-0">
+                    <Avatar src={players.get(e.from)?.photo_url} name={nameOf(e.from)} size={32} ringColor={e.team.color ? accentOrInk(e.team.color) : null} decorative />
+                    <Avatar src={players.get(e.to)?.photo_url} name={nameOf(e.to)} size={32} ringColor={e.team.color ? accentOrInk(e.team.color) : null} decorative className="-ml-2" />
+                  </span>
                   <span className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>
                     {nameOf(e.from)} <span aria-label="에서" style={{ color: 'var(--mm-muted)' }}>→</span> {nameOf(e.to)}
                   </span>
@@ -255,7 +266,8 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
           const p = pos.get(id)!
           const pl = players.get(id)
           const name = pl?.name ?? '?'
-          const initials = name.length > 1 ? name.slice(1) : name
+          // 사진이 없으면 첫 글자 — 공용 Avatar 와 같은 대체 규칙(화면마다 갈리지 않게)
+          const initial = name.trim().charAt(0) || '?'
           const cos = Math.cos(p.a), sin = Math.sin(p.a)
           const lx = CX + (R + NR + 6) * cos
           const ly = CY + (R + NR + 6) * sin
@@ -266,13 +278,13 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
               <circle cx={p.x} cy={p.y} r={NR} style={{ fill: 'var(--mm-panel)', stroke, strokeWidth: 2 }} />
               {pl?.photo_url ? (
                 <image
-                  href={pl.photo_url}
+                  href={nodePhotoHref(pl.photo_url)}
                   x={p.x - NR} y={p.y - NR} width={NR * 2} height={NR * 2}
                   preserveAspectRatio="xMidYMin slice"
                   clipPath={`url(#clip-${uid}-${id})`}
                 />
               ) : (
-                <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={900} style={{ fill: 'var(--mm-ink)' }}>{initials}</text>
+                <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight={900} style={{ fill: 'var(--mm-ink-soft)' }}>{initial}</text>
               )}
               <text x={lx} y={ly} textAnchor={anchor} dominantBaseline={baseline} fontSize={13} fontWeight={700} style={{ fill: 'var(--mm-ink)' }}>{name}</text>
             </g>
