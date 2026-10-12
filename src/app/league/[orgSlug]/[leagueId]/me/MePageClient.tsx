@@ -3,14 +3,14 @@
 // 테마 토글이 이 페이지로 내려오면서 생긴 유일한 계정/개인 화면.
 //   비로그인: LoginTeaser(홈 위젯과 달리 닫기 없이 항상 노출 — 여기가 목적지이므로)
 //   로그인: PersonalDashboard 를 그대로 재사용(새로 만들지 않음)
-//   바로가기: 내 하이라이트(로그인 시만, D5→D3 해소 지점) · 드래프트(진행 중 · 어드민만)
+//   바로가기: 드래프트(진행 중 · 어드민만) — 내 하이라이트는 대시보드 「내 베스트샷」 카드로(2026-10-12)
 //     — 선수 명단·팀 순위는 스탯 탭으로, 설정은 상단 바 어드민 버튼으로 이동했다(둘 다 여기서 제거,
 //       2026-08-08 stats-umbrella-move 기준 갱신).
 //   계정: 라이트/다크 · 로그아웃 — 둘러보기 버튼은 기능 자체가 삭제되어 함께 제거했다(Task 4-A).
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
-import { LogOut, ChevronRight, ClipboardList, Film } from 'lucide-react'
+import { LogOut, ChevronRight, ClipboardList } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
@@ -46,29 +46,16 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       {authLoading ? (
         <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
       ) : user ? (
-        <>
-          <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
-        </>
+        <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} />
       ) : (
         <LoginTeaser />
       )}
 
-      {/* 바로가기 — 선수 명단·팀 순위는 스탯 탭으로, 설정은 상단 바 어드민 버튼으로 옮겨졌다
-          (Task 4-B, 2026-08-08 갱신). 남는 항목이 하나도 없으면(비로그인 + 드래프트 없음) 빈 카드를 렌더하지 않는다. */}
-      {(user || showDraft) && (
+      {/* 바로가기 — 드래프트(진행 중 · 어드민만)만 남았다. 「내 하이라이트」는 2026-10-12 부터
+          대시보드의 「내 베스트샷」 카드 머리(전체 하이라이트)로 옮겼다 — 같은 링크를 두 곳에 두지 않는다. */}
+      {showDraft && (
         <SectionCard variant="standalone" pad="none">
-          {user && (
-            <ShortcutRow
-              href={`${base}/highlights/player/${user.player_id}`}
-              Icon={Film}
-              label="내 하이라이트"
-              sub="내가 참여한 경기 클립 모아보기"
-              last={!showDraft}
-            />
-          )}
-          {showDraft && (
-            <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />
-          )}
+          <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />
         </SectionCard>
       )}
 

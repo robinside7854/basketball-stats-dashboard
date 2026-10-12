@@ -1,20 +1,39 @@
 'use client'
-// 로그인 유저 전용 · 개인화 대시보드 (홈 상단)
-//   a. **이번 분기 · 하루 평균** 득점/리바/어시/스틸/블락 + 각 항목 순위 (2026-10-12)
-//      — 홈 「리그 리더」와 같은 기준(지금 분기 · 하루 평균 · 같은 최소 출전). 종전엔 시즌 누적 합계라
-//        홈에서 본 순위와 여기 순위가 달랐다. 시즌 누적 합계는 아래 보조 줄로 남긴다.
-//   b. "이번 주 나의 하이라이트" CTA — 최근 참여한 라운드의 하이라이트로 연결
-//   c. 마일스톤 체이서 (가장 도달 가능한 것부터)
-//   d. 프로필카드 열기 CTA
-import { useCallback, useEffect, useState } from 'react'
+// 「나」(/me) 개인 대시보드 — 홈 「내 카드」의 확장판 (리뉴얼 2단계, 2026-10-12)
+//
+// 배치 (모바일 한 줄 · PC ≥lg 두 칸)
+//   왼쪽(요약 · PC 에서 sticky)
+//     · 프로필 머리 + 선수카드
+//     · 상단 3칸 「출전 N일 · 하루 평균(득점) · 다음 목표까지」 — 숫자 셋만 크게
+//     · 이번 분기 · 하루 평균 5지표 + 순위(홈 「리그 리더」와 같은 기준 · 같은 최소 출전) · 시즌 누적 보조 줄
+//     · 계정(비밀번호 변경)
+//   오른쪽(자세히)
+//     · 출석률 — 내가 뛴 날 / 리그가 열린 날 (이번 분기 + 시즌) · 경기일마다 점
+//     · 내 트렌드 — 하루별 득점(리바·어시) 선 + 점선 = 내 하루 평균 (인라인 SVG, recharts 안 씀)
+//     · 내 베스트샷 — 핀 고정한 클립(최대 3) + 최근 하이라이트 바로가기
+//     · 진행 중 스트릭 · 마일스톤 체이서 (종전 그대로)
+//   숫자는 전부 auth/dashboard 하나가 준다(친선 제외 · scorePoints 판정 — 화면에서 다시 계산하지 않는다).
+//   ⚠ 평균 단위는 「하루」다 — 「경기당」이라 쓰지 말 것.
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X, KeyRound } from 'lucide-react'
+import {
+  Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X, KeyRound,
+  CalendarCheck, TrendingUp, Pin, Play,
+} from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
 import CountUp from '@/components/league/ui/CountUp'
 import GrowBar from '@/components/league/ui/GrowBar'
 import Avatar from '@/components/league/ui/Avatar'
+import Chip from '@/components/league/ui/Chip'
+import EmptyState from '@/components/league/ui/EmptyState'
+import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
+import { Ring } from '@/components/league/ui/viz'
+import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
+import type { HighlightClip } from '@/lib/highlights/types'
+import MeTrendChart from './MeTrendChart'
 // 폭죽은 canvas + rAF 라 첫 화면 번들에 들어갈 이유가 없다. 실제로 터질 때만 받아온다.
 const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
 
@@ -22,6 +41,8 @@ const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: fa
 const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
 // 비밀번호 변경 모달 · 클릭 시에만 로드
 const PasswordChangeModal = dynamic(() => import('./PasswordChangeModal'), { ssr: false })
+// 베스트샷 재생기 · 클릭 시에만 로드
+const HighlightsClipModal = dynamic(() => import('@/components/highlights/HighlightsClipModal'), { ssr: false })
 
 interface RankInfo { rank: number; total: number }
 type Metric = 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
@@ -51,17 +72,30 @@ interface Chaser {
   progressPct: number
 }
 interface StreakItem { key: string; label: string; count: number; unit: string }
+interface AttendanceData {
+  quarter: { attended: number; total: number; days: Array<{ date: string; played: boolean }> }
+  season: { attended: number; total: number }
+  current_streak: number
+  longest_streak: number
+}
+interface TrendRow { date: string; pts: number; reb: number; ast: number }
 interface DashboardData {
   quarter?: QuarterSummaryData
   season: Season
   weekly: Weekly
   milestoneChasers: Chaser[]
   streaks: StreakItem[]
+  // 2026-10-12 추가 필드 — 옛 응답(배포 직후 캐시)에는 없을 수 있다
+  attendance?: AttendanceData
+  trend?: { quarter: TrendRow[]; season: TrendRow[] }
+  pinned_clips?: HighlightClip[]
 }
 
 interface Props {
   leagueId: string
   orgSlug: string
+  /** 브라우저 경로 기준 리그 base(`/league/<org>/<slug>`) — 없으면 UUID 경로로 만든다 */
+  base?: string
 }
 
 const METRIC_COLOR: Record<Chaser['metric'], string> = {
@@ -92,7 +126,12 @@ function rankStyle(rank: number, total: number): { color: string; bg?: string; b
   return { color: 'var(--mm-muted)', bg: 'transparent' }
 }
 
-export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
+const EMPTY_QUARTER: QuarterSummaryData = {
+  label: null, attended_rounds: 0, total_rounds: 0, min_rounds: 1, eligible: false,
+  per_day: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }, ranks: {},
+}
+
+export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
   const { user, loading: authLoading, refresh } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -132,91 +171,113 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
     )
   }
 
+  const leagueBase = base ?? `/league/${orgSlug}/${leagueId}`
+  const myHighlightsHref = `${leagueBase}/highlights/player/${user.player_id}`
   const highlightsHref = data?.weekly.available && data.weekly.date
-    ? `/league/${orgSlug}/${leagueId}/highlights/player/${user.player_id}?date=${data.weekly.date}`
+    ? `${myHighlightsHref}?date=${data.weekly.date}`
     : null
+  const ready = !loading && !!data
 
   return (
     <>
-      <SectionCard variant="standalone" emphasized pad="none">
-        {/* 헤더 · 유저 프로필 + 프로필카드 CTA · PC 확대 */}
-        <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <Avatar src={user.photo_url} name={user.name ?? user.login_id} size={56} decorative priority />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-jersey font-black text-xl md:text-2xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}>
-                {user.name ?? user.login_id}
-              </span>
-              <Sparkles size={16} style={{ color: 'var(--mm-ink-soft)' }} />
-            </div>
-            <div className="text-xs md:text-sm font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-              나의 기록 대시보드
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setProfileOpen(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black min-h-[40px] md:min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
-            style={{ background: 'var(--mm-black)', color: '#ffffff', border: '1px solid var(--mm-black)', borderRadius: '4px' }}
-            aria-label="선수카드 열기"
-          >
-            <IdCard size={14} />
-            선수카드
-          </button>
-        </header>
+      <div className="grid gap-4 lg:gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start">
+        {/* ── 왼쪽: 요약 (PC 에서 스크롤해도 따라온다) ── */}
+        <div className="min-w-0 lg:sticky lg:top-[64px]">
+          <SectionCard variant="standalone" emphasized pad="none">
+            {/* 헤더 · 유저 프로필 + 프로필카드 CTA */}
+            <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+              <Avatar src={user.photo_url} name={user.name ?? user.login_id} size={56} decorative priority />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-1.5 min-w-0">
+                  <span className="font-jersey font-black text-xl md:text-2xl truncate" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}>
+                    {user.name ?? user.login_id}
+                  </span>
+                  <Sparkles size={16} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
+                </div>
+                <div className="text-xs md:text-sm font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+                  {data?.quarter?.label ? `${data.quarter.label} · 나의 기록` : '나의 기록'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-chip)' }}
+                aria-label="선수카드 열기"
+              >
+                <IdCard size={14} aria-hidden />
+                선수카드
+              </button>
+            </header>
 
-        {loading || !data ? (
-          <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
-            로딩중…
-          </div>
-        ) : (
-          <>
-            {/* a. 이번 분기 · 하루 평균 + 순위 (홈 리그 리더와 같은 기준) · 시즌 누적은 보조 줄 */}
-            <QuarterSummary quarter={data.quarter} season={data.season} />
-
-            {/* a-2. 진행 중 스트릭 (연속 기록) — 있을 때만 */}
-            <StreakBoard streaks={data.streaks ?? []} />
-
-            {/* b. 이번 주 하이라이트 CTA · 최근 참여 라운드 */}
-            <HighlightCTA available={data.weekly.available} href={highlightsHref} date={data.weekly.date} />
-
-            {/* c. 마일스톤 체이서 (트렌드 삭제) */}
-            <MilestoneChaser chasers={data.milestoneChasers} playerId={user?.player_id ?? null} />
-          </>
-        )}
-
-        {/* d. 계정 · 비밀번호 변경 (로그아웃은 /me MePageClient 의 계정 섹션 하나로 통합 — 중복 제거) */}
-        <div
-          className="flex items-center justify-between gap-2 flex-wrap px-4 md:px-5 py-3"
-          style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
-        >
-          <div className="flex items-center gap-2 min-w-0 text-xs" style={{ color: 'var(--mm-muted)' }}>
-            <UserIcon size={14} aria-hidden />
-            <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
-            {user.is_default_password && (
-              <span className="inline-flex items-center text-xs font-black px-1.5 py-0.5 rounded-sm"
-                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
-                초기 비번
-              </span>
+            {!ready ? (
+              <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }} role="status">
+                로딩중…
+              </div>
+            ) : (
+              <>
+                {/* 상단 3칸 — 출전 · 하루 평균 득점 · 다음 목표까지 */}
+                <TopTiles quarter={data.quarter ?? EMPTY_QUARTER} chaser={data.milestoneChasers[0] ?? null} />
+                {/* 이번 분기 · 하루 평균 5지표 + 순위 · 시즌 누적은 보조 줄 */}
+                <QuarterSummary quarter={data.quarter} season={data.season} />
+              </>
             )}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPwOpen(true)}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-black rounded-sm cursor-pointer transition-colors"
-              style={{
-                background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',
-                border: `1px solid ${user.is_default_password ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
-              }}
+
+            {/* 계정 · 비밀번호 변경 (로그아웃은 /me MePageClient 의 계정 섹션 하나로 통합 — 중복 제거) */}
+            <div
+              className="flex items-center justify-between gap-2 flex-wrap px-4 md:px-5 py-3"
+              style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
             >
-              <KeyRound size={14} aria-hidden />
-              비밀번호 변경
-            </button>
-          </div>
+              <div className="flex items-center gap-2 min-w-0 text-xs" style={{ color: 'var(--mm-muted)' }}>
+                <UserIcon size={14} aria-hidden />
+                <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
+                {user.is_default_password && (
+                  <span className="inline-flex items-center text-xs font-black px-1.5 py-0.5 rounded-sm"
+                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
+                    초기 비번
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPwOpen(true)}
+                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-black rounded-sm cursor-pointer transition-colors"
+                style={{
+                  background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                  color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',
+                  border: `1px solid ${user.is_default_password ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                }}
+              >
+                <KeyRound size={14} aria-hidden />
+                비밀번호 변경
+              </button>
+            </div>
+          </SectionCard>
         </div>
-      </SectionCard>
+
+        {/* ── 오른쪽: 자세히 ── */}
+        {ready && (
+          <div className="min-w-0 space-y-4 lg:space-y-5">
+            <AttendanceCard attendance={data.attendance} quarterLabel={data.quarter?.label ?? null} />
+            <TrendCard trend={data.trend} />
+            <BestShotsCard
+              clips={data.pinned_clips ?? []}
+              playerName={user.name ?? user.login_id}
+              allHref={myHighlightsHref}
+              weekly={data.weekly}
+              recentHref={highlightsHref}
+            />
+            {(data.streaks?.length ?? 0) > 0 && (
+              <SectionCard variant="standalone" pad="none">
+                <StreakBoard streaks={data.streaks} />
+              </SectionCard>
+            )}
+            <SectionCard variant="standalone" pad="none">
+              <MilestoneChaser chasers={data.milestoneChasers} playerId={user?.player_id ?? null} />
+            </SectionCard>
+          </div>
+        )}
+      </div>
 
       {profileOpen && user && (
         <PlayerQuickViewModal
@@ -239,28 +300,105 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
   )
 }
 
+// 카드 머리 — 아이콘 + 제목 + (보조 글) + (오른쪽 칩)
+function CardTitle({ icon: Icon, title, sub, right }: {
+  icon: LucideIcon; title: string; sub?: string; right?: ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mb-3">
+      <Icon size={16} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
+      <h3 className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{title}</h3>
+      {sub && <span className="text-xs font-bold ml-1 break-keep" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
+      {right && <span className="ml-auto">{right}</span>}
+    </div>
+  )
+}
+
+// ─── 상단 3칸 ─────────────────────────────────────────────────
+// 숫자 셋만 크게 — 「지금 나는 어디쯤인가」를 첫눈에.
+function TopTiles({ quarter, chaser }: { quarter: QuarterSummaryData; chaser: Chaser | null }) {
+  const ptsRank = quarter.ranks.pts
+  const rs = ptsRank ? rankStyle(ptsRank.rank, ptsRank.total) : null
+  return (
+    <div className="px-4 sm:px-5 pt-3 sm:pt-4">
+      <dl
+        className="grid grid-cols-3"
+        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}
+      >
+        <Tile label="출전" first>
+          <BigNum>{quarter.attended_rounds}<Unit>일</Unit></BigNum>
+          <TileSub>전체 {quarter.total_rounds}일 중</TileSub>
+        </Tile>
+        <Tile label="하루 평균 득점">
+          <BigNum>{(quarter.per_day.pts ?? 0).toFixed(1)}</BigNum>
+          {ptsRank && rs ? (
+            <span
+              className="inline-flex items-center text-[11px] font-black tabular-nums px-1.5 leading-[18px]"
+              style={{ color: rs.color, background: rs.bg ?? 'transparent', border: rs.border, borderRadius: 3 }}
+              title={`${ptsRank.rank}위 / ${ptsRank.total}명`}
+            >
+              {ptsRank.rank}위
+            </span>
+          ) : (
+            <TileSub>{quarter.attended_rounds > 0 ? '순위 집계 전' : '출전 전'}</TileSub>
+          )}
+        </Tile>
+        <Tile label="다음 목표까지">
+          {chaser ? (
+            <>
+              <BigNum>{chaser.remaining}</BigNum>
+              <TileSub>{METRIC_SHORT[chaser.metric]} {chaser.nextThreshold.toLocaleString()} 달성</TileSub>
+            </>
+          ) : (
+            <>
+              <BigNum>–</BigNum>
+              <TileSub>기록이 쌓이면 보여요</TileSub>
+            </>
+          )}
+        </Tile>
+      </dl>
+    </div>
+  )
+}
+
+function Tile({ label, first = false, children }: { label: string; first?: boolean; children: ReactNode }) {
+  return (
+    <div
+      className="flex flex-col items-center text-center gap-1 px-1.5 py-3 min-w-0"
+      style={first ? undefined : { borderLeft: '1px solid var(--mm-rule)' }}
+    >
+      <dt className="text-[11px] sm:text-xs font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
+      <dd className="flex flex-col items-center gap-1 min-w-0">{children}</dd>
+    </div>
+  )
+}
+function BigNum({ children }: { children: ReactNode }) {
+  return (
+    <span className="font-jersey font-black tabular-nums leading-none text-[26px] sm:text-[30px] lg:text-[28px]" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.02em' }}>
+      {children}
+    </span>
+  )
+}
+function Unit({ children }: { children: ReactNode }) {
+  return <span className="text-sm font-bold ml-0.5" style={{ color: 'var(--mm-ink-soft)' }}>{children}</span>
+}
+function TileSub({ children }: { children: ReactNode }) {
+  return <span className="text-[11px] font-bold leading-tight break-keep" style={{ color: 'var(--mm-muted)' }}>{children}</span>
+}
+
 function QuarterSummary({ quarter, season }: { quarter?: QuarterSummaryData; season: Season }) {
   // 옛 응답(배포 직후 캐시 등)에는 quarter 가 없다 — 빈 값으로 그린다
-  const q: QuarterSummaryData = quarter ?? {
-    label: null, attended_rounds: 0, total_rounds: 0, min_rounds: 1, eligible: false,
-    per_day: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }, ranks: {},
-  }
+  const q: QuarterSummaryData = quarter ?? EMPTY_QUARTER
   const metrics: Metric[] = ['pts', 'reb', 'ast', 'stl', 'blk']
   return (
     <div className="px-4 sm:px-5 py-3 sm:py-4">
-      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1 mb-3">
-        <span className="font-bold text-base md:text-lg break-keep" style={{ color: 'var(--mm-ink)' }}>
+      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1 mb-2.5">
+        <span className="font-bold text-sm md:text-base break-keep" style={{ color: 'var(--mm-ink)' }}>
           {q.label ? `이번 분기 · 하루 평균` : '하루 평균'}
         </span>
         {q.label && (
           <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{q.label}</span>
         )}
-        <span
-          className="inline-flex items-center text-xs md:text-sm font-black px-2 py-0.5 tabular-nums"
-          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
-        >
-          출전 {q.attended_rounds}일 / 전체 {q.total_rounds}일
-        </span>
       </div>
       {/* 5개 지표 카드 · 하루 평균 */}
       <div className="grid grid-cols-5 gap-1.5 md:gap-2">
@@ -297,55 +435,274 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
   const rs = rank ? rankStyle(rank.rank, rank.total) : null
   return (
     <div
-      className="relative flex flex-col items-center justify-between overflow-hidden"
+      className="relative flex flex-col items-center justify-between overflow-hidden min-w-0"
       style={{
         background: 'var(--mm-panel-alt)',
         border: '1px solid var(--mm-rule)',
         borderRadius: '6px',
-        padding: '10px 4px 8px',
-        minHeight: 96,
+        padding: '8px 2px 6px',
+        minHeight: 84,
       }}
     >
-      {/* 지표 라벨 */}
-      <div
-        className="text-xs font-black mt-0.5"
-        style={{ color: 'var(--mm-muted)' }}
-      >
+      <div className="text-xs font-black mt-0.5" style={{ color: 'var(--mm-muted)' }}>
         {METRIC_SHORT[metricKey]}
       </div>
-      {/* 큰 숫자 */}
+      {/* 하루 평균은 소수 한 자리(「12.3」) — 360px 5칸·PC 왼쪽 380px 칸 모두에서 넘치지 않는 크기 */}
       <div
-        className="font-jersey font-black tabular-nums leading-none my-1"
-        style={{
-          color: 'var(--mm-ink)',
-          // 하루 평균은 소수 한 자리(「12.3」)라 5칸 그리드 375px 폭에서 넘치지 않게 한 단계 줄였다
-          fontSize: 'clamp(20px, 5vw, 36px)',
-          letterSpacing: '-0.015em',
-        }}
+        className="font-jersey font-black tabular-nums leading-none my-1 text-[19px] sm:text-[24px] md:text-[28px] lg:text-[22px]"
+        style={{ color: 'var(--mm-ink)', letterSpacing: '-0.015em' }}
       >
         {value.toFixed(1)}
       </div>
-      {/* 랭킹 뱃지 · 통일 규칙 (2026-07-22 · 2026-08-06 이모지 메달 제거)
-          1-3위: N위 · 골드/실버/브론즈 배경
-          4-10위: N위 · rank-top 배경
-          11위+: N위 · 뉴트럴 텍스트 · 배경 없음
-          랭킹 정보 없음: 렌더 안 함 (— 제거) */}
-      {rank && rank.total > 0 && rs && (
+      {/* 랭킹 뱃지 — 1-3위 골드/실버/브론즈 · 4-10위 rank-top · 11위+ 뉴트럴 · 정보 없으면 렌더 안 함 */}
+      {rank && rank.total > 0 && rs ? (
         <div
-          className="inline-flex items-center gap-0.5 text-xs font-black tabular-nums px-1.5 py-0.5"
-          style={{
-            color: rs.color,
-            background: rs.bg ?? 'transparent',
-            border: rs.border,
-            borderRadius: '3px',
-            letterSpacing: '-0.005em',
-          }}
+          className="inline-flex items-center text-[11px] font-black tabular-nums px-1 leading-[16px]"
+          style={{ color: rs.color, background: rs.bg ?? 'transparent', border: rs.border, borderRadius: '3px' }}
           title={`${rank.rank}위 / ${rank.total}명`}
         >
-          <span>{rank.rank}위</span>
+          {rank.rank}위
         </div>
-      )}
+      ) : <div className="h-[18px]" aria-hidden />}
     </div>
+  )
+}
+
+// ─── 출석률 ───────────────────────────────────────────────────
+// 내가 뛴 날 / 리그가 열린 날(정규 경기일 · 친선 제외). 경기일마다 점 하나.
+function AttendanceCard({ attendance, quarterLabel }: { attendance?: AttendanceData; quarterLabel: string | null }) {
+  const pct = (a: number, t: number) => (t > 0 ? Math.round((a / t) * 100) : 0)
+  return (
+    <SectionCard variant="standalone">
+      <CardTitle
+        icon={CalendarCheck}
+        title="출석률"
+        sub="내가 뛴 날 / 리그가 열린 날"
+        right={quarterLabel ? <Chip tone="neutral">{quarterLabel}</Chip> : undefined}
+      />
+      {!attendance || attendance.season.total === 0 ? (
+        <EmptyState variant="compact" icon={CalendarCheck} title="아직 열린 경기일이 없어요" />
+      ) : (
+        <>
+          <div className="flex items-center gap-4">
+            <Ring
+              ratio={attendance.quarter.total > 0 ? attendance.quarter.attended / attendance.quarter.total : 0}
+              size={76}
+              stroke={8}
+              label={`이번 분기 출석률 ${pct(attendance.quarter.attended, attendance.quarter.total)}%`}
+            >
+              <span className="text-sm">{pct(attendance.quarter.attended, attendance.quarter.total)}%</span>
+            </Ring>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="text-sm md:text-base font-bold tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                이번 분기 <b className="font-black">{attendance.quarter.attended}</b>
+                <span style={{ color: 'var(--mm-muted)' }}> / {attendance.quarter.total}일</span>
+              </div>
+              <div className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+                시즌 {attendance.season.attended} / {attendance.season.total}일 · {pct(attendance.season.attended, attendance.season.total)}%
+              </div>
+              {(attendance.current_streak >= 2 || attendance.longest_streak >= 2) && (
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {attendance.current_streak >= 2 && (
+                    <Chip tone="accent" icon={Flame}>{attendance.current_streak}라운드 연속</Chip>
+                  )}
+                  {attendance.longest_streak >= 2 && (
+                    <Chip tone="neutral">최장 {attendance.longest_streak}라운드</Chip>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          {attendance.quarter.days.length > 0 && (
+            <div className="mt-4">
+              <ul className="flex flex-wrap gap-1.5" aria-label="이번 분기 경기일별 출전">
+                {attendance.quarter.days.map(d => (
+                  <li
+                    key={d.date}
+                    title={`${formatDate(d.date)} · ${d.played ? '출전' : '결장'}`}
+                    aria-label={`${formatDate(d.date)} ${d.played ? '출전' : '결장'}`}
+                    className="w-4 h-4 sm:w-[18px] sm:h-[18px]"
+                    style={{
+                      borderRadius: 4,
+                      background: d.played ? 'var(--mm-yellow-strong)' : 'transparent',
+                      border: d.played ? '1px solid var(--mm-yellow-strong)' : '1.5px solid var(--mm-rule)',
+                    }}
+                  />
+                ))}
+              </ul>
+              <div className="flex items-center gap-3 mt-2 text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden className="inline-block w-2.5 h-2.5" style={{ borderRadius: 2, background: 'var(--mm-yellow-strong)' }} />출전
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden className="inline-block w-2.5 h-2.5" style={{ borderRadius: 2, border: '1.5px solid var(--mm-rule)' }} />결장
+                </span>
+                <span className="ml-auto">오래된 날 → 최근</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </SectionCard>
+  )
+}
+
+// ─── 내 트렌드 ─────────────────────────────────────────────────
+type TrendPeriod = 'quarter' | 'season'
+type TrendMetric = 'pts' | 'reb' | 'ast'
+const TREND_METRICS: Array<{ key: TrendMetric; label: string }> = [
+  { key: 'pts', label: '득점' }, { key: 'reb', label: '리바' }, { key: 'ast', label: '어시' },
+]
+
+function TrendCard({ trend }: { trend?: { quarter: TrendRow[]; season: TrendRow[] } }) {
+  // 이번 분기에 뛴 날이 없으면(분기 첫 주 등) 시즌으로 시작한다
+  const [period, setPeriod] = useState<TrendPeriod>(() => ((trend?.quarter.length ?? 0) > 0 ? 'quarter' : 'season'))
+  const [metric, setMetric] = useState<TrendMetric>('pts')
+  const rows = useMemo(() => (trend ? trend[period] : []), [trend, period])
+  const points = useMemo(() => rows.map(r => ({ date: r.date, value: r[metric] })), [rows, metric])
+  const avg = points.length > 0 ? points.reduce((s, p) => s + p.value, 0) / points.length : null
+  const best = points.reduce<{ date: string; value: number } | null>((b, p) => (!b || p.value > b.value ? p : b), null)
+  const metricLabel = TREND_METRICS.find(m => m.key === metric)!.label
+
+  return (
+    <SectionCard variant="standalone">
+      <CardTitle icon={TrendingUp} title="내 트렌드" sub="하루별 기록 · 점선 = 내 하루 평균" />
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        <SegmentedTabs
+          size="sm"
+          ariaLabel="트렌드 기간"
+          value={period}
+          onChange={setPeriod}
+          items={[
+            { key: 'quarter', label: '이번 분기' },
+            { key: 'season', label: '시즌' },
+          ]}
+        />
+        <div className="flex gap-1.5 ml-auto" role="group" aria-label="지표">
+          {TREND_METRICS.map(m => (
+            <Chip key={m.key} as="button" size="sm" selected={metric === m.key} onClick={() => setMetric(m.key)}>
+              {m.label}
+            </Chip>
+          ))}
+        </div>
+      </div>
+      {points.length === 0 ? (
+        <EmptyState
+          variant="compact"
+          icon={TrendingUp}
+          title={period === 'quarter' ? '이번 분기에는 아직 뛴 날이 없어요' : '아직 기록된 날이 없어요'}
+          description="경기를 뛰면 하루에 점 하나씩 생겨요"
+        />
+      ) : (
+        <>
+          <MeTrendChart points={points} average={avg} metricLabel={metricLabel} />
+          <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-2 text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            <span>{points.length}일</span>
+            {avg != null && <span>하루 평균 <b style={{ color: 'var(--mm-ink)' }}>{avg.toFixed(1)}</b></span>}
+            {best && <span>최고 <b style={{ color: 'var(--mm-ink)' }}>{best.value}</b> ({formatDate(best.date)})</span>}
+          </div>
+        </>
+      )}
+    </SectionCard>
+  )
+}
+
+// ─── 내 베스트샷 ───────────────────────────────────────────────
+// 핀 고정한 클립(최대 3). 고르는 곳은 내 하이라이트 화면의 핀 버튼이다.
+function BestShotsCard({ clips, playerName, allHref, weekly, recentHref }: {
+  clips: HighlightClip[]; playerName: string; allHref: string; weekly: Weekly; recentHref: string | null
+}) {
+  const [openAt, setOpenAt] = useState<number | null>(null)
+  return (
+    <SectionCard variant="standalone" pad="none">
+      <div className="px-4 pt-4 lg:px-6 lg:pt-5">
+        <CardTitle
+          icon={Pin}
+          title="내 베스트샷"
+          sub={clips.length > 0 ? `${clips.length} / 3` : undefined}
+          right={
+            <Link
+              href={allHref}
+              className="inline-flex items-center gap-0.5 min-h-[36px] text-xs font-bold cursor-pointer hover:underline"
+              style={{ color: 'var(--mm-ink-soft)' }}
+            >
+              전체 하이라이트 <ChevronRight size={14} aria-hidden />
+            </Link>
+          }
+        />
+      </div>
+      <div className="px-4 pb-4 lg:px-6 lg:pb-5">
+        {clips.length === 0 ? (
+          <EmptyState
+            variant="compact"
+            framed
+            icon={Pin}
+            title="아직 고른 베스트샷이 없어요"
+            description="내 하이라이트에서 마음에 드는 슛을 핀으로 고정하면 여기 모여요 (최대 3개)"
+          />
+        ) : (
+          <ul className="grid grid-cols-3 gap-2 sm:gap-3">
+            {clips.map((c, i) => (
+              <li key={c.event_id} className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenAt(i)}
+                  className="group block w-full text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  style={{ borderRadius: 'var(--mm-radius-chip)' }}
+                  aria-label={`베스트샷 ${i + 1} 재생 — ${SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type}${c.game_date ? ` · ${formatDate(c.game_date)}` : ''}`}
+                >
+                  <span
+                    className="relative block w-full aspect-video overflow-hidden"
+                    style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)' }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- YouTube 썸네일(옵티마이저 허용 호스트 아님) · 다른 하이라이트 화면과 같은 방식 */}
+                    <img
+                      src={`https://i.ytimg.com/vi/${c.video_id}/mqdefault.jpg`}
+                      alt=""
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
+                        <Play size={14} fill="currentColor" />
+                      </span>
+                    </span>
+                    <span
+                      className="absolute top-1 left-1 text-[11px] font-black tabular-nums px-1.5 leading-[18px]"
+                      style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', borderRadius: 3 }}
+                      aria-hidden
+                    >
+                      {i + 1}
+                    </span>
+                  </span>
+                  <span className="block mt-1.5 text-xs sm:text-sm font-bold truncate" style={{ color: 'var(--mm-ink)' }}>
+                    {SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type}{c.points ? ` · ${c.points}점` : ''}
+                  </span>
+                  {c.game_date && (
+                    <span className="block text-[11px] font-bold truncate tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+                      {formatDate(c.game_date)}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {/* 최근 하이라이트 — 최근 참여 라운드로 바로 */}
+      <HighlightCTA available={weekly.available} href={recentHref} date={weekly.date} />
+
+      {openAt != null && clips.length > 0 && (
+        <HighlightsClipModal
+          clips={clips}
+          startIdx={openAt}
+          title={`${playerName} 베스트샷`}
+          icon={<Pin size={16} aria-hidden />}
+          onClose={() => setOpenAt(null)}
+          ariaLabel={`${playerName} 베스트샷 재생`}
+        />
+      )}
+    </SectionCard>
   )
 }
 
@@ -393,7 +750,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
 function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
   if (!streaks || streaks.length === 0) return null  // 진행 중 스트릭 없으면 섹션 숨김
   return (
-    <div className="px-4 sm:px-5 py-3 sm:py-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+    <div className="px-4 sm:px-5 py-3 sm:py-4">
       <div className="flex items-center gap-1.5 mb-2.5">
         {/* 불꽃만 깜빡인다 — "진행 중"이라는 상태 자체를 나타내므로 무한 반복이 정당하다(LIVE 배지와 같은 근거).
             투명도만 흔들어 크기는 그대로 둔다. 크기를 흔들면 옆 글자가 밀린다. */}
@@ -481,7 +838,7 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId, shown.map(c => `${c.metric}:${c.nextThreshold}`).join(',')])
   return (
-    <div className="p-4 md:p-5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+    <div className="p-4 md:p-5">
       {/* 폭죽은 화면 전체를 덮는 캔버스라 레이아웃에 영향을 주지 않는다. trigger 가 null 이면 비활성 */}
       <Confetti trigger={celebrate} />
       <div className="flex items-center gap-1.5 mb-3">

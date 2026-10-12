@@ -6,6 +6,9 @@
 //     a'. 시즌 누적 합계(보조 줄) — 마일스톤 체이서도 이 누적값 기준
 //     b. "이번 주 하이라이트" 활성 여부 (직전 라운드 참여 시 true + href)
 //     c. 마일스톤 체이서 · 진행 중 스트릭
+//     d. (2026-10-12 · /me 확장) 출석률 `attendance` · 하루별 트렌드 `trend` · 베스트샷 `pinned_clips`
+//        — 모두 **추가 필드**다. 홈(내 카드)이 quarter/season/milestoneChasers 를 읽으므로 기존 모양은 건드리지 않는다.
+//        트렌드·출석의 하루 단위 집계는 computePerDayStats(친선 제외 · scorePoints/isPlusOneFor 판정) 재사용.
 //   친선전은 computeLeagueStats 가 제외한다. 게스트도 거기서 순위 모집단에서 빠진다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
@@ -14,6 +17,10 @@ import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { computeStreaks, type StreakCategory } from '@/lib/stats/streaks'
 import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
 import { leaderMinRounds } from '@/lib/stats/eligibility'
+import { computePerDayStats } from '@/lib/stats/perDayStats'
+import { loadClipsByEventIds } from '@/lib/highlights/loader'
+import { resolveTeamId } from '@/lib/league/teamScope'
+import type { HighlightClip } from '@/lib/highlights/types'
 import type { PlayerStat } from '@/types/league'
 
 // 진행 중 스트릭 라벨 (개인 대시보드 표기용)
@@ -58,13 +65,18 @@ export async function GET(
   // 1) 이번 분기(홈 리더와 같은 판정) · 시즌 누적 · 스트릭 — 독립 → 병렬
   const q = await loadCurrentQuarter(sb, leagueId)
   const range = q ? gameDateRange(q) : null
-  const [quarterStats, seasonStats, streaksResult] = await Promise.all([
+  const [quarterStats, seasonStats, streaksResult, perDay, quarterDates, pinnedClips] = await Promise.all([
     computeLeagueStats(sb, leagueId, {
       unit: 'round',
       ...(range ? { from: range.from, to: range.to } : q ? { quarterId: q.id } : {}),
     }),
     computeLeagueStats(sb, leagueId),
     computeStreaks(sb, leagueId, { minStreak: 2 }),
+    // 하루별 스탯(시즌 · 친선 제외) — 트렌드·출석 점 표시용
+    computePerDayStats(sb, leagueId),
+    // 분기에 기간이 없을 때만 quarter_id 로 그 분기 경기일을 따로 읽는다(기간이 있으면 날짜로 거른다)
+    q && !range ? loadQuarterDates(sb, leagueId, q.id) : Promise.resolve(null),
+    loadPinnedClips(sb, leagueId, pid),
   ])
   const me = seasonStats.players.find(p => p.player_id === pid)
 
@@ -104,9 +116,40 @@ export async function GET(
       : {}) as Partial<Record<Metric, { rank: number; total: number }>>,
   }
 
+  // 출석률 · 트렌드 — 「리그가 열린 날」 = 우리 선수 기록이 하나라도 있는 정규 경기일(allDates)
+  const inQuarter = (d: string): boolean =>
+    range ? d >= range.from && d <= range.to : quarterDates ? quarterDates.has(d) : true
+  const myDays = perDay.dayStats.get(pid) ?? new Map()
+  const toPoint = (d: string) => {
+    const s = myDays.get(d)!
+    return { date: d, pts: s.pts, reb: s.reb, ast: s.ast }
+  }
+  const seasonDays = [...perDay.allDates].sort()
+  const quarterDays = seasonDays.filter(inQuarter)
+  const mySeasonDays = seasonDays.filter(d => myDays.has(d))
+  const myQuarterDays = quarterDays.filter(d => myDays.has(d))
+  const attendance = {
+    quarter: {
+      attended: myQuarterDays.length,
+      total: quarterDays.length,
+      /** 분기 경기일 하나하나 — 출석 점 표시용(오름차순) */
+      days: quarterDays.map(d => ({ date: d, played: myDays.has(d) })),
+    },
+    season: { attended: mySeasonDays.length, total: seasonDays.length },
+    current_streak: myAtt?.current_streak ?? 0,
+    longest_streak: myAtt?.longest_streak ?? 0,
+  }
+  const trend = {
+    quarter: myQuarterDays.map(toPoint),
+    season: mySeasonDays.map(toPoint),
+  }
+
   if (!me) {
     return NextResponse.json({
       quarter,
+      attendance,
+      trend,
+      pinned_clips: pinnedClips,
       season: { attended_rounds: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 },
       weekly: { available: false },
       milestoneChasers: [],
@@ -192,9 +235,49 @@ export async function GET(
 
   return NextResponse.json({
     quarter,
+    attendance,
+    trend,
+    pinned_clips: pinnedClips,
     season,
     weekly,
     milestoneChasers: chasers,
     streaks,
   })
+}
+
+/** 기간 없는 분기의 경기일 — quarter_id 기준(정규 · 기록 시작된 경기만) */
+async function loadQuarterDates(
+  sb: ReturnType<typeof createClient>, leagueId: string, quarterId: string,
+): Promise<Set<string>> {
+  const { data } = await sb
+    .from('league_games')
+    .select('date')
+    .eq('league_id', leagueId)
+    .eq('quarter_id', quarterId)
+    .eq('is_started', true)
+    .eq('is_exhibition', false)
+  return new Set(((data ?? []) as Array<{ date: string }>).map(r => r.date))
+}
+
+/** 내 베스트샷 핀(최대 3) → 재생 가능한 클립. 실패해도 대시보드 전체를 막지 않는다. */
+async function loadPinnedClips(
+  sb: ReturnType<typeof createClient>, leagueId: string, pid: string,
+): Promise<HighlightClip[]> {
+  try {
+    // 선수는 팀 소유(087) — league_id 가 아니라 team_id 로 찾는다
+    const { data } = await sb
+      .from('league_players')
+      .select('pinned_event_ids')
+      .eq('id', pid)
+      .eq('team_id', await resolveTeamId(leagueId))
+      .maybeSingle()
+    const ids = ((data as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? []).slice(0, 3)
+    if (ids.length === 0) return []
+    const clips = await loadClipsByEventIds(sb, leagueId, ids)
+    const byId = new Map(clips.map(c => [c.event_id, c]))
+    // 핀 슬롯 순서(1→3) 유지
+    return ids.map(id => byId.get(id)).filter((c): c is HighlightClip => !!c)
+  } catch {
+    return []
+  }
 }
