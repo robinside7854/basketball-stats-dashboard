@@ -37,10 +37,14 @@ type Props = {
   // 둘 다 있어야 링크가 뜬다(없으면 조용히 생략 — 이 컴포넌트를 다른 곳에서 재사용해도 안전).
   orgSlug?: string
   leagueId?: string
+  /** 좁은 칸(홈 「이번 분기」 PC 왼쪽)에 놓일 때 — lg 에서도 모바일처럼 두 줄로 둔다(2026-10-12) */
+  narrow?: boolean
 }
 
-export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, orgSlug, leagueId }: Props) {
+export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, orgSlug, leagueId, narrow = false }: Props) {
   if (standings.length === 0) return null
+  // 넓은 칸에서만 PC 한 줄 배치를 쓴다
+  const wide = (cls: string) => (narrow ? '' : cls)
 
   return (
     <SectionCard variant="stack" pad="none">
@@ -91,8 +95,8 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   숫자 칩 3개 + 득점/실점/마진 표 → 막대 하나 + 마진 숫자 하나.
                   · PC(lg): [순위·팀명] [승패 막대 ────] [마진] [승률] 한 줄
                   · 모바일: 1줄 [순위·팀명 … 승률], 2줄 [승패 막대 … 마진] */}
-              <div className="flex flex-wrap lg:flex-nowrap items-center gap-x-3 gap-y-2">
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 lg:flex-none lg:w-[230px]">
+              <div className={`flex flex-wrap ${wide('lg:flex-nowrap')} items-center gap-x-3 gap-y-2`}>
+                <div className={`flex items-center gap-2 sm:gap-3 min-w-0 flex-1 ${wide('lg:flex-none lg:w-[230px]')}`}>
                   <span
                     className="font-jersey font-black tabular-nums text-right leading-none shrink-0 w-6 sm:w-8"
                     style={{
@@ -120,7 +124,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   </span>
                 </div>
 
-                <div className="order-last basis-full lg:order-none lg:basis-auto lg:flex-1 min-w-0 pl-8 sm:pl-11 lg:pl-0">
+                <div className={`order-last basis-full ${wide('lg:order-none lg:basis-auto lg:flex-1 lg:pl-0')} min-w-0 pl-8 sm:pl-11`}>
                   <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} />
                 </div>
 
@@ -146,7 +150,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   전체이고 어디부터가 상대별인지 구분이 안 된다. 줄을 나누고 라벨을 붙인다.
                   맞붙은 상대가 없으면(첫 경기 전) 컴포넌트가 스스로 아무것도 그리지 않는다. */}
               {(t.h2h?.length ?? 0) > 0 && (
-                <div className="mt-2 pl-8 sm:pl-11 lg:pl-[242px]">
+                <div className={`mt-2 pl-8 sm:pl-11 ${wide('lg:pl-[242px]')}`}>
                   <HeadToHead records={t.h2h!} />
                 </div>
               )}

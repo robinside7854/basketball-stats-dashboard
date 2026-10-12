@@ -31,6 +31,8 @@ interface Props {
   initialPlayers?: PlayerStat[]
   /** SSR 프리페치 결과 — 있으면 초기 fetch skip */
   initialPhotoMap?: Record<string, string | null>
+  /** 좁은 칸(홈 「이번 분기」 PC 오른쪽 ~720px)에 놓일 때 — lg 3열·xl 4열 대신 2열 유지(2026-10-12) */
+  narrow?: boolean
 }
 
 interface CategoryDef {
@@ -69,7 +71,7 @@ function initials(name: string): string {
   return name.slice(0, 2)
 }
 
-export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, initialPlayers, initialPhotoMap }: Props) {
+export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, initialPlayers, initialPhotoMap, narrow = false }: Props) {
   const hasInitial = !!initialPlayers && !!initialPhotoMap
   const [players, setPlayers] = useState<PlayerStat[]>(initialPlayers ?? [])
   const [photoMap, setPhotoMap] = useState<Record<string, string | null>>(initialPhotoMap ?? {})
@@ -143,7 +145,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
             </div>
           {/* PC 폭(1280)에서 2열이면 카드 안 이름과 값 사이가 텅 비었다 → lg 3열 · xl 4열.
               카드 폭이 ~260px 까지 좁아지므로 lg+ 에서 사진·글자를 한 단계 줄인다. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 sm:gap-4 sm:p-5 lg:p-6">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${narrow ? '' : 'lg:grid-cols-3 xl:grid-cols-4'} gap-3 p-4 sm:gap-4 sm:p-5 lg:p-6`}>
             {CATEGORIES.map(cat => {
               const eligible = players.filter(p => {
                 if (p.gp < effectiveMinGP) return false
