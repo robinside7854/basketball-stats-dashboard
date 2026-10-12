@@ -457,7 +457,27 @@ export default async function LeagueDetailPage({
           )}
         </div>
         </div>
-        <ShareLeagueButton leagueName={l.name} />
+        {/* 버튼 묶음 — 「내 기록」 진입 CTA 는 2026-10-12 여기로 올렸다. 종전엔 탭 아래 전폭 막대
+            (글자는 왼쪽 끝 · 화살표는 1200px 떨어진 오른쪽 끝)라 PC 에서 빈 띠처럼 보였다.
+            로그인 상태(서버에서 이미 판정된 approvedSession 재사용)일 때만. 비로그인 유도는
+            상단 네비 '로그인' + '내 기록' 탭이 상시 노출이라 복제하지 않는다. */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isMember && (
+            <Link
+              href={`/league/${orgSlug}/${leagueId}/me`}
+              className="inline-flex items-center gap-1 min-h-[44px] px-3 text-sm font-bold whitespace-nowrap cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+              style={{
+                border: '1px solid var(--mm-rule)',
+                borderRadius: 'var(--mm-radius-ctl)',
+                color: 'var(--mm-ink)',
+              }}
+            >
+              내 기록
+              <ChevronRight size={16} style={{ color: 'var(--mm-muted)' }} aria-hidden />
+            </Link>
+          )}
+          <ShareLeagueButton leagueName={l.name} />
+        </div>
         </div>
       </div>
 
@@ -510,22 +530,6 @@ export default async function LeagueDetailPage({
         highlightsAvailable={isMember && highlightsAvailable}
       />
 
-
-      {/* "내 기록" 진입 CTA — PersonalDashboard 전체는 이제 /me 전용(Important 1, 중복 제거).
-          로그인 상태(서버에서 이미 판정된 approvedSession 재사용, 신규 쿼리 아님)일 때만 한 줄
-          CTA 로 안내한다. 비로그인 유도는 상단 네비 '로그인' 버튼 + 하단/상단 탭의 '내 기록'
-          탭이 이미 상시 노출되어 있어(그 탭을 누르면 /me 에서 로그인 티저를 항상 보여준다),
-          홈에 별도 비로그인 티저를 복제하지 않기로 판단 — 근거는 보고서 참조. */}
-      {isMember && (
-        <Link
-          href={`/league/${orgSlug}/${leagueId}/me`}
-          className="flex items-center justify-between gap-2 px-4 md:px-5 py-3.5 min-h-[44px] rounded-md border text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-          style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', background: 'var(--mm-panel)' }}
-        >
-          내 기록 보기
-          <ChevronRight size={20} style={{ color: 'var(--mm-muted)' }} aria-hidden />
-        </Link>
-      )}
 
       {/* 마일스톤 — 2026-09-28 홈 맨 아래로 내렸다(요약 탭이 먼저). */}
       {isMember ? (

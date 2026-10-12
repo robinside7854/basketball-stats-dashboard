@@ -141,3 +141,30 @@ export function Ring({
     </div>
   )
 }
+
+// ─── 득실 마진 숫자 ─────────────────────────────────────────────
+// 마진 하나만 크게(부호 + 색), 그 아래 「득-실」을 작게 — 득점/실점/마진 3칸 표를 숫자 하나로 줄였다.
+// 팀 승률 · 최근 라운드 공용.
+export function MarginFigure({
+  ptsFor, ptsAgainst, size = 'md',
+}: { ptsFor: number; ptsAgainst: number; size?: 'sm' | 'md' }) {
+  const diff = ptsFor - ptsAgainst
+  const color = diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-ink-soft)'
+  return (
+    <div
+      className="flex flex-col items-end leading-none shrink-0"
+      role="img"
+      aria-label={`득점 ${ptsFor} 실점 ${ptsAgainst} 마진 ${diff}`}
+    >
+      <span
+        className={`font-black tabular-nums ${size === 'sm' ? 'text-sm sm:text-base' : 'text-base sm:text-lg'}`}
+        style={{ color }}
+      >
+        {diff > 0 ? `+${diff}` : diff}
+      </span>
+      <span className="text-[11px] tabular-nums mt-1" style={{ color: 'var(--mm-muted)' }} title="득점-실점">
+        {ptsFor}-{ptsAgainst}
+      </span>
+    </div>
+  )
+}

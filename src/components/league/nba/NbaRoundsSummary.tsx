@@ -1,6 +1,6 @@
 'use client'
 // 미라클모닝 브랜드 — 기록이 있는 최근 4라운드 요약
-// 각 카드 = 1 라운드(=하루). 그 날 참여 팀별 W-L-득실차 요약.
+// 각 카드 = 1 라운드(=하루). 그 날 참여 팀별 승패 막대 + 득실 마진 한 줄 요약.
 // 하단 2개 버튼으로 분리 (v2 · 2026-07-15):
 //   · 박스스코어 → /boxscore/{date}
 //   · 득점 하이라이트 → /highlights/{date}
@@ -9,7 +9,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ClipboardList, PlayCircle, ArrowRight } from 'lucide-react'
-import { ResultChips, ScoreTable } from './RecordDisplay'
+import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { RECENT_ROUNDS } from '@/lib/league/recentRounds'
 
@@ -61,7 +61,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
         </header>
 
         {/* 모바일: 가로 스와이프 (flex+snap) · sm+: CSS grid (2열/4열 · sub-pixel 안정) */}
-        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 items-stretch overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-hide gap-4 px-4 sm:px-6 md:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-8 lg:pt-10 pb-0">
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 items-stretch overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-hide gap-3 sm:gap-4 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 lg:pt-6 pb-0">
           {rounds.map(r => {
             const topTeam = r.teams[0]
             const base = `/league/${resolvedOrgSlug}/${leagueId}`
@@ -72,17 +72,18 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
-                  padding: '18px 20px 16px',
+                  padding: '14px 16px 14px',
                 }}
               >
                 {/* 헤더 — 날짜 + 경기 수 */}
-                <div className="flex items-baseline justify-between gap-2 mb-4 pb-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <div className="flex items-baseline justify-between gap-2 mb-1 pb-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <div className="min-w-0">
-                    <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em', lineHeight: 1.1 }}>
-                      {r.weekLabel}
-                    </div>
-                    <div className="t-label mt-1">
-                      {r.gamesCount}경기 진행
+                    {/* 날짜 옆에 경기 수 — 한 줄 아끼기 */}
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em', lineHeight: 1.1 }}>
+                        {r.weekLabel}
+                      </span>
+                      <span className="t-label">{r.gamesCount}경기</span>
                     </div>
                   </div>
                   {topTeam && (
@@ -103,45 +104,37 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                   )}
                 </div>
 
-                {/* 팀 리스트 · 각 팀당 세로 3단 (팀 헤더 + WIN/LOSE/DRAW 칩 + 득실 미니테이블)
+                {/* 팀 리스트 — 팀당 한 줄 (2026-10-12 재구성).
+                    종전엔 팀 이름 / WIN·LOSE 칩 / 득점·실점·마진 3칸 표로 팀당 세 줄이라
+                    모바일 카드가 화면을 넘겼다. 이제 [색·이름] [승패 막대] [마진] 한 줄.
                     flex-1 로 남는 세로 공간을 흡수 → 아래 액션 버튼이 카드 하단에 정렬(등높이 카드 간 일직선) */}
-                <ul className="space-y-3 flex-1">
+                <ul className="flex-1">
                   {r.teams.slice(0, 4).map((t, idx) => {
                     const shownCount = Math.min(4, r.teams.length)
                     return (
                       <li
                         key={t.key}
-                        className="flex flex-col gap-1.5"
+                        className="flex items-center gap-2.5 py-2"
                         style={{
-                          paddingBottom: idx < shownCount - 1 ? '10px' : '0',
                           borderBottom: idx < shownCount - 1 ? '1px dashed var(--mm-rule)' : 'none',
                         }}
                       >
-                        {/* 팀 헤더 (컬러 바 + 이름) */}
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className="shrink-0 block h-5 w-2 rounded-sm"
-                            style={{ background: t.color }}
-                            aria-hidden
-                          />
-                          <span
-                            className="min-w-0 flex-1 font-black break-keep text-base"
-                            style={{
-                              color: 'var(--mm-ink)',
-                              lineHeight: 1.2,
-                              wordBreak: 'break-word',
-                              overflowWrap: 'anywhere',
-                            }}
-                          >
-                            {t.name}
-                          </span>
+                        <span
+                          className="shrink-0 block h-5 w-1.5 rounded-sm"
+                          style={{ background: t.color, border: '1px solid var(--mm-rule)' }}
+                          aria-hidden
+                        />
+                        <span
+                          className="min-w-0 w-[4.5rem] sm:w-[5rem] lg:w-[4.5rem] shrink-0 font-black break-keep text-sm sm:text-base lg:text-sm truncate"
+                          style={{ color: 'var(--mm-ink)', lineHeight: 1.2 }}
+                          title={t.name}
+                        >
+                          {t.name}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} height={22} />
                         </div>
-                        {/* WIN/LOSE/DRAW 칩 (compact) */}
-                        <div className="flex flex-wrap gap-1.5">
-                          <ResultChips wins={t.wins} losses={t.losses} draws={t.draws} compact />
-                        </div>
-                        {/* 득실 미니 테이블 */}
-                        <ScoreTable ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} compact />
+                        <MarginFigure ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} size="sm" />
                       </li>
                     )
                   })}
@@ -149,7 +142,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
 
                 {/* 하단 액션 버튼 2개 · 박스스코어 · 하이라이트 */}
                 <div
-                  className="mt-4 pt-3 grid grid-cols-2 gap-2"
+                  className="mt-2 pt-3 grid grid-cols-2 gap-2"
                   style={{ borderTop: '1px dashed var(--mm-rule)' }}
                 >
                   <Link
@@ -190,7 +183,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
         </div>
 
         {/* 전체 라운드 하이라이트 CTA — 노랑 배경 · 검정 텍스트 */}
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-5 md:py-6 flex justify-center">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 md:py-5 flex justify-center">
           <Link
             href={`/league/${resolvedOrgSlug}/${leagueId}/highlights`}
             className="mm-brand inline-flex items-center justify-center gap-2 font-bold min-h-[44px] px-6 sm:px-8 py-3 text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"

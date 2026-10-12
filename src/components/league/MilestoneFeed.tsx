@@ -139,9 +139,9 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           </span>
         </header>
 
-        {/* 최근 달성 리스트 */}
-        <div className="p-4 md:p-6">
-          <div className="flex flex-col gap-2">
+        {/* 최근 달성 — PC 에선 전폭 한 줄이 이름 옆 1000px 빈칸이었다 → 카드 격자(2026-10-12) */}
+        <div className="p-4 md:p-5">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {recentShown.map(r => {
               const playable = isPlayable(r)
               return (
@@ -151,7 +151,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                   style={{
                     background: 'var(--mm-panel-alt)',
                     border: '1px solid var(--mm-rule)',
-                    padding: '10px 12px',
+                    padding: '6px 8px 6px 12px',
                   }}
                 >
                   {/* 카드 본문 (선수 프로필 모달) */}
@@ -199,11 +199,10 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                         <span className="ml-1 text-sm font-medium" style={{ color: 'var(--mm-ink)' }}>
                           {CATEGORY_LABEL[r.category]} 달성!
                         </span>
-                      </p>
-                      <p
-                        className="t-label font-medium mt-1 break-keep"
-                      >
-                        {formatKoreanDate(r.achieved_at)}
+                        {/* 날짜는 같은 줄 끝에 — 모바일에서 한 줄 아낀다 */}
+                        <span className="ml-1.5 t-label font-medium whitespace-nowrap">
+                          {formatKoreanDate(r.achieved_at)}
+                        </span>
                       </p>
                     </div>
                   </button>

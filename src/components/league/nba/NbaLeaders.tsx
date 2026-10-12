@@ -13,6 +13,7 @@ import Image from 'next/image'
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { ProgressBar } from '@/components/league/ui/viz'
 import type { PlayerStat } from '@/types/league'
 
 interface Props {
@@ -144,7 +145,9 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                 )
               })}
             </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:gap-5 sm:p-6 md:p-8 lg:p-10">
+          {/* PC 폭(1280)에서 2열이면 카드 안 이름과 값 사이가 텅 비었다 → lg 3열 · xl 4열.
+              카드 폭이 ~260px 까지 좁아지므로 lg+ 에서 사진·글자를 한 단계 줄인다. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 sm:gap-4 sm:p-5 lg:p-6">
             {CATEGORIES.map(cat => {
               const eligible = players.filter(p => {
                 if (p.gp < effectiveMinGP) return false
@@ -167,7 +170,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                 >
                   {/* 카테고리 헤더 */}
                   <div
-                    className="px-5 pt-4 pb-3"
+                    className="px-4 py-2.5"
                     style={{ borderBottom: '1px solid var(--mm-rule)' }}
                   >
                     {/* "득점 · PPG" 처럼 한글이 섞인 라벨 — uppercase 는 한글에 효과가 없고
@@ -177,23 +180,28 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                     </h4>
                   </div>
 
-                  {/* Top3 */}
-                  <div className="p-2">
-                    {top3.map((p, i) => {
+                  {/* Top3 — 이름과 값 사이를 「1위 대비 막대」로 채운다(2026-10-12).
+                      종전엔 이름은 왼쪽 끝, 값은 오른쪽 끝이라 그 사이 빈칸이 아무 뜻이 없었다.
+                      막대 길이 = 값 / 1위 값 → 1~3위 격차가 한눈에 보인다. */}
+                  <div className="p-1.5 sm:p-2">
+                    {(() => {
+                      const topVal = valueOf(cat, top3[0])
+                      return top3.map((p, i) => {
                       const isTop = i === 0
                       const photo = photoMap[p.player_id]
-                      // 모바일에서 이름 공간 확보 → clamp 로 폭에 따라 스케일
-                      const avatarSize = isTop
-                        ? 'clamp(56px, 15vw, 72px)'
-                        : 'clamp(48px, 12vw, 60px)'
+                      const v = valueOf(cat, p)
+                      // 모바일·좁은 카드(lg+)는 작게, sm~md 2열은 넓으니 크게
+                      const avatarCls = isTop
+                        ? 'w-11 h-11 sm:w-[52px] sm:h-[52px] lg:w-11 lg:h-11'
+                        : 'w-9 h-9 sm:w-11 sm:h-11 lg:w-9 lg:h-9'
                       return (
                         <button
                           key={p.player_id}
                           onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                          className="w-full grid gap-3 sm:gap-4 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+                          className="w-full grid gap-2.5 sm:gap-3 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                           style={{
-                            gridTemplateColumns: `auto minmax(0,auto) minmax(0,1fr) auto`,
-                            padding: isTop ? '14px 12px' : '10px 12px',
+                            gridTemplateColumns: 'auto auto minmax(0,1fr) auto',
+                            padding: isTop ? '10px 10px' : '8px 10px',
                             background: isTop ? 'var(--mm-yellow-soft)' : 'transparent',
                             borderLeft: isTop ? '3px solid var(--mm-yellow-strong)' : '3px solid transparent',
                             color: 'var(--mm-ink)',
@@ -201,83 +209,69 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                         >
                           {/* 순위 큰 숫자 */}
                           <span
-                            className="font-jersey font-black tabular-nums leading-none"
-                            style={{
-                              color: isTop ? 'var(--mm-ink)' : 'var(--mm-muted)',
-                              width: isTop ? '28px' : '24px',
-                              textAlign: 'right',
-                              fontSize: isTop ? '32px' : '26px',
-                            }}
+                            className={`font-jersey font-black tabular-nums leading-none text-right ${isTop ? 'text-[26px] w-5' : 'text-[20px] w-5'}`}
+                            style={{ color: isTop ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
                           >
                             {i + 1}
                           </span>
 
                           {/* 프로필 사진 or 이니셜 (원형) - 1위 더 큼 */}
                           <span
-                            className="rounded-full overflow-hidden flex items-center justify-center shrink-0 relative"
+                            className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 relative ${avatarCls}`}
                             style={{
-                              width: avatarSize,
-                              height: avatarSize,
                               background: 'var(--mm-panel)',
                               border: `${isTop ? 3 : 2}px solid ${isTop ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
                             }}
                           >
                             {photo ? (
-                              // next/image · 리더보드는 below-fold → 기본 lazy · sizes = 최대 72px
+                              // next/image · 리더보드는 below-fold → 기본 lazy · sizes = 최대 52px
                               <Image
                                 src={photo}
                                 alt={p.name}
                                 fill
-                                sizes="(max-width: 640px) 15vw, 72px"
+                                sizes="52px"
                                 className="object-cover object-top"
                               />
                             ) : (
                               <span
-                                className="font-jersey font-black"
-                                style={{
-                                  color: 'var(--mm-ink)',
-                                  fontSize: isTop ? '22px' : '18px',
-                                }}
+                                className={`font-jersey font-black ${isTop ? 'text-lg' : 'text-sm'}`}
+                                style={{ color: 'var(--mm-ink)' }}
                               >
                                 {initials(p.name)}
                               </span>
                             )}
                           </span>
 
-                          {/* 이름 + GP - 크게 */}
+                          {/* 이름 + (1위 대비 막대 · 라운드 수) */}
                           <span className="min-w-0">
                             {/* 선수명은 본문체 — 유니폼체(좁음) + 한글에 무효한 uppercase 제거 */}
                             <span
-                              className={`block break-keep ${isTop ? 'font-black' : 'font-semibold'}`}
-                              style={{
-                                color: 'var(--mm-ink)',
-                                fontSize: isTop ? 'clamp(20px, 5.2vw, 26px)' : 'clamp(17px, 4.4vw, 22px)',
-                                letterSpacing: '-0.005em',
-                                lineHeight: '1.1',
-                                wordBreak: 'break-word',
-                                overflowWrap: 'anywhere',
-                              }}
+                              className={`block truncate ${isTop ? 'font-black text-lg sm:text-xl lg:text-lg' : 'font-semibold text-base sm:text-lg lg:text-base'}`}
+                              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em', lineHeight: '1.15' }}
+                              title={p.name}
                             >
                               {p.name}
                             </span>
-                            <span className="block t-label font-medium mt-1.5">
-                              {p.gp} 라운드
+                            <span className="flex items-center gap-2 mt-1.5">
+                              <ProgressBar
+                                value={v}
+                                max={topVal}
+                                height={5}
+                                color={isTop ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)'}
+                                className="flex-1 min-w-0"
+                                label={`1위 대비 ${topVal > 0 ? Math.round((v / topVal) * 100) : 0}%`}
+                              />
+                              <span className="t-label font-medium shrink-0 whitespace-nowrap">{p.gp}일</span>
                             </span>
                           </span>
 
                           {/* 값 큰 숫자 + FT% 같은 subFormat (성공/시도) */}
-                          <span
-                            className="flex flex-col items-end leading-none shrink-0"
-                          >
+                          <span className="flex flex-col items-end leading-none shrink-0">
                             <span
-                              className="font-jersey font-black tabular-nums leading-none"
-                              style={{
-                                color: 'var(--mm-ink)',
-                                letterSpacing: '-0.015em',
-                                fontSize: isTop ? 'clamp(32px, 8vw, 42px)' : 'clamp(26px, 6.5vw, 34px)',
-                              }}
+                              className={`font-jersey font-black tabular-nums leading-none ${isTop ? 'text-[30px] sm:text-[36px] lg:text-[28px]' : 'text-[24px] sm:text-[28px] lg:text-[22px]'}`}
+                              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.015em' }}
                             >
-                              {cat.format(valueOf(cat, p))}
+                              {cat.format(v)}
                             </span>
                             {cat.subFormat && (
                               <span className="t-num text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
@@ -287,7 +281,8 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                           </span>
                         </button>
                       )
-                    })}
+                    })
+                    })()}
                   </div>
                 </div>
               )

@@ -6,7 +6,7 @@
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { HeadToHead } from './RecordDisplay'
-import { RecordBar } from '@/components/league/ui/viz'
+import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
 
@@ -155,21 +155,5 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
         })}
       </div>
     </SectionCard>
-  )
-}
-
-// 득실 마진 하나만 크게, 득점·실점은 그 아래 작게 — 3칸 표를 숫자 하나로 줄였다.
-function MarginFigure({ ptsFor, ptsAgainst }: { ptsFor: number; ptsAgainst: number }) {
-  const diff = ptsFor - ptsAgainst
-  const color = diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-ink-soft)'
-  return (
-    <div className="flex flex-col items-end leading-none" aria-label={`득점 ${ptsFor} 실점 ${ptsAgainst} 마진 ${diff}`}>
-      <span className="font-black tabular-nums text-base sm:text-lg" style={{ color }}>
-        {diff > 0 ? `+${diff}` : diff}
-      </span>
-      <span className="text-[11px] tabular-nums mt-1" style={{ color: 'var(--mm-muted)' }} title="득점-실점">
-        {ptsFor}-{ptsAgainst}
-      </span>
-    </div>
   )
 }
