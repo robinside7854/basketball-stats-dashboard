@@ -55,7 +55,7 @@ export async function GET(
     (overrides ?? []) as QuarterOverride[],
   )
 
-  if (!games || games.length === 0) return NextResponse.json({ games: [], daily_stats: [] })
+  if (!games || games.length === 0) return NextResponse.json({ games: [], daily_stats: [], assist_links: [] })
 
   const gameIds = games.map(g => g.id)
   // 쿼터별 영상 — 경기 하나에 쿼터 영상이 붙어 있으면 카드에 쿼터 탭으로 내려준다.
@@ -379,7 +379,37 @@ export async function GET(
     }))
     .sort((a, b) => b.pts - a.pts)
 
+  // ── 어시스트 연결 (2026-10-12) ─────────────────────────────────────
+  //   패스한 선수(related_player_id) → 득점한 선수(league_player_id). 판정은 박스스코어의
+  //   어시스트 수와 같은 `isAssistEvent` 하나 — 갈라지면 네트워크의 합과 표의 AST 가 어긋난다.
+  //   팀은 위 슬롯 표의 판정(이 경기의 두 팀 중 하나)을 그대로 쓴다. 같은 팀끼리의 패스이므로
+  //   득점자의 팀을 먼저, 없으면 패스한 선수의 팀을 본다.
+  //   경기 단위는 롤업 결과(= 화면의 경기 카드) — 화면이 경기별로 거를 수 있게 game_id 를 붙인다.
+  const slotToGame = new Map<string, string>()
+  for (const grp of groups) for (const sid of grp.slot_ids) slotToGame.set(sid, grp.id)
+  const slotRowTeam = new Map<string, Map<string, { team_id: string | null; team_name: string | null; team_color: string | null }>>()
+  for (const sg of slotList) {
+    slotRowTeam.set(sg.id, new Map(sg.players.map(r => [r.player_id, { team_id: r.team_id, team_name: r.team_name, team_color: r.team_color }])))
+  }
+  type AssistLink = { game_id: string; from: string; to: string; team_id: string | null; team_name: string | null; team_color: string | null; count: number }
+  const linkMap = new Map<string, AssistLink>()
+  for (const e of events ?? []) {
+    if (!isAssistEvent(e.type, e.result, e.related_player_id)) continue
+    const from = e.related_player_id as string
+    const to = e.league_player_id
+    if (!from || !to || from === to) continue
+    const gameId = slotToGame.get(e.league_game_id)
+    if (!gameId) continue
+    const teams = slotRowTeam.get(e.league_game_id)
+    const t = teams?.get(to)?.team_id ? teams.get(to)! : teams?.get(from) ?? { team_id: null, team_name: null, team_color: null }
+    const key = `${gameId}|${from}|${to}|${t.team_id ?? ''}`
+    const cur = linkMap.get(key)
+    if (cur) cur.count++
+    else linkMap.set(key, { game_id: gameId, from, to, team_id: t.team_id, team_name: t.team_name, team_color: t.team_color, count: 1 })
+  }
+  const assistLinks = [...linkMap.values()].sort((a, b) => b.count - a.count)
+
   // games 는 이미 대진 롤업 결과(= 경기)다. 슬롯 단위 원본은 내려보내지 않는다 —
   //   화면에 "슬롯별 보기" 가 없고(2026-08-23 요청), 응답만 두 배로 불린다.
-  return NextResponse.json({ games: gameList, daily_stats: dailyStats, rolled_up: rolledUp })
+  return NextResponse.json({ games: gameList, daily_stats: dailyStats, rolled_up: rolledUp, assist_links: assistLinks })
 }

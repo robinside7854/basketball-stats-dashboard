@@ -5,30 +5,41 @@
 // 모달 크롬(오버레이/닫기/focus trap/aria-modal/ESC)은 제거하고
 // 페이지 컨텍스트에서 렌더되도록 조정.
 //
-// 데이터 · 계산 로직 · 3-탭 구조 (경기결과 · 박스스코어 · 팀별 비교) 무변경.
-import { useState, useEffect, useCallback, useRef } from 'react'
+// 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
+//   · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 // html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
+import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
 
 // recharts 를 물고 있는 모달 — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
-/** 선수 id → DD/TD. 그날 합산(dailyStats) 기준이라 경기별 표에서도 같은 값이 붙는다. */
+/** 선수 id → DD/TD. 넘겨받은 줄 기준이다 — 하루 합산표엔 하루 합산, 경기별 표엔 그 경기 한 줄.
+ *  (종전엔 경기별 표에도 하루 합산 판정이 붙어, 그 경기 기록으로는 DD 가 아닌 선수에게 DD 가 떴다.) */
 type DdMap = Map<string, 'DD' | 'TD'>
+
+function ddMapOf(rows: { player_id: string; pts: number; reb: number; ast: number; stl: number; blk: number }[]): DdMap {
+  return new Map(
+    rows
+      .map(d => [d.player_id, doubleDoubleKind(d)] as const)
+      .filter((e): e is readonly [string, 'DD' | 'TD'] => e[1] !== null),
+  )
+}
 
 /** 이름 클릭 핸들러. 없으면 이름은 버튼이 아니라 글자 그대로 그린다. */
 type PlayerPick = (playerId: string, name: string) => void
 
 const DD_LABEL = { DD: '더블더블', TD: '트리플더블' } as const
 
-// 하루 합산 기준 DD/TD 칩. TD 는 채움(노랑), DD 는 테두리만 — 눈에 띄는 정도를 다르게 둔다.
+// DD/TD 칩. TD 는 채움(노랑), DD 는 테두리만 — 눈에 띄는 정도를 다르게 둔다.
 function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
   const full = DD_LABEL[kind]
   return (
@@ -130,7 +141,19 @@ function PlayerName({ row, onPlayerPick, className = 'whitespace-nowrap' }: { ro
   )
 }
 
-function StatTable({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick }) {
+const ftPct = (r: { ftm: number; fta: number }) => r.fta > 0 ? Math.round(r.ftm / r.fta * 1000) / 10 : null
+
+/** 팀 합계 한 줄 — 경기별 표의 맨 아래 */
+type TotalLine = Omit<PlayerRow, 'player_id' | 'name' | 'number' | 'team_id' | 'team_name' | 'team_color'>
+
+function sumLine(rows: PlayerRow[]): TotalLine {
+  const t = { pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0 }
+  for (const r of rows) for (const k of Object.keys(t) as (keyof typeof t)[]) t[k] += r[k] ?? 0
+  const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 1000) / 10 : null
+  return { ...t, fg_pct: pct(t.fgm, t.fga), fg3_pct: pct(t.fg3m, t.fg3a) }
+}
+
+function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; total?: TotalLine }) {
   const [sortKey, setSortKey] = useState('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -149,6 +172,8 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (Pla
     { key: 'fg3m_fg3a', label: '3P', sortKey: 'fg3m' },
     { key: 'fg3_pct', label: '3P%',  sortKey: 'fg3_pct' },
     { key: 'ftm_fta', label: 'FT',   sortKey: 'ftm'  },
+    { key: 'ft_pct',  label: 'FT%',  sortKey: 'ft_pct' },
+    { key: 'pf',      label: 'PF',   sortKey: 'pf'   },
   ]
 
   function handleSort(sk: string) {
@@ -157,12 +182,12 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (Pla
   }
 
   const sorted = [...rows].sort((a, b) => {
-    const rr = (x: PlayerRow | DailyStat) => (x as Record<string, unknown>)[sortKey] as number ?? 0
+    const rr = (x: PlayerRow | DailyStat) => sortKey === 'ft_pct' ? (ftPct(x) ?? 0) : (x as Record<string, unknown>)[sortKey] as number ?? 0
     const diff = rr(a) - rr(b)
     return sortDir === 'desc' ? -diff : diff
   })
 
-  function cellVal(rr: PlayerRow & DailyStat, key: string): string {
+  function cellVal(rr: TotalLine & { gp?: number }, key: string): string {
     if (key === 'gp')       return String(rr.gp ?? 1)
     if (key === 'pts')      return String(rr.pts)
     if (key === 'reb')      return String(rr.reb)
@@ -177,6 +202,8 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (Pla
     if (key === 'fg3m_fg3a') return `${rr.fg3m}/${rr.fg3a}`
     if (key === 'fg3_pct')  return rr.fg3_pct != null ? `${rr.fg3_pct}%` : '—'
     if (key === 'ftm_fta')  return `${rr.ftm}/${rr.fta}`
+    if (key === 'ft_pct')   { const v = ftPct(rr); return v != null ? `${v}%` : '—' }
+    if (key === 'pf')       return String(rr.pf ?? 0)
     return '—'
   }
 
@@ -250,13 +277,52 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (Pla
             )
           })}
         </tbody>
+        {total && (
+          <tfoot>
+            <tr style={{ borderTop: '2px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
+              <th scope="row" className="t-th text-left px-3 sticky left-0" style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)' }}>팀 합계</th>
+              {COLS.map(c => (
+                <td key={c.key} className="t-td-key" style={{ color: 'var(--mm-ink)' }}>
+                  {c.key === 'gp' ? '' : cellVal(total, c.key)}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   )
 }
 
 // 모바일 카드 뷰 — 세로 스택, 스크롤 없이 한눈에 요약
-function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick }) {
+// 카드 본문 숫자 격자 — 선수 카드와 팀 합계 카드가 같이 쓴다.
+//   본문은 17px(text-base). 12.75px 한 단계에 몰려 있던 것이 모바일 가독성의 주범이었다.
+//   값 숫자는 본문체 tabular(t-num) 600. 라벨은 한 단계 작게 둬 360px 에서 4칸이 한 줄에 든다.
+function L({ children }: { children: ReactNode }) {
+  return <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{children} </span>
+}
+function V({ children }: { children: ReactNode }) {
+  return <span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{children}</span>
+}
+
+function LineGrid({ r }: { r: TotalLine }) {
+  const ft = ftPct(r)
+  return (
+    <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-base tabular-nums">
+      <div><L>REB</L><V>{r.reb}</V></div>
+      <div><L>AST</L><V>{r.ast}</V></div>
+      <div><L>STL</L><V>{r.stl}</V></div>
+      <div><L>BLK</L><V>{r.blk}</V></div>
+      <div><L>TOV</L><V>{r.tov}</V></div>
+      <div><L>PF</L><V>{r.pf ?? 0}</V></div>
+      <div className="col-span-2"><L>FT</L><V>{r.ftm}/{r.fta}</V>{ft != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({ft}%)</span>}</div>
+      <div className="col-span-2"><L>FG</L><V>{r.fgm}/{r.fga}</V>{r.fg_pct != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({r.fg_pct}%)</span>}</div>
+      <div className="col-span-2"><L>3P</L><V>{r.fg3m}/{r.fg3a}</V>{r.fg3_pct != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({r.fg3_pct}%)</span>}</div>
+    </div>
+  )
+}
+
+function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort = false, total }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; hideSort?: boolean; total?: TotalLine }) {
   const [sortKey, setSortKey] = useState<'pts' | 'reb' | 'ast'>('pts')
   const sorted = [...rows].sort((a, b) => {
     const av = (a as Record<string, unknown>)[sortKey] as number ?? 0
@@ -270,7 +336,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick }: { rows
   ]
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
+      {!hideSort && <div className="flex items-center gap-1.5">
         <span className="t-label mr-1">정렬</span>
         {sortBtns.map(b => {
           const active = sortKey === b.key
@@ -285,7 +351,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick }: { rows
             >{b.label}</button>
           )
         })}
-      </div>
+      </div>}
       {sorted.map(r => {
         const rr = r as PlayerRow & DailyStat
         return (
@@ -304,32 +370,160 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick }: { rows
                 <span className="t-label">PTS</span>
               </div>
             </div>
-            {/* 카드 본문은 17px(text-base). 12.75px 한 단계에 몰려 있던 것이 모바일 가독성의 주범이었다.
-                값 숫자는 본문체 tabular(t-num) 600 — 유니폼체 900 을 뺀다. */}
-            <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-base tabular-nums">
-              <div><span style={{ color: 'var(--mm-muted)' }}>REB </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.reb}</span></div>
-              <div><span style={{ color: 'var(--mm-muted)' }}>AST </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.ast}</span></div>
-              <div><span style={{ color: 'var(--mm-muted)' }}>STL </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.stl}</span></div>
-              <div><span style={{ color: 'var(--mm-muted)' }}>BLK </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.blk}</span></div>
-              <div className="col-span-2"><span style={{ color: 'var(--mm-muted)' }}>FG </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.fgm}/{rr.fga}</span>{rr.fg_pct != null && <span style={{ color: 'var(--mm-muted)' }}> ({rr.fg_pct}%)</span>}</div>
-              <div className="col-span-2"><span style={{ color: 'var(--mm-muted)' }}>3P </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.fg3m}/{rr.fg3a}</span>{rr.fg3_pct != null && <span style={{ color: 'var(--mm-muted)' }}> ({rr.fg3_pct}%)</span>}</div>
-            </div>
+            <LineGrid r={rr} />
           </div>
         )
       })}
+      {total && (
+        <div className="p-3" style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-rule)' }}>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-base font-black" style={{ color: 'var(--mm-ink)' }}>팀 합계</span>
+            <div className="flex items-baseline gap-1 shrink-0">
+              <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{total.pts}</span>
+              <span className="t-label">PTS</span>
+            </div>
+          </div>
+          <LineGrid r={total} />
+        </div>
+      )}
     </div>
   )
 }
 
-function getYoutubeEmbedUrl(url: string, offset: number): string {
+function youtubeId(url: string): string {
   try {
     const u = new URL(url)
-    let vid = ''
-    if (u.hostname.includes('youtu.be')) vid = u.pathname.slice(1)
-    else vid = u.searchParams.get('v') ?? ''
-    if (!vid) return ''
-    return `https://www.youtube.com/embed/${vid}?start=${offset}&autoplay=0&rel=0`
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1)
+    return u.searchParams.get('v') ?? ''
   } catch { return '' }
+}
+
+function getYoutubeEmbedUrl(url: string, offset: number): string {
+  const vid = youtubeId(url)
+  if (!vid) return ''
+  return `https://www.youtube.com/embed/${vid}?start=${offset}&autoplay=0&rel=0`
+}
+
+/** 휴대폰에서 누르면 YouTube 앱이 열리는 일반 시청 링크 */
+function getYoutubeWatchUrl(url: string, offset: number): string {
+  const vid = youtubeId(url)
+  if (!vid) return url
+  return `https://www.youtube.com/watch?v=${vid}${offset > 0 ? `&t=${offset}s` : ''}`
+}
+
+// 당일 스탯 리더 — 경기결과 탭 상단. 하루 합산(daily_stats) 기준.
+//   휴대폰: 작은 카드 한 줄 가로 스크롤(7장을 2열로 쌓으면 경기 카드가 화면 밖으로 밀린다).
+//   sm 이상: 종전처럼 격자.
+function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; ddKinds: DdMap; onPlayerPick?: PlayerPick }) {
+  if (stats.length === 0) return null
+  const MIN_FGA = 3, MIN_FG3A = 2
+  const top = (f: (r: DailyStat) => number) => [...stats].sort((a, b) => f(b) - f(a))[0]
+  const byPts = top(r => r.pts)
+  const byReb = top(r => r.reb)
+  const byAst = top(r => r.ast)
+  const byBlk = top(r => r.blk)
+  const byStl = top(r => r.stl)
+  const byFgPct = [...stats].filter(p => p.fga >= MIN_FGA).sort((a, b) => (b.fg_pct ?? 0) - (a.fg_pct ?? 0))[0]
+  const byFg3 = [...stats].filter(p => p.fg3a >= MIN_FG3A).sort((a, b) => b.fg3m - a.fg3m)[0]
+  const gpSub = (r?: DailyStat) => r ? `${r.gp}경기` : ''
+
+  // 아이콘은 lucide 단일 패밀리 — 이모지는 OS 마다 모양이 다르고 아이콘 자리에 쓰지 않는다(CLAUDE.md)
+  const leaders = [
+    { Icon: Flame,     label: '득점',     p: byPts,   val: byPts ? `${byPts.pts}점` : null,     sub: gpSub(byPts) },
+    { Icon: Hand,      label: '리바운드', p: byReb,   val: byReb ? `${byReb.reb}개` : null,     sub: byReb ? `OR ${byReb.oreb} / DR ${byReb.dreb}` : '' },
+    { Icon: Handshake, label: '어시스트', p: byAst,   val: byAst ? `${byAst.ast}개` : null,     sub: gpSub(byAst) },
+    { Icon: Shield,    label: '블락',     p: byBlk,   val: byBlk ? `${byBlk.blk}개` : null,     sub: gpSub(byBlk) },
+    { Icon: Zap,       label: '스틸',     p: byStl,   val: byStl ? `${byStl.stl}개` : null,     sub: gpSub(byStl) },
+    { Icon: Target,    label: '야투율',   p: byFgPct, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
+    { Icon: Sparkles,  label: '3점슛',    p: byFg3,   val: byFg3 ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
+  ]
+
+  return (
+    <section aria-labelledby="daily-leaders-title">
+      <p id="daily-leaders-title" className="t-label mb-2" style={{ color: 'var(--mm-yellow-strong)' }}>당일 스탯 리더</p>
+      <div className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-4 lg:grid-cols-7 sm:overflow-visible">
+        {leaders.map(({ Icon, label, p, val, sub }) => (
+          <div
+            key={label}
+            className="shrink-0 w-[8.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
+            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+          >
+            <div className="flex items-center gap-1.5">
+              <Icon size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
+              <span className="t-label">{label}</span>
+            </div>
+            {/* 칩이 이름에 밀려 잘리지 않게 이름 쪽만 줄어든다(min-w-0 + shrink-0). */}
+            <div className="flex items-center gap-1 min-w-0">
+              {p
+                ? <PlayerName row={p} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
+                : <span className="text-base font-semibold leading-tight" style={{ color: 'var(--mm-ink)' }}>—</span>}
+              {p && ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}
+            </div>
+            <p className="t-num text-base font-black leading-tight" style={{ color: 'var(--mm-yellow-strong)' }}>
+              {val ?? ''}
+              {sub && <span className="ml-1.5 text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** 카드에 쓰는 경기 번호 — 쿼터별로 나눠 올려 묶인 경기는 범위로 적는다 */
+function gameNumLabel(g: GameData): string {
+  return g.slot_nums && g.slot_nums.length > 1
+    ? `${g.slot_nums[0]}~${g.slot_nums[g.slot_nums.length - 1]}경기`
+    : `${g.slot_num}경기`
+}
+
+// 펼친 경기 카드 안의 박스스코어 — 팀별로 나눠, 득점순 + 맨 아래 팀 합계.
+//   DD/TD 는 이 경기 한 줄 기준(ddMapOf(g.players)). 하루 합산 판정을 붙이면
+//   이 경기에선 DD 가 아닌 선수에게 칩이 붙는다.
+function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: PlayerPick }) {
+  const dd = ddMapOf(game.players)
+  const sides: { key: string; name: string; color: string | null; rows: PlayerRow[] }[] = []
+  for (const t of [game.home_team, game.away_team]) {
+    if (!t) continue
+    sides.push({ key: t.id, name: t.name, color: t.color, rows: game.players.filter(p => p.team_id === t.id) })
+  }
+  // 이 경기의 두 팀 어디에도 안 붙은 줄(옛 기록) — 버리지 않고 소속 팀 이름으로 따로 모은다
+  const known = new Set(sides.map(x => x.key))
+  for (const p of game.players) {
+    if (p.team_id && known.has(p.team_id)) continue
+    const key = p.team_id ?? 'none'
+    let side = sides.find(x => x.key === key)
+    if (!side) { side = { key, name: p.team_name ?? '팀 미정', color: p.team_color, rows: [] }; sides.push(side) }
+    side.rows.push(p)
+  }
+  const visible = sides.filter(x => x.rows.length > 0)
+  return (
+    <div className="space-y-5">
+      {visible.map(side => {
+        const rows = [...side.rows].sort((a, b) => b.pts - a.pts)
+        const total = sumLine(rows)
+        return (
+          <section key={side.key} aria-label={`${side.name} 선수 기록`}>
+            <div
+              className="flex items-center gap-2 mb-2 pb-1.5 min-w-0"
+              style={{ borderBottom: `3px solid ${side.color ?? 'var(--mm-rule)'}` }}
+            >
+              <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: side.color ?? 'var(--mm-muted)' }} />
+              <span className="font-jersey font-bold text-base truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{side.name}</span>
+              <span className="ml-auto text-sm font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>{total.pts}점</span>
+            </div>
+            <div className="hidden md:block">
+              <StatTable rows={rows} ddKinds={dd} onPlayerPick={onPlayerPick} total={total} />
+            </div>
+            <div className="md:hidden">
+              <MobileStatCards rows={rows} ddKinds={dd} onPlayerPick={onPlayerPick} hideSort total={total} />
+            </div>
+          </section>
+        )
+      })}
+      {dd.size > 0 && <DdLegend />}
+    </div>
+  )
 }
 
 // 멀티테넌트 전환(온볼): leagueName 은 항상 호출부(boxscore page)에서 DB league.name 을 넘겨받음 —
@@ -342,12 +536,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const [loading, setLoading] = useState(true)
   // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
   const [expandedGame, setExpandedGame] = useState<string | null>(initialGameId ?? null)
-  const [activeTab, setActiveTab] = useState<'result' | 'boxscore' | 'compare'>('result')
+  const [activeTab, setActiveTab] = useState<'result' | 'players' | 'compare' | 'assist'>('result')
   const [teamFilter, setTeamFilter] = useState<string>('all')
-  // 박스스코어 탭에서 보고 있는 대진. 'all' 이면 그날 전체 합산.
-  //   하루에 대진이 3개인데 이 탭에는 합산표 하나뿐이라, 운영자가 "맞대결 박스스코어가
-  //   안 보인다"고 했다. 자료는 이미 games[].players 로 경기별로 와 있었다(2026-09-18).
-  const [gameFilter, setGameFilter] = useState<string>('all')
+  // 경기별 박스스코어는 경기 카드를 펼친 안에 팀별로 있다 — 선수 기록 탭은 하루 합산만 (2026-10-12).
+  const [assistLinks, setAssistLinks] = useState<AssistLink[]>([])
   // 이미지 저장 진행 상태
   const [savingImage, setSavingImage] = useState(false)
   // 공유용 hidden 캡처 대상 ref (실제 캡처는 ShareableBoxscore)
@@ -358,12 +550,9 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
   const pickPlayer: PlayerPick = useCallback((id, name) => setQuickView({ id, name }), [])
 
-  // 운영자 기준은 "총 하루의 기록" — 경기별 표에서도 이 하루 합산 판정을 그대로 붙인다.
-  const ddKinds: DdMap = new Map(
-    dailyStats
-      .map(d => [d.player_id, doubleDoubleKind(d)] as const)
-      .filter((e): e is readonly [string, 'DD' | 'TD'] => e[1] !== null),
-  )
+  // 하루 합산 판정 — 선수 기록 탭(하루 합산표)·스탯 리더·이날의 주인공에만 붙인다.
+  //   경기별 표는 GameBoxscore 가 그 경기 한 줄로 따로 판정한다.
+  const ddKinds: DdMap = ddMapOf(dailyStats)
   const hasDd = ddKinds.size > 0
 
   const dateLabel = (() => {
@@ -430,6 +619,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
         setGames(gs)
         setRolledUp(d.rolled_up === true)
         setDailyStats(d.daily_stats ?? [])
+        setAssistLinks(d.assist_links ?? [])
         // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
         //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
         if (initialGameId) {
@@ -444,34 +634,17 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
   const completedCount = games.filter(g => g.is_complete).length
   const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
-  const allRecordedComplete = recordedCount > 0 && recordedCount === completedCount
 
   return (
     <div className="mm-brand" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-      {/* 요약 서브헤더 — 경기 수 · 완료 상태 · 이미지 저장 버튼 */}
+      {/* 요약 서브헤더 — 경기 수 · 이미지 저장 버튼 */}
       <div
-        className="shrink-0 px-4 sm:px-6 py-4 flex items-center justify-between gap-2"
+        className="shrink-0 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2"
         style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
       >
+        {/* 날짜는 페이지 제목에 이미 있다 — 여기선 경기 수만 (2026-10-12) */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2
-              id="daily-boxscore-title"
-              className="font-black"
-              style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}
-            >
-              {dateLabel} 요약
-            </h2>
-            {allRecordedComplete && (
-              <span
-                className="text-xs font-black uppercase tracking-widest"
-                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', padding: '3px 8px' }}
-              >
-                완료
-              </span>
-            )}
-          </div>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+          <p id="daily-boxscore-title" className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
             {/* 회원 화면이라 운영 용어(슬롯·미사용 슬롯)는 쓰지 않는다 (2026-10-11) */}
             <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{recordedCount}경기</span>
             {recordedCount - completedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · 기록 중 {recordedCount - completedCount}</span>}
@@ -484,6 +657,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               onClick={saveAsImage}
               disabled={savingImage}
               title="팀 카톡방 공유용 박스스코어 PNG 저장"
+              aria-label="박스스코어 이미지 저장"
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 disabled:opacity-50 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
             >
@@ -523,7 +697,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             </span>
             <p className="text-xs sm:text-sm min-w-0 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
               <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-              오늘의 주인공 · <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{hero.name}</span>
+              이날의 주인공 · <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{hero.name}</span>
               {ddKinds.get(hero.player_id) && <> <DdChip kind={ddKinds.get(hero.player_id)!} /></>}
               {hero.team_name && <span style={{ color: 'var(--mm-muted)' }}> ({hero.team_name})</span>}
               {' '}<span className="font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
@@ -541,9 +715,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
           style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
         >
           {([
-            { key: 'result',   label: '경기결과',   count: games.length },
-            { key: 'boxscore', label: '박스스코어', count: dailyStats.length },
-            { key: 'compare',  label: '팀별 비교',  count: 0 },
+            { key: 'result',  label: '경기결과',  count: games.length },
+            { key: 'players', label: '선수 기록', count: dailyStats.length },
+            { key: 'compare', label: '팀별 비교', count: 0 },
+            { key: 'assist',  label: '어시스트',  count: 0 },
           ] as const).map(tab => {
             const active = activeTab === tab.key
             return (
@@ -554,7 +729,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                 aria-controls={`daily-boxscore-panel-${tab.key}`}
                 id={`daily-boxscore-tab-${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
-                className="flex-1 min-w-fit px-4 sm:px-6 py-3 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] transition-all duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 whitespace-nowrap"
+                className="flex-1 min-w-fit px-2.5 sm:px-6 py-3 text-xs font-black uppercase tracking-[0.02em] sm:tracking-[0.18em] transition-all duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 whitespace-nowrap"
                 style={{
                   borderBottom: active ? '3px solid var(--mm-yellow)' : '3px solid transparent',
                   color: active ? 'var(--mm-ink)' : 'var(--mm-muted)',
@@ -563,7 +738,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               >
                 {tab.label}
                 {tab.count > 0 && (
-                  <span className="ml-2 text-xs tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
+                  <span className="ml-1.5 sm:ml-2 text-xs tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
                 )}
               </button>
             )
@@ -597,8 +772,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   >팀별 일일 전적</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {teamRecords.map(r => {
-                      const played = r.W + r.L + r.D
-                      const winPct = played > 0 ? Math.round((r.W / played) * 1000) / 10 : 0
                       const diff = r.PF - r.PA
                       return (
                         <div
@@ -612,14 +785,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                               className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                             >{r.name}</span>
-                            <span
-                              className="text-xs font-bold tabular-nums shrink-0 ml-auto"
-                              style={{ color: 'var(--mm-muted)' }}
-                            >승률 {winPct}%</span>
                           </div>
                           <div className="flex items-baseline gap-2 flex-wrap">
                             <span className="text-xl font-jersey font-black tabular-nums leading-none">
-                              <span style={{ color: '#059669' }}>{r.W}</span>
+                              <span style={{ color: 'var(--mm-positive)' }}>{r.W}</span>
                               <span style={{ color: 'var(--mm-muted)' }}> - </span>
                               <span style={{ color: 'var(--mm-negative)' }}>{r.L}</span>
                               {r.D > 0 && (<>
@@ -638,6 +807,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                 </div>
               )}
 
+              {/* 당일 스탯 리더 — 선수 기록 탭에서 옮겨 왔다(2026-10-12 「리더카드는 경기결과와 합치기」).
+                  휴대폰에선 7장을 2열로 쌓으면 경기 카드가 화면 밖으로 밀려나므로 가로 스크롤 한 줄로. */}
+              <DailyLeaders stats={dailyStats} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
+
               {/* 경기별 스코어 카드 — 클릭 시 확장(하이라이트 + 경기별 박스스코어) */}
               <section className="space-y-3">
                 <p
@@ -650,7 +823,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     안 일어나므로, 이 안내가 **영영 안 떴다.** 접힌 카드에 셰브론 아이콘 하나뿐이라
                     맞대결 기록이 있는 줄도 몰랐다는 신고로 이어졌다(2026-09-18). 안내는 늘 띄운다. */}
                 <p className="text-xs mb-2.5" style={{ color: 'var(--mm-muted)' }}>
-                  {rolledUp && '쿼터별로 나눠 올린 날입니다 — 같은 대진이 이어진 슬롯을 한 경기로 묶어 보여줍니다. '}
+                  {rolledUp && '쿼터별로 나눠 올린 경기는 한 경기로 묶어 보여줍니다. '}
                   카드를 누르면 그 경기의 박스스코어가 열립니다.
                 </p>
 
@@ -695,9 +868,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                         <div className="flex items-center gap-2 mb-2">
                           {/* 묶인 경기는 슬롯 범위를 보여준다 — "#1" 만 뜨면 나머지 세 칸이 어디 갔는지 알 수 없다 */}
                           <span className="text-xs font-bold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>
-                            {g.slot_nums && g.slot_nums.length > 1
-                              ? `${g.slot_nums[0]}~${g.slot_nums[g.slot_nums.length - 1]}경기`
-                              : `${g.slot_num}경기`}
+                            {gameNumLabel(g)}
                           </span>
                           {g.is_complete && (
                             <span
@@ -708,14 +879,14 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           {!g.is_complete && g.is_started && (
                             <span
                               className="text-xs font-black uppercase tracking-widest shrink-0"
-                              style={{ background: 'var(--mm-live-bg)', color: '#fff', padding: '2px 6px' }}
+                              style={{ background: 'var(--mm-panel)', color: 'var(--mm-live)', border: '1px solid var(--mm-live)', padding: '1px 6px' }}
                             >진행 중</span>
                           )}
                           {!g.is_started && (
                             <span className="text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: 'var(--mm-muted)' }}>예정</span>
                           )}
                           <div className="ml-auto flex items-center gap-2 shrink-0">
-                            {g.youtube_url && <Youtube size={14} style={{ color: 'var(--mm-live)' }} aria-label="하이라이트 영상 있음" />}
+                            {videoList.length > 0 && <Youtube size={14} style={{ color: 'var(--mm-live)' }} aria-label="경기 영상 있음" />}
                             {/* 아이콘만으로는 눌러서 열 수 있다는 게 안 읽힌다 — 글자로 적는다.
                                 모바일에서 숨기지 않는다(이 화면을 실제로 보는 곳이 휴대폰이다).
                                 좁은 폭에서는 팀명 쪽이 truncate 되므로 이 글자가 밀어내지 않는다. */}
@@ -825,19 +996,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           )}
                           <div className="px-4 sm:px-5 pb-4">
                             {g.players.length > 0
-                              ? (
-                                <>
-                                  {/* 데스크탑 테이블 */}
-                                  <div className="hidden md:block">
-                                    <StatTable rows={g.players} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
-                                  </div>
-                                  {/* 모바일 카드 뷰 */}
-                                  <div className="md:hidden">
-                                    <MobileStatCards rows={g.players} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
-                                  </div>
-                                  {hasDd && <div className="mt-2"><DdLegend /></div>}
-                                </>
-                              )
+                              ? <GameBoxscore game={g} onPlayerPick={pickPlayer} />
                               : <p className="text-sm text-center py-4" style={{ color: 'var(--mm-muted)' }}>기록된 선수 데이터가 없습니다</p>}
                           </div>
                         </div>
@@ -849,77 +1008,33 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             </div>
           )}
 
-          {/* 탭 2: 박스스코어 — 팀 필터 + 스탯 리더 + 전체 선수 스탯 (모바일 카드 + 데스크탑 테이블) */}
-          {activeTab === 'boxscore' && (() => {
-            // 고른 대진의 선수 기록. 'all' 이면 그날 전체 합산(daily_stats).
-            //   games[].players 는 그 경기만의 기록이라 표를 그대로 먹이면 된다 —
-            //   경기별 집계를 새로 만들면 두 화면 숫자가 갈린다.
-            const pickedGame = gameFilter === 'all' ? null : games.find(g => g.id === gameFilter) ?? null
-            const baseRows: (DailyStat | PlayerRow)[] = pickedGame ? pickedGame.players : dailyStats
-
-            // 팀 목록은 지금 보고 있는 범위에서 뽑는다. 대진을 고르면 그 두 팀만 남는다.
+          {/* 탭 2: 선수 기록 — 하루 합산표 하나 + 팀 필터 (모바일 카드 + 데스크탑 테이블).
+              경기별 표는 경기결과 탭의 경기 카드를 펼친 안에 팀별로 있다(2026-10-12). */}
+          {activeTab === 'players' && (() => {
             const teamList = Array.from(
               new Map(
-                baseRows
+                dailyStats
                   .filter(d => d.team_id && d.team_name)
                   .map(d => [d.team_id!, { id: d.team_id!, name: d.team_name!, color: d.team_color }])
               ).values()
             )
             const filteredStats = teamFilter === 'all'
-              ? baseRows
-              : baseRows.filter(d => d.team_id === teamFilter)
+              ? dailyStats
+              : dailyStats.filter(d => d.team_id === teamFilter)
 
             return (
             <div
               role="tabpanel"
-              id="daily-boxscore-panel-boxscore"
-              aria-labelledby="daily-boxscore-tab-boxscore"
+              id="daily-boxscore-panel-players"
+              aria-labelledby="daily-boxscore-tab-players"
               className="p-4 sm:p-5 space-y-4"
             >
-              {/* 대진 선택 — 그날 경기가 둘 이상일 때만. 이게 없던 동안 이 탭에는
-                  그날 전체 합산표 하나뿐이라 맞대결 기록을 볼 방법이 없었다. */}
-              {games.length > 1 && (
-                <div className="space-y-1.5">
-                  <span className="block text-xs font-black uppercase tracking-widest" style={{ color: 'var(--mm-muted)' }}>대진</span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      onClick={() => { setGameFilter('all'); setTeamFilter('all') }}
-                      aria-pressed={gameFilter === 'all'}
-                      className="px-3 py-2 text-xs font-black tracking-wide transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
-                      style={gameFilter === 'all'
-                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-                        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
-                    >하루 전체</button>
-                    {games.map(g => {
-                      const label = `${g.home_team?.name ?? '홈'} vs ${g.away_team?.name ?? '어웨이'}`
-                      const on = gameFilter === g.id
-                      return (
-                        <button
-                          key={g.id}
-                          onClick={() => { setGameFilter(g.id); setTeamFilter('all') }}
-                          aria-pressed={on}
-                          title={`${label} — 이 경기만의 박스스코어`}
-                          className="px-3 py-2 text-xs font-black tracking-wide transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
-                          style={on
-                            ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-                            : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
-                        >
-                          {label}
-                          <span className="ml-1.5 tabular-nums font-bold" style={{ opacity: 0.75 }}>
-                            {g.home_score}:{g.away_score}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
               {/* 팀 필터 chip */}
               {teamList.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => setTeamFilter('all')}
+                    aria-pressed={teamFilter === 'all'}
                     className="px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     style={teamFilter === 'all'
                       ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
@@ -929,6 +1044,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     <button
                       key={t.id}
                       onClick={() => setTeamFilter(t.id)}
+                      aria-pressed={teamFilter === t.id}
                       className="px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                       style={teamFilter === t.id
                         // 팀 컬러가 흰색 등 밝은 색이면 하드코딩 '#fff' 텍스트가 사라진다 →
@@ -940,98 +1056,16 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   ))}
                 </div>
               )}
-              {/* 당일 스탯 리더 */}
-              {filteredStats.length > 0 && (() => {
-                const MIN_FGA = 3, MIN_FG3A = 2
-                const byPts  = [...filteredStats].sort((a,b) => b.pts - a.pts)[0]
-                const byReb  = [...filteredStats].sort((a,b) => b.reb - a.reb)[0]
-                const byAst  = [...filteredStats].sort((a,b) => b.ast - a.ast)[0]
-                const byBlk  = [...filteredStats].sort((a,b) => b.blk - a.blk)[0]
-                const byStl  = [...filteredStats].sort((a,b) => b.stl - a.stl)[0]
-                const byFgPct = [...filteredStats]
-                  .filter(p => p.fga >= MIN_FGA)
-                  .sort((a,b) => (b.fg_pct ?? 0) - (a.fg_pct ?? 0))[0]
-                const byFg3  = [...filteredStats]
-                  .filter(p => p.fg3a >= MIN_FG3A)
-                  .sort((a,b) => b.fg3m - a.fg3m)[0]
-
-                // 대진 하나를 보고 있을 때 "1경기" 는 아무것도 알려주지 않는다 — 비운다.
-                //   games[].players 에는 gp 가 없으므로 접근 자체도 좁혀서 한다.
-                const gpSub = (r?: DailyStat | PlayerRow) =>
-                  pickedGame ? '' : `${(r && 'gp' in r ? r.gp : 0)}경기`
-
-                // 아이콘은 lucide 단일 패밀리 — 이모지는 OS 마다 모양이 다르고 아이콘 자리에 쓰지 않는다(CLAUDE.md)
-                const leaders = [
-                  { Icon: Flame,     label: '득점',   p: byPts,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: gpSub(byPts) },
-                  { Icon: Hand,      label: '리바운드', p: byReb,   val: byReb?.reb != null ? `${byReb.reb}개` : null,      sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
-                  { Icon: Handshake, label: '어시스트', p: byAst,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: gpSub(byAst) },
-                  { Icon: Shield,    label: '블락',    p: byBlk,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: gpSub(byBlk) },
-                  { Icon: Zap,       label: '스틸',    p: byStl,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: gpSub(byStl) },
-                  { Icon: Target,    label: '야투율',   p: byFgPct, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
-                  { Icon: Sparkles,  label: '3점슛',   p: byFg3,   val: byFg3?.fg3m != null ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
-                ]
-
-                return (
-                  <div>
-                    <p className="t-label mb-2.5" style={{ color: 'var(--mm-yellow-strong)' }}>당일 스탯 리더</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                      {leaders.map(({ Icon, label, p, val, sub }) => (
-                        <div
-                          key={label}
-                          className="p-3 flex flex-col gap-0.5"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                        >
-                          {/* 카테고리 레이블 */}
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Icon size={16} aria-hidden style={{ color: 'var(--mm-muted)' }} />
-                            <span className="t-label">{label}</span>
-                          </div>
-                          {/* 선수 이름 — 주인공. 본문체 600(유니폼체·900 제거).
-                              칩이 이름에 밀려 잘리지 않게 이름 쪽만 줄어든다(min-w-0 + shrink-0). */}
-                          <div className="flex items-center gap-1 min-w-0">
-                            {p
-                              ? <PlayerName row={p} onPlayerPick={pickPlayer} className="truncate min-w-0 leading-tight" />
-                              : <span className="text-base font-semibold leading-tight" style={{ color: 'var(--mm-ink)' }}>—</span>}
-                            {p && ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}
-                          </div>
-                          {/* 기록 — 보조 */}
-                          <p className="t-num text-base font-black" style={{ color: 'var(--mm-yellow-strong)' }}>
-                            {val ?? ''}
-                          </p>
-                          {sub && <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>{sub}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
 
               {filteredStats.length > 0
                 ? (
                   <>
-                    {/* 대진 하나를 고르면 어느 팀 대 어느 팀의 표인지 위에 적는다 —
-                        칩만으로는 스크롤 뒤에 표만 남아 무슨 표인지 알 수 없다. */}
-                    {pickedGame && (
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
-                          {pickedGame.home_team?.name ?? '홈'} <span style={{ color: 'var(--mm-muted)' }}>vs</span> {pickedGame.away_team?.name ?? '어웨이'}
-                        </span>
-                        <span className="text-sm font-black tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
-                          {pickedGame.home_score} : {pickedGame.away_score}
-                        </span>
-                        {!pickedGame.is_complete && (
-                          <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>기록 중</span>
-                        )}
-                      </div>
-                    )}
-                    {/* 데스크탑 테이블 — G(경기수) 는 하루 합산일 때만 뜻이 있다.
-                        대진 하나에서는 전부 1 이라 자리만 차지한다. */}
                     <div className="hidden md:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                      <StatTable rows={filteredStats} showGP={!pickedGame} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
+                      <StatTable rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} />
                     </div>
                     {/* 모바일 카드 뷰 */}
                     <div className="md:hidden">
-                      <MobileStatCards rows={filteredStats} showGP={!pickedGame} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
+                      <MobileStatCards rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} />
                     </div>
                     {/* 약어는 처음 보는 사람에게 읽히지 않는다 — 표 바로 아래 한 줄 범례 */}
                     {hasDd && <DdLegend />}
@@ -1051,6 +1085,27 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               className="p-4 sm:p-5"
             >
               <TeamComparePanel dailyStats={dailyStats} games={games} />
+            </div>
+          )}
+
+          {/* 탭 4: 어시스트 네트워크 — 누가 누구의 득점을 도왔나 (2026-10-12) */}
+          {activeTab === 'assist' && (
+            <div
+              role="tabpanel"
+              id="daily-boxscore-panel-assist"
+              aria-labelledby="daily-boxscore-tab-assist"
+              className="p-4 sm:p-5"
+            >
+              <AssistNetwork
+                links={assistLinks}
+                games={games.map(g => ({
+                  id: g.id,
+                  numLabel: gameNumLabel(g),
+                  homeName: g.home_team?.name ?? '미정',
+                  awayName: g.away_team?.name ?? '미정',
+                }))}
+                players={new Map(dailyStats.map(d => [d.player_id, { name: d.name, photo_url: d.photo_url ?? null }]))}
+              />
             </div>
           )}
         </div>
@@ -1183,6 +1238,19 @@ function GameVideos({ videos, label }: { videos: { slot_num: number; quarter?: n
           allowFullScreen
         />
       </div>
+      <div className="flex justify-end">
+        <a
+          href={getYoutubeWatchUrl(active.url, active.start_offset)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 min-h-11 px-1 text-xs font-bold underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+          style={{ color: 'var(--mm-ink-soft)' }}
+        >
+          <Youtube size={14} aria-hidden style={{ color: 'var(--mm-live)' }} />
+          YouTube 앱으로 열기
+          <ExternalLink size={12} aria-hidden />
+        </a>
+      </div>
     </div>
   )
 }
@@ -1192,36 +1260,26 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
   const teams = extractTeams(games)
   const teamMeta = new Map(teams.map(t => [t.id, { name: t.name, color: t.color }]))
 
-  // 팀 쌍 생성 (모든 조합) — 팀 3개면 3쌍(A-B, A-C, B-C), 2개면 1쌍
+  // 팀 쌍 — 그날 실제로 맞붙은 조합만. 모든 조합을 늘어놓으면 안 붙은 쌍을 눌렀을 때
+  //   빈 화면만 나온다(2026-10-12). 순서는 그날 처음 맞붙은 순.
   const pairs: { a: string; b: string; key: string }[] = []
-  for (let i = 0; i < teams.length; i++) {
-    for (let j = i + 1; j < teams.length; j++) {
-      pairs.push({ a: teams[i].id, b: teams[j].id, key: `${teams[i].id}__${teams[j].id}` })
-    }
+  for (const g of games) {
+    if (!g.home_team || !g.away_team) continue
+    const [a, b] = [g.home_team.id, g.away_team.id].sort()
+    const key = `${a}__${b}`
+    if (!pairs.some(p => p.key === key)) pairs.push({ a, b, key })
   }
 
-  const [activePairKey, setActivePairKey] = useState<string | null>(null)
-
-  // 기본값: 그날 첫 경기의 홈/어웨이가 속한 pair
-  useEffect(() => {
-    if (activePairKey || pairs.length === 0) return
-    const firstGame = games.find(g => g.home_team && g.away_team)
-    if (firstGame) {
-      const found = pairs.find(p =>
-        (p.a === firstGame.home_team!.id && p.b === firstGame.away_team!.id) ||
-        (p.a === firstGame.away_team!.id && p.b === firstGame.home_team!.id))
-      setActivePairKey(found?.key ?? pairs[0].key)
-    } else {
-      setActivePairKey(pairs[0].key)
-    }
-  }, [games, pairs, activePairKey])
+  // 기본값은 그날 처음 맞붙은 조합(= pairs[0]). 고른 값이 목록에 없으면 기본값으로.
+  const [chosenPairKey, setActivePairKey] = useState<string | null>(null)
+  const activePairKey = pairs.some(p => p.key === chosenPairKey) ? chosenPairKey : (pairs[0]?.key ?? null)
 
   const allComplete = games.length > 0 && games.every(g => g.is_complete)
 
-  if (teams.length < 2) {
+  if (pairs.length === 0) {
     return (
       <div className="text-center py-12" style={{ color: 'var(--mm-muted)' }}>
-        <p className="text-sm">팀 비교를 위해 최소 2팀 이상의 기록이 필요합니다.</p>
+        <p className="text-sm">이날 두 팀이 맞붙은 기록이 없습니다.</p>
       </div>
     )
   }
@@ -1249,7 +1307,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       {/* 조합 버튼 — 팀 3개면 3쌍이 자연스럽게 grid-cols-3 */}
       <div>
         <p className="text-xs font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--mm-muted)' }}>
-          비교할 팀 조합
+          이날 맞붙은 팀
         </p>
         <div
           className="grid gap-1.5"
@@ -1295,8 +1353,8 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       ) : (
         <>
           <HeadToHeadBars
-            a={{ name: A.name, color: colorA, sub: 'HOME', totals: A }}
-            b={{ name: B.name, color: colorB, sub: 'AWAY', totals: B }}
+            a={{ name: A.name, color: colorA, sub: '', totals: A }}
+            b={{ name: B.name, color: colorB, sub: '', totals: B }}
             centerSub={`맞대결 ${h2h.gameCount}경기`}
           />
         </>

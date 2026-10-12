@@ -186,7 +186,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                 }}>
                   {/* 상단 라벨 라인 */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <div style={{ color: C.muted, fontSize: '11px', fontFamily: FONT_BODY, fontWeight: 700 }}>#{g.slot_num}</div>
+                    <div style={{ color: C.muted, fontSize: '11px', fontFamily: FONT_BODY, fontWeight: 700 }}>{g.slot_num}경기</div>
                     {g.is_complete && (
                       <span style={{
                         backgroundColor: C.yellow, color: C.black,

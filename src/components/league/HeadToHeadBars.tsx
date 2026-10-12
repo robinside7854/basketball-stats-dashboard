@@ -10,7 +10,7 @@ export interface H2HSide {
   name: string
   /** hex — accentOrInk 가 hex 만 파싱한다 */
   color: string
-  /** 팀명 아래 작은 글씨 (HOME · 3승 등) */
+  /** 팀명 아래 작은 글씨 (3승 등). 빈 문자열이면 줄 자체를 그리지 않는다 */
   sub: string
   totals: H2HTotals
 }
@@ -45,7 +45,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
     >
       <div className="text-right min-w-0">
         <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorA), letterSpacing: '-0.005em' }}>{a.name}</div>
-        <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{a.sub}</div>
+        {a.sub && <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{a.sub}</div>}
       </div>
       <div className="flex flex-col items-center shrink-0">
         <span className="font-jersey font-black text-sm" style={{ color: 'var(--mm-muted)' }}>VS</span>
@@ -53,7 +53,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
       </div>
       <div className="text-left min-w-0">
         <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorB), letterSpacing: '-0.005em' }}>{b.name}</div>
-        <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{b.sub}</div>
+        {b.sub && <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{b.sub}</div>}
       </div>
     </div>
 
