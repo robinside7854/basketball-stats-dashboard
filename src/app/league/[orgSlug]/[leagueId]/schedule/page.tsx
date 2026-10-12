@@ -1,6 +1,6 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, Fragment } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -11,6 +11,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
 import TournamentSchedule from '@/components/league/TournamentSchedule'
+import { RecordBar } from '@/components/league/ui/viz'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
@@ -596,8 +597,10 @@ function ScheduleContent() {
                 padding: '16px 20px',
               }}
             >
-              <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              {/* 날짜 바로 옆에 박스스코어를 붙인다 — PC 2열에서 justify-between 이면 날짜와 버튼 사이가
+                  카드 폭만큼 벌어져 눈이 왕복했다(2026-10-12). 좁으면 버튼만 다음 줄로 내려간다. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <CalendarDays size={20} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
                 {/* ⚠ overflowWrap:'anywhere' 를 걸면 안 된다. 편집 모드에서 오른쪽 버튼들이
                     자리를 차지하면 남은 폭이 한 글자까지 좁아지고, 그때 날짜가 세로로
@@ -702,28 +705,24 @@ function ScheduleContent() {
               {/* 그날 결과 — 팀별 승패 (2026-10-11). 예전엔 「일정·결과」인데 결과가 하나도 없어서
                   누가 이겼는지 보려면 날짜마다 박스스코어를 열어야 했다. 승패는 색만이 아니라 숫자로 쓴다. */}
               {!upcoming && dayResults[sd.date] && (dayResults[sd.date].games > 0 || dayResults[sd.date].exhibition > 0) && (
-                <div className="flex flex-wrap items-center gap-1.5 pl-[30px]">
-                  {dayResults[sd.date].games > 0 && (
-                    <span className="text-xs font-bold mr-0.5" style={{ color: 'var(--mm-muted)' }}>{dayResults[sd.date].games}경기</span>
-                  )}
-                  {dayResults[sd.date].teams.map((t, ti) => (
-                    <span key={t.name}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-1 whitespace-nowrap"
-                      style={{
-                        background: ti === 0 ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
-                        border: `1px solid ${ti === 0 ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
-                        color: 'var(--mm-ink)',
-                        borderRadius: 'var(--mm-radius-chip)',
-                      }}>
-                      <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color ?? 'var(--mm-muted)' }} />
-                      {t.name}
-                      <span className="tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
-                        {t.w}승 {t.l}패{t.d > 0 ? ` ${t.d}무` : ''}
-                      </span>
-                    </span>
-                  ))}
-                  {dayResults[sd.date].exhibition > 0 && (
-                    <span className="text-xs font-medium" style={{ color: 'var(--mm-muted)' }}>친선 {dayResults[sd.date].exhibition}경기</span>
+                <div className="pl-[30px] space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    {dayResults[sd.date].games > 0 && <span className="font-bold">{dayResults[sd.date].games}경기</span>}
+                    {dayResults[sd.date].exhibition > 0 && <span className="font-medium">친선 {dayResults[sd.date].exhibition}경기</span>}
+                  </div>
+                  {/* 팀별 그날 승패 — 이름 칸 폭 고정 + 막대(칸 안에 「2승」 글자). 360px 에서도 이름 6자 + 막대 3칸이 들어간다 */}
+                  {dayResults[sd.date].teams.length > 0 && (
+                    <div className="grid grid-cols-[minmax(0,5.5rem)_1fr] sm:grid-cols-[minmax(0,7rem)_1fr] items-center gap-x-2 gap-y-1.5 max-w-md">
+                      {dayResults[sd.date].teams.map((t, ti) => (
+                        <Fragment key={t.name}>
+                          <span className="inline-flex items-center gap-1.5 min-w-0" title={t.name}>
+                            <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color ?? 'var(--mm-muted)' }} />
+                            <span className={`text-xs truncate ${ti === 0 ? 'font-black' : 'font-bold'}`} style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
+                          </span>
+                          <RecordBar wins={t.w} losses={t.l} draws={t.d} height={22} />
+                        </Fragment>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}

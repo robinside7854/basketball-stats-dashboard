@@ -5,7 +5,7 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import { useLeagueQuarter, quarterStorageKey } from '@/contexts/LeagueQuarterContext'
-import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, Suspense, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -17,10 +17,30 @@ import { pickTeamLeader } from './_lib/teamLeaders'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
 // 명단 로드 전 기본값 — 렌더마다 새 Set 을 만들면 TeamDetailPanel useMemo 가 매번 다시 돈다
 const EMPTY_IDS: ReadonlySet<string> = new Set()
+// RecordBar 칸은 반투명 배경이라 1위 카드(ink 배경) 위에서 대비가 무너진다 — 패널색 바탕을 깔아 준다
+function OnPanel({ children }: { children: ReactNode }) {
+  return <div style={{ background: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)' }}>{children}</div>
+}
+
+// 팀 내 1위 칩의 작은 얼굴 — 사진이 없으면 팀색 바탕 + 이름(성 뺀) 글자
+function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: string | null; color: string }) {
+  return (
+    <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)', background: photoUrl ? 'var(--mm-panel)' : color }}>
+      {photoUrl ? (
+        <Image src={photoUrl} alt="" fill sizes="40px" className="object-cover object-top" />
+      ) : (
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-black" style={{ color: textOnBg(color) }} aria-hidden>
+          {name.length > 1 ? name.slice(1) : name}
+        </span>
+      )}
+    </div>
+  )
+}
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import StatHeader from '@/components/league/StatHeader'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
@@ -708,21 +728,32 @@ function TeamDetailPanel({
           <p className="text-sm text-center py-6" style={{ color: 'var(--mm-muted)' }}>팀 없음 — 스탯이 없습니다</p>
         ) : (
           <>
-            {/* B. 팀 스탯 Grid */}
+            {/* B. 팀 스탯 — 득점·실점은 한 막대로 맞대고, 나머지는 타일 (2026-10-12) */}
             {computed && (
               <div>
                 <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 스탯</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                <div className="p-3 mb-2.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                  <div className="flex items-end justify-between gap-3 mb-2">
+                    <div>
+                      <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-positive)', fontSize: '28px' }}>{avgPf.toFixed(1)}</div>
+                      <div className="t-label mt-1" style={{ color: 'var(--mm-ink)' }}>평균 득점</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-negative)', fontSize: '28px' }}>{avgPa.toFixed(1)}</div>
+                      <div className="t-label mt-1" style={{ color: 'var(--mm-ink)' }}>평균 실점</div>
+                    </div>
+                  </div>
+                  <VersusBar a={avgPf} b={avgPa} aLabel="평균 득점" bLabel="평균 실점" height={12} />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { label: '팀 평균득점', value: avgPf.toFixed(1), sub: '경기당 득점', color: accentOrInk(team.color) },
-                    { label: '팀 평균실점', value: avgPa.toFixed(1), sub: '경기당 허용', color: 'var(--mm-negative)' },
-                    { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: `총 ${ptsDiff >= 0 ? '양수' : '음수'}`, color: ptsDiff >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
+                    { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: '누적', color: ptsDiff >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
                     { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: 'var(--mm-positive)' },
                     { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: '#0F766E' },
-                    { label: 'STL+BLK/G', value: computed.defPg.toFixed(1), sub: '수비 이벤트', color: '#7C3AED' },
+                    { label: 'STL+BLK', value: computed.defPg.toFixed(1), sub: '평균 수비 이벤트', color: '#7C3AED' },
                   ].map(card => (
                     <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                      <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '30px' }}>{card.value}</div>
+                      <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '28px' }}>{card.value}</div>
                       <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{card.label}</div>
                       <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{card.sub}</div>
                     </div>
@@ -731,12 +762,12 @@ function TeamDetailPanel({
               </div>
             )}
 
-            {/* C. Top Performers */}
+            {/* C. Top Performers — 모바일은 가로 스크롤, lg 이상은 5칸 그리드 */}
             {/* byPpg 가 없으면 정규 후보가 0명 — 나머지 1위도 전부 없으니 제목째 숨긴다 */}
             {computed?.byPpg && (
               <div>
                 <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 내 1위</p>
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
                   {[
                     { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)} PPG` : null },
                     { label: '리바운드', player: computed.byRpg, val: computed.byRpg ? `${computed.byRpg.rpg.toFixed(1)} RPG` : null },
@@ -747,19 +778,22 @@ function TeamDetailPanel({
                     <button
                       key={item.label}
                       onClick={() => item.player && setQuickView({ id: item.player.player_id, name: item.player.name })}
-                      className="shrink-0 px-3.5 py-2.5 text-left transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)]"
+                      className="shrink-0 px-3 py-2.5 flex items-center gap-2.5 text-left transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)] min-w-0"
                       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                     >
-                      <div className="t-label mb-1" style={{ color: 'var(--mm-muted)' }}>{item.label}</div>
-                      <div className="font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>{item.player?.name}</div>
-                      <div className="text-xs font-black tabular-nums whitespace-nowrap mt-0.5" style={{ color: team.color }}>{item.val}</div>
+                      {item.player && <LeaderAvatar name={item.player.name} photoUrl={item.player.photo_url} color={team.color} />}
+                      <div className="min-w-0">
+                        <div className="t-label" style={{ color: 'var(--mm-muted)' }}>{item.label}</div>
+                        <div className="font-bold whitespace-nowrap lg:truncate" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>{item.player?.name}</div>
+                        <div className="text-xs font-black tabular-nums whitespace-nowrap" style={{ color: accentOrInk(team.color) }}>{item.val}</div>
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* D. 재미있는 팀 통계 */}
+            {/* D. 팀 특성 — 비율은 고리 게이지, 숫자는 고리 안 (2026-10-12) */}
             {computed && (
               <div>
                 <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 특성</p>
@@ -768,31 +802,49 @@ function TeamDetailPanel({
                     // 에이스(정규 득점 1위)가 없으면 0% 가 초록으로 '좋음'처럼 보인다 — 카드째 뺀다
                     ...(computed.byPpg ? [{
                       title: '에이스 의존도',
+                      ratio: (computed.acePct / 100) as number | null,
                       value: `${computed.acePct.toFixed(0)}%`,
-                      desc: `에이스 비중 ${computed.acePct.toFixed(0)}%`,
+                      desc: '팀 득점 중 1위 비중',
                       color: computed.acePct > 40 ? 'var(--mm-negative)' : computed.acePct > 30 ? 'var(--mm-neutral-strong)' : 'var(--mm-positive)',
                     }] : []),
                     {
                       title: '외곽 스타일',
+                      ratio: (computed.threePct / 100) as number | null,
                       value: `${computed.threePct.toFixed(0)}%`,
-                      desc: `3점 시도 비율`,
+                      desc: '3점 시도 비율',
                       color: computed.threePct > 35 ? 'var(--mm-neutral-strong)' : '#2563EB',
                     },
                     {
                       title: '수비 강도',
+                      // 비율이 아니라 횟수라 고리를 채우지 않는다(임의 상한을 만들지 않음)
+                      ratio: null as number | null,
                       value: computed.defPg.toFixed(1),
-                      desc: `게임당 수비 이벤트`,
+                      desc: '평균 스틸+블록',
                       color: computed.defPg > 5 ? 'var(--mm-positive)' : computed.defPg > 3 ? 'var(--mm-neutral-strong)' : 'var(--mm-muted)',
                     },
                     {
                       title: '자유투 성공률',
-                      value: `${computed.ftPct.toFixed(1)}%`,
-                      desc: `팀 클러치 지표`,
+                      ratio: (computed.ftPct / 100) as number | null,
+                      value: `${computed.ftPct.toFixed(0)}%`,
+                      desc: '팀 클러치 지표',
                       color: computed.ftPct > 75 ? 'var(--mm-positive)' : computed.ftPct > 60 ? 'var(--mm-neutral-strong)' : 'var(--mm-negative)',
                     },
                   ].map(tile => (
-                    <div key={tile.title} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                      <div className="font-jersey font-black tabular-nums leading-none" style={{ color: tile.color, fontSize: '26px' }}>{tile.value}</div>
+                    <div key={tile.title} className="p-3 flex flex-col items-center text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                      {tile.ratio != null ? (
+                        <Ring ratio={tile.ratio} size={72} stroke={7} color={tile.color} label={`${tile.title} ${tile.value}`}>
+                          <span className="text-base font-black tabular-nums" style={{ color: tile.color }}>{tile.value}</span>
+                        </Ring>
+                      ) : (
+                        <div
+                          className="flex items-center justify-center rounded-full shrink-0"
+                          style={{ width: 72, height: 72, border: '7px solid var(--mm-panel)' }}
+                          role="img"
+                          aria-label={`${tile.title} ${tile.value}`}
+                        >
+                          <span className="text-base font-black tabular-nums" style={{ color: tile.color }}>{tile.value}</span>
+                        </div>
+                      )}
                       <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{tile.title}</div>
                       <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{tile.desc}</div>
                     </div>
@@ -1295,48 +1347,43 @@ function LeagueTeamsPageInner() {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-jersey font-black tabular-nums" style={{ color: isFirst ? 'var(--mm-panel)' : accentOrInk(s.color), fontSize: '28px' }}>{winPct}{played > 0 ? '%' : ''}</p>
-                      <p className="text-xs font-bold" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>{s.w}승 {s.d > 0 ? `${s.d}무 ` : ''}{s.l}패 · {played}경기</p>
-                      {played > 0 && (
-                        <div className="flex h-1 overflow-hidden w-16 mt-1 ml-auto">
-                          <div className="h-full" style={{ width: `${s.w/played*100}%`, backgroundColor: s.color }} />
-                          {s.d > 0 && <div className="h-full" style={{ width: `${s.d/played*100}%`, background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 70%, transparent)' : 'var(--mm-muted)' }} />}
-                          <div className="h-full flex-1" style={{ background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 15%, transparent)' : 'var(--mm-rule)' }} />
-                        </div>
-                      )}
+                      <p className="font-jersey font-black tabular-nums leading-none" style={{ color: isFirst ? 'var(--mm-panel)' : accentOrInk(s.color), fontSize: '28px' }}>{winPct}{played > 0 ? '%' : ''}</p>
+                      <p className="text-xs font-bold mt-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>승률 · {played}경기</p>
                     </div>
                   </button>
+                  {/* 승·무·패 막대 — 헤더 바로 아래 전체 폭 (2026-10-12: w-16 미니바 → RecordBar) */}
+                  {played > 0 && (
+                    <div className="px-4 pt-3 pl-5">
+                      <OnPanel>
+                        <RecordBar wins={s.w} losses={s.l} draws={s.d} height={26} />
+                      </OnPanel>
+                    </div>
+                  )}
                   {/* 상대 전적 — 정체성 기준 (같은 정체성 그룹 안의 다른 정체성들과 대전) */}
                   <div className="px-4 py-3 pl-5">
                     <p className="t-label mb-2" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>상대 전적</p>
-                    {standings.filter(op => op.identityKey !== s.identityKey).map(op => {
-                      const rec = h2h[s.identityKey]?.[op.identityKey] ?? { w: 0, d: 0, l: 0 }
-                      const total = rec.w + rec.d + rec.l
-                      const isWin = rec.w > rec.l
-                      const isLoss = rec.w < rec.l
-                      return (
-                        <div key={op.identityKey} className="flex items-center justify-between px-2 py-1 mb-1" style={{
-                          background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 6%, transparent)' : isWin ? 'rgba(5,150,105,0.10)' : isLoss ? 'rgba(220,38,38,0.10)' : 'var(--mm-panel-alt)',
-                          border: `1px solid ${isFirst ? 'color-mix(in srgb, var(--mm-panel) 15%, transparent)' : isWin ? 'rgba(5,150,105,0.25)' : isLoss ? 'rgba(220,38,38,0.25)' : 'var(--mm-rule)'}`,
-                        }}>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
-                            <span className="text-xs font-bold break-keep min-w-0" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>vs {op.displayName}</span>
-                          </div>
-                          {total === 0 ? (
-                            <span className="text-xs shrink-0" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>기록 없음</span>
-                          ) : (
-                            <div className="flex items-center gap-1 text-xs font-semibold tabular-nums shrink-0">
-                              {/* isFirst 를 먼저 본다 — 1위 카드는 배경이 ink 라 positive 초록이 1.5~2.7:1 로 묻혔다 */}
-                              <span style={{ color: isFirst ? 'var(--mm-panel)' : isWin ? 'var(--mm-positive)' : 'var(--mm-muted)' }}>{rec.w}W</span>
-                              {rec.d > 0 && <><span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 70%, transparent)' : 'var(--mm-muted)' }}>·</span><span style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-neutral-strong)' }}>{rec.d}D</span></>}
-                              <span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 70%, transparent)' : 'var(--mm-muted)' }}>·</span>
-                              <span style={{ color: isFirst ? 'var(--mm-panel)' : isLoss ? 'var(--mm-negative)' : 'var(--mm-muted)' }}>{rec.l}L</span>
+                    {/* 상대별 미니 전적 막대 — 이름 칸 폭을 고정해 막대 시작점을 맞춘다 */}
+                    <div className="space-y-1.5">
+                      {standings.filter(op => op.identityKey !== s.identityKey).map(op => {
+                        const rec = h2h[s.identityKey]?.[op.identityKey] ?? { w: 0, d: 0, l: 0 }
+                        const total = rec.w + rec.d + rec.l
+                        return (
+                          <div key={op.identityKey} className="grid grid-cols-[5.5rem_1fr] sm:grid-cols-[6.5rem_1fr] items-center gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0" title={op.displayName}>
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
+                              <span className="text-xs font-bold truncate" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)' }}>{op.displayName}</span>
                             </div>
-                          )}
-                        </div>
-                      )
-                    })}
+                            {total === 0 ? (
+                              <span className="text-xs" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>기록 없음</span>
+                            ) : (
+                              <OnPanel>
+                                <RecordBar wins={rec.w} losses={rec.l} draws={rec.d} height={22} />
+                              </OnPanel>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                     {totalPlayed === 0 && <p className="text-xs py-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>}
                   </div>
                 </div>
