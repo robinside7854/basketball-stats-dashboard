@@ -1,126 +1,53 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import {
-  Lock, Loader2, Play, Square, ChevronLeft,
-  CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
-  CalendarDays, PlayCircle, Zap, AlertTriangle, X, ArrowLeftRight,
-  Link2, Search, Plus, Trash2, ChevronDown,
-} from 'lucide-react'
+import { Lock, Loader2, CalendarDays } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
-import { seekBy, extractYouTubeId } from '@/lib/youtube/utils'
-import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
-import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
 import GameLogModal from '@/components/league/GameLogModal'
-import type { LeaguePlayer, LeagueTeam } from '@/types/league'
-import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
-import { rotationFromFirstTwo, generateRotation } from '@/lib/league/rotation'
 
-// YouTube 영상 제목 규칙. 서버(`lib/youtube/syncYoutubeForLeague`)의 TitleRule 과 같은 축이다.
-//   'legacy'  `260919 경기1`              → 그날 1번 슬롯의 대표 영상
-//   'quarter' `260905 지피티vs빅현욱 1Q`  → 그 대진의 1쿼터 영상
-// **둘 다 살아 있다.** 업로더의 습관이 날마다 달라서, 평소에는 서버가 그날 제목을 보고 고르고
-// 어긋난 날에만 운영자가 토스트 버튼으로 다른 쪽을 고른다.
-type YtTitleRule = 'quarter' | 'legacy'
-const YT_RULE_LABEL: Record<YtTitleRule, string> = {
-  quarter: '대진 + 쿼터',
-  legacy: '경기 번호',
-}
-
-// 정식 경기(1~4쿼터 + 연장)용 선택지. league_game_events.quarter 는 CHECK(1~6) 이라 연장은 2회까지.
-// 미라클의 짧은 슬롯 경기는 쿼터를 나누지 않으므로 1 을 그대로 두면 기존 기록과 동일하다.
-const QUARTER_OPTIONS = [
-  { value: 1, label: '1Q' }, { value: 2, label: '2Q' },
-  { value: 3, label: '3Q' }, { value: 4, label: '4Q' },
-  { value: 5, label: '연장' }, { value: 6, label: '연장2' },
-] as const
-
-type ScheduleDate = { id: string; date: string }
-
-// ── 이어서 기록하기 (2026-10-12) ─────────────────────────────────────
-//   기록 중에 다른 탭으로 나갔다가 돌아오면 **그 장면부터** 다시 잡는다 — 날짜·경기·쿼터·영상 위치.
-//   기록 자체는 누를 때마다 서버에 저장되므로, 여기 담는 건 "어디를 보고 있었나" 뿐이다.
-//   그래서 서버가 아니라 기기 localStorage 에 둔다(다른 기기의 기록원과 섞일 일이 없다).
-//   ⚠ 경기를 마감하면 지운다. 돌아왔을 때 그 경기가 이미 마감됐으면(다른 사람이 마감) 무시하고 지운다.
-const LEAVE_MESSAGE = '기록 중인 경기가 있어요.\n이동해도 기록은 저장돼 있지만, 마감은 아직 안 됐어요.\n\n이동할까요?'
-const RESUME_MAX_AGE_MS = 12 * 60 * 60 * 1000
-type ResumeEntry = {
-  date: string
-  gameId: string
-  slotNum: number | null
-  quarter: number
-  /** 영상 재생 위치(초). 영상이 없거나 못 읽었으면 null */
-  videoTime: number | null
-  /** 그 시각에 재생 중이던 영상 — 돌아왔을 때 다른 영상이면 위치를 옮기지 않는다 */
-  videoUrl: string | null
-  savedAt: number
-}
-const resumeKey = (leagueId: string) => `record:${leagueId}:resume`
-function readResume(leagueId: string): ResumeEntry | null {
-  try {
-    const raw = window.localStorage.getItem(resumeKey(leagueId))
-    if (!raw) return null
-    const v = JSON.parse(raw) as ResumeEntry
-    if (!v || typeof v.gameId !== 'string' || typeof v.date !== 'string') return null
-    if (typeof v.savedAt !== 'number' || Date.now() - v.savedAt > RESUME_MAX_AGE_MS) return null
-    return v
-  } catch { return null }
-}
-function writeResume(leagueId: string, v: ResumeEntry) {
-  try { window.localStorage.setItem(resumeKey(leagueId), JSON.stringify(v)) } catch { /* 사생활 보호 모드 등 */ }
-}
-function clearResume(leagueId: string, gameId?: string) {
-  try {
-    if (gameId) {
-      const raw = window.localStorage.getItem(resumeKey(leagueId))
-      if (raw && (JSON.parse(raw) as ResumeEntry | null)?.gameId !== gameId) return
-    }
-    window.localStorage.removeItem(resumeKey(leagueId))
-  } catch { /* ignore */ }
-}
-function fmtClock(sec: number): string {
-  const s = Math.max(0, Math.floor(sec))
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
-type GameSlot = {
-  id: string; slot_num: number; date: string; is_complete: boolean; is_started: boolean
-  is_exhibition?: boolean
-  /** 이 경기에서만 +1 로 치는 선수 (110). 전역 플래그·배타 지정에 더해진다. */
-  plus_one_extra_ids?: string[] | null
-  /** 선수별 +1 유효 쿼터 (113). 키가 없으면 전 쿼터. `{ "<playerId>": [1,2] }` */
-  plus_one_quarters?: Record<string, number[]> | null
-  /**
-   * 화면 좌우를 뒤집어 그릴 쿼터 (118). `[2,4]` 형태.
-   * ⚠ **표시 전용.** home_team_id/away_team_id 와 기록·점수에는 영향이 없다.
-   */
-  sides_swapped_quarters?: number[] | null
-  home_score: number; away_score: number
-  /** 대회 상대팀 최종 점수(112) — 마감할 때 손으로 넣는다. null 이면 아직 안 넣은 것. */
-  opponent_score_manual?: number | null
-  youtube_url?: string | null; youtube_start_offset?: number
-  home_team_id?: string | null; away_team_id?: string | null
-  quarter_id?: string | null
-  home_team?: { id: string; name: string; color: string; is_external?: boolean } | null
-  away_team?: { id: string; name: string; color: string; is_external?: boolean } | null
-}
-type MinRow = {
-  id: string; league_player_id: string; league_game_id: string; out_time: number | null
-  /** 선발은 in_time 0 으로 들어간다(doStartGame). 「지난 경기와 같은 선발」이 이걸로 고른다. */
-  in_time?: number | null; quarter?: number | null; created_at?: string | null
-}
-/** 파울 집계용 — /events 응답 중 쓰는 필드만 */
-type FoulRow = { type: string; league_player_id: string | null; team_id: string | null; quarter?: number | null }
-type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
-type IrregularPlayer = LeaguePlayer & { team_id: string | null; is_regular: boolean | null }
+import type { ActiveVideo } from './_lib/types'
+import { computeActiveVideo } from './_lib/video'
+import { buildSideView } from './_lib/sides'
+import { useRecordState } from './_hooks/useRecordState'
+import { useYoutubeRemote } from './_hooks/useYoutubeRemote'
+import { useStarterDefaults } from './_hooks/useStarterDefaults'
+import { useInitialLoad } from './_hooks/useInitialLoad'
+import { useSlotCore } from './_hooks/useSlotCore'
+import { useDeepLink } from './_hooks/useDeepLink'
+import { useDateTeams } from './_hooks/useDateTeams'
+import { useQuarterVideos } from './_hooks/useQuarterVideos'
+import { useFoulCounts } from './_hooks/useFoulCounts'
+import { useResumeSession } from './_hooks/useResumeSession'
+import { useQuarterRestore } from './_hooks/useQuarterRestore'
+import { usePrepActions } from './_hooks/usePrepActions'
+import { useVideoActions } from './_hooks/useVideoActions'
+import { useGameSession } from './_hooks/useGameSession'
+import { useStarterActions } from './_hooks/useStarterActions'
+import RecordLanding from './_components/RecordLanding'
+import DateHeader from './_components/DateHeader'
+import SlotGrid from './_components/SlotGrid'
+import PrepCard from './_components/PrepCard'
+import VideoPanel from './_components/VideoPanel'
+import AdvancedPanel from './_components/AdvancedPanel'
+import AdhocTeamsPanel from './_components/AdhocTeamsPanel'
+import VideoColumn from './_components/VideoColumn'
+import CompletedBanner from './_components/CompletedBanner'
+import ScoreStrip from './_components/ScoreStrip'
+import QuarterSelector from './_components/QuarterSelector'
+import RecordingTools from './_components/RecordingTools'
+import StarterSelect from './_components/StarterSelect'
+import IrregularTeamModal from './_components/IrregularTeamModal'
+import SubstitutionModal from './_components/SubstitutionModal'
+import BoxscoreModal from './_components/BoxscoreModal'
+import PlusOneModal from './_components/PlusOneModal'
+import CompleteModal from './_components/CompleteModal'
 
 // ── 메인 페이지 ──────────────────────────────────────────────
 export default function LeagueRecordPage() {
@@ -162,137 +89,31 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const { setCurrentGame, ytPlayer } = useGameStore()
   const { setLineup, resetLineup, onCourt } = useLineupStore()
 
-  // ── YouTube 원격 제어 ────────────────────────────────────────
-  function seekRelative(delta: number) {
-    if (!ytPlayer) return
-    try {
-      seekBy(ytPlayer, delta)
-      ytPlayer.unMute()
-    } catch {}
-  }
-  function togglePlay() {
-    if (!ytPlayer) return
-    try {
-      const state = ytPlayer.getPlayerState()
-      if (state === 1 /* PLAYING */) ytPlayer.pauseVideo()
-      else { ytPlayer.unMute(); ytPlayer.playVideo() }
-    } catch {}
-  }
+  // ⚠ 훅 호출 순서 = effect 실행 순서. 분리 전(한 파일이던 시절)의 effect 순서를 그대로 지킨다:
+  //   ① 키보드 단축키 ② 상대 점수 채우기 ③ 선발 기본 체크 ④ 초기 로드 ⑤ 딥링크·이어서 기록 진입
+  //   ⑥ 분기 팀 ⑦ 임시팀 ⑧~⑫ 쿼터 영상(목록 캐시·영상 표·패널 열기·링크 대상·시작 쿼터)
+  //   ⑬~⑯ 이어서 기록(장면 저장·이탈 경고·장면 복원·영상 위치) ⑰ 이벤트 기반 쿼터 복원
+  //   effect 가 없는 동작 묶음(use*Actions·useSlotCore)은 매 렌더 새로 만드는 함수라 위치와 무관하다.
+  const { seekRelative, togglePlay } = useYoutubeRemote({ ytPlayer }) // ①
 
-  // 키보드 단축키: Space(재생/정지), ←/→(±5s), Shift+←/→(±10s)
-  //   ⚠ Backspace(마지막 기록 삭제) 단축키는 2026-10-12 에 뺐다 — 화면 어디서든 눌리면
-  //     확인 없이 기록이 지워졌다. 되돌리기는 기록 패드의 「↩ 취소」 하나로 한다.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      if (!ytPlayer) return
-      if (e.code === 'Space')      { e.preventDefault(); togglePlay() }
-      else if (e.code === 'ArrowLeft')  { e.preventDefault(); seekRelative(e.shiftKey ? -10 : -5) }
-      else if (e.code === 'ArrowRight') { e.preventDefault(); seekRelative(e.shiftKey ? 10 : 5) }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [ytPlayer]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const [scheduleDates, setScheduleDates] = useState<ScheduleDate[]>([])
-  const [selectedDate, setSelectedDate] = useState('')
-  const [slots, setSlots] = useState<GameSlot[]>([])
-  const [teams, setTeams] = useState<LeagueTeam[]>([])
-  const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
-  const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
-  const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
-  const [selectedSlotId, setSelectedSlotId] = useState('')
-  const [loadingDates, setLoadingDates] = useState(true)
-  const [initializingSlots, setInitializingSlots] = useState(false)
-  const [ytSyncing, setYtSyncing] = useState(false)
-  const [minutes, setMinutes] = useState<MinRow[]>([])
-  const [statsRefresh, setStatsRefresh] = useState(0)
-  const [mobileTab, setMobileTab] = useState<'record' | 'stats'>('record')
-
-  // 분기별 홈/어웨이 선수 명단
-  const [homeRoster, setHomeRoster] = useState<RosterPlayer[]>([])
-  const [awayRoster, setAwayRoster] = useState<RosterPlayer[]>([])
-  const [irregularRoster, setIrregularRoster] = useState<IrregularPlayer[]>([])
-  const [rosterLoading, setRosterLoading] = useState(false)
-  const [pendingIrregular, setPendingIrregular] = useState<IrregularPlayer | null>(null)
-  const [addingIrregular, setAddingIrregular] = useState(false)
-
-  // 슬롯 수동 추가·삭제 — games_per_round 는 시즌 설정이라 특정 날짜만 늘릴 수단이 없었다.
-  const [savingExtraP1, setSavingExtraP1] = useState<string | null>(null)
-  // 슬롯을 쿼터 단위로 쓰는 날은 한 경기가 슬롯 4칸이라, 한 칸씩 지정하면 네 번을 눌러야 한다
-  const [extraP1AllSlots, setExtraP1AllSlots] = useState(false)
-  const [addingSlot, setAddingSlot] = useState(false)
-  const [deletingSlot, setDeletingSlot] = useState(false)
-
-  // 영상 수동 연동 — 자동 매핑은 제목 규칙에 기대므로 규칙이 깨지는 날이 있다(쿼터별로 쪼갠
-  //   영상 등). 그때 손으로 붙일 수단이 없으면 그 날짜 기록 전체가 영상 없이 진행된다.
-  const [ytInput, setYtInput] = useState('')
-  const [ytSaving, setYtSaving] = useState(false)
-  const [ytPickerOpen, setYtPickerOpen] = useState(false)
-  const [ytList, setYtList] = useState<{ video_id: string; title: string; url: string; thumbnail: string | null }[]>([])
-  const [ytListLoading, setYtListLoading] = useState(false)
-
-  // 친선전 전용 임시팀 — 선택한 날짜에만 유효하다(109). 상시 3팀과 별도로 들고 있는 이유는
-  //   둘의 수명이 다르기 때문이다. teams 는 분기 override 로 이름이 갈리고, 이쪽은 그날로 끝난다.
-  const [adhocTeams, setAdhocTeams] = useState<LeagueTeam[]>([])
-  const [newTeamName, setNewTeamName] = useState('')
-  const [newTeamColor, setNewTeamColor] = useState('#3b82f6')
-  const [creatingTeam, setCreatingTeam] = useState(false)
-  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null)
-
-  // 팀 선택 (슬롯별)
-  const [pendingHome, setPendingHome] = useState('')
-  const [pendingAway, setPendingAway] = useState('')
-  const [savingTeam, setSavingTeam] = useState(false)
-  // 기록 준비 카드의 접힘 상태. 영상·고급 설정은 대부분의 경기에서 손대지 않으므로 접어 둔다
-  //   (실측 2026-09-07: 리그 282경기 중 +1 조정 4% · 쿼터별 +1 0% · 영상은 100% 자동 연결).
-  const [videoPanelOpen, setVideoPanelOpen] = useState(false)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [swappingId, setSwappingId] = useState<string | null>(null)
-
-  // 경기 진행
-  const [gameStarted, setGameStarted] = useState(false)
-  const [startingGame, setStartingGame] = useState(false)
-  const [showComplete, setShowComplete] = useState(false)
-  const [completing, setCompleting] = useState(false)
-  const [reopening, setReopening] = useState(false)
-  const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null)
-  const [currentQuarter, setCurrentQuarter] = useState(1)
-  const [showGameLog, setShowGameLog] = useState(false)
-  const [showSubModal, setShowSubModal] = useState(false)
-  const [showBoxscoreModal, setShowBoxscoreModal] = useState(false)
-
-  // 선발 체크: 선택된 선수 ID 셋 (홈+어웨이 통합)
-  const [selectedStarters, setSelectedStarters] = useState<Set<string>>(new Set())
-
-  // 드래그 앤 드롭
-  const [dragOverSide, setDragOverSide] = useState<'home' | 'away' | null>(null)
-  const [draggingPlayerId, setDraggingPlayerId] = useState<string | null>(null)
-
-  // 플러스원 충돌 모달
-  const [showPlusOneModal, setShowPlusOneModal] = useState(false)
-  const [plusOneConflict, setPlusOneConflict] = useState<{ teamName: string; players: RosterPlayer[] } | null>(null)
-  const [activePlusOneIds, setActivePlusOneIds] = useState<string[]>([])
-
-  // ── 대회 묶음의 쿼터별 영상 ────────────────────────────────────────
-  //   촬영본이 쿼터로 쪼개져 올라오는 경기(대회)는 "경기 하나 = 영상 하나" 전제가 깨진다.
-  //   경기를 슬롯 4칸으로 쪼개는 우회(8/22 친선전)는 대회에서 쓸 수 없다 — 대회 보드의
-  //   전적 판정이 경기 행을 세므로 4쿼터짜리 2경기가 "4승 4패" 로 읽힌다.
-  const [isTournament, setIsTournament] = useState(false)
-  const [quarterVideos, setQuarterVideos] = useState<Record<number, { url: string; start_offset: number }>>({})
-  // 링크 입력·목록 고르기가 어느 쿼터를 채우는지. 기본은 지금 기록 중인 쿼터.
-  const [ytTargetQuarter, setYtTargetQuarter] = useState(1)
-  // quarterVideos 가 **어느 경기 것인지**. setQuarterVideos 와 항상 같은 배치로 바꾼다 —
-  //   따로 두면 "앞 경기 영상 표 + 지금 경기 id" 조합이 생겨, 아래 시작 쿼터 보정이
-  //   남의 경기 영상을 근거로 기록 쿼터를 정하게 된다.
-  const [videosLoadedFor, setVideosLoadedFor] = useState<string | null>(null)
-  // 이 슬롯에 저장된 기록이 있는지. 쿼터 복원(이벤트 최대 쿼터)이 끝났다는 신호도 겸한다.
-  const [quarterRestore, setQuarterRestore] = useState<{ slotId: string; hasEvents: boolean } | null>(null)
-  // 쿼터 영상이 하나도 없는 경기(옛 `260919 경기3` 번호형)에서 쿼터 UI 를 손으로 펼친 상태.
-  //   왜: 그런 날은 쿼터 개념 자체가 없어 화면에서 감추지만, 나중에 쿼터별로 쪼갠 영상을
-  //   붙이려면 되돌아올 길이 있어야 한다.
-  const [quarterSplitOpen, setQuarterSplitOpen] = useState(false)
+  const st = useRecordState()
+  const {
+    scheduleDates, selectedDate, slots, allPlayers, leagueYtChannel, selectedSlotId, loadingDates,
+    initializingSlots, ytSyncing, minutes, setMinutes, statsRefresh, setStatsRefresh, mobileTab,
+    setMobileTab, homeRoster, setHomeRoster, awayRoster, setAwayRoster, irregularRoster, rosterLoading,
+    pendingIrregular, setPendingIrregular, addingIrregular, savingExtraP1, extraP1AllSlots,
+    setExtraP1AllSlots, addingSlot, deletingSlot, ytInput, setYtInput, ytSaving, ytPickerOpen,
+    setYtPickerOpen, ytList, ytListLoading, adhocTeams, newTeamName, setNewTeamName, newTeamColor,
+    setNewTeamColor, creatingTeam, deletingTeamId, pendingHome, setPendingHome, pendingAway,
+    setPendingAway, savingTeam, videoPanelOpen, setVideoPanelOpen, advancedOpen, setAdvancedOpen,
+    swappingId, gameStarted, startingGame, showComplete, setShowComplete, completing, reopening,
+    liveScore, setLiveScore, currentQuarter, setCurrentQuarter, showGameLog, setShowGameLog,
+    showSubModal, setShowSubModal, showBoxscoreModal, setShowBoxscoreModal, selectedStarters,
+    dragOverSide, setDragOverSide, draggingPlayerId, setDraggingPlayerId, showPlusOneModal,
+    setShowPlusOneModal, plusOneConflict, setPlusOneConflict, activePlusOneIds, isTournament,
+    quarterVideos, ytTargetQuarter, setYtTargetQuarter, quarterSplitOpen, setQuarterSplitOpen,
+    oppFinalScore, setOppFinalScore, savingOppScore, applyingPrevStarters,
+  } = st
 
   // 쿼터 태그된 영상이 하나라도 있으면 "쿼터가 있는 경기". 없으면 쿼터를 화면에 꺼내지 않는다.
   //   기록 데이터의 quarter 값은 그대로다 — 표시만 감춘다.
@@ -316,52 +137,15 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   /** 대회에서 기록 대상이 되는 우리 팀 명단. 리그면 홈+어웨이 둘 다가 대상이라 여기 안 쓴다. */
   const ourRoster = ourSide === 'home' ? homeRoster : ourSide === 'away' ? awayRoster : []
 
-  // 마감 모달에서 넣는 상대 최종 점수(112). 우리 점수는 기록에서 나오므로 여기 없다.
-  const [oppFinalScore, setOppFinalScore] = useState('')
-  const [savingOppScore, setSavingOppScore] = useState(false)
   // 경기를 바꾸거나 마감 모달을 열 때 저장돼 있던 값을 채운다 — 마감 해제 후 다시 마감할 때
   //   이전에 넣은 점수가 그대로 보여야 "다시 입력"이 아니라 "고치기"가 된다.
   useEffect(() => {
     setOppFinalScore(selectedSlot?.opponent_score_manual != null ? String(selectedSlot.opponent_score_manual) : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 세터는 useRecordState·훅에서 넘겨받은 것(안정). 의존성 배열은 분리 전 그대로 둔다.
   }, [selectedSlotId, selectedSlot?.opponent_score_manual])
 
-  // 지금 화면에서 재생해야 할 영상 — 기록 중인 쿼터의 영상, 없으면 경기 대표 영상.
-  //   판정 규칙은 서버의 gameVideo.ts 와 같다(쿼터 영상 우선 → 대표 폴백).
-  //
-  // ⚠ **폴백했다는 사실을 버리지 않는다** (2026-09-18).
-  //   예전에는 `{url, startOffset}` 만 돌려줘서, 1쿼터 영상이 없을 때 조용히 2쿼터 영상을
-  //   틀면서도 화면은 계속 "1쿼터"라고 말했다. 배지는 `currentQuarter` 를, 플레이어는 이
-  //   폴백 결과를 보니 **둘이 다른 변수**라 구조적으로 어긋났다. 운영자는 그걸 보고
-  //   "영상 연동이 깨졌다"고 신고했는데 DB 는 멀쩡했다.
-  //   배지·배너가 **이 값 하나만** 읽게 해서 어긋날 수 없게 만든다.
-  const activeVideo: {
-    url: string
-    startOffset: number
-    source: 'quarter' | 'representative'
-    /** 폴백 중일 때 그 영상이 몇 쿼터 것인지. 못 알아내면 null — 틀린 번호를 말하느니 안 말한다. */
-    representativeQuarter: number | null
-  } | null = (() => {
-    if (!selectedSlot) return null
-    const q = quarterVideos[currentQuarter]
-    if (q) return { url: q.url, startOffset: q.start_offset, source: 'quarter', representativeQuarter: null }
-    if (!selectedSlot.youtube_url) return null
-
-    // 대표 영상이 몇 쿼터 것인지 되짚는다. 서버(games/[gameId]/videos 의 syncRepresentative)가
-    //   저장할 때마다 **가장 이른 쿼터**를 대표로 맞추고 URL 도 정규화하므로, 최소 쿼터의 URL 과
-    //   문자열이 같으면 그 번호가 맞다. 정규화 이전에 저장된 옛 행이면 안 맞아 null 로 떨어진다.
-    const keys = Object.keys(quarterVideos).map(Number).filter(Number.isFinite)
-    const earliest = keys.length > 0 ? Math.min(...keys) : null
-    const repQuarter = earliest != null && quarterVideos[earliest]?.url === selectedSlot.youtube_url
-      ? earliest
-      : null
-
-    return {
-      url: selectedSlot.youtube_url,
-      startOffset: selectedSlot.youtube_start_offset ?? 0,
-      source: 'representative',
-      representativeQuarter: repQuarter,
-    }
-  })()
+  // 지금 화면에서 재생해야 할 영상 — 판정 규칙과 사연은 _lib/video.ts 의 computeActiveVideo 참고.
+  const activeVideo: ActiveVideo | null = computeActiveVideo(selectedSlot, quarterVideos, currentQuarter)
 
   /** 지금 **실제로 재생 중인 영상**의 쿼터. 없으면 null. 쿼터 카드 배지는 이것만 본다. */
   const playingQuarter: number | null = activeVideo == null
@@ -382,1780 +166,46 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const leftSide: 'home' | 'away' = sidesFlipped ? 'away' : 'home'
   const rightSide: 'home' | 'away' = sidesFlipped ? 'home' : 'away'
 
-  /** 한쪽(홈 또는 어웨이)의 팀·점수 묶음. 좌우로 그리는 위젯은 전부 이걸 통해 읽는다 —
-   *  이름만 뒤집고 점수를 그대로 두는 부분 반전이 가장 흔한 오표기다. */
+  /** 한쪽(홈 또는 어웨이)의 팀·점수 묶음 — 정의는 _lib/sides.ts 의 buildSideView. */
   function sideView(side: 'home' | 'away') {
-    const team = side === 'home' ? selectedSlot?.home_team : selectedSlot?.away_team
-    const score = side === 'home'
-      ? (liveScore?.home ?? selectedSlot?.home_score ?? 0)
-      : (liveScore?.away ?? selectedSlot?.away_score ?? 0)
-    return {
-      side,
-      team,
-      score,
-      roster: side === 'home' ? homeRoster : awayRoster,
-      // 팀 색은 팀을 따라간다. 좌우가 바뀌어도 같은 팀은 같은 색이어야 한다.
-      color: team?.color ?? (side === 'home' ? '#3b82f6' : '#ef4444'),
-      label: side === 'home' ? 'HOME' : 'AWAY',
-    }
+    return buildSideView(side, selectedSlot, liveScore, homeRoster, awayRoster)
   }
 
-  /** 지금 쿼터의 좌우를 뒤집는다(그 쿼터에만 적용, 즉시 저장). */
-  async function toggleQuarterSides() {
-    if (!selectedSlotId || !selectedSlot) return
-    const next = sidesFlipped
-      ? swappedQuarters.filter(q => q !== currentQuarter)
-      : [...swappedQuarters, currentQuarter].sort((a, b) => a - b)
-    // 화면을 먼저 뒤집는다 — 영상을 보며 누르는 버튼이라 왕복을 기다리면 손이 끊긴다.
-    setSlots(prev => prev.map(s => s.id === selectedSlotId ? { ...s, sides_swapped_quarters: next } : s))
-    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ sides_swapped_quarters: next }),
-    })
-    if (!res.ok) {
-      // 저장에 실패했으면 화면도 되돌린다. 안 되돌리면 새로고침 때 조용히 제자리로 간다.
-      setSlots(prev => prev.map(s => s.id === selectedSlotId ? { ...s, sides_swapped_quarters: swappedQuarters } : s))
-      toast.error('좌우 저장에 실패했습니다')
-    }
-  }
-
-  // 슬롯 단위로 한 번만 자동 초기화 — 비정규 선수 추가 등 같은 슬롯 내 roster 변경 시엔 유지
-  const initializedSlotRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (gameStarted) return
-    if (!selectedSlotId) { initializedSlotRef.current = null; return }
-    if (homeRoster.length === 0 && awayRoster.length === 0) return
-    // 같은 슬롯에서 이미 초기화 완료 → 추가 갱신은 사용자의 선택을 보존
-    if (initializedSlotRef.current === selectedSlotId) return
-
-    // ⚠ 대회는 **아무도 미리 체크하지 않는다.**
-    //   리그는 팀당 5명 안팎이라 "정규 선수 전원 체크"가 곧 코트 5명이었다. 대회 참가 명단은
-    //   10명 넘는 게 정상이라 그 기본값이 그대로 켜지면 `팀당 선발 최대 5명` 검증에 걸려
-    //   **경기 시작 버튼이 아예 안 먹는다**(실측: 참가 6명 → "6/5" 로 막힘).
-    //   기록원이 그 경기에 처음 나선 5명을 직접 고르는 게 대회의 실제 흐름이기도 하다.
-    if (isTournament) {
-      setSelectedStarters(new Set())
-      initializedSlotRef.current = selectedSlotId
-      return
-    }
-
-    // 정규 선수만 기본 체크 (비정규는 기본 미체크 — GP 오염 방지)
-    const regularIds = [...homeRoster, ...awayRoster]
-      .filter(p => p.is_regular !== false)
-      .map(p => p.id)
-    setSelectedStarters(new Set(regularIds))
-    initializedSlotRef.current = selectedSlotId
-  }, [homeRoster, awayRoster, gameStarted, selectedSlotId, isTournament])
-
-
-  // 초기 로드
-  useEffect(() => {
-    async function init() {
-      setLoadingDates(true)
-      const [dRes, tRes, pRes, lRes, gRes] = await Promise.all([
-        fetch(`/api/leagues/${leagueId}/schedule-dates`),
-        fetch(`/api/leagues/${leagueId}/teams`),
-        // 기록 화면은 상대 선수를 눌러 득점을 남겨야 하므로 옵트인
-        fetch(`/api/leagues/${leagueId}/players?includeExternal=1`),
-        fetch(`/api/leagues/${leagueId}`),
-        // 집계 전용 — 전 경기(303행 × 전 컬럼 + 팀 조인)를 받던 것을 날짜당 한 줄로 줄였다.
-        fetch(`/api/leagues/${leagueId}/games/date-summary`),
-      ])
-      if (dRes.ok) setScheduleDates(await dRes.json())
-      if (tRes.ok) setTeams(await tRes.json())
-      if (pRes.ok) setAllPlayers(await pRes.json())
-      if (lRes.ok) {
-        const ld = await lRes.json()
-        setLeagueYtChannel(ld.youtube_channel ?? null)
-        // 대회 묶음이면 영상 연동이 통째로 다르다 — 경기 하나에 쿼터별 영상 4개가 붙고,
-        //   제목 추측 방식의 자동 매핑은 쓰지 않는다(엉뚱한 자리에 조용히 붙는다).
-        setIsTournament(ld.mode === 'tournament')
-      }
-      if (gRes.ok) {
-        const summaries = await gRes.json()
-        // 날짜 → 분기 맵 — 집계 응답이 날짜당 quarter_id 를 함께 준다(전 경기 순회 불필요)
-        const dqMap: Record<string, string> = {}
-        for (const r of summaries as Array<{ date: string; quarter_id: string | null }>) {
-          if (r.date && r.quarter_id) dqMap[r.date] = r.quarter_id
-        }
-        setDateQuarterMap(dqMap)
-      }
-      setLoadingDates(false)
-    }
-    init()
-  }, [leagueId])
-
-  // 대회 관리 화면의 「기록」 버튼이 보내는 딥링크 — `?date=YYYY-MM-DD&game=<id>`.
-  //   없으면 종전대로 날짜 목록부터 시작한다.
-  //   ⚠ `useSearchParams()` 를 쓰지 않는다 — 이 페이지는 Suspense 경계가 없어서 그걸 쓰면
-  //     빌드가 깨진다(일정 화면이 같은 이유로 내부 컴포넌트를 분리해 뒀다).
-  //     여기서 필요한 건 최초 1회 읽기뿐이라 location 으로 충분하다.
-  const deepLinkRef = useRef(false)
-  useEffect(() => {
-    if (deepLinkRef.current) return
-    if (loadingDates || scheduleDates.length === 0) return
-    const sp = new URLSearchParams(window.location.search)
-    const date = sp.get('date')
-    const resume = readResume(leagueId)
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      deepLinkRef.current = true
-      // 날짜 없이 들어왔다(「경기 기록」 탭 등) — 기록하다 나간 경기가 있으면 그 장면으로 돌아간다.
-      //   ⚠ 날짜를 열기 **전에** 경기가 아직 안 끝났는지 본다. 리그의 selectDate 는 슬롯을 까는
-      //     POST 라, 이미 마감된 경기 때문에 날짜를 열어 버리면 엉뚱한 화면에 떨어진다.
-      if (!resume) return
-      ;(async () => {
-        const res = await fetch(`/api/leagues/${leagueId}/games?date=${resume.date}`, { cache: 'no-store' })
-        if (!res.ok) return
-        const rows = (await res.json()) as GameSlot[]
-        const hit = rows.find(s => s.id === resume.gameId)
-        if (!hit || hit.is_complete || !hit.is_started) { clearResume(leagueId, resume.gameId); return }
-        await selectDate(resume.date)
-        setResumeTarget(resume)
-        await selectSlot(hit)
-      })()
-      return
-    }
-    deepLinkRef.current = true
-    ;(async () => {
-      await selectDate(date)
-      // 슬롯은 selectDate 의 setState 가 반영된 뒤에야 목록에 있다 — 여기서 직접 다시 읽는다.
-      const gameId = sp.get('game')
-      if (!gameId) return
-      const res = await fetch(`/api/leagues/${leagueId}/games?date=${date}`, { cache: 'no-store' })
-      if (!res.ok) return
-      const rows = (await res.json()) as GameSlot[]
-      const hit = rows.find(s => s.id === gameId)
-      if (!hit) return
-      // 딥링크가 기록하다 나간 그 경기면 쿼터·영상 위치도 되살린다.
-      if (resume && resume.gameId === hit.id) {
-        if (hit.is_complete) clearResume(leagueId, hit.id)
-        else setResumeTarget(resume)
-      }
-      await selectSlot(hit)
-    })()
-    // selectDate/selectSlot 은 매 렌더 새로 만들어진다 — 넣으면 매번 다시 돈다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingDates, scheduleDates.length, leagueId])
-
-  // 선택한 날짜/슬롯의 분기로 teams 자동 갱신 — 분기별 팀명/색상 override 적용
-  //   버그 수정 (2026-07-18): dateQuarterMap 이 초기 로딩 타이밍 문제로 미준비 상태이거나
-  //     이전 분기 teams 상태(락다운 등)가 남아있는 경우 잘못된 이름이 dropdown 에 노출됨.
-  //   개선: selectedSlot 이 있으면 slot.quarter_id (더 직접적) · 없으면 dateQuarterMap fallback.
-  //         cache: 'no-store' 로 Next.js fetch dedupe 캐시 방지.
-  //   슬롯 목록(slots)에서 selectedSlotId 로 찾은 slot 의 quarter_id 가 최우선.
-  useEffect(() => {
-    if (!selectedDate) return
-    const slotQid = slots.find(s => s.id === selectedSlotId)?.quarter_id
-    const qid = slotQid ?? dateQuarterMap[selectedDate]
-    if (!qid) return
-    fetch(`/api/leagues/${leagueId}/teams?quarterId=${qid}`, { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(ts => { if (Array.isArray(ts)) setTeams(ts) })
-      .catch(() => null)
-  }, [leagueId, selectedDate, selectedSlotId, dateQuarterMap, slots])
-
-  // 이 날짜의 임시팀 로드 — 날짜를 고르는 순간 받아 둔다. 친선전 토글 뒤에 로드하면
-  //   드롭다운이 한 박자 비어 보이고, 기록원은 그걸 "팀을 못 만든다"로 읽는다.
-  async function loadAdhocTeams(date: string) {
-    if (!date) { setAdhocTeams([]); return }
-    const res = await fetch(`/api/leagues/${leagueId}/teams?exhibitionDate=${date}`, { cache: 'no-store' })
-      .catch(() => null)
-    if (res?.ok) {
-      const ts = await res.json()
-      setAdhocTeams(Array.isArray(ts) ? ts : [])
-    } else {
-      setAdhocTeams([])
-    }
-  }
-  useEffect(() => { loadAdhocTeams(selectedDate) }, [leagueId, selectedDate]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 날짜가 바뀌면 영상 목록 캐시를 버린다 — 안 버리면 다른 날짜 영상이 그대로 뜬다
-  useEffect(() => { setYtList([]); setYtPickerOpen(false); setYtInput('') }, [selectedDate, selectedSlotId])
-
-  async function loadRoster(slot: GameSlot) {
-    if (!slot.home_team_id || !slot.away_team_id) return
-    setRosterLoading(true)
-    let assignedIrregularIds: string[] = []
-    // roster API 응답의 resolved quarter_id 를 사용 — 게임에 quarter_id 가 null 로 저장되어 있어도
-    // 서버에서 date 매칭으로 자동 유추 후 반환 (그리고 백필). 이 값으로 미배정 풀도 조회해야
-    // 게스트/비정규 선수 추가가 정상 동작.
-    let effectiveQuarterId: string | null = slot.quarter_id ?? null
-    const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
-    if (rRes.ok) {
-      const rd = await rRes.json()
-      const home: RosterPlayer[] = rd.home ?? []
-      const away: RosterPlayer[] = rd.away ?? []
-      setHomeRoster(home)
-      setAwayRoster(away)
-      assignedIrregularIds = rd.assigned_irregular_ids ?? []
-      if (rd.quarter_id) effectiveQuarterId = rd.quarter_id
-      // 친선전 = 스팟 구성. 서버가 "이 팀 명단 전체 − 이미 배정된 사람"을 후보로 내려준다.
-      //   분기 명단(quarters/[id]/players)을 부르지 않는 게 핵심이다 — 부르는 순간
-      //   "원래 어느 팀 소속" 이라는 개념이 화면에 다시 새어들어 스팟 구성 전제가 깨진다.
-      if (rd.is_exhibition) {
-        setIrregularRoster((rd.unassigned ?? []).map((p: LeaguePlayer) => ({
-          ...p, team_id: null, is_regular: false,
-        })) as IrregularPlayer[])
-        setRosterLoading(false)
-        return
-      }
-
-      // 이미 시작된 경기 로드 시: plus_one 충돌 있으면 자동 팝업
-      if (slot.is_started) {
-        const homePO = home.filter(p => p.plus_one)
-        const awayPO = away.filter(p => p.plus_one)
-        const conflict = homePO.length >= 2
-          ? { teamName: slot.home_team?.name ?? '홈팀', players: homePO }
-          : awayPO.length >= 2
-          ? { teamName: slot.away_team?.name ?? '어웨이팀', players: awayPO }
-          : null
-        if (conflict) {
-          setPlusOneConflict(conflict)
-          setShowPlusOneModal(true)
-        }
-      }
-    }
-    // 미배정 풀: 비정규/미배정 선수 + 이 경기에 출전하지 않는 다른 팀 선수(임대 가능)
-    if (effectiveQuarterId) {
-      const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${effectiveQuarterId}/players`)
-      if (qRes.ok) {
-        const qd: IrregularPlayer[] = await qRes.json()
-        const assignedSet = new Set(assignedIrregularIds)
-        setIrregularRoster(qd.filter(p => {
-          // 탈퇴 회원(is_active=false)은 새 경기에 "더 데려올" 후보에서 제외 —
-          // 이미 이 경기에 배정돼 있었다면 위 assignedSet 분기에서 걸러지지 않고
-          // homeRoster/awayRoster 쪽(roster API)이 과거 기록 보존 책임을 진다.
-          if (p.is_active === false) return false
-          if (assignedSet.has(p.id)) return false
-          // 비정규/미배정 → 포함 (기존 동작)
-          if (p.is_regular !== true) return true
-          // 다른 팀 정규선수 → 임대 후보로 포함
-          if (p.team_id && p.team_id !== slot.home_team_id && p.team_id !== slot.away_team_id) return true
-          return false
-        }))
-      } else {
-        setIrregularRoster([])
-      }
-    } else {
-      setIrregularRoster([])
-    }
-    setRosterLoading(false)
-  }
-
-  // 날짜 선택 → 슬롯 초기화 + 로드
-  async function selectDate(date: string) {
-    setSelectedDate(date)
-    setSelectedSlotId('')
-    resetLineup()
-    setGameStarted(false)
-    setSlots([])
-
-    if (!date) return
-    setInitializingSlots(true)
-    // ⚠ 대회는 **슬롯을 만들지 않는다.** 리그는 날짜를 열면 games_per_round 만큼 빈 슬롯을
-    //   깔지만, 대회 경기는 대회(quarter_id)·상대팀과 함께 등록돼야 한다 — 여기서 만든 빈 슬롯은
-    //   어느 대회 카드에도 안 잡히는 미아 경기가 되고, 기록하면 그 기록도 갈 곳이 없다.
-    //   그래서 있는 경기만 읽는다.
-    const res = isTournament
-      ? await fetch(`/api/leagues/${leagueId}/games?date=${date}`, { cache: 'no-store' })
-      : await fetch(`/api/leagues/${leagueId}/games`, {
-          method: 'POST',
-          headers: leagueHeaders,
-          body: JSON.stringify({ date }),
-        })
-    setInitializingSlots(false)
-    if (res.ok) setSlots(await res.json())
-    else toast.error(isTournament ? '경기를 불러오지 못했습니다' : '슬롯 생성 실패')
-  }
-
-  // 슬롯 선택
-  async function selectSlot(slot: GameSlot) {
-    setSelectedSlotId(slot.id)
-    setPendingHome(slot.home_team_id ?? '')
-    setPendingAway(slot.away_team_id ?? '')
-    setGameStarted(slot.is_started ?? false)
-    setCurrentGame({ id: slot.id } as never)
-    resetLineup()
-    setHomeRoster([])
-    setAwayRoster([])
-    setIrregularRoster([])
-    // DB에 저장된 값으로 즉시 초기화 (navigation 복귀 시 0:0 방지)
-    if (slot.is_started) {
-      setLiveScore({ home: slot.home_score ?? 0, away: slot.away_score ?? 0 })
-    } else {
-      setLiveScore(null)
-    }
-
-    await loadRoster(slot)
-
-    // 이미 시작된 경기면 이벤트 기반 재계산으로 갱신
-    if (slot.is_started) {
-      const scoreRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/recompute`, {
-        method: 'POST',
-        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      if (scoreRes.ok) {
-        const scores = await scoreRes.json()
-        setLiveScore({ home: scores.home_score ?? scores.home ?? 0, away: scores.away_score ?? scores.away ?? 0 })
-      }
-    }
-
-    // 출전 기록 로드 + 코트 상태 복원 (out_time=null인 선수가 현재 코트)
-    const res = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${slot.id}`)
-    if (res.ok) {
-      const mins: MinRow[] = await res.json()
-      setMinutes(mins)
-      if (slot.is_started) {
-        const courtIds = mins.filter(m => m.out_time === null).map(m => m.league_player_id)
-        setLineup(courtIds)
-      }
-    }
-  }
-
-  // ── 팀 드롭다운 후보 ──────────────────────────────────────────
-  //   정규전: 상시팀(분기 override 적용된 이름).
-  //   친선전: 이 날짜 임시팀만. 상시 3팀은 뺀다 — 친선전은 그날 짠 팀으로 하는 경기이지
-  //           락다운/굿모닝이 뛴 경기가 아니고, 섞어 놓으면 손이 미끄러져 상시팀이 들어간다.
-  //   예외: 이미 이 경기에 배정돼 있는 팀은 상시팀이라도 남긴다. 임시팀 개념이 없던 시절의
-  //         친선전이 "팀 없음"으로 보이면 기록원이 그걸 덮어쓰고, 그 순간 옛 기록의
-  //         team_id 와 경기 팀이 어긋난다.
-  const teamOptions: { id: string; name: string }[] = (() => {
-    if (!selectedSlot?.is_exhibition) return teams
-    const opts: { id: string; name: string }[] = adhocTeams.map(t => ({ id: t.id, name: t.name }))
-    const seen = new Set(opts.map(o => o.id))
-    for (const t of [selectedSlot.home_team, selectedSlot.away_team]) {
-      if (t && !seen.has(t.id)) { opts.push({ id: t.id, name: `${t.name} (상시팀)` }); seen.add(t.id) }
-    }
-    return opts
-  })()
-
-  // 이름 조회는 상시팀·임시팀을 함께 본다 — 친선전 화면에서 teams 만 뒤지면 항상 미스가 난다
-  function teamNameById(id: string | null | undefined): string | null {
-    if (!id) return null
-    return teams.find(t => t.id === id)?.name ?? adhocTeams.find(t => t.id === id)?.name ?? null
-  }
-
-  // 이 날짜 전용 임시팀 만들기. 만든 즉시 비어 있는 쪽(홈 → 어웨이)에 꽂아 준다 —
-  //   현장에서 만들고 다시 드롭다운을 여는 동작을 없애기 위해서다.
-  async function createAdhocTeam() {
-    const name = newTeamName.trim()
-    if (!name) { toast.error('팀 이름을 입력하세요'); return }
-    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
-    setCreatingTeam(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/teams`, {
-        method: 'POST',
-        headers: leagueHeaders,
-        body: JSON.stringify({ name, color: newTeamColor, exhibition_date: selectedDate }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(body.error ?? `팀 생성 실패 (${res.status})`); return }
-      setNewTeamName('')
-      await loadAdhocTeams(selectedDate)
-      if (!pendingHome) setPendingHome(body.id)
-      else if (!pendingAway && body.id !== pendingHome) setPendingAway(body.id)
-      toast.success(`임시팀 "${name}" 생성 — ${selectedDate} 친선전에서만 쓰입니다`)
-    } catch (e) {
-      toast.error(`팀 생성 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
-    } finally {
-      setCreatingTeam(false)
-    }
-  }
-
-  // 잘못 만든 임시팀 정리. 경기에 물려 있으면 서버가 409 로 막는다(기록이 끊기므로).
-  async function deleteAdhocTeam(teamId: string, name: string) {
-    if (!confirm(`임시팀 "${name}" 을 삭제하시겠습니까?\n\n· 이 팀이 배정된 경기가 있으면 삭제되지 않습니다`)) return
-    setDeletingTeamId(teamId)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/teams/${teamId}`, {
-        method: 'DELETE',
-        headers: leagueHeaders,
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(body.error ?? `삭제 실패 (${res.status})`, { duration: 6000 }); return }
-      if (pendingHome === teamId) setPendingHome('')
-      if (pendingAway === teamId) setPendingAway('')
-      await loadAdhocTeams(selectedDate)
-      toast.success('임시팀 삭제됨')
-    } finally {
-      setDeletingTeamId(null)
-    }
-  }
-
-  async function saveTeams() {
-    if (!pendingHome || !pendingAway) { toast.error('홈·어웨이 팀을 모두 선택하세요'); return }
-    if (pendingHome === pendingAway) { toast.error('같은 팀을 선택할 수 없습니다'); return }
-
-    // 이미 기록이 들어간 경기의 팀 교체는 **이벤트 이관과 한 묶음**이어야 한다.
-    //   경기의 home/away 만 바꾸면 league_game_events.team_id 가 이 경기와 무관한 팀을 가리켜
-    //   그 선수들이 박스스코어에서 통째로 사라진다(화면은 멀쩡하고 점수만 빈다).
-    const recorded = !!selectedSlot && (selectedSlot.is_started || selectedSlot.is_complete)
-    if (recorded) {
-      const nameOf = (id: string) => teamOptions.find(t => t.id === id)?.name ?? teamNameById(id) ?? '?'
-      if (!confirm(
-        `기록이 있는 경기의 팀을 바꿉니다.
-
-` +
-        `· 홈: ${teamNameById(selectedSlot!.home_team_id) ?? '-'} → ${nameOf(pendingHome)}
-` +
-        `· 어웨이: ${teamNameById(selectedSlot!.away_team_id) ?? '-'} → ${nameOf(pendingAway)}
-
-` +
-        `이 경기에 저장된 기록과 명단의 소속 팀도 함께 옮깁니다.
-` +
-        `좌우가 통째로 뒤집히는 경우에는 스코어도 같이 뒤집습니다.`
-      )) return
-      setSavingTeam(true)
-      try {
-        const r = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/reassign-teams`, {
-          method: 'POST',
-          headers: leagueHeaders,
-          body: JSON.stringify({ home_team_id: pendingHome, away_team_id: pendingAway }),
-        })
-        const b = await r.json().catch(() => ({}))
-        if (!r.ok) { toast.error(b.error ?? `팀 교체 실패 (${r.status})`, { duration: 8000 }); return }
-        toast.success(`팀 교체 완료 — 기록 ${b.moved ?? 0}건 이관${b.swapped_scores ? ' · 스코어 좌우 교체' : ''}`)
-        const fresh = await refreshSlots()
-        if (fresh) await autoFillRotation(fresh)
-        const updated = slots.find(x => x.id === selectedSlotId)
-        if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
-        setStatsRefresh(v => v + 1)
-      } finally {
-        setSavingTeam(false)
-      }
-      return
-    }
-
-    setSavingTeam(true)
-    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ home_team_id: pendingHome, away_team_id: pendingAway }),
-    })
-    setSavingTeam(false)
-    if (res.ok) {
-      toast.success('팀 저장 완료')
-      const fresh = await refreshSlots()
-      if (fresh) await autoFillRotation(fresh)
-      const updated = slots.find(s => s.id === selectedSlotId)
-      if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
-    } else {
-      // 서버가 거절 이유를 준다(임시팀·날짜 불일치 등). 뭉개면 기록원이 같은 시도를 반복한다.
-      const body = await res.json().catch(() => ({}))
-      toast.error(body.error ?? '팀 저장 실패', { duration: 6000 })
-    }
-  }
-
-  // ── 대진 자동 편성 (2026-10-10 재도입) ─────────────────────────────
-  // 1·2경기 팀을 저장하면 3경기부터 끝 슬롯까지 「승자 잔류 · 2연속 휴식」 순서로 채운다.
-  //   규칙은 src/lib/league/rotation.ts — 1·2경기에 같이 나온 팀이 1경기 승자다(점수 불필요).
-  //   운영자는 각 경기 직전에 홈·원정만 뒤집으면 된다(팀 선택 사이의 「홈↔원정」 버튼).
-  // ⚠ 건드리는 슬롯: 기록 전(시작·마감 아님)만. 기록이 있는 경기의 팀은 이벤트 이관이
-  //   필요하므로(reassign-teams) 여기서 절대 바꾸지 않는다.
-  // ⚠ 이미 같은 대진이면 그대로 둔다 — 운영자가 좌우를 바꿔 둔 것을 1·2경기 재저장이 되돌리지 않게.
-  // 친선전 날·대회에서는 돌지 않는다(대진이 그날 짠 팀이거나 상대가 외부 팀).
-  //   onlyEmpty: 팀이 빈 칸만 채운다 — 1·2경기를 저장한 게 아니라 칸이 새로 생긴 경우(영상 연동).
-  async function autoFillRotation(fresh: GameSlot[], opts: { onlyEmpty?: boolean } = {}) {
-    if (isTournament) return
-    const ordered = [...fresh].filter(x => x.slot_num != null).sort((a, b) => a.slot_num - b.slot_num)
-    if (ordered.some(x => x.is_exhibition)) return
-    const g1 = ordered.find(x => x.slot_num === 1)
-    const g2 = ordered.find(x => x.slot_num === 2)
-    // 1·2경기를 저장할 때만 — 다른 슬롯을 손으로 고친 것이 덮이지 않게
-    const savedNum = fresh.find(x => x.id === selectedSlotId)?.slot_num
-    if (!g1 || !g2) return
-    if (!opts.onlyEmpty && savedNum !== 1 && savedNum !== 2) return
-    const r = rotationFromFirstTwo(
-      { home: g1.home_team_id ?? null, away: g1.away_team_id ?? null },
-      { home: g2.home_team_id ?? null, away: g2.away_team_id ?? null },
-    )
-    if (!r) {
-      if (!opts.onlyEmpty && g1.home_team_id && g2.home_team_id) {
-        toast.info('3경기 이후 자동 배정 안 함', {
-          description: '1·2경기에 같이 나온 팀(1경기 승자)이 한 팀이어야 순서를 정할 수 있습니다',
-        })
-      }
-      return
-    }
-    const targets = ordered.filter(x => x.slot_num >= 3)
-    if (targets.length === 0) return
-    const seq = generateRotation(r.winnerId, r.loserId, r.restingId, targets[targets.length - 1].slot_num - 1)
-    let filled = 0
-    let skippedRecorded = 0
-    for (const slot of targets) {
-      const want = seq[slot.slot_num - 2]
-      if (!want) continue
-      const samePair = [slot.home_team_id, slot.away_team_id].sort().join() === [want.homeTeamId, want.awayTeamId].sort().join()
-      if (samePair) continue
-      if (slot.is_started || slot.is_complete) { skippedRecorded++; continue }
-      if (opts.onlyEmpty && (slot.home_team_id || slot.away_team_id)) continue
-      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${slot.id}`, {
-        method: 'PATCH',
-        headers: leagueHeaders,
-        body: JSON.stringify({ home_team_id: want.homeTeamId, away_team_id: want.awayTeamId }),
-      })
-      if (res.ok) filled++
-    }
-    if (filled > 0) {
-      await refreshSlots()
-      const last = targets[targets.length - 1].slot_num
-      toast.success(`3~${last}경기 대진 자동 배정 (${filled}경기)`, {
-        description: '홈·원정이 다르면 경기마다 팀 선택 사이의 「홈↔원정」 버튼만 누르세요'
-          + (skippedRecorded > 0 ? ` · 이미 기록된 ${skippedRecorded}경기는 그대로 뒀습니다` : ''),
-        duration: 6000,
-      })
-    }
-  }
-
-  // 좌우(홈↔어웨이) 뒤집기 — 코트 배치가 무작위라 매번 손으로 다시 고르지 않게 한다.
-  // 이미 기록이 들어간 경기는 점수 대응이 어긋나므로 막는다.
-  async function swapSides(slotId: string) {
-    const slot = slots.find(s => s.id === slotId)
-    if (!slot?.home_team_id || !slot?.away_team_id) { toast.error('먼저 두 팀을 지정하세요'); return }
-    if (slot.is_started || slot.is_complete) {
-      toast.error('기록이 시작된 경기는 홈·원정을 바꿀 수 없습니다', {
-        description: '이미 저장된 점수·기록과 홈·원정이 어긋납니다. 화면 배치만 맞추려면 영상 칸의 「화면 좌우 반전」을 쓰세요',
-        duration: 6000,
-      })
-      return
-    }
-    setSwappingId(slotId)
-    try {
-      const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${slotId}`, {
-        method: 'PATCH',
-        headers: leagueHeaders,
-        body: JSON.stringify({ home_team_id: slot.away_team_id, away_team_id: slot.home_team_id }),
-      })
-      if (!r.ok) throw new Error(`저장 실패 (${r.status})`)
-      await refreshSlots()
-      if (slotId === selectedSlotId) {
-        setPendingHome(slot.away_team_id)
-        setPendingAway(slot.home_team_id)
-        const updated = { ...slot, home_team_id: slot.away_team_id, away_team_id: slot.home_team_id }
-        await loadRoster(updated)
-      }
-      toast.success('홈·원정을 바꿨습니다')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '홈·원정 바꾸기 실패')
-    } finally {
-      setSwappingId(null)
-    }
-  }
-
-  // 붙여넣은 값에서 videoId 를 뽑는다. watch?v= · youtu.be/ · shorts/ · embed/ · 순수 ID 를 받는다.
-  //   기록원이 주소창을 통째로 복사하면 `&t=` `?si=` 같은 꼬리가 붙는데, 그대로 저장하면
-  //   플레이어가 못 읽는 경우가 있어 여기서 ID 만 남긴다.
-  function extractVideoId(raw: string): string | null {
-    const v = raw.trim()
-    if (!v) return null
-    if (/^[\w-]{11}$/.test(v)) return v
-    const m = v.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/)
-    return m ? m[1] : null
-  }
-
-  // 링크 입력·목록 고르기의 단일 입구 — 항상 **고른 쿼터 칸**에 붙인다.
-  //   호출부 세 곳(입력 Enter · 연동 버튼 · 목록 항목)이 각자 분기하면 하나를 빠뜨렸을 때
-  //   그 경로로만 영상이 엉뚱한 자리에 덮어써진다.
-  //
-  //   2026-09-07 이전에는 리그에서 경기 대표 자리(league_games.youtube_url)에 직접 붙였다.
-  //   미라클이 쿼터제로 바뀌면서 리그도 촬영본이 쿼터로 쪼개져 올라온다 — 한 칸으로는 담기지 않는다.
-  //   쿼터 칸에 저장하면 서버가 대표 영상(가장 이른 쿼터)까지 함께 맞춰 주므로,
-  //   `.not('youtube_url','is',null)` 로 "영상 있는 경기"를 고르는 하이라이트 로더들도 그대로 돈다.
-  function attachVideo(raw: string) {
-    return saveQuarterVideo(ytTargetQuarter, raw)
-  }
-
-  // ── 쿼터별 영상 ────────────────────────────────────────────────────
-  // ⚠ 늦게 도착한 앞 경기 응답이 지금 경기 표를 덮지 않도록 요청 토큰으로 막는다.
-  //   슬롯을 빠르게 넘기면 실제로 일어나고, 아래 시작 쿼터 보정이 그 표를 근거로 삼으면
-  //   남의 경기 영상을 보며 기록하게 된다.
-  const videoReqRef = useRef(0)
-  const loadQuarterVideos = useCallback(async (gameId: string | null) => {
-    const token = ++videoReqRef.current
-    // 성공·실패·빈 경기 **모든 경로**에서 표와 "어느 경기 것인지"를 같이 세운다.
-    const settle = (map: Record<number, { url: string; start_offset: number }>) => {
-      if (videoReqRef.current !== token) return
-      setQuarterVideos(map)
-      setVideosLoadedFor(gameId)
-    }
-    if (!gameId) { settle({}); return }
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/games/${gameId}/videos`, { cache: 'no-store' })
-      if (!res.ok) { settle({}); return }
-      const rows = (await res.json()) as Array<{ quarter: number; youtube_url: string; start_offset: number }>
-      const map: Record<number, { url: string; start_offset: number }> = {}
-      for (const r of rows) map[r.quarter] = { url: r.youtube_url, start_offset: r.start_offset ?? 0 }
-      settle(map)
-    } catch {
-      settle({})
-    }
-  }, [leagueId])
-
-  // 슬롯이 바뀌면 그 경기의 쿼터 영상을 다시 읽는다. 안 읽으면 앞 경기의 영상이 그대로 남아
-  //   기록원이 다른 경기 영상을 보면서 기록하게 된다 — 화면상으로는 정상이라 눈치채기 어렵다.
-  useEffect(() => {
-    loadQuarterVideos(selectedSlotId)
-  }, [selectedSlotId, loadQuarterVideos])
-
-  // 영상 패널은 **항상 펼친 채로** 연다 (2026-09-18).
-  //   접어 둔 것은 "자동 매핑이 다 붙이니 열 일이 없다"는 전제였는데, 쿼터 카드가 곧
-  //   재생 쿼터를 고르는 자리가 되면서 전제가 깨졌다. 기록할 때마다 펼쳐야 해서
-  //   "쿼터를 바꿀 수 없다"로 읽혔다.
-  useEffect(() => {
-    setVideoPanelOpen(!!selectedSlotId)
-    setAdvancedOpen(false)
-    setQuarterSplitOpen(false)
-  }, [selectedSlotId])
-
-  // 쿼터가 넘어가면 링크 입력 대상도 따라간다(기록 중 4번 중 3번은 지금 쿼터를 채운다).
-  useEffect(() => { setYtTargetQuarter(currentQuarter) }, [currentQuarter])
-
-  // 슬롯을 처음 열 때 **영상이 연결된 첫 쿼터**에서 시작한다.
-  //
-  //   왜: 1쿼터 영상이 없는 경기(업로더가 그 쿼터를 안 올린 날)를 열면 빈 1쿼터에 멈춰 서서
-  //   "미연결"만 보였다. 기록원이 매번 손으로 쿼터를 옮겨야 했고, 그걸 연동 실패로 오해했다.
-  //
-  // ⚠ 지켜야 할 두 가지 — 이 가드가 없으면 기록 중 쿼터를 빼앗는 사고가 난다.
-  //   ① hasEvents: 이미 기록이 있으면 **마지막 기록 쿼터 복원이 이긴다**(기록이 곧 진실).
-  //   ② appliedRef: 슬롯당 한 번만. quarterVideos 가 의존성에 있어서, 이게 없으면
-  //      기록 도중 1쿼터 영상을 붙이는 순간 기록 쿼터가 1로 튄다.
-  //   두 비동기(영상 표 · 이벤트 조회)는 어느 쪽이 늦게 와도 되게 각각의 도착을 확인한다.
-  const autoStartAppliedRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (!selectedSlotId) { autoStartAppliedRef.current = null; return }
-    if (autoStartAppliedRef.current === selectedSlotId) return
-    if (videosLoadedFor !== selectedSlotId) return
-    if (quarterRestore?.slotId !== selectedSlotId) return
-
-    autoStartAppliedRef.current = selectedSlotId
-    if (quarterRestore.hasEvents) return
-    // 시작된 경기는 손대지 않는다 — 막 시작해 이벤트가 아직 0건인 경기(라이브 기록 직전)까지
-    //   영상 있는 쿼터로 끌고 가면, 1쿼터를 실시간으로 적으려던 기록원이 2쿼터에 적게 된다.
-    if (slots.find(s => s.id === selectedSlotId)?.is_started) return
-
-    const keys = Object.keys(quarterVideos).map(Number).filter(Number.isFinite)
-    if (keys.length === 0) return
-    setCurrentQuarter(Math.min(...keys))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSlotId, videosLoadedFor, quarterRestore, quarterVideos])
-
-  async function saveQuarterVideo(quarter: number, raw: string) {
-    if (!selectedSlotId) return
-    const id = extractVideoId(raw)
-    if (!id) {
-      toast.error('YouTube 링크를 인식하지 못했습니다', {
-        description: 'youtube.com/watch?v=… · youtu.be/… 또는 영상 ID 11자리를 넣으세요',
-        duration: 6000,
-      })
-      return
-    }
-    setYtSaving(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/videos`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...leagueHeaders },
-        body: JSON.stringify({ quarter, youtube_url: `https://www.youtube.com/watch?v=${id}` }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        toast.error(body.error ?? `영상 연동 실패 (${res.status})`, { duration: 6000 })
-        return
-      }
-      setYtInput('')
-      setYtPickerOpen(false)
-      await loadQuarterVideos(selectedSlotId)
-      // 대표 영상(league_games.youtube_url)이 서버에서 함께 바뀌므로 슬롯도 다시 읽는다.
-      await refreshSlots()
-      toast.success(`${quarter}쿼터 영상 연동됨`)
-    } finally {
-      setYtSaving(false)
-    }
-  }
-
-  async function clearQuarterVideo(quarter: number) {
-    if (!selectedSlotId) return
-    if (!confirm(`${quarter}쿼터 영상 연결을 해제하시겠습니까?\n\n· 기록한 내용은 지워지지 않습니다\n· 다시 연결하면 그대로 재생됩니다`)) return
-    const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/videos?quarter=${quarter}`, {
-      method: 'DELETE',
-      headers: leagueHeaders,
-    })
-    if (res.ok) {
-      await loadQuarterVideos(selectedSlotId)
-      await refreshSlots()
-      toast.success(`${quarter}쿼터 영상 해제됨`)
-    } else {
-      const body = await res.json().catch(() => ({}))
-      toast.error(body.error ?? '해제 실패')
-    }
-  }
-
-  // 이 날짜에 올라온 채널 영상 목록 — 제목을 눈으로 보고 고른다(번호 추측 없음).
-  async function loadYoutubeList() {
-    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
-    setYtPickerOpen(true)
-    if (ytList.length > 0) return
-    setYtListLoading(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/youtube-videos?date=${selectedDate}`, {
-        headers: leagueHeaders,
-        cache: 'no-store',
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(body.error ?? `영상 목록을 불러오지 못했습니다 (${res.status})`, { duration: 6000 })
-        setYtPickerOpen(false)
-        return
-      }
-      setYtList(body.videos ?? [])
-      if ((body.videos ?? []).length === 0) toast('이 날짜에 올라온 영상이 없습니다')
-    } finally {
-      setYtListLoading(false)
-    }
-  }
-
-  // 선택된 슬롯의 YouTube URL 제거 (잘못 매핑된 영상 수동 정리용)
-  async function clearYoutubeUrl() {
-    if (!selectedSlotId || !selectedSlot) return
-    if (!selectedSlot.youtube_url) return
-    if (!confirm('이 슬롯의 YouTube 영상 링크를 제거하시겠습니까?\n\n· 잘못 매핑된 영상을 정리할 때 사용\n· 다시 붙이려면 날짜 옆 「YouTube 연동」 버튼을 누르거나 링크를 직접 넣으세요')) return
-    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ youtube_url: null, youtube_start_offset: 0 }),
-    })
-    if (res.ok) {
-      toast.success('YouTube 영상 링크 제거됨')
-      await refreshSlots()
-    } else {
-      toast.error('제거 실패')
-    }
-  }
-
-  // 개별 경기 친선 토글 (리그 순위 제외 ↔ 정규전 복귀)
-  async function toggleExhibition() {
-    if (!selectedSlotId || !selectedSlot) return
-    const current = !!selectedSlot.is_exhibition
-    const next = !current
-    const msg = next
-      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위·개인 스탯·마일스톤 집계에서 모두 제외됨\n· 박스스코어·하이라이트에는 그대로 남음\n\n· 팀 구성이 이 경기 전용으로 바뀝니다 — 분기 소속을 따르지 않고\n  이 화면에서 직접 배정한 선수만 명단이 됩니다\n\n· 팀도 이 날짜 전용 임시팀에서 고릅니다 — 아래에서 만들어 배정하세요'
-      : '이 경기를 정규전으로 되돌리시겠습니까?\n\n· 리그 순위·개인 스탯 집계에 다시 포함됨\n· 명단이 분기 소속 기준으로 돌아갑니다\n\n· 임시팀이 배정돼 있으면 되돌릴 수 없습니다 (상시팀으로 먼저 교체)'
-    if (!confirm(msg)) return
-    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ is_exhibition: next }),
-    })
-    if (res.ok) {
-      toast.success(next ? '친선전으로 변경 — 팀 구성을 이 화면에서 직접 배정하세요' : '정규전으로 복귀')
-      await refreshSlots()
-      // 명단 기준이 통째로 바뀌므로(분기 소속 ↔ 이 경기 전용) 다시 읽는다.
-      //   refreshSlots 는 슬롯만 갱신해서, 안 하면 바뀌기 전 명단이 화면에 그대로 남는다.
-      const reloaded = { ...selectedSlot, is_exhibition: next }
-      if (reloaded.home_team_id && reloaded.away_team_id) await loadRoster(reloaded)
-    } else {
-      // 409 = 임시팀이 배정된 채로 정규전 복귀를 시도한 경우. 이유를 그대로 보여준다.
-      const body = await res.json().catch(() => ({}))
-      toast.error(body.error ?? '변경 실패', { duration: 7000 })
-    }
-  }
-
-  // 이 날짜에 슬롯을 n 칸 덧붙인 뒤 다시 연동한다.
-  //   영상 연동은 **슬롯을 만들지 않는다**(2026-08-22 사고 — 그렇게 생긴 칸은 is_exhibition 이
-  //   기본값 false 라 친선 날짜에 정규전 칸이 끼었다). 그래서 칸을 늘리는 일은 사람이 누르는
-  //   이 경로(`addSlot: true`, 그 날짜의 친선 여부를 상속)로만 한다.
-  async function growSlotsAndResync(count: number, titleRule?: YtTitleRule) {
-    if (!selectedDate || count < 1) return
-    setYtSyncing(true)
-    try {
-      for (let i = 0; i < count; i++) {
-        const res = await fetch(`/api/leagues/${leagueId}/games`, {
-          method: 'POST',
-          headers: leagueHeaders,
-          body: JSON.stringify({ date: selectedDate, addSlot: true }),
-        })
-        const body = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          toast.error(body.error ?? `슬롯 추가 실패 (${res.status})`, { duration: 6000 })
-          return
-        }
-        if (body.slots) setSlots(body.slots)
-      }
-    } catch (e) {
-      toast.error(`슬롯 추가 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
-      return
-    } finally {
-      setYtSyncing(false)
-    }
-    await syncYoutube(titleRule)
-  }
-
-  /**
-   * YouTube 자동 연동.
-   *
-   * 제목 규칙이 **두 가지**이고 업로더의 습관이 날마다 다르다 —
-   *   `260919 경기1`(경기 번호 → 그날 1번 슬롯) · `260905 지피티vs빅현욱 1Q`(대진 + 쿼터).
-   * 기본값은 서버의 자동 판정('auto')이고, 어긋났을 때 토스트의 버튼으로 다른 규칙을 골라
-   * 다시 돌릴 수 있다. `titleRule` 이 그 재시도용 인자다.
-   */
-  async function syncYoutube(titleRule?: YtTitleRule) {
-    if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
-    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
-    setYtSyncing(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
-        method: 'POST',
-        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelHandle: leagueYtChannel,
-          date: selectedDate,
-          ...(titleRule ? { titleRule } : {}),
-        }),
-      })
-      let data: Record<string, unknown> = {}
-      try { data = await res.json() } catch { /* non-JSON response */ }
-
-      // 어느 규칙으로 읽었고, 다른 규칙이면 몇 개가 읽히는가.
-      //   규칙이 둘이라는 사실을 운영자가 알 수 있어야 "왜 안 붙었지"에서 멈추지 않는다.
-      const counts = (data.rule_counts as { quarter?: number; legacy?: number } | undefined) ?? {}
-      const usedRule: YtTitleRule | null =
-        data.mode === 'quarter' || data.mode === 'legacy' ? data.mode
-        : titleRule ?? null
-      const otherRule: YtTitleRule | null =
-        usedRule === 'quarter' ? 'legacy'
-        : usedRule === 'legacy' ? 'quarter'
-        : (counts.legacy ?? 0) > 0 ? 'legacy'
-        : (counts.quarter ?? 0) > 0 ? 'quarter'
-        : null
-      const otherCount = otherRule ? (counts[otherRule] ?? 0) : 0
-      const needSlots = Number(data.need_slots ?? 0)
-
-      // 버튼은 하나만 둔다 — 칸이 모자란 것이 더 구체적인 원인이므로 그쪽을 먼저 권한다.
-      const retryAction =
-        needSlots > 0
-          ? {
-              label: `칸 ${needSlots}개 늘리고 다시 연동`,
-              onClick: () => { void growSlotsAndResync(needSlots, titleRule) },
-            }
-          : otherRule && otherCount > 0
-          ? {
-              label: `'${YT_RULE_LABEL[otherRule]}' 규칙으로 다시 연동`,
-              onClick: () => { void syncYoutube(otherRule) },
-            }
-          : undefined
-
-      if (res.ok) {
-        // 부분 성공을 성공이라고 말하지 않는다 (2026-09-17).
-        //   9/12 에 영상 9개 중 3개만 붙었는데 `3개 연동 완료` 만 떠서, 나머지 6개가 빠진 것을
-        //   사람이 재생목록을 눈으로 세어 보고서야 알았다. 못 붙인 것이 있으면 그 수와 사유를
-        //   같은 자리에서 보여준다 — 조치(팀 별칭 등록)가 사유 안에 들어 있다.
-        const skipped = Number(data.skipped ?? 0)
-        const reasons = (data.skipped_reasons as string[] | undefined) ?? []
-        const ruleNote = usedRule ? `'${YT_RULE_LABEL[usedRule]}' 규칙` : ''
-        if (skipped > 0) {
-          toast.warning(`영상 ${data.total_videos}개 중 ${data.mapped}개만 연동됨 · ${skipped}개 실패`, {
-            description: [ruleNote ? `${ruleNote}으로 읽었습니다` : '', ...reasons.slice(0, 3)]
-              .filter(Boolean).join('\n'),
-            duration: 12000,
-            action: retryAction,
-          })
-        } else {
-          // 이미 영상이 붙은 경기는 서버가 덮어쓰지 않는다(kept) — 그 수를 함께 알린다.
-          const kept = ((data.details as { action: string }[] | undefined) ?? []).filter(d => d.action.startsWith('kept')).length
-          toast.success(
-            `${data.mapped}개 영상 새로 연동${kept > 0 ? ` · ${kept}개는 이미 붙어 있어 그대로 둠` : ''}`,
-            { description: ruleNote ? `${ruleNote}으로 읽었습니다` : undefined },
-          )
-        }
-        // 연동이 칸을 새로 늘렸으면(예: 4~9경기) 그 빈 칸에도 대진을 채운다
-        const fresh = await refreshSlots()
-        if (fresh) await autoFillRotation(fresh, { onlyEmpty: true })
-      } else {
-        const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
-        toast.error(msg, { duration: 10000, action: retryAction })
-      }
-    } catch (e) {
-      toast.error(`네트워크 오류: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
-    } finally {
-      setYtSyncing(false)
-    }
-  }
-
-  // 이 날짜에 슬롯 한 칸 추가. 리그 설정(games_per_round)은 건드리지 않는다 —
-  //   그걸 바꾸면 모든 날짜가 같이 늘어난다.
-  async function addSlot() {
-    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
-    setAddingSlot(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/games`, {
-        method: 'POST',
-        headers: leagueHeaders,
-        body: JSON.stringify({ date: selectedDate, addSlot: true }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(body.error ?? `슬롯 추가 실패 (${res.status})`, { duration: 6000 }); return }
-      setSlots(body.slots ?? [])
-      toast.success(
-        `${body.added_slot}경기 슬롯 추가됨${body.is_exhibition ? ' · 친선전' : ''}`,
-        { description: body.is_exhibition ? '이 날짜의 다른 슬롯과 같은 친선전으로 만들어졌습니다' : undefined },
-      )
-    } catch (e) {
-      toast.error(`슬롯 추가 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
-    } finally {
-      setAddingSlot(false)
-    }
-  }
-
-  // 선택된 슬롯 삭제. 기록이 붙은 슬롯은 서버가 409 로 막는다 —
-  //   league_games 삭제는 league_game_events 로 캐스케이드돼 그 경기 기록이 영구 소멸한다.
-  async function deleteSlot() {
-    if (!selectedSlot) return
-    if (!confirm(
-      `${selectedSlot.slot_num}경기 슬롯을 삭제하시겠습니까?
-
-` +
-      `· 기록이 하나라도 있으면 삭제되지 않습니다
-` +
-      `· 뒤 슬롯 번호는 다시 매기지 않습니다 (번호가 비어도 기록에는 지장 없음)`
-    )) return
-    setDeletingSlot(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlot.id}`, {
-        method: 'DELETE',
-        headers: leagueHeaders,
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(body.error ?? `삭제 실패 (${res.status})`, { duration: 7000 }); return }
-      setSelectedSlotId('')
-      resetLineup()
-      await refreshSlots()
-      toast.success('슬롯 삭제됨')
-    } finally {
-      setDeletingSlot(false)
-    }
-  }
-
-  // 이 경기 한정 +1 토글.
-  //   선수 목록의 +1 은 **전역 플래그**라 켜는 순간 과거 마감 경기까지 소급된다 —
-  //   그 선수의 과거 야투마다 점수가 올라가 순위·기록이 통째로 바뀐다. 그래서 "이번 경기만"은
-  //   반드시 경기 쪽(league_games.plus_one_extra_ids)에 담는다. 판정 정본은 scoring.ts isPlusOneFor().
-  /**
-   * 한 선수의 +1 을 특정 쿼터에서만 적용/해제 (113).
-   *
-   * 전반과 후반의 +1 선수가 다른 경기가 있다. 경기 단위 지정만으로는 둘 중 하나만 고를 수
-   * 있어 어느 쪽으로 정하든 절반이 틀린 점수가 된다.
-   * ⚠ 저장 후 반드시 recompute — 이미 기록된 이벤트의 저장 점수가 옛 판정으로 남으면
-   *   화면 집계(재계산)와 저장 스코어가 갈린다(2026-08-23 에 실제로 1건 어긋난 적이 있다).
-   */
-  async function togglePlusOneQuarter(playerId: string, quarter: number) {
-    if (!selectedSlot || savingExtraP1) return
-    const cur = (selectedSlot.plus_one_quarters ?? {}) as Record<string, number[]>
-    // 지정이 없으면 "전 쿼터" 다 — 거기서 한 쿼터를 끄면 나머지 전부가 남는다.
-    const base = cur[playerId] ?? QUARTER_OPTIONS.map(q => q.value)
-    const next = base.includes(quarter) ? base.filter(q => q !== quarter) : [...base, quarter].sort((a, b) => a - b)
-
-    const merged: Record<string, number[]> = { ...cur }
-    // 전 쿼터가 켜졌으면 제한이 없는 것과 같다 — 키를 지워 "제한 없음" 으로 되돌린다.
-    if (next.length === 0 || next.length === QUARTER_OPTIONS.length) delete merged[playerId]
-    else merged[playerId] = next
-
-    setSavingExtraP1(playerId)
-    try {
-      const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlot.id}`, {
-        method: 'PATCH',
-        headers: leagueHeaders,
-        body: JSON.stringify({ plus_one_quarters: Object.keys(merged).length > 0 ? merged : null }),
-      })
-      if (!r.ok) {
-        const b = await r.json().catch(() => ({}))
-        toast.error(b?.error ?? '쿼터별 +1 저장 실패')
-        return
-      }
-      const sc = await fetch(`/api/leagues/${leagueId}/games/${selectedSlot.id}/recompute`, {
-        method: 'POST', headers: { ...leagueHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-      }).then(res => res.ok ? res.json() : null).catch(() => null)
-      if (sc) setLiveScore({ home: sc.home_score ?? sc.home ?? 0, away: sc.away_score ?? sc.away ?? 0 })
-      await refreshSlots()
-      setStatsRefresh(v => v + 1)
-    } finally {
-      setSavingExtraP1(null)
-    }
-  }
-
-  async function toggleExtraPlusOne(playerId: string, playerName: string) {
-    if (!selectedSlot) return
-    const cur = selectedSlot.plus_one_extra_ids ?? []
-    const on = cur.includes(playerId)
-    const next = on ? cur.filter(id => id !== playerId) : [...cur, playerId]
-    // 이 날짜 전 슬롯에 적용 — 쿼터를 슬롯으로 쪼갠 날은 한 경기가 4칸이라 한 칸씩 누르면 어긋나기 쉽다.
-    const targets = extraP1AllSlots ? slots : [selectedSlot]
-    setSavingExtraP1(playerId)
-    try {
-      const failed: number[] = []
-      for (const sl of targets) {
-        const c = sl.plus_one_extra_ids ?? []
-        const n = on ? c.filter(id => id !== playerId) : (c.includes(playerId) ? c : [...c, playerId])
-        const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${sl.id}`, {
-          method: 'PATCH',
-          headers: leagueHeaders,
-          body: JSON.stringify({ plus_one_extra_ids: n }),
-        })
-        if (!r.ok) { failed.push(sl.slot_num); continue }
-        // 이미 기록된 이벤트의 저장 점수를 다시 맞춘다 — 안 하면 화면 집계와 저장 스코어가 갈린다.
-        if (sl.is_started || sl.is_complete) {
-          const sc = await fetch(`/api/leagues/${leagueId}/games/${sl.id}/recompute`, {
-            method: 'POST', headers: { ...leagueHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-          }).then(res => res.ok ? res.json() : null).catch(() => null)
-          if (sc && sl.id === selectedSlotId) setLiveScore({ home: sc.home_score ?? sc.home ?? 0, away: sc.away_score ?? sc.away ?? 0 })
-        }
-      }
-      await refreshSlots()
-      setStatsRefresh(v => v + 1)
-      if (failed.length > 0) {
-        toast.error(`${failed.join(', ')}경기 슬롯 저장 실패 — 다시 시도하세요`, { duration: 7000 })
-      } else {
-        const scope = extraP1AllSlots ? `${selectedDate} 전 슬롯` : '이 경기'
-        toast.success(on ? `${playerName} — ${scope} +1 해제` : `${playerName} — ${scope}에만 +1 적용`)
-      }
-    } finally {
-      setSavingExtraP1(null)
-    }
-  }
-
-  async function refreshSlots(): Promise<GameSlot[] | null> {
-    if (!selectedDate) return null
-    const res = await fetch(`/api/leagues/${leagueId}/games?date=${selectedDate}`, { cache: 'no-store' })
-    if (res.ok) {
-      const updated: GameSlot[] = await res.json()
-      setSlots(updated)
-      if (selectedSlotId) {
-        const s = updated.find(x => x.id === selectedSlotId)
-        if (s) {
-          setPendingHome(s.home_team_id ?? '')
-          setPendingAway(s.away_team_id ?? '')
-          setGameStarted(s.is_started ?? false)
-        }
-      }
-      return updated
-    }
-    return null
-  }
-
-  function toggleStarter(pid: string) {
-    setSelectedStarters(prev => {
-      const next = new Set(prev)
-      if (next.has(pid)) next.delete(pid)
-      else next.add(pid)
-      return next
-    })
-  }
-
-  function selectAllTeam(side: 'home' | 'away') {
-    const ids = (side === 'home' ? homeRoster : awayRoster).map(p => p.id)
-    setSelectedStarters(prev => {
-      const next = new Set(prev)
-      const allSelected = ids.every(id => next.has(id))
-      if (allSelected) ids.forEach(id => next.delete(id))
-      else ids.forEach(id => next.add(id))
-      return next
-    })
-  }
-
-  // ── 「지난 경기와 같은 선발」 ──────────────────────────────────────
-  //   하루 9경기 로테이션이라 같은 팀이 하루에 여러 번 나오고, 선발도 대개 그대로다.
-  //   같은 날 앞 경기(기록이 시작된 것) 중 이 팀이 나온 가장 가까운 경기의 선발을 그대로 체크해 준다.
-  //   ⚠ 맞는 팀만 채운다 — 다른 쪽 팀의 체크는 건드리지 않는다. 채운 뒤에도 손으로 고칠 수 있다.
-  //   선발은 출전시간 표에 in_time 0 으로 들어간다(doStartGame). 경기 중 영상 없이 교체하면
-  //   교체도 in_time 0 이 될 수 있어, 첫 줄이 저장된 시각 근처(15초)에 함께 들어간 행만 선발로 본다.
-  //   대회에서는 쓰지 않는다 — 대회 경기는 날짜마다 하나뿐이라 "같은 날 앞 경기"가 없다.
-  const [applyingPrevStarters, setApplyingPrevStarters] = useState(false)
-  const prevStarterSources: { side: 'home' | 'away'; teamName: string; src: GameSlot }[] = (() => {
-    if (isTournament || !selectedSlot) return []
-    const out: { side: 'home' | 'away'; teamName: string; src: GameSlot }[] = []
-    for (const side of ['home', 'away'] as const) {
-      const teamId = side === 'home' ? selectedSlot.home_team_id : selectedSlot.away_team_id
-      if (!teamId) continue
-      const src = slots
-        .filter(x => x.id !== selectedSlot.id && x.slot_num < selectedSlot.slot_num && x.is_started
-          && (x.home_team_id === teamId || x.away_team_id === teamId))
-        .sort((a, b) => b.slot_num - a.slot_num)[0]
-      if (src) {
-        const team = side === 'home' ? selectedSlot.home_team : selectedSlot.away_team
-        out.push({ side, teamName: team?.name ?? (side === 'home' ? '홈팀' : '어웨이팀'), src })
-      }
-    }
-    return out
-  })()
-
-  function startersFromMinutes(rows: MinRow[]): Set<string> {
-    const zero = rows.filter(r => r.in_time === 0)
-    if (zero.length === 0) return new Set()
-    const firstQ = Math.min(...zero.map(r => r.quarter ?? 1))
-    const inQ = zero.filter(r => (r.quarter ?? 1) === firstQ)
-    const times = inQ.map(r => (r.created_at ? Date.parse(r.created_at) : NaN)).filter(Number.isFinite)
-    if (times.length === 0) return new Set(inQ.map(r => r.league_player_id))
-    const first = Math.min(...times)
-    return new Set(inQ
-      .filter(r => !r.created_at || Date.parse(r.created_at) - first <= 15_000)
-      .map(r => r.league_player_id))
-  }
-
-  async function applyPrevStarters() {
-    if (prevStarterSources.length === 0) return
-    setApplyingPrevStarters(true)
-    try {
-      const bySlot = new Map<string, MinRow[]>()
-      for (const id of new Set(prevStarterSources.map(x => x.src.id))) {
-        const r = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${id}`, { cache: 'no-store' }).catch(() => null)
-        bySlot.set(id, r?.ok ? ((await r.json()) as MinRow[]) : [])
-      }
-      const picks: { rosterIds: string[]; pick: string[] }[] = []
-      const filled: string[] = []
-      for (const { side, teamName, src } of prevStarterSources) {
-        const starters = startersFromMinutes(bySlot.get(src.id) ?? [])
-        const roster = side === 'home' ? homeRoster : awayRoster
-        const pick = roster.filter(p => starters.has(p.id)).map(p => p.id)
-        if (pick.length === 0) continue
-        picks.push({ rosterIds: roster.map(p => p.id), pick })
-        filled.push(`${teamName} ${pick.length}명 (${src.slot_num}경기 선발)`)
-      }
-      if (picks.length === 0) {
-        toast.info('앞 경기의 선발 기록을 찾지 못했습니다', { description: '직접 체크해 주세요' })
-        return
-      }
-      setSelectedStarters(prev => {
-        const next = new Set(prev)
-        for (const { rosterIds, pick } of picks) {
-          rosterIds.forEach(id => next.delete(id))
-          pick.forEach(id => next.add(id))
-        }
-        return next
-      })
-      toast.success('지난 경기와 같은 선발로 체크했습니다', { description: filled.join(' · ') })
-    } finally {
-      setApplyingPrevStarters(false)
-    }
-  }
-
-  // ── 드래그 앤 드롭 헬퍼 ───────────────────────────────────────
-
-  async function handleDrop(e: React.DragEvent, side: 'home' | 'away') {
-    e.preventDefault()
-    setDragOverSide(null)
-    setDraggingPlayerId(null)
-    const playerId = e.dataTransfer.getData('playerId')
-    if (!playerId) return
-
-    const allPoolPlayers = [...homeRoster, ...awayRoster, ...irregularRoster]
-    const player = allPoolPlayers.find(p => p.id === playerId)
-    if (!player) return
-
-    const isHome = homeRoster.some(p => p.id === playerId)
-    const isAway = awayRoster.some(p => p.id === playerId)
-
-    if ((side === 'home' && isHome) || (side === 'away' && isAway)) {
-      // 같은 팀에 드롭 → 선발 토글
-      toggleStarter(playerId)
-      return
-    }
-
-    // 다른 팀 또는 미배정 풀 → addIrregularToTeam 호출
-    await addIrregularToTeam(player as IrregularPlayer, side)
-  }
-
-  function renderStarterCard(p: RosterPlayer, side: 'home' | 'away') {
-    const checked = selectedStarters.has(p.id)
-    const isIrregular = p.is_regular === false
-    const isDragging = draggingPlayerId === p.id
-    const otherSide: 'home' | 'away' = side === 'home' ? 'away' : 'home'
-    const otherTeamName = side === 'home' ? (selectedSlot?.away_team?.name ?? '어웨이') : (selectedSlot?.home_team?.name ?? '홈')
-    // 팀 시맨틱 색 유지 (홈=파랑 / 어웨이=빨강)
-    const checkedStyle: React.CSSProperties = side === 'home'
-      ? { background: 'rgba(59,130,246,0.15)', border: '1px solid #3b82f6', color: 'var(--mm-ink)' }
-      : { background: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', color: 'var(--mm-ink)' }
-    const uncheckedStyle: React.CSSProperties = {
-      background: 'var(--mm-panel-alt)',
-      border: '1px solid var(--mm-rule)',
-      color: 'var(--mm-ink-soft)',
-    }
-    const accentClass = side === 'home' ? 'accent-blue-500' : 'accent-red-500'
-    return (
-      <div
-        key={p.id}
-        draggable
-        onDragStart={e => {
-          setDraggingPlayerId(p.id)
-          e.dataTransfer.setData('playerId', p.id)
-          e.dataTransfer.setData('playerType', p.is_regular === false ? 'irregular' : 'regular')
-        }}
-        onDragEnd={() => setDraggingPlayerId(null)}
-        onClick={() => toggleStarter(p.id)}
-        className={`flex items-center gap-2 px-2 py-1.5 min-h-[44px] lg:cursor-grab text-xs transition-colors select-none ${
-          isDragging ? 'opacity-40' : ''
-        }`}
-        style={{ ...(checked ? checkedStyle : uncheckedStyle), borderRadius: '4px' }}
-      >
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={() => toggleStarter(p.id)}
-          onClick={e => e.stopPropagation()}
-          className={`w-4 h-4 cursor-pointer shrink-0 ${accentClass}`}
-        />
-        {p.number && <span className="font-mono w-6" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-        <span className="font-medium min-w-0 break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{p.name}</span>
-        {isIrregular && (
-          <span
-            className="shrink-0 text-xs font-bold px-1"
-            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-          >
-            게스트·임시
-          </span>
-        )}
-        {/* 모바일 전용: 다른 팀으로 이동 (iOS Safari DnD 불가 대체)
-            ⚠ 대회에는 옮겨 갈 "다른 팀" 이 없다 — 상대는 외부 동호회다. 이 버튼을 남기면
-              우리 선수가 상대팀 소속으로 배정돼 그 득점이 상대 점수로 들어간다. */}
-        {!isTournament && (
-        <button
-          onClick={e => {
-            e.stopPropagation()
-            addIrregularToTeam(p as IrregularPlayer, otherSide)
-          }}
-          disabled={addingIrregular}
-          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center min-h-11 min-w-11 px-2 text-xs font-bold cursor-pointer transition-colors disabled:opacity-40"
-          style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
-          aria-label={`${p.name} → ${otherTeamName} 팀으로 이동`}
-          title={`→ ${otherTeamName}`}
-        >
-          → {otherTeamName}
-        </button>
-        )}
-      </div>
-    )
-  }
-
-  function renderDraggableChip(p: IrregularPlayer) {
-    const isDragging = draggingPlayerId === p.id
-    const isOtherTeam = p.is_regular === true && !!p.team_id
-    const teamName = isOtherTeam ? teamNameById(p.team_id) : null
-    // 타팀 임대 vs 비정규 구분: mm-yellow tint 로 통일 (임대는 얇은 outline 강조)
-    const chipStyle: React.CSSProperties = isOtherTeam
-      ? { background: 'var(--mm-panel)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)', borderRadius: '4px' }
-      : { background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', color: 'var(--mm-yellow-strong)', borderRadius: '4px' }
-    return (
-      <button
-        key={p.id}
-        type="button"
-        draggable
-        onDragStart={e => {
-          setDraggingPlayerId(p.id)
-          e.dataTransfer.setData('playerId', p.id)
-          e.dataTransfer.setData('playerType', 'irregular')
-        }}
-        onDragEnd={() => setDraggingPlayerId(null)}
-        onClick={() => setPendingIrregular(p)}
-        className={`flex items-center gap-1 px-2.5 py-1 min-h-11 text-xs font-medium cursor-pointer lg:cursor-grab transition-colors select-none ${
-          isDragging ? 'opacity-40' : ''
-        }`}
-        style={chipStyle}
-        aria-label={`${p.name} 팀 배정`}
-      >
-        {p.number ? `#${p.number} ` : ''}{p.name}
-        {teamName && (
-          <span
-            className="text-xs font-bold px-1 ml-0.5"
-            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-          >
-            {teamName}
-          </span>
-        )}
-      </button>
-    )
-  }
-
-  // 선발 체크된 선수만 onCourt + minutes INSERT (실제 로직)
-  async function doStartGame(starterIds: string[]) {
-    setStartingGame(true)
-    await Promise.all(starterIds.map(pid =>
-      fetch(`/api/leagues/${leagueId}/minutes`, {
-        method: 'POST',
-        headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: pid, quarter: currentQuarter, in_time: 0 }),
-      })
-    ))
-    setLineup(starterIds)
-    setGameStarted(true)
-    await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ is_started: true }),
-    })
-    // minutes 재로드
-    const r = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-    if (r.ok) setMinutes(await r.json())
-    refreshSlots()
-    setStartingGame(false)
-  }
-
-  // 플러스원 충돌 체크 후 경기 시작
-  async function startGame() {
-    if (!selectedSlotId) return
-    const starterIds = Array.from(selectedStarters)
-    if (starterIds.length === 0) { toast.error('선발 선수를 1명 이상 선택하세요'); return }
-    const homeStarters = starterIds.filter(id => homeRoster.some(p => p.id === id))
-    const awayStarters = starterIds.filter(id => awayRoster.some(p => p.id === id))
-    if (homeStarters.length > 5 || awayStarters.length > 5) {
-      toast.error(`팀당 선발은 최대 5명입니다 (홈 ${homeStarters.length}명 / 어웨이 ${awayStarters.length}명)`)
-      return
-    }
-
-    // 플러스원 충돌 체크: 같은 팀 스타터 중 plus_one=true가 2명 이상
-    function checkPlusOneConflict(teamStarters: string[], roster: RosterPlayer[], teamName: string) {
-      const plusOnePlayers = teamStarters
-        .map(id => roster.find(p => p.id === id))
-        .filter((p): p is RosterPlayer => !!(p?.plus_one))
-      if (plusOnePlayers.length >= 2) return { teamName, players: plusOnePlayers }
-      return null
-    }
-    const homeConflict = checkPlusOneConflict(homeStarters, homeRoster, selectedSlot?.home_team?.name ?? '홈팀')
-    const awayConflict = checkPlusOneConflict(awayStarters, awayRoster, selectedSlot?.away_team?.name ?? '어웨이팀')
-    const conflict = homeConflict || awayConflict
-    if (conflict) {
-      setPlusOneConflict(conflict)
-      setShowPlusOneModal(true)
-      return
-    }
-
-    // 플러스원 충돌 없으면 기존 plus_one 플래그 사용
-    const allPlusOneIds = [...homeRoster, ...awayRoster]
-      .filter(p => selectedStarters.has(p.id) && p.plus_one)
-      .map(p => p.id)
-    setActivePlusOneIds(allPlusOneIds)
-    await doStartGame(starterIds)
-  }
-
-  // 플러스원 충돌 모달에서 선택 처리
-  async function handlePlusOneSelect(selectedId: string) {
-    setShowPlusOneModal(false)
-    const conflictTeam = plusOneConflict
-    setPlusOneConflict(null)
-
-    // 이미 시작된 경기면 전체 로스터 기준, 아니면 선발 기준
-    const base = gameStarted
-      ? [...homeRoster, ...awayRoster].filter(p => p.plus_one).map(p => p.id)
-      : [...homeRoster, ...awayRoster].filter(p => selectedStarters.has(p.id) && p.plus_one).map(p => p.id)
-
-    // 충돌 팀은 선택된 선수만, 나머지 팀은 전부
-    const finalPlusOneIds = base.filter(id => {
-      if (conflictTeam?.players.some(p => p.id === id)) return id === selectedId
-      return true
-    })
-    setActivePlusOneIds(finalPlusOneIds)
-
-    // DB에 plus_one_player_id 저장
-    await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ plus_one_player_id: selectedId }),
-    })
-
-    // 이미 시작된 경기라면 doStartGame 호출 안 함 (라인업 중복 방지)
-    if (!gameStarted) {
-      const starterIds = Array.from(selectedStarters)
-      await doStartGame(starterIds)
-    }
-  }
-
-  /** 대회 상대 최종 점수를 저장하고 스코어를 다시 계산한다. 마감 모달에서 쓴다. */
-  async function saveOppFinalScore(): Promise<boolean> {
-    if (!selectedSlotId) return false
-    const raw = oppFinalScore.trim()
-    const value = raw === '' ? null : Number(raw)
-    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 300)) {
-      toast.error('상대 점수는 0~300 사이의 정수로 입력하세요')
-      return false
-    }
-    setSavingOppScore(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-        method: 'PATCH',
-        headers: leagueHeaders,
-        body: JSON.stringify({ opponent_score_manual: value }),
-      })
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}))
-        toast.error(b?.error ?? '상대 점수 저장 실패')
-        return false
-      }
-      await refreshSlots()
-      // 저장 직후 재계산해야 모달의 스코어가 방금 넣은 값으로 바뀐다.
-      await fetchLiveScore()
-      return true
-    } finally {
-      setSavingOppScore(false)
-    }
-  }
-
-  async function completeGame() {
-    if (!selectedSlotId) { toast.error('경기를 선택하세요'); return }
-    // 대회는 마감이 곧 상대 점수를 확정하는 시점이다 — 재계산 **전에** 저장해야
-    //   아래 recompute 가 그 값을 반영한다(순서가 바뀌면 한 박자 늦게 반영된다).
-    if (isTournament) {
-      const ok = await saveOppFinalScore()
-      if (!ok) return
-    }
-    setCompleting(true)
-    try {
-      const recomputeRes = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/recompute`, {
-        method: 'POST',
-        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      if (recomputeRes.ok) {
-        const scores = await recomputeRes.json()
-        setLiveScore(scores)
-      }
-      const patchRes = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-        method: 'PATCH',
-        headers: leagueHeaders,
-        body: JSON.stringify({ is_complete: true }),
-      })
-      if (!patchRes.ok) {
-        const err = await patchRes.json().catch(() => ({}))
-        throw new Error((err.error as string) ?? `완료 처리 실패 (${patchRes.status})`)
-      }
-      setShowComplete(false)
-      // 마감했으니 「이어서 기록」 대상이 아니다. 저장 effect 의 정리 함수가 한 번 더 쓰지 않게
-      //   먼저 스냅샷을 끈다(이 경기가 is_complete 로 바뀌며 effect 가 정리된다).
-      resumeSnapRef.current = { ...resumeSnapRef.current, on: false }
-      if (selectedSlotId) completedIdsRef.current.add(selectedSlotId)
-      clearResume(leagueId, selectedSlotId)
-      // 마감 → 다음 경기로 한 번에 (2026-10-11). 종전엔 위로 올라가 슬롯을 다시 골라야 했다.
-      const cur = slots.find(s => s.id === selectedSlotId)
-      const next = cur
-        ? [...slots].filter(s => s.slot_num > cur.slot_num && !s.is_complete).sort((a, b) => a.slot_num - b.slot_num)[0]
-        : undefined
-      toast.success('경기 완료 처리됨', next ? {
-        duration: 10000,
-        action: { label: `${next.slot_num}경기 기록하기 →`, onClick: () => { selectSlot(next) } },
-      } : undefined)
-      refreshSlots()
-    } catch (e) {
-      toast.error(`마감 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
-    } finally {
-      setCompleting(false)
-    }
-  }
-
-  // 마감된 경기를 다시 기록 모드로 복귀 (이벤트 유지, is_complete만 해제)
-  async function reopenGame() {
-    if (!selectedSlotId) return
-    if (!confirm('마감을 풀고 이 경기를 다시 기록할까요?\n\n· 지금까지의 기록은 그대로 남습니다\n· 다 고친 뒤에는 다시 「마감」을 눌러 주세요')) return
-    setReopening(true)
-    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ is_complete: false }),
-    })
-    setReopening(false)
-    if (!res.ok) { toast.error('전환 실패'); return }
-    completedIdsRef.current.delete(selectedSlotId)
-    toast.success('다시 기록할 수 있습니다 — 지금까지의 기록은 그대로입니다')
-    await refreshSlots()
-    // 코트 상태 복원 (다시 기록하기 후에도 선수 표시 유지)
-    const mRes = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-    if (mRes.ok) {
-      const mins: MinRow[] = await mRes.json()
-      setMinutes(mins)
-      const courtIds = mins.filter(m => m.out_time === null).map(m => m.league_player_id)
-      setLineup(courtIds)
-    }
-  }
-
-  // 마감 버튼 클릭 핸들러: 점수 미리 계산 후 모달 표시
-  async function openCompleteModal() {
-    setShowComplete(true)
-    await fetchLiveScore()
-  }
-
-  async function fetchLiveScore() {
-    if (!selectedSlotId) return
-    const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/recompute`, {
-      method: 'POST',
-      headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      setLiveScore({ home: data.home_score ?? data.home ?? 0, away: data.away_score ?? data.away ?? 0 })
-    }
-  }
-
-  function handleEventSaved(eventType?: string) {
-    setStatsRefresh(k => k + 1)
-    if (selectedSlotId) {
-      fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-        .then(r => r.json()).then(setMinutes)
-    }
-    // 파울 수는 파울이 저장·취소됐을 때만 다시 센다(종류를 모르면 안전하게 다시 센다) —
-    //   매 기록마다 이벤트 전체를 다시 받지 않기 위해서다.
-    if (eventType === undefined || eventType === 'foul') refreshFoulEvents()
-  }
-
-  // ── 파울 집계 ───────────────────────────────────────────────────────
-  //   개인 파울(경기 전체)과 팀 파울(지금 쿼터)을 이 경기 기록에서 센다. 별도 저장값은 없다 —
-  //   기록이 곧 진실이고, 기록 내역에서 지우면 그대로 줄어든다.
-  //   ⚠ 늦게 온 앞 경기 응답이 지금 경기 수를 덮지 않도록 요청 토큰으로 막는다.
-  const [foulEvents, setFoulEvents] = useState<{ gameId: string; rows: FoulRow[] }>({ gameId: '', rows: [] })
-  const foulReqRef = useRef(0)
-  function refreshFoulEvents() {
-    const gameId = selectedSlotId
-    if (!gameId) return
-    const token = ++foulReqRef.current
-    fetch(`/api/leagues/${leagueId}/events?gameId=${gameId}`, { cache: 'no-store' })
-      .then(r => (r.ok ? r.json() : null))
-      .then((rows: FoulRow[] | null) => {
-        if (foulReqRef.current !== token || !Array.isArray(rows)) return
-        setFoulEvents({ gameId, rows: rows.filter(e => e.type === 'foul') })
-      })
-      .catch(() => null)
-  }
-  const gameFouls = foulEvents.gameId === selectedSlotId ? foulEvents.rows : []
-  /** 선수별 개인 파울(경기 전체) */
-  const foulCounts: Record<string, number> = {}
-  for (const e of gameFouls) {
-    if (e.league_player_id) foulCounts[e.league_player_id] = (foulCounts[e.league_player_id] ?? 0) + 1
-  }
-  /** 지금 쿼터의 팀 파울 — 이벤트에 쿼터가 없으면(옛 기록) 1쿼터로 본다 */
-  function teamFoulsOf(teamId: string | null | undefined): number {
-    if (!teamId) return 0
-    return gameFouls.filter(e => e.team_id === teamId && (e.quarter ?? 1) === currentQuarter).length
-  }
-
-  // ── 기록 중 이탈 경고 ────────────────────────────────────────────────
-  //   기록은 누를 때마다 저장되므로 떠나도 사라지지 않는다. 다만 「마감」을 안 하고 떠나면
-  //   그 경기가 진행 중으로 남아, 다음에 누가 열었을 때 끝난 경기인지 알 수 없다.
-  const recordingInProgress = !!selectedSlot && gameStarted && !selectedSlot.is_complete
-
-  // 지금 장면(이어서 기록하기용) — 이벤트 핸들러·타이머가 늘 최신 값을 읽도록 ref 로 둔다.
-  const resumeSnapRef = useRef<{ on: boolean; date: string; gameId: string; slotNum: number | null; quarter: number; videoUrl: string | null }>(
-    { on: false, date: '', gameId: '', slotNum: null, quarter: 1, videoUrl: null },
-  )
-  resumeSnapRef.current = {
-    on: recordingInProgress,
-    date: selectedDate,
-    gameId: selectedSlotId,
-    slotNum: selectedSlot?.slot_num ?? null,
-    quarter: currentQuarter,
-    videoUrl: activeVideo?.url ?? null,
-  }
-  const ytPlayerRef = useRef(ytPlayer)
-  ytPlayerRef.current = ytPlayer
-  // ⚠ 복원(seek)이 끝나기 전에는 저장하지 않는다 — 플레이어가 막 떠서 0초인 상태로
-  //   저장된 위치를 덮어써 버린다.
-  const resumeHoldRef = useRef(false)
-  // 마감한 경기 — 슬롯 목록이 새로 오기 전까지 recordingInProgress 가 잠깐 true 로 남으므로 따로 막는다.
-  const completedIdsRef = useRef<Set<string>>(new Set())
-  const saveResumeNow = useCallback(() => {
-    const s = resumeSnapRef.current
-    if (!s.on || !s.gameId || !s.date || resumeHoldRef.current) return
-    if (completedIdsRef.current.has(s.gameId)) return
-    let videoTime: number | null = null
-    try {
-      const p = ytPlayerRef.current
-      const id = s.videoUrl ? extractYouTubeId(s.videoUrl) : null
-      // 플레이어가 지금 영상과 같은 것을 틀고 있을 때만 위치를 믿는다(쿼터 전환 중이면 앞 영상일 수 있다).
-      if (p && id && (p.getVideoUrl?.() ?? '').includes(id)) {
-        const t = p.getCurrentTime()
-        if (Number.isFinite(t)) videoTime = t
-      }
-    } catch { /* 플레이어 파괴 중 */ }
-    // 위치를 못 읽었으면(화면을 떠나며 플레이어가 먼저 없어진 경우 등) 직전에 저장한 위치를 지킨다.
-    if (videoTime == null) {
-      const prev = readResume(leagueId)
-      if (prev && prev.gameId === s.gameId && prev.videoUrl === s.videoUrl && prev.quarter === s.quarter) {
-        videoTime = prev.videoTime
-      }
-    }
-    writeResume(leagueId, {
-      date: s.date, gameId: s.gameId, slotNum: s.slotNum, quarter: s.quarter,
-      videoTime, videoUrl: s.videoUrl, savedAt: Date.now(),
-    })
-  }, [leagueId])
-
-  // 기록 중에는 5초마다 · 쿼터가 바뀔 때 · 탭이 가려질 때 · 화면을 떠날 때 장면을 저장한다.
-  useEffect(() => {
-    if (!recordingInProgress) return
-    saveResumeNow()
-    const iv = window.setInterval(saveResumeNow, 5000)
-    const onVis = () => { if (document.visibilityState === 'hidden') saveResumeNow() }
-    document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('pagehide', saveResumeNow)
-    return () => {
-      window.clearInterval(iv)
-      document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('pagehide', saveResumeNow)
-      // 화면을 떠나는 순간(앱 안 이동으로 언마운트)도 한 번 더 — 마감으로 꺼진 경우는
-      //   completeGame 이 곧바로 지우므로 남지 않는다.
-      saveResumeNow()
-    }
-  }, [recordingInProgress, currentQuarter, selectedSlotId, saveResumeNow])
-
-  // 기록 중 이탈 경고 — 브라우저 닫기·새로고침(beforeunload) + **앱 안 링크 이동**.
-  //   하위 탭·하단 내비·헤더 링크는 전부 Next <Link> 라 beforeunload 가 안 뜬다. 그래서 문서 전체의
-  //   링크 클릭을 capture 단계에서 먼저 받아 확인을 묻는다 — 거절하면 Link 의 onClick(React 루트)까지
-  //   가지 않게 막는다. 각 컴포넌트를 고칠 필요가 없고, 새 링크가 생겨도 자동으로 걸린다.
-  //   ⚠ 브라우저 「뒤로」는 막지 않는다(App Router 의 history 상태를 건드리면 라우터가 깨질 수 있다).
-  //     대신 떠나는 순간 장면이 저장돼 있어 돌아오면 이어서 기록된다.
-  const leaveApprovedRef = useRef(false)
-  useEffect(() => {
-    if (!recordingInProgress) return
-    leaveApprovedRef.current = false
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      saveResumeNow()
-      if (leaveApprovedRef.current) return  // 링크 클릭에서 이미 물어봤다 — 두 번 묻지 않는다
-      e.preventDefault(); e.returnValue = ''
-    }
-    const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
-      if (!a) return
-      if (a.target && a.target !== '_self') return
-      if (a.hasAttribute('download')) return
-      let url: URL
-      try { url = new URL(a.href, window.location.href) } catch { return }
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') return
-      // 같은 화면(해시·쿼리만 다른 링크)은 떠나는 게 아니다.
-      if (url.origin === window.location.origin && url.pathname === window.location.pathname) return
-      saveResumeNow()
-      if (confirm(LEAVE_MESSAGE)) { leaveApprovedRef.current = true; return }
-      e.preventDefault()
-      e.stopPropagation()
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    document.addEventListener('click', onClick, true)
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload)
-      document.removeEventListener('click', onClick, true)
-    }
-  }, [recordingInProgress, saveResumeNow])
-  function confirmLeave(): boolean {
-    if (!recordingInProgress) return true
-    saveResumeNow()
-    return confirm(LEAVE_MESSAGE)
-  }
-
-  // ── 돌아왔을 때 그 장면으로 ─────────────────────────────────────────
-  //   쿼터는 **아래 「이벤트 기반 쿼터 복원」이 끝난 뒤에** 덮어쓴다(quarterRestore 도착을 기다림) —
-  //   먼저 덮으면 복원 effect 가 늦게 와서 마지막 기록 쿼터로 되돌려 버린다. 둘이 다르면
-  //   기록원이 실제로 보고 있던 쿼터(저장값)가 이긴다. 시작 쿼터 보정은 시작된 경기에서 물러나므로 안 싸운다.
-  const [resumeTarget, setResumeTarget] = useState<ResumeEntry | null>(null)
-  const [pendingSeek, setPendingSeek] = useState<{ gameId: string; quarter: number; time: number; videoUrl: string } | null>(null)
-  useEffect(() => {
-    if (!resumeTarget) return
-    if (selectedSlotId && selectedSlotId !== resumeTarget.gameId) { setResumeTarget(null); return }
-    if (selectedSlotId !== resumeTarget.gameId) return
-    if (quarterRestore?.slotId !== selectedSlotId || videosLoadedFor !== selectedSlotId) return
-    const q = Math.min(Math.max(Math.round(resumeTarget.quarter) || 1, 1), 6)
-    setCurrentQuarter(q)
-    const t = resumeTarget.videoTime
-    if (t != null && t > 1 && resumeTarget.videoUrl) {
-      resumeHoldRef.current = true
-      // 플레이어가 끝내 안 뜨면(영상 삭제 등) 저장을 영영 막지 않도록 풀어 둔다.
-      window.setTimeout(() => { resumeHoldRef.current = false }, 15000)
-      setPendingSeek({ gameId: resumeTarget.gameId, quarter: q, time: t, videoUrl: resumeTarget.videoUrl })
-    }
-    const slotLabel = resumeTarget.slotNum != null ? `${resumeTarget.slotNum}경기 ` : ''
-    toast.success(`이어서 기록합니다 · ${slotLabel}${q}쿼터${t != null && t > 1 ? ` ${fmtClock(t)}` : ''}`)
-    setResumeTarget(null)
-  }, [resumeTarget, selectedSlotId, quarterRestore, videosLoadedFor])
-
-  // 플레이어가 준비되면 저장된 위치로 옮긴다. 쿼터를 바꾸면 플레이어가 새 영상으로 다시 뜨므로,
-  //   **그 쿼터의 그 영상**이 떴을 때만 적용한다(앞 영상에 걸면 엉뚱한 지점으로 간다).
-  useEffect(() => {
-    if (!pendingSeek) return
-    const giveUp = () => { resumeHoldRef.current = false; setPendingSeek(null) }
-    if (selectedSlotId !== pendingSeek.gameId) { giveUp(); return }
-    if (currentQuarter !== pendingSeek.quarter) return
-    if (!activeVideo) return
-    if (activeVideo.url !== pendingSeek.videoUrl) { giveUp(); return }  // 그사이 영상이 바뀌었다
-    if (!ytPlayer) return
-    const id = extractYouTubeId(pendingSeek.videoUrl)
-    try {
-      if (!id || !(ytPlayer.getVideoUrl?.() ?? '').includes(id)) return  // 아직 앞 영상 플레이어
-      const playing = ytPlayer.getPlayerState() === 1
-      ytPlayer.seekTo(Math.floor(pendingSeek.time), true)
-      if (!playing) ytPlayer.pauseVideo()
-    } catch { /* 플레이어가 막 파괴됨 — 다음 준비 때 다시 */ return }
-    giveUp()
-  }, [pendingSeek, ytPlayer, currentQuarter, selectedSlotId, activeVideo])
-
-  // 선택한 경기의 쿼터 복원 — 새로고침·경기 전환 후에도 마지막으로 기록하던 쿼터에서 이어간다.
-  //   전용 컬럼을 두지 않고 이미 저장된 이벤트의 최대 쿼터를 읽는다(기록이 곧 진실).
-  //   복원에 실패해도 기본값 1 로 두고 기록 자체는 막지 않는다.
-  useEffect(() => {
-    if (!selectedSlotId) { setCurrentQuarter(1); setQuarterRestore(null); return }
-    let cancelled = false
-    const slotId = selectedSlotId
-    // 같은 응답으로 파울 수도 채운다 — 경기를 열 때 이벤트를 두 번 받지 않게.
-    const foulToken = ++foulReqRef.current
-    fetch(`/api/leagues/${leagueId}/events?gameId=${slotId}`)
-      .then(r => (r.ok ? r.json() : null))
-      .then((rows: Array<FoulRow> | null) => {
-        if (cancelled) return
-        if (!Array.isArray(rows)) {
-          // 조회 실패도 "끝났다"고 알려야 한다 — 안 그러면 시작 쿼터 보정이 영영 안 돈다.
-          setQuarterRestore({ slotId, hasEvents: false })
-          return
-        }
-        if (foulReqRef.current === foulToken) {
-          setFoulEvents({ gameId: slotId, rows: rows.filter(e => e.type === 'foul') })
-        }
-        const max = rows.reduce((m, e) => Math.max(m, e.quarter ?? 1), 1)
-        setCurrentQuarter(Math.min(Math.max(max, 1), 6))
-        // 기록이 있으면 위 복원값이 정본이다. 시작 쿼터 보정은 여기서 물러난다.
-        setQuarterRestore({ slotId, hasEvents: rows.length > 0 })
-      })
-      .catch(() => { if (!cancelled) setQuarterRestore({ slotId, hasEvents: false }) })
-    return () => { cancelled = true }
-  }, [leagueId, selectedSlotId])
-
-  // 비정규 선수를 홈/어웨이 팀에 추가 (이 경기 하나에만 유효 — 다른 경기에 뛰면 그 경기에서 따로 지정)
-  async function addIrregularToTeam(player: IrregularPlayer, side: 'home' | 'away') {
-    if (!selectedSlotId) { toast.error('경기를 선택하세요'); return }
-    const teamId = side === 'home' ? selectedSlot?.home_team_id : selectedSlot?.away_team_id
-    if (!teamId) { toast.error('팀이 지정되지 않았습니다'); return }
-    setAddingIrregular(true)
-    // 경기별 배정 (league_game_players) — 이 경기(selectedSlotId)에만 배정된다.
-    //   (2026-08-08 사고: 예전엔 서버에서 같은 날짜·같은 팀 경기에도 자동 배정했다 —
-    //    정규 선수가 다른 팀 게스트로 한 경기 뛰면 그날 전체 소속이 바뀌는 사고로 이어져 제거함.)
-    const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/irregular-players`, {
-      method: 'POST',
-      headers: leagueHeaders,
-      body: JSON.stringify({ league_player_id: player.id, team_id: teamId }),
-    })
-    if (!res.ok) {
-      setAddingIrregular(false)
-      toast.error('게스트·임시 선수 추가 실패')
-      return
-    }
-    // 게임이 시작된 경우, minutes도 INSERT
-    if (gameStarted) {
-      await fetch(`/api/leagues/${leagueId}/minutes`, {
-        method: 'POST',
-        headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: player.id, quarter: currentQuarter, in_time: 0 }),
-      })
-      const r = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-      if (r.ok) setMinutes(await r.json())
-    }
-    // roster 재로드
-    if (selectedSlot) await loadRoster(selectedSlot)
-    setPendingIrregular(null)
-    setAddingIrregular(false)
-    toast.success(`${player.name} → ${side === 'home' ? selectedSlot?.home_team?.name ?? '홈' : selectedSlot?.away_team?.name ?? '어웨이'} 추가됨`)
-  }
+  useStarterDefaults({ ...st }) // ③
+  useInitialLoad({ ...st, leagueId }) // ④
+  const { loadRoster, selectDate, selectSlot, refreshSlots, autoFillRotation } = useSlotCore({
+    ...st, leagueId, leagueHeaders, setCurrentGame, resetLineup, setLineup,
+  })
+  useDeepLink({ ...st, leagueId, selectDate, selectSlot }) // ⑤
+  const { loadAdhocTeams } = useDateTeams({ ...st, leagueId }) // ⑥⑦
+  const { loadQuarterVideos } = useQuarterVideos({ ...st, leagueId }) // ⑧~⑫
+  const { setFoulEvents, foulReqRef, refreshFoulEvents, foulCounts, teamFoulsOf } = useFoulCounts({ ...st, leagueId })
+  const { resumeSnapRef, completedIdsRef, confirmLeave } = useResumeSession({ // ⑬~⑯
+    ...st, leagueId, selectedSlot, activeVideo, ytPlayer,
+  })
+  useQuarterRestore({ ...st, leagueId, foulReqRef, setFoulEvents }) // ⑰
+
+  // ── 동작 묶음 (effect 없음) ─────────────────────────────────────────
+  const {
+    toggleQuarterSides, teamOptions, teamNameById, createAdhocTeam, deleteAdhocTeam, saveTeams, swapSides,
+    toggleExhibition, addSlot, deleteSlot, togglePlusOneQuarter, toggleExtraPlusOne,
+  } = usePrepActions({
+    ...st, leagueId, leagueHeaders, selectedSlot, sidesFlipped, swappedQuarters, resetLineup,
+    refreshSlots, autoFillRotation, loadRoster, loadAdhocTeams,
+  })
+  const { attachVideo, clearQuarterVideo, loadYoutubeList, clearYoutubeUrl, syncYoutube } = useVideoActions({
+    ...st, leagueId, leagueHeaders, selectedSlot, refreshSlots, autoFillRotation, loadQuarterVideos,
+  })
+  const {
+    startGame, handlePlusOneSelect, completeGame, reopenGame, openCompleteModal, fetchLiveScore,
+    handleEventSaved, addIrregularToTeam,
+  } = useGameSession({
+    ...st, leagueId, leagueHeaders, selectedSlot, setLineup, refreshSlots, selectSlot, loadRoster,
+    refreshFoulEvents, resumeSnapRef, completedIdsRef,
+  })
+  const { toggleStarter, selectAllTeam, prevStarterSources, applyPrevStarters, handleDrop } = useStarterActions({
+    ...st, leagueId, selectedSlot, addIrregularToTeam,
+  })
 
   // 이미 홈/어웨이 명단에 들어있는지 체크
   const assignedIds = new Set([...homeRoster.map(p => p.id), ...awayRoster.map(p => p.id)])
@@ -2176,51 +226,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     )
   }
 
-  // ── 날짜 미선택 ───────────────────────────────────────────
-  //   날짜 목록은 「일정」 탭 하나로 합쳤다 (2026-10-11, 운영진 결정).
-  //   종전엔 일정 탭과 이 화면이 같은 날짜 목록을 두 벌 갖고 있어 "어디서 시작하지"가 갈렸다.
-  //   일정 카드의 「기록하기」가 `?date=` 로 들어온다. 주소만 치고 들어온 경우를 위해
-  //   경기일(오늘 이전 가장 최근 · 없으면 가장 가까운 다음 날짜) 바로가기 하나만 남긴다.
+  // ── 날짜 미선택 ─── 「일정」 탭으로 안내 + 최근 경기일 바로가기 (_components/RecordLanding)
   if (!selectedDate) {
-    const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
-    const sorted = [...scheduleDates].map(sd => sd.date).sort()
-    const pick = [...sorted].reverse().find(d => d <= today) ?? sorted.find(d => d > today) ?? null
-    const pd = pick ? new Date(pick + 'T00:00:00') : null
-    return (
-      <div className="mm-brand space-y-4">
-        <h2 className="font-black text-3xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-          경기 기록
-        </h2>
-        <div
-          className="p-5 space-y-3"
-          style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-        >
-          <p className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
-            「일정」 탭의 날짜 카드에서 <b>기록하기</b>를 누르면 그날 경기로 바로 들어옵니다.
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {pick && pd && (
-              <button
-                onClick={() => selectDate(pick)}
-                className="inline-flex items-center gap-1.5 px-4 min-h-11 text-sm font-bold cursor-pointer"
-                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
-              >
-                <Play size={14} aria-hidden />
-                {pd.getMonth() + 1}월 {pd.getDate()}일 기록하기
-              </button>
-            )}
-            <a
-              href={`/league/${orgSlug}/${leagueId}/schedule`}
-              className="inline-flex items-center gap-1.5 px-4 min-h-11 text-sm font-bold"
-              style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-            >
-              <CalendarDays size={14} aria-hidden />
-              일정에서 다른 날짜 고르기
-            </a>
-          </div>
-        </div>
-      </div>
-    )
+    return <RecordLanding orgSlug={orgSlug} leagueId={leagueId} scheduleDates={scheduleDates} selectDate={selectDate} />
   }
 
   // ── 슬롯 초기화 중 ────────────────────────────────────────
@@ -2240,112 +248,27 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       <LeagueSubTabs group="games" />
 
       {/* 날짜 헤더 + YouTube 연동 (1행) */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <a
-          href={`/league/${orgSlug}/${leagueId}/schedule`}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors cursor-pointer shrink-0"
-          style={{ color: 'var(--mm-muted)' }}
-          aria-label="일정으로 돌아가기"
-        >
-          <ChevronLeft size={20} />
-        </a>
-        <h2
-          className="font-black text-xl"
-          style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-        >
-          {dateLabel} 경기 기록
-        </h2>
-        {/* YouTube 자동 연동 — 제목의 `경기 N` 을 그날 슬롯 N 에 꽂는 **리그 전용** 기능이다.
-            대회에서는 감춘다: 슬롯 번호에 의미가 없고 촬영본이 쿼터로 쪼개져 있어, 돌리면
-            엉뚱한 자리에 조용히 붙는다(2026-08-22 사고). 서버(syncYoutubeForLeague)도 같이 막혀 있다 —
-            여기서만 감추면 cron·경기시작 훅으로 되살아난다. */}
-        {!isTournament && (
-          <div className="ml-auto flex items-center gap-2 shrink-0">
-            {leagueYtChannel && (
-              <span className="text-xs font-mono hidden sm:inline" style={{ color: 'var(--mm-muted)' }}>{leagueYtChannel}</span>
-            )}
-            <button
-              onClick={() => syncYoutube()}
-              disabled={ytSyncing}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-[#fff] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-              aria-label="YouTube 연동"
-            >
-              {ytSyncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              <span className="hidden sm:inline">YouTube 연동</span>
-            </button>
-          </div>
-        )}
-      </div>
+      <DateHeader
+        orgSlug={orgSlug}
+        leagueId={leagueId}
+        dateLabel={dateLabel}
+        isTournament={isTournament}
+        leagueYtChannel={leagueYtChannel}
+        ytSyncing={ytSyncing}
+        syncYoutube={syncYoutube}
+      />
 
-      {/* 슬롯 그리드 — 하루 경기 수만큼. 9열 고정이던 것을 슬롯 수에 맞췄다(2026-09-07):
-          하루 9경기 로테이션에서 3대진으로 바뀌어 9열이면 3칸이 왼쪽에 몰리고 나머지가 빈다. */}
-      <div className={`grid grid-cols-4 sm:grid-cols-5 gap-2 ${slots.length <= 4 ? 'lg:grid-cols-4' : slots.length <= 6 ? 'lg:grid-cols-6' : 'lg:grid-cols-9'}`}>
-        {slots.map(slot => {
-          const isSelected = slot.id === selectedSlotId
-          const hasTeams = slot.home_team_id && slot.away_team_id
-          const hasYT = !!slot.youtube_url
-          return (
-            <button
-              key={slot.id}
-              onClick={() => {
-                if (slot.id !== selectedSlotId && !confirmLeave()) return
-                selectSlot(slot)
-              }}
-              className={`relative flex flex-col items-center justify-center px-2 py-2.5 min-h-[44px] rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
-                isSelected
-                  ? 'bg-blue-600 border-blue-500 text-[#fff]'
-                  : slot.is_complete
-                  ? 'bg-green-900/30 border-green-700/50 text-green-400'
-                  : 'bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:border-[color:var(--mm-rule)]'
-              }`}
-            >
-              {/* 번호 대신 대진명. 숫자만 있으면 어느 탭이 어느 경기인지 알 수 없어
-                  매번 눌러서 확인해야 했다. 팀이 아직 안 정해진 슬롯만 번호로 남긴다. */}
-              {hasTeams ? (
-                <span className="flex flex-col items-center leading-tight w-full min-w-0">
-                  <span className="text-xs font-bold truncate w-full text-center">{slot.home_team?.name ?? '홈'}</span>
-                  {/* opacity 로 흐리게 두니 선택 상태(파란 배경)에서 2.7:1 이었다 — 위계는 굵기로만 준다 */}
-                  <span className="text-xs font-normal">vs</span>
-                  <span className="text-xs font-bold truncate w-full text-center">{slot.away_team?.name ?? '어웨이'}</span>
-                </span>
-              ) : (
-                <span className="text-xs">경기 {slot.slot_num}</span>
-              )}
-              <div className="flex items-center gap-0.5 mt-1">
-                {hasYT && <Youtube size={14} className="text-red-400" />}
-                {slot.is_complete
-                  ? <CheckCircle2 size={14} className="text-green-400" />
-                  : slot.is_started
-                  ? <Circle size={14} className="text-yellow-400" />
-                  : hasTeams
-                  ? <Circle size={14} className="text-[color:var(--mm-muted)]" />
-                  : null}
-              </div>
-            </button>
-          )
-        })}
-
-        {/* 슬롯 한 칸 추가 — 리그 설정(games_per_round)은 시즌 전체에 걸리므로 그 날짜에만 붙인다.
-            8/22 친선전처럼 쿼터별로 쪼갠 영상이 10개인 날은 기본 9칸으로 모자란다.
-            ⚠ 대회에서는 감춘다. 여기서 만든 슬롯은 대회(quarter_id)에도 상대팀에도 묶이지 않아
-              어느 대회 카드에도 안 잡히는 미아 경기가 된다 — 대회 경기는 대회 보드에서 등록한다. */}
-        {!isTournament && (
-        <button
-          type="button"
-          onClick={addSlot}
-          disabled={addingSlot || !selectedDate}
-          aria-label="이 날짜에 경기 슬롯 추가"
-          title="이 날짜에 슬롯을 한 칸 더 만듭니다 (리그 설정은 바뀌지 않습니다)"
-          className="flex flex-col items-center justify-center px-2 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          style={{ border: '1px dashed var(--mm-rule)', background: 'transparent', color: 'var(--mm-muted)' }}
-        >
-          {addingSlot
-            ? <Loader2 size={16} className="animate-spin" aria-hidden />
-            : <Plus size={16} strokeWidth={2.5} aria-hidden />}
-          <span className="mt-1">추가</span>
-        </button>
-        )}
-      </div>
+      {/* 슬롯 그리드 + 「추가」 타일 */}
+      <SlotGrid
+        slots={slots}
+        selectedSlotId={selectedSlotId}
+        selectedDate={selectedDate}
+        isTournament={isTournament}
+        addingSlot={addingSlot}
+        confirmLeave={confirmLeave}
+        selectSlot={selectSlot}
+        addSlot={addSlot}
+      />
 
       {isTournament && slots.length === 0 && selectedDate && (
         <p className="text-center py-6 text-sm leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
@@ -2364,734 +287,83 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       {/* 선택된 슬롯 기록 UI */}
       {selectedSlot && (
         <div className="pt-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-          {/* ── 기록 준비 ─────────────────────────────────────────────────────────
-              경기를 시작하기 전에 정할 것만 남긴 카드 (2026-09-07 재구성).
-              종전에는 셀렉트 2개 + 버튼 6개가 한 줄에 섞여 있었고, 그 아래로 영상 패널과
-              +1 설정이 **항상 펼쳐진 채** 513줄을 차지했다. 실측(리그 282경기): 영상은 100%
-              자동으로 붙고, 경기한정 +1 은 4%, 쿼터별 +1 은 0% 에서만 쓰였다.
-              → 매 경기 정하는 것(종류·팀)만 펼쳐 두고 나머지는 접는다. 기능은 그대로 있다. */}
-          <div
-            className="p-3 mb-4 space-y-3"
-            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-          >
-            {/* 1행 — 이 경기가 무엇인가.
-                종전엔 「친선전으로 표시」 버튼 하나가 다른 버튼 다섯 개 사이에 섞여 있었다.
-                잘못 눌리면 그 경기가 리그 순위·개인 스탯에서 통째로 빠지는데도, 지금 어느
-                상태인지는 노란 배지 하나로만 알 수 있었다. 상태를 먼저 보여주고 고르게 한다. */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="t-label shrink-0" style={{ color: 'var(--mm-muted)' }}>
-                경기 {selectedSlot.slot_num}
-              </span>
-              {isTournament ? (
-                /* 대회 경기는 정의상 공식전이다 — 고를 것이 없으므로 버튼을 두지 않는다.
-                   (친선으로 표시하면 집계 15곳이 전부 걸러내 그 대회 스탯이 통째로 빈다) */
-                <span
-                  className="text-xs font-bold px-2 min-h-11 inline-flex items-center"
-                  style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                >
-                  대회 경기
-                </span>
-              ) : (
-                <div className="inline-flex" role="group" aria-label="경기 종류">
-                  {([
-                    { ex: false, label: '정규전', title: '리그 순위·개인 스탯에 집계됩니다' },
-                    { ex: true, label: '친선전', title: '리그 순위·개인 스탯에서 제외됩니다 (박스스코어·하이라이트에는 남습니다)' },
-                  ] as const).map((opt, i) => {
-                    const active = !!selectedSlot.is_exhibition === opt.ex
-                    return (
-                      <button
-                        key={opt.label}
-                        type="button"
-                        /* 이미 그 상태면 아무 일도 하지 않는다 — toggleExhibition 은 토글이라
-                           같은 값을 다시 누르면 반대로 뒤집힌다 */
-                        onClick={() => { if (!active) toggleExhibition() }}
-                        aria-pressed={active}
-                        title={opt.title}
-                        className="px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        style={{
-                          background: active ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
-                          color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                          border: `1px solid ${active ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
-                          borderRadius: i === 0 ? '4px 0 0 4px' : '0 4px 4px 0',
-                          marginLeft: i === 0 ? 0 : '-1px',
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-              {selectedSlot.is_exhibition && (
-                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>순위·개인 스탯에서 빠집니다</span>
-              )}
-            </div>
-
-            {/* 2행 — 팀 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={pendingHome}
-                onChange={e => setPendingHome(e.target.value)}
-                className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
-                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-              >
-                <option value="">{selectedSlot.is_exhibition ? '홈 임시팀 선택' : '홈 팀 선택'}</option>
-                {teamOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              {/* 홈·원정 바꾸기 — 이 경기의 홈 팀과 원정 팀을 **저장값으로** 맞바꾼다(기록 시작 전만).
-                  아래 영상 칸의 「N쿼터 화면 좌우 반전」과는 다른 일이다 — 그쪽은 화면 배치만 뒤집는다.
-                  둘 다 ⇄ 아이콘이라 헷갈려서 2026-10-12 에 글자로 구분했다. */}
-              <button
-                onClick={() => swapSides(selectedSlot.id)}
-                disabled={gameStarted || swappingId === selectedSlot.id || !selectedSlot.home_team_id || !selectedSlot.away_team_id}
-                title="홈 팀과 원정 팀을 서로 바꿔 저장합니다 (기록 시작 전에만 가능)"
-                aria-label="홈 팀과 원정 팀 바꾸기"
-                className="shrink-0 inline-flex items-center justify-center gap-1 px-2 min-h-[44px] min-w-[44px] text-xs font-bold whitespace-nowrap cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-              >
-                {swappingId === selectedSlot.id
-                  ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                  : <ArrowLeftRight size={14} aria-hidden />}
-                홈↔원정
-              </button>
-              <select
-                value={pendingAway}
-                onChange={e => setPendingAway(e.target.value)}
-                className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
-                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-              >
-                <option value="">{selectedSlot.is_exhibition ? '어웨이 임시팀 선택' : '어웨이 팀 선택'}</option>
-                {teamOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              {/* 기록이 시작된 뒤에도 팀을 고칠 수 있어야 한다 — 잘못 지정한 채 마감하면
-                  지금까지는 되돌릴 방법이 아예 없었다. 기록은 서버가 함께 옮긴다. */}
-              <button
-                onClick={saveTeams}
-                disabled={savingTeam}
-                title={(selectedSlot.is_started || selectedSlot.is_complete)
-                  ? '팀을 바꾸고 이 경기 기록의 소속 팀도 함께 옮깁니다'
-                  : '이 경기의 홈·어웨이 팀 저장'}
-                className="cursor-pointer shrink-0 text-xs font-bold px-3 py-1.5 disabled:opacity-50 transition-colors min-h-[44px]"
-                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-              >
-                {savingTeam
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : (selectedSlot.is_started || selectedSlot.is_complete) ? '팀 교체' : '저장'}
-              </button>
-            </div>
-
-            {/* 영상 — 접어 둔다. 제목 규칙이 맞는 날은 자동 매핑이 전부 붙이므로(리그 282경기
-                중 281건) 여기를 열 일이 없다. 규칙이 깨진 날에만 펼쳐 손으로 붙인다.
-                ⚠ 손으로 붙일 수단 자체를 없애면 그날 기록 전체가 영상 없이 진행된다 — 감추는 것이지
-                  치우는 것이 아니다. 영상이 하나도 없으면 처음부터 펼쳐서 보여 준다. */}
-            <details
-              className="mt-3 pt-3"
-              style={{ borderTop: '1px dashed var(--mm-rule)' }}
-              open={videoPanelOpen}
-              onToggle={e => setVideoPanelOpen(e.currentTarget.open)}
-            >
-              <summary
-                className="flex items-center gap-2 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-              >
-                <ChevronDown
-                  size={14}
-                  aria-hidden
-                  className="shrink-0 transition-transform duration-200"
-                  style={{ color: 'var(--mm-muted)', transform: videoPanelOpen ? 'none' : 'rotate(-90deg)' }}
-                />
-                <span className="t-label" style={{ color: 'var(--mm-muted)' }}>영상</span>
-                {(() => {
-                  const qs = Object.keys(quarterVideos).map(Number).sort((a, b) => a - b)
-                  if (qs.length > 0) {
-                    // 빠진 쿼터를 함께 적는다. 안 적으면 "2개 연결됨"이 정상인지 사고인지 구분되지
-                    //   않는다 — 업로더가 안 올린 쿼터가 있는 날이 실제로 있다(9/12).
-                    const missing = [1, 2, 3, 4].filter(q => !quarterVideos[q])
-                    return (
-                      <span className="inline-flex items-center gap-1.5 text-xs flex-wrap" style={{ color: 'var(--mm-ink-soft)' }}>
-                        <Youtube size={14} aria-hidden style={{ color: 'var(--mm-live)' }} />
-                        {qs.length}개 연결됨 · {qs.map(q => `${q}Q`).join('·')}
-                        {missing.length > 0 && (
-                          <span style={{ color: 'var(--mm-muted)' }}>· 없음 {missing.map(q => `${q}Q`).join('·')}</span>
-                        )}
-                      </span>
-                    )
-                  }
-                  if (selectedSlot.youtube_url) {
-                    return (
-                      <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
-                        <Youtube size={14} aria-hidden style={{ color: 'var(--mm-live)' }} />
-                        대표 영상 1개
-                      </span>
-                    )
-                  }
-                  return <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>연결 안 됨 — 눌러서 붙이기</span>
-                })()}
-              </summary>
-              <div className="mt-2">
-              {/* 쿼터별 영상 4칸. 촬영본이 쿼터로 쪼개져 올라오므로 한 칸으로는 담기지 않는다.
-                  아래 링크 입력·목록 고르기는 여기서 고른 쿼터를 채운다.
-                  ⚠ 2026-09-07 리그에도 열었다 — 미라클이 쿼터제로 바뀌어 영상이 대진×쿼터로 올라온다.
-                  쿼터 태그된 영상이 하나도 없는 날(옛 번호형 제목)은 통째로 감춘다 — 그 경기에는
-                  쿼터 개념이 없어서 빈 칸 네 개가 "연동 실패"처럼 읽힌다. */}
-              {showQuarterUi && (
-                <div className="mb-3">
-                  <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                    <span className="t-label" style={{ color: 'var(--mm-muted)' }}>쿼터별 영상</span>
-                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                      쿼터를 누르면 그 쿼터 영상으로 바뀝니다
-                    </span>
-                  </div>
-                  {/* ⚠ **올라온 쿼터만 칸으로 만든다.** 1~4를 늘 네 칸 그리면 업로더가 안 올린 쿼터가
-                      `미연결` 이라는 이름의 실패처럼 읽힌다(9/12 가 실제로 그랬다). 없는 쿼터는
-                      아래 점선 `+ N쿼터` 로만 남겨 "붙일 자리"라는 뜻을 분명히 한다. */}
-                  <ul className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 list-none p-0 m-0">
-                    {[1, 2, 3, 4, 5, 6].filter(q => quarterVideos[q]).map(q => {
-                      const v = quarterVideos[q]
-                      const isTarget = ytTargetQuarter === q
-                      // ⚠ `재생 중` 은 **실제 재생 중인 영상의 쿼터**에만 붙인다(playingQuarter).
-                      //   예전에는 `currentQuarter === q` 여서, 영상 없는 쿼터로 기록하고 있으면
-                      //   그 칸에 `재생 중`+`미연결` 이 동시에 붙고 화면에는 다른 쿼터 영상이 돌았다.
-                      //   `기록 중` 과 `재생 중` 은 서로 다른 말이므로 갈릴 때는 갈린 대로 보여 준다.
-                      const isRecording = currentQuarter === q
-                      const isPlaying = playingQuarter === q
-                      const badge = isRecording && isPlaying ? '기록·재생'
-                        : isPlaying ? '재생 중'
-                        : isRecording ? '기록 중'
-                        : null
-                      // 카드를 누르면 **그 쿼터로 넘어간다** — 재생도 기록도 함께.
-                      //   예전에는 붙일 대상(ytTargetQuarter)만 바꿔서, 3쿼터를 눌러도 2쿼터
-                      //   영상이 계속 돌았다. "눌러도 안 바뀐다"는 신고가 이것이다.
-                      //   쿼터를 넘기는 다른 입구(기록 패드 위 탭)는 경기 시작 뒤에만 나타나서,
-                      //   시작 전에는 영상을 넘길 방법이 화면에 아예 없었다.
-                      const goToQuarter = () => {
-                        setCurrentQuarter(q)
-                        setYtTargetQuarter(q)
-                        setYtPickerOpen(false)
-                      }
-                      return (
-                        <li key={q} className="flex items-stretch gap-1">
-                          <button
-                            type="button"
-                            onClick={goToQuarter}
-                            aria-pressed={isTarget}
-                            aria-label={`${q}쿼터로 이동 — 영상 재생·기록 대상`}
-                            title={`${q}쿼터 영상을 재생하고 이 쿼터로 기록합니다`}
-                            className="flex-1 min-w-0 flex flex-col items-start justify-center px-2 py-1.5 min-h-[44px] text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                            style={{
-                              background: isTarget ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
-                              color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                              border: `1px solid ${isTarget ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
-                              borderRadius: '4px',
-                            }}
-                          >
-                            <span className="whitespace-nowrap">{q}쿼터</span>
-                            {/* 둘째 줄은 배지 아니면 「연결됨」 — 둘을 같이 두면 390px 타일(114px)에서 3줄이 된다.
-                                배지(기록 중/재생 중)가 붙은 쿼터는 영상이 있는 쿼터이므로 「연결됨」을 따로
-                                적을 이유가 없다. 노란 배경은 "지금 링크를 붙일 대상", 배지는 "기록/재생 중". */}
-                            {badge ? (
-                              <span
-                                className="mt-0.5 px-1 py-px text-xs font-bold rounded-sm whitespace-nowrap"
-                                style={{
-                                  background: isTarget ? 'rgba(0,0,0,0.18)' : 'var(--mm-panel)',
-                                  color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                                }}
-                              >
-                                {badge}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 mt-0.5 font-normal whitespace-nowrap">
-                                <Youtube size={14} aria-hidden /> 연결됨
-                              </span>
-                            )}
-                          </button>
-                          {v && (
-                            <button
-                              type="button"
-                              onClick={() => clearQuarterVideo(q)}
-                              aria-label={`${q}쿼터 영상 해제`}
-                              title={`${q}쿼터 영상 해제`}
-                              className="shrink-0 w-11 min-h-[44px] inline-flex items-center justify-center cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                              style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                            >
-                              <Trash2 size={14} aria-hidden />
-                            </button>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-
-                  {/* 아직 영상이 없는 쿼터 — 칸이 아니라 "붙일 자리"로 보이게 점선 칩으로 둔다.
-                      ⚠ 1~4쿼터만. 연장(5·6)은 "혹시 몰라서" 칸을 열어 두면 4쿼터가 다 찬 날에도
-                        `영상 없음` 줄이 남아, 없는 칸을 지운 효과가 사라진다. 연장 영상이 이미
-                        붙어 있으면 위 카드 목록에 그대로 나온다. */}
-                  {(() => {
-                    const open = [1, 2, 3, 4].filter(q => !quarterVideos[q])
-                    if (open.length === 0) return null
-                    return (
-                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                        <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>영상 없음</span>
-                        {open.map(q => {
-                          const isTarget = ytTargetQuarter === q
-                          return (
-                            <button
-                              key={q}
-                              type="button"
-                              onClick={() => { setYtTargetQuarter(q); setYtPickerOpen(false) }}
-                              aria-pressed={isTarget}
-                              title={`${q}쿼터에 붙일 영상을 고릅니다`}
-                              className="inline-flex items-center gap-1 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                              style={{
-                                background: isTarget ? 'var(--mm-yellow)' : 'transparent',
-                                color: isTarget ? 'var(--mm-black)' : 'var(--mm-muted)',
-                                border: `1px dashed ${isTarget ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
-                                borderRadius: '4px',
-                              }}
-                            >
-                              <Plus size={14} strokeWidth={2.5} aria-hidden />{q}쿼터
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-
-              {/* 화면 좌우 반전은 **영상과 무관하다** — 영상 속 코트 배치가 화면과 반대인 쿼터에 쓴다.
-                  홈·원정(저장값)은 그대로이고 화면 배치만 그 쿼터에서 뒤집는다 — 팀 줄의 「홈↔원정」과 다르다.
-                  쿼터 UI 를 감춘 경기에서도 닿아야 해서 게이트 밖에 둔다. */}
-              <div className="flex items-center gap-2 flex-wrap mb-2">
-                {selectedSlot.home_team_id && selectedSlot.away_team_id && !isTournament && (
-                  <button
-                    type="button"
-                    onClick={toggleQuarterSides}
-                    aria-pressed={sidesFlipped}
-                    title={`${currentQuarter}쿼터에서만 화면의 왼쪽·오른쪽 팀 배치를 뒤집습니다 — 영상 속 코트 방향에 맞추는 용도입니다. 홈·원정과 기록·점수는 그대로입니다`}
-                    className="inline-flex items-center gap-1.5 shrink-0 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    style={{
-                      background: sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
-                      color: sidesFlipped ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                      border: `1px solid ${sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
-                      borderRadius: '4px',
-                    }}
-                  >
-                    <ArrowLeftRight size={14} strokeWidth={2.5} aria-hidden />
-                    {`${currentQuarter}쿼터 화면만 좌우 반전`}{sidesFlipped ? ' · 켜짐' : ''}
-                  </button>
-                )}
-                {/* 되돌아올 길 — 쿼터 영상이 없는 날도 나중에 쿼터별로 쪼갠 영상을 붙일 수 있어야 한다 */}
-                {!showQuarterUi && (
-                  <button
-                    type="button"
-                    onClick={() => setQuarterSplitOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                  >
-                    <Plus size={14} strokeWidth={2.5} aria-hidden />쿼터별로 나눠 붙이기
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="t-label shrink-0" style={{ color: 'var(--mm-muted)' }}>
-                  {showQuarterUi ? `${ytTargetQuarter}쿼터 영상` : '경기 영상'}
-                </span>
-                <label htmlFor="yt-url-input" className="sr-only">YouTube 영상 링크</label>
-                <input
-                  id="yt-url-input"
-                  value={ytInput}
-                  onChange={e => setYtInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !ytSaving) { e.preventDefault(); attachVideo(ytInput) } }}
-                  placeholder={
-                    showQuarterUi
-                      ? (quarterVideos[ytTargetQuarter]
-                          ? `${ytTargetQuarter}쿼터 영상 교체 — 링크 붙여넣기`
-                          : `${ytTargetQuarter}쿼터 영상 링크 붙여넣기`)
-                      : (selectedSlot.youtube_url ? '영상 교체 — 링크 붙여넣기' : '영상 링크 붙여넣기')
-                  }
-                  className="flex-1 min-w-[180px] px-2.5 py-1.5 text-xs min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => attachVideo(ytInput)}
-                  disabled={ytSaving || ytInput.trim().length === 0}
-                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-                >
-                  {ytSaving
-                    ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                    : <Link2 size={14} strokeWidth={2.5} aria-hidden />}
-                  연동
-                </button>
-                <button
-                  type="button"
-                  onClick={loadYoutubeList}
-                  disabled={ytListLoading}
-                  title="이 날짜에 올라온 채널 영상을 목록으로 불러와 고릅니다"
-                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold px-2.5 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                >
-                  {ytListLoading
-                    ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                    : <Search size={14} strokeWidth={2.5} aria-hidden />}
-                  목록에서 고르기
-                </button>
-              </div>
-
-              {showQuarterUi && (
-                <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-                  {/* 조사는 강조 태그 안에 붙인다 — 밖에 두면 "1쿼터 에" 로 한 칸 벌어진다 */}
-                  고른 영상은 위에서 선택한 <strong style={{ color: 'var(--mm-ink-soft)' }}>{ytTargetQuarter}쿼터에</strong> 연결됩니다.
-                </p>
-              )}
-
-              {/* 이 날짜 영상 목록 — 제목을 그대로 보여준다. 번호를 추측하지 않는 게 핵심이다.
-                  이미 다른 슬롯에 붙은 영상은 어디에 붙었는지 표시해 중복 배정을 막는다. */}
-              {ytPickerOpen && ytList.length > 0 && (
-                <ul
-                  className="mt-2 list-none p-0 m-0 overflow-y-auto max-h-[260px]"
-                  style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px', background: 'var(--mm-panel-alt)' }}
-                >
-                  {ytList.map(v => {
-                    // 이 경기의 쿼터 칸들과 먼저 대조한다 — 슬롯 대표 영상만 보면 2~4쿼터에
-                    //   이미 붙은 영상이 "안 붙음"으로 보여 같은 영상을 두 번 붙이게 된다.
-                    const usedQuarter = [1, 2, 3, 4, 5, 6].find(q => quarterVideos[q]?.url.includes(v.video_id)) ?? null
-                    // 다른 슬롯에 붙었는지는 그 슬롯의 **대표 영상**으로만 알 수 있다
-                    //   (다른 경기의 쿼터 표까지 읽지는 않는다 — 대표는 가장 이른 쿼터라 대개 1쿼터가 잡힌다).
-                    const usedBy = usedQuarter
-                      ? null
-                      : slots.find(sl => sl.id !== selectedSlot.id && sl.youtube_url?.includes(v.video_id))
-                    const isThis = usedQuarter === ytTargetQuarter
-                    return (
-                      <li key={v.video_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                        <button
-                          type="button"
-                          onClick={() => attachVideo(v.url)}
-                          disabled={ytSaving || isThis}
-                          className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 min-h-[44px] cursor-pointer transition-colors duration-200 hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        >
-                          {v.thumbnail && (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={v.thumbnail} alt="" className="w-14 h-10 object-cover shrink-0 opacity-80" style={{ borderRadius: '3px' }} />
-                          )}
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-xs leading-snug" style={{ color: 'var(--mm-ink)' }}>{v.title}</span>
-                            {(usedBy || usedQuarter) && (
-                              <span className="block text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-                                {usedQuarter
-                                  ? (isThis ? `지금 이 ${usedQuarter}쿼터에 연결됨` : `${usedQuarter}쿼터에 연결됨`)
-                                  : isThis ? '지금 이 슬롯에 연결됨' : `${usedBy!.slot_num}경기에 연결됨`}
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-              </div>
-            </details>
-
-            {/* 고급 설정 — 접어 둔다. 실측(리그 282경기): 경기한정 +1 4% · 쿼터별 +1 0%.
-                96%의 경기에서 손대지 않는 것이 선수 수만큼 토글을 펼친 채 자리를 차지하고 있었다.
-                기능을 없앤 것이 아니라 한 줄로 접었다 — 필요한 4%에서는 그대로 다 있다. */}
-            <details
-              className="mt-3 pt-3"
-              style={{ borderTop: '1px dashed var(--mm-rule)' }}
-              open={advancedOpen}
-              onToggle={e => setAdvancedOpen(e.currentTarget.open)}
-            >
-              <summary className="flex items-center gap-2 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                <ChevronDown
-                  size={14}
-                  aria-hidden
-                  className="shrink-0 transition-transform duration-200"
-                  style={{ color: 'var(--mm-muted)', transform: advancedOpen ? 'none' : 'rotate(-90deg)' }}
-                />
-                <span className="t-label" style={{ color: 'var(--mm-muted)' }}>고급</span>
-                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                  이 경기 +1 · 슬롯 삭제
-                </span>
-                {/* 지금 켜져 있으면 접힌 채로도 보이게 — 켜 놓고 잊으면 그 경기 점수가 통째로 달라진다 */}
-                {((selectedSlot.plus_one_extra_ids ?? []).length > 0
-                  || Object.keys(selectedSlot.plus_one_quarters ?? {}).length > 0) && (
-                  <span
-                    className="text-xs font-bold px-1.5 py-0.5"
-                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-                  >
-                    +1 지정됨
-                  </span>
-                )}
-              </summary>
-
-            {/* 이 경기 한정 +1 — 선수 목록의 +1 은 전역 플래그라 켜면 과거 마감 경기까지 소급된다.
-                (미라클은 plus_one_bonus=1 이라 그 선수의 과거 야투마다 점수가 올라간다)
-                대회 연습처럼 그날만 룰이 다른 경우를 위해 경기 쪽에 담는다. */}
-            {(homeRoster.length > 0 || awayRoster.length > 0) && (
-              <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-                <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                  <span className="t-label" style={{ color: 'var(--mm-muted)' }}>
-                    이 경기 한정 +1
-                  </span>
-                  <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                    이 경기에서만 적용됩니다 · 과거 기록은 그대로입니다
-                  </span>
-                  <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer min-h-11" style={{ color: 'var(--mm-ink-soft)' }}>
-                    <input
-                      type="checkbox"
-                      checked={extraP1AllSlots}
-                      onChange={e => setExtraP1AllSlots(e.target.checked)}
-                      className="cursor-pointer w-4 h-4"
-                    />
-                    이 날짜 전 슬롯에 함께 적용
-                  </label>
-                </div>
-                <ul className="flex flex-wrap gap-1.5 list-none p-0 m-0">
-                  {[...homeRoster, ...awayRoster].map(pl => {
-                    const extra = (selectedSlot.plus_one_extra_ids ?? []).includes(pl.id)
-                    const always = !!pl.plus_one
-                    const busy = savingExtraP1 === pl.id
-                    return (
-                      <li key={pl.id}>
-                        <button
-                          type="button"
-                          onClick={() => toggleExtraPlusOne(pl.id, pl.name)}
-                          disabled={busy || always}
-                          aria-pressed={extra || always}
-                          title={always
-                            ? '선수 목록에서 상시 +1 로 지정된 선수입니다 (여기서 끌 수 없습니다)'
-                            : extra ? '이 경기 +1 해제' : '이 경기에서만 +1 로 지정'}
-                          className="inline-flex items-center gap-1.5 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                          style={always
-                            ? { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)', borderRadius: '4px' }
-                            : extra
-                            ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
-                            : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                        >
-                          {busy
-                            ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                            : <Zap size={14} strokeWidth={2.5} aria-hidden style={{ opacity: (extra || always) ? 1 : 0.35 }} />}
-                          {pl.name}
-                          {always && <span className="text-xs">상시</span>}
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-
-                {/* 쿼터별 +1 (113) — 전반과 후반의 +1 선수가 다른 경기가 있다.
-                    +1 이 켜진 선수만 보여준다(꺼진 선수에겐 의미가 없다).
-                    지정이 없으면 전 쿼터 적용이라 처음엔 네 칸이 다 켜져 보인다. */}
-                {(() => {
-                  const active = [...homeRoster, ...awayRoster].filter(
-                    pl => pl.plus_one || (selectedSlot.plus_one_extra_ids ?? []).includes(pl.id),
-                  )
-                  if (active.length === 0) return null
-                  const limits = (selectedSlot.plus_one_quarters ?? {}) as Record<string, number[]>
-                  return (
-                    <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-                      <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                        <span className="t-label" style={{ color: 'var(--mm-muted)' }}>쿼터별 +1</span>
-                        <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                          전·후반 +1 선수가 다를 때 씁니다 · 끄면 그 쿼터에는 +1 이 붙지 않습니다
-                        </span>
-                      </div>
-                      {/* 선수마다 한 칸 — 이름과 토글을 같은 줄에 두면 좁은 화면에서 감겨
-                          "연장2 전 쿼터" 가 누구 것인지 흐려진다(375px 실측). */}
-                      <ul className="space-y-2 list-none p-0 m-0">
-                        {active.map(pl => {
-                          const on = limits[pl.id] ?? QUARTER_OPTIONS.map(q => q.value)
-                          const busy = savingExtraP1 === pl.id
-                          const limited = !!limits[pl.id]
-                          return (
-                            <li
-                              key={pl.id}
-                              className="p-2"
-                              style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                            >
-                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink)' }}>
-                                  {pl.name}
-                                </span>
-                                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                                  {limited ? `${on.map(v => QUARTER_OPTIONS.find(q => q.value === v)?.label ?? v).join('·')} 만` : '전 쿼터'}
-                                </span>
-                                {busy && <Loader2 size={14} className="animate-spin" aria-hidden style={{ color: 'var(--mm-muted)' }} />}
-                              </div>
-                              <div className="flex gap-1 flex-wrap">
-                              {QUARTER_OPTIONS.map(q => {
-                                const active2 = on.includes(q.value)
-                                return (
-                                  <button
-                                    key={q.value}
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => togglePlusOneQuarter(pl.id, q.value)}
-                                    aria-pressed={active2}
-                                    aria-label={`${pl.name} ${q.label} +1 ${active2 ? '해제' : '적용'}`}
-                                    className="inline-flex items-center justify-center min-h-11 min-w-11 px-2 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                                    style={active2
-                                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
-                                      : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                                  >
-                                    {q.label}
-                                  </button>
-                                )
-                              })}
-                              </div>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                      <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-                        이미 기록한 경기도 여기서 고치면 점수가 다시 계산됩니다.
-                      </p>
-                    </div>
-                  )
-                })()}
-              </div>
+          {/* ── 기록 준비 ── 경기 종류 · 팀 · 영상(접힘) · 고급(접힘) · 임시팀(친선전) */}
+          <PrepCard
+            selectedSlot={selectedSlot}
+            isTournament={isTournament}
+            gameStarted={gameStarted}
+            teamOptions={teamOptions}
+            pendingHome={pendingHome}
+            pendingAway={pendingAway}
+            setPendingHome={setPendingHome}
+            setPendingAway={setPendingAway}
+            saveTeams={saveTeams}
+            savingTeam={savingTeam}
+            swapSides={swapSides}
+            swappingId={swappingId}
+            toggleExhibition={toggleExhibition}
+            videoPanel={
+              <VideoPanel
+                selectedSlot={selectedSlot}
+                slots={slots}
+                isTournament={isTournament}
+                currentQuarter={currentQuarter}
+                setCurrentQuarter={setCurrentQuarter}
+                playingQuarter={playingQuarter}
+                quarterVideos={quarterVideos}
+                showQuarterUi={showQuarterUi}
+                sidesFlipped={sidesFlipped}
+                toggleQuarterSides={toggleQuarterSides}
+                setQuarterSplitOpen={setQuarterSplitOpen}
+                videoPanelOpen={videoPanelOpen}
+                setVideoPanelOpen={setVideoPanelOpen}
+                ytInput={ytInput}
+                setYtInput={setYtInput}
+                ytSaving={ytSaving}
+                ytList={ytList}
+                ytListLoading={ytListLoading}
+                ytPickerOpen={ytPickerOpen}
+                setYtPickerOpen={setYtPickerOpen}
+                ytTargetQuarter={ytTargetQuarter}
+                setYtTargetQuarter={setYtTargetQuarter}
+                attachVideo={attachVideo}
+                clearQuarterVideo={clearQuarterVideo}
+                loadYoutubeList={loadYoutubeList}
+              />
+            }
+            advancedPanel={
+              <AdvancedPanel
+                selectedSlot={selectedSlot}
+                homeRoster={homeRoster}
+                awayRoster={awayRoster}
+                quarterVideos={quarterVideos}
+                advancedOpen={advancedOpen}
+                setAdvancedOpen={setAdvancedOpen}
+                extraP1AllSlots={extraP1AllSlots}
+                setExtraP1AllSlots={setExtraP1AllSlots}
+                savingExtraP1={savingExtraP1}
+                toggleExtraPlusOne={toggleExtraPlusOne}
+                togglePlusOneQuarter={togglePlusOneQuarter}
+                clearYoutubeUrl={clearYoutubeUrl}
+                deleteSlot={deleteSlot}
+                deletingSlot={deletingSlot}
+              />
+            }
+            adhocPanel={selectedSlot.is_exhibition && (
+              <AdhocTeamsPanel
+                selectedDate={selectedDate}
+                adhocTeams={adhocTeams}
+                newTeamName={newTeamName}
+                setNewTeamName={setNewTeamName}
+                newTeamColor={newTeamColor}
+                setNewTeamColor={setNewTeamColor}
+                creatingTeam={creatingTeam}
+                createAdhocTeam={createAdhocTeam}
+                deletingTeamId={deletingTeamId}
+                deleteAdhocTeam={deleteAdhocTeam}
+              />
             )}
-
-              {/* 위험한 정리 동작 두 개. 종전에는 팀 셀렉트 옆에 나란히 있어서, 매 경기 쓰는
-                  버튼(저장·좌우교체) 사이에 「슬롯 삭제」가 섞여 있었다. 여기로 내린다.
-                  ⚠ 슬롯 삭제는 이벤트가 하나라도 있으면 서버가 409 로 막는다(기록 영구 소멸 방지). */}
-              <div className="mt-3 pt-3 flex items-center gap-2 flex-wrap" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-                {Object.keys(quarterVideos).length === 0 && selectedSlot.youtube_url && (
-                  <button
-                    onClick={clearYoutubeUrl}
-                    title="잘못 매핑된 YouTube 영상 링크 제거"
-                    className="shrink-0 text-xs font-bold px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                  >
-                    영상 링크 제거
-                  </button>
-                )}
-                {!selectedSlot.is_started && !selectedSlot.is_complete && (
-                  <button
-                    onClick={deleteSlot}
-                    disabled={deletingSlot}
-                    title="이 슬롯 삭제 (기록이 있으면 막힙니다)"
-                    aria-label={`${selectedSlot.slot_num}경기 슬롯 삭제`}
-                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-bold px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                  >
-                    {deletingSlot
-                      ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                      : <Trash2 size={14} strokeWidth={2.5} aria-hidden />}
-                    슬롯 삭제
-                  </button>
-                )}
-                {selectedSlot.is_started && (
-                  <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                    기록이 시작된 경기라 슬롯을 지울 수 없습니다
-                  </span>
-                )}
-              </div>
-            </details>
-
-            {/* 친선전 안내 — 명단 기준이 평소와 다르다는 걸 화면에서 알 수 있어야 한다.
-                안 밝히면 "왜 우리 팀 사람들이 명단에 없지?" 가 된다. */}
-            {selectedSlot.is_exhibition && (
-              <p
-                className="mt-2 text-xs leading-relaxed"
-                style={{ color: 'var(--mm-muted)' }}
-              >
-                <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>그날 짠 팀</span>
-                {' — 친선전은 평소 소속 팀을 따르지 않습니다. 위 목록의 팀도, 아래에서 배정하는 선수도 이 날짜에만 쓰입니다. '}
-                {'여기서 한 배정은 이 경기에만 적용되고 평소 팀 구성은 바뀌지 않습니다.'}
-              </p>
-            )}
-
-            {/* 이 날짜 전용 임시팀 관리 — 친선전은 상시 3팀이 아니라 그날 짠 팀으로 한다.
-                만든 팀은 이 날짜의 친선 슬롯에서만 보이고, 순위·명단·드래프트·일정에는 등장하지 않는다. */}
-            {selectedSlot.is_exhibition && (
-              <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-                <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                  <span className="t-label" style={{ color: 'var(--mm-muted)' }}>
-                    임시팀
-                  </span>
-                  <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                    {selectedDate} 전용 · 같은 날 다른 친선 경기에서도 그대로 씁니다
-                  </span>
-                </div>
-
-                {adhocTeams.length > 0 ? (
-                  <ul className="flex flex-wrap gap-1.5 mb-2 list-none p-0 m-0">
-                    {adhocTeams.map(t => (
-                      <li
-                        key={t.id}
-                        className="inline-flex items-center gap-1.5 pl-2.5 text-xs font-bold min-h-[44px]"
-                        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-                      >
-                        <span
-                          aria-hidden
-                          className="w-2.5 h-2.5 shrink-0"
-                          style={{ background: t.color, borderRadius: '9999px' }}
-                        />
-                        {t.name}
-                        <button
-                          type="button"
-                          onClick={() => deleteAdhocTeam(t.id, t.name)}
-                          disabled={deletingTeamId === t.id}
-                          aria-label={`임시팀 ${t.name} 삭제`}
-                          title="삭제 (경기에 배정돼 있으면 막힙니다)"
-                          className="inline-flex items-center justify-center w-11 h-11 shrink-0 cursor-pointer transition-colors duration-200 hover:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                          style={{ color: 'var(--mm-muted)' }}
-                        >
-                          {deletingTeamId === t.id
-                            ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                            : <X size={14} strokeWidth={2.5} aria-hidden />}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>
-                    아직 만든 팀이 없습니다 — 아래에서 이름을 넣어 두 팀을 만드세요 (예: 흰팀 / 검은팀)
-                  </p>
-                )}
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <label htmlFor="adhoc-team-name" className="sr-only">임시팀 이름</label>
-                  <input
-                    id="adhoc-team-name"
-                    value={newTeamName}
-                    onChange={e => setNewTeamName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !creatingTeam) { e.preventDefault(); createAdhocTeam() } }}
-                    placeholder="팀 이름 (예: 흰팀)"
-                    maxLength={20}
-                    className="px-2.5 py-1.5 text-xs min-h-[44px] w-[160px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-                  />
-                  <label htmlFor="adhoc-team-color" className="sr-only">임시팀 색상</label>
-                  <input
-                    id="adhoc-team-color"
-                    type="color"
-                    value={newTeamColor}
-                    onChange={e => setNewTeamColor(e.target.value)}
-                    title="임시팀 색상 — 박스스코어·기록 화면에서 두 팀을 가르는 색"
-                    className="w-11 h-11 shrink-0 cursor-pointer p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={createAdhocTeam}
-                    disabled={creatingTeam || newTeamName.trim().length === 0}
-                    className="inline-flex items-center gap-1.5 cursor-pointer shrink-0 text-xs font-bold px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-                  >
-                    {creatingTeam
-                      ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                      : <UserPlus size={14} strokeWidth={2.5} aria-hidden />}
-                    팀 만들기
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          />
 
           {/* 영상 먼저 — 팀 미지정 시 절반 크기로 표시 (16:9 비율 유지) */}
           {activeVideo && !selectedSlot.home_team_id && (
@@ -3111,167 +383,21 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             <>
             <div className="lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 space-y-4 lg:space-y-0">
 
-              {/* ── 좌측: 비디오 + 경기 제어 (sticky, 뷰포트 높이 고정) ── */}
-              {/* 모바일: display:contents → 비디오 sticky 기준이 그리드 전체가 되어 기록 중에도 항상 보임 */}
-              {/* --record-header-offset: 모바일/데스크탑 상단 TabNav 아래 stick 위치 통일 */}
-              {/* 스티키 컨테이너에 뷰포트 높이 캡 · 내부 스크롤로 마감/마감데이터 등 모든 버튼 접근 가능 (2026-07-18)
-                    · 이전: 컨테이너 높이가 뷰포트보다 크면 아래 버튼이 뷰포트 밖으로 밀림
-                    · 신규: max-h + overflow-y-auto 로 컨테이너 내부에서 스크롤 가능 */}
-              <div
-                className="contents lg:block lg:sticky lg:space-y-2"
-                style={{ ['--record-header-offset' as string]: '56px', top: 'var(--record-header-offset)' } as React.CSSProperties}
-              >
-
-                {/* 경기 시작/마감 (2026-07-18 · 비디오 위로 이동 · 항상 노출 · 스크롤 필요 없음) */}
-                <div
-                  className="mb-2 lg:mb-0 p-3"
-                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                >
-                  {selectedSlot?.is_complete ? (
-                    <div
-                      className="flex items-center justify-center gap-2 py-1.5 text-xs font-medium min-h-[44px]"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
-                    >
-                      <CheckCircle2 size={14} style={{ color: 'var(--mm-muted)' }} />경기 마감 완료
-                    </div>
-                  ) : !gameStarted ? (
-                    <div
-                      className="flex items-center justify-center gap-2 py-1.5 text-xs min-h-[44px]"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
-                    >
-                      <Play size={14} />우측에서 선발 선수 선택 후 시작
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <div
-                        className="flex-1 py-1.5 text-xs text-center font-bold min-h-[44px] flex items-center justify-center"
-                        style={{ background: 'var(--mm-positive-bg)', border: '1px solid var(--mm-positive)', color: 'var(--mm-positive-fg)', borderRadius: '4px' }}
-                      >
-                        경기 진행 중
-                      </div>
-                      <button
-                        onClick={openCompleteModal}
-                        className="flex items-center gap-1 px-4 py-1.5 text-xs font-bold cursor-pointer transition-colors btn-press min-h-[44px]"
-                        style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: '4px' }}
-                      >
-                        <Square size={14} />마감
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {activeVideo ? (
-                  <div
-                    className="sticky z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden"
-                    style={{ top: 'var(--record-header-offset, 56px)' }}
-                  >
-                    {/* 폴백 재생을 말로 알린다. 이 줄이 없던 동안 기록원은 "1쿼터"라고 적힌 화면에서
-                        2쿼터 영상을 보며 기록할 뻔했고, 그걸 연동 실패로 신고했다.
-                        ⚠ 영상 위에 겹치지 않고 **위에 쌓는다** — 반투명·블러로 가리지 않는다. */}
-                    {activeVideo.source === 'representative' && showQuarterUi && (
-                      <div
-                        className="flex items-start gap-1.5 px-3 py-2 text-xs leading-relaxed"
-                        style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', borderBottom: '1px solid var(--mm-rule)' }}
-                      >
-                        <AlertTriangle size={14} aria-hidden className="shrink-0 mt-px" style={{ color: 'var(--mm-yellow-strong)' }} />
-                        <span>
-                          {currentQuarter}쿼터 영상이 없어{' '}
-                          {activeVideo.representativeQuarter != null
-                            ? `${activeVideo.representativeQuarter}쿼터 영상을`
-                            : '경기 대표 영상을'} 재생 중입니다
-                        </span>
-                      </div>
-                    )}
-                    {/* ⚠ 오버레이들은 **영상에만** 붙어야 한다.
-                        이 relative 래퍼가 없으면 `absolute top-2` 가 바깥 sticky 박스를 기준으로 잡혀,
-                        위에 쌓은 경고 배너를 LIVE 스코어보드가 덮는다. 경기 시작 뒤에는 스코어보드가
-                        항상 켜져 있으므로, 배너가 정작 필요한 상황에서만 안 보이게 된다(육안 검증에서 잡음). */}
-                    <div className="relative">
-                    {/* key 에 영상 주소가 들어가므로 쿼터를 넘기면 플레이어가 그 쿼터 영상으로 다시 뜬다.
-                        (대회는 쿼터마다 영상이 다르다 — activeVideo 가 그 판정을 담당) */}
-                    <YouTubePlayer
-                      key={activeVideo.url}
-                      youtubeUrl={activeVideo.url}
-                      startOffset={activeVideo.startOffset}
-                    />
-                    {/* 트랜스포트 컨트롤 오버레이 — 영상 좌하단 (44px 터치 타겟) */}
-                    {ytPlayer && (
-                      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1 bg-black/75 backdrop-blur-sm rounded-xl px-1.5 py-1">
-                        {[
-                          { label: '−10', delta: -10 },
-                          { label: '−5',  delta: -5  },
-                        ].map(({ label, delta }) => (
-                          <button key={label} onClick={() => seekRelative(delta)}
-                            aria-label={`${label}초`}
-                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
-                            {label}
-                          </button>
-                        ))}
-                        <button onClick={togglePlay}
-                          className="min-h-[44px] min-w-[44px] rounded-lg text-[color:var(--mm-ink)] hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
-                          aria-label="재생/일시정지">
-                          <PlayCircle size={24} />
-                        </button>
-                        {[
-                          { label: '+5',  delta: 5  },
-                          { label: '+10', delta: 10 },
-                        ].map(({ label, delta }) => (
-                          <button key={label} onClick={() => seekRelative(delta)}
-                            aria-label={`${label}초`}
-                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
-                            {label}
-                          </button>
-                        ))}
-                        <span className="text-xs text-[color:var(--mm-muted)] ml-1 hidden lg:inline">Space·←·→</span>
-                      </div>
-                    )}
-                    {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}
-                    {gameStarted && (
-                      <div className="absolute top-2 left-2 z-10 pointer-events-none">
-                        {/* 좌우는 이 쿼터의 코트 배치를 따른다(sidesFlipped). 팀명·색·점수를
-                            한 묶음(sideView)으로 꺼내 쓰므로 셋이 따로 놀 수 없다. */}
-                        <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-[#fff]">
-                          {(() => {
-                            const L = sideView(leftSide)
-                            const R = sideView(rightSide)
-                            const cell = (v: ReturnType<typeof sideView>) => (
-                              <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px] max-w-[140px]">
-                                <span className="text-xs font-bold truncate w-full text-center" style={{ color: v.color }}>
-                                  {v.team?.name ?? v.label}
-                                </span>
-                                <span className="text-2xl lg:text-3xl font-black tabular-nums leading-none mt-0.5">
-                                  {v.score}
-                                </span>
-                              </div>
-                            )
-                            return (
-                              <>
-                                {cell(L)}
-                                {/* 구분선 + LIVE */}
-                                <div className="flex flex-col items-center justify-center px-2 border-x border-white/10">
-                                  <span className="text-xs text-green-400 font-black tracking-widest">LIVE</span>
-                                  <span className="text-lg font-black text-[color:var(--mm-muted)] leading-none">:</span>
-                                </div>
-                                {cell(R)}
-                              </>
-                            )
-                          })()}
-                        </div>
-                      </div>
-                    )}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className="mb-2 lg:mb-0 flex items-center justify-center h-40 text-sm"
-                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
-                  >
-                    영상 미연동
-                  </div>
-                )}
-
-
-              </div>
+              {/* ── 좌측: 비디오 + 경기 제어 (sticky) ── */}
+              <VideoColumn
+                selectedSlot={selectedSlot}
+                gameStarted={gameStarted}
+                activeVideo={activeVideo}
+                showQuarterUi={showQuarterUi}
+                currentQuarter={currentQuarter}
+                leftSide={leftSide}
+                rightSide={rightSide}
+                sideView={sideView}
+                ytPlayer={ytPlayer}
+                seekRelative={seekRelative}
+                togglePlay={togglePlay}
+                openCompleteModal={openCompleteModal}
+              />
 
               {/* ── 우측: 기록 패널 ── */}
               <div className="space-y-3">
@@ -3292,478 +418,92 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 <div className={mobileTab === 'record' ? '' : 'hidden lg:block'}>
                   {selectedSlot?.is_complete ? (
                     /* ── 마감된 경기 배너 ── */
-                    <div className="space-y-3">
-                      <div className="bg-[color:var(--mm-ground)] border border-[color:var(--mm-rule)] rounded-2xl overflow-hidden">
-                        {/* 최종 스코어 */}
-                        <div className="grid grid-cols-[1fr_auto_1fr]">
-                          <div className="py-5 px-4 text-center min-w-0">
-                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: accentOrInk(selectedSlot.home_team?.color ?? '#3b82f6'), lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                              {selectedSlot.home_team?.name ?? '홈팀'}
-                            </p>
-                            <p className="text-5xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none">{liveScore?.home ?? selectedSlot.home_score}</p>
-                          </div>
-                          <div className="flex flex-col items-center justify-center px-4 border-x border-[color:var(--mm-rule)]">
-                            <span className="text-2xl text-[color:var(--mm-muted)] font-black leading-none">:</span>
-                          </div>
-                          <div className="py-5 px-4 text-center min-w-0">
-                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: accentOrInk(selectedSlot.away_team?.color ?? '#ef4444'), lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                              {selectedSlot.away_team?.name ?? '어웨이팀'}
-                            </p>
-                            <p className="text-5xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none">{liveScore?.away ?? selectedSlot.away_score}</p>
-                          </div>
-                        </div>
-                        {/* 마감 배너 */}
-                        <div className="border-t border-[color:var(--mm-rule)] py-4 px-6 flex flex-col items-center gap-1.5">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 size={20} className="text-[color:var(--mm-muted)]" />
-                            <span className="text-lg font-black text-[color:var(--mm-ink-soft)] tracking-tight">마감된 경기입니다</span>
-                          </div>
-                          <p className="text-xs text-[color:var(--mm-ink-soft)]">「기록 내역」에서 고치거나 지울 수 있고, 「다시 기록하기」로 이어서 기록할 수 있습니다</p>
-                        </div>
-                        {/* 하단 버튼 행 */}
-                        <div className="grid grid-cols-2 border-t border-[color:var(--mm-rule)]/60">
-                          <button
-                            onClick={() => setShowGameLog(true)}
-                            className="py-2.5 min-h-11 flex items-center justify-center gap-1.5 text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)]/60 text-xs font-medium transition-colors cursor-pointer border-r border-[color:var(--mm-rule)]/60"
-                          >
-                            <ClipboardList size={14} />
-                            기록 내역
-                          </button>
-                          <button
-                            onClick={reopenGame}
-                            disabled={reopening}
-                            className="py-2.5 min-h-11 flex items-center justify-center gap-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 btn-press"
-                          >
-                            {reopening
-                              ? <><Loader2 size={14} className="animate-spin" />복귀 중...</>
-                              : <><RefreshCw size={14} />다시 기록하기</>}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <CompletedBanner
+                      selectedSlot={selectedSlot}
+                      liveScore={liveScore}
+                      reopening={reopening}
+                      reopenGame={reopenGame}
+                      setShowGameLog={setShowGameLog}
+                    />
                   ) : gameStarted ? (
                     <>
                       {/* 컴팩트 스코어 스트립 */}
-                      <div className="bg-[color:var(--mm-ground)] border border-[color:var(--mm-rule)] rounded-xl overflow-hidden">
-                        <div className="flex items-stretch min-h-11">
-                          {/* 좌우는 이 쿼터의 코트 배치를 따른다(위 스코어보드와 같은 sideView) */}
-                          <div className="flex-1 py-2 px-3 flex items-center gap-2">
-                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(leftSide).color) }}>
-                              {sideView(leftSide).team?.name ?? (leftSide === 'home' ? '홈팀' : '어웨이팀')}
-                            </span>
-                            <span className="text-2xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none ml-auto">
-                              {sideView(leftSide).score}
-                            </span>
-                          </div>
-                          <div className="flex flex-col items-center justify-center px-2 border-x border-[color:var(--mm-rule)] shrink-0">
-                            <span className="text-xs text-green-400 font-bold tracking-widest">LIVE</span>
-                            <span className="text-sm text-[color:var(--mm-muted)] font-black leading-none">:</span>
-                          </div>
-                          <div className="flex-1 py-2 px-3 flex items-center gap-2">
-                            <span className="text-2xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none mr-auto">
-                              {sideView(rightSide).score}
-                            </span>
-                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(rightSide).color) }}>
-                              {sideView(rightSide).team?.name ?? (rightSide === 'home' ? '홈팀' : '어웨이팀')}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => setShowGameLog(true)}
-                            className="border-l border-[color:var(--mm-rule)] px-3 min-h-11 flex items-center gap-1 text-xs text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
-                          >
-                            <ClipboardList size={14} />
-                            <span className="hidden sm:inline">기록 내역</span>
-                          </button>
-                          {/* 플러스원 선수 재설정 버튼 — plus_one 선수가 있을 때만 표시 */}
-                          {[...homeRoster, ...awayRoster].some(p => p.plus_one) && (
-                            <button
-                              onClick={() => {
-                                const homePO = homeRoster.filter(p => p.plus_one)
-                                const awayPO = awayRoster.filter(p => p.plus_one)
-                                const conflict = homePO.length >= 2
-                                  ? { teamName: selectedSlot?.home_team?.name ?? '홈팀', players: homePO }
-                                  : awayPO.length >= 2
-                                  ? { teamName: selectedSlot?.away_team?.name ?? '어웨이팀', players: awayPO }
-                                  : { teamName: '플러스원', players: [...homePO, ...awayPO] }
-                                setPlusOneConflict(conflict)
-                                setShowPlusOneModal(true)
-                              }}
-                              className="border-l border-[color:var(--mm-rule)] px-2.5 flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
-                              title="플러스원 선수 설정"
-                            >
-                              <Zap size={14} aria-hidden />
-                              <span className="hidden sm:inline">+1</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setShowSubModal(true)}
-                            className="border-l border-[color:var(--mm-rule)] px-2.5 flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
-                          >
-                            <RefreshCw size={14} />
-                            <span className="hidden sm:inline">교체</span>
-                          </button>
-                          <button
-                            onClick={() => setShowBoxscoreModal(true)}
-                            className="border-l border-[color:var(--mm-rule)] px-2.5 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
-                          >
-                            <ClipboardList size={14} />
-                            <span className="hidden sm:inline">스탯</span>
-                          </button>
-                        </div>
-                        {/* 팀 파울 — 지금 쿼터 기준. 5개부터 보너스(상대 자유투)라 강조한다.
-                            좌우는 위 스트립과 같은 sideView 를 따른다. 외부(대회 상대) 팀은
-                            파울을 기록하지 않으므로 칸을 비운다 — 0 으로 보이면 사실처럼 읽힌다. */}
-                        {(() => {
-                          const qLabel = QUARTER_OPTIONS.find(q => q.value === currentQuarter)?.label ?? `${currentQuarter}Q`
-                          const chip = (side: 'home' | 'away', align: 'left' | 'right') => {
-                            const v = sideView(side)
-                            if (!v.team || v.team.is_external) return <span />
-                            const n = teamFoulsOf(v.team.id)
-                            const bonus = n >= 5
-                            return (
-                              <span
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-bold tabular-nums ${align === 'right' ? 'flex-row-reverse' : ''}`}
-                                style={bonus
-                                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
-                                  : n === 4
-                                  ? { color: 'var(--mm-yellow)' }
-                                  : { color: 'var(--mm-muted)' }}
-                                title={bonus ? `${v.team.name} 팀파울 ${n}개 — 상대 보너스(자유투) 구간` : `${v.team.name} 팀파울 ${n}개 (${qLabel})`}
-                              >
-                                팀파울 {n}{bonus && <span>· 보너스</span>}
-                              </span>
-                            )
-                          }
-                          return (
-                            <div className="flex items-center justify-between gap-2 px-3 py-1 border-t border-[color:var(--mm-rule)]">
-                              {chip(leftSide, 'left')}
-                              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{qLabel}</span>
-                              {chip(rightSide, 'right')}
-                            </div>
-                          )
-                        })()}
-                      </div>
-
-                      {/* 쿼터 선택 — 기록 중에는 **항상** 보인다 (2026-10-12).
-                          종전엔 쿼터 영상이 있는 날에만 보여서, 영상 없이 기록하는 날은 쿼터를 넘길 수단이
-                          없었고 팀 파울도 쿼터로 나눌 수 없었다. 쿼터 영상이 있으면 누르는 순간
-                          그 쿼터 영상으로 바뀌고(activeVideo), 없으면 기록 쿼터만 바뀐다. */}
-                      <div className="flex items-center gap-1.5 px-2 py-2 border-t border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
-                        <span className="pl-1 shrink-0 text-xs font-semibold text-[color:var(--mm-ink-soft)]">쿼터</span>
-                        {QUARTER_OPTIONS.map(q => {
-                          const active = currentQuarter === q.value
-                          return (
-                            <button
-                              key={q.value}
-                              type="button"
-                              onClick={() => setCurrentQuarter(q.value)}
-                              aria-pressed={active}
-                              aria-label={`${q.label} 로 기록`}
-                              className={`h-11 min-w-11 shrink-0 px-3 text-xs font-black tabular-nums border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
-                                active
-                                  ? 'bg-amber-500 border-amber-400 text-[color:var(--mm-black)]'
-                                  : 'bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] hover:text-[color:var(--mm-ink)]'
-                              }`}
-                            >
-                              {q.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-
-                      {/* 좌우가 뒤집힌 쿼터에서는 패드에 **넘기는 짝을 통째로 맞바꾼다.**
-                          패드 안에서는 '왼쪽/오른쪽' 으로만 쓰이고 이벤트의 team_id 는 선수
-                          객체에서 나오므로, 바꿔 넘겨도 기록은 그대로다.
-                          ⚠ 선수와 팀을 **한 쌍으로** 같이 바꿔야 한다 — 하나만 바꾸면 상대 선수
-                            즉석 등록이 반대 팀으로 들어간다. */}
-                      <LeagueEventInputPad
-                        leagueId={leagueId}
-                        gameId={selectedSlotId}
+                      <ScoreStrip
+                        selectedSlot={selectedSlot}
+                        homeRoster={homeRoster}
+                        awayRoster={awayRoster}
                         currentQuarter={currentQuarter}
-                        leagueHeaders={leagueHeaders}
-                        homePlayers={sideView(leftSide).roster.filter(p => onCourt.includes(p.id))}
-                        awayPlayers={sideView(rightSide).roster.filter(p => onCourt.includes(p.id))}
-                        homeTeam={sideView(leftSide).team ?? undefined}
-                        awayTeam={sideView(rightSide).team ?? undefined}
-                        onEventSaved={(eventType) => { handleEventSaved(eventType); fetchLiveScore() }}
-                        foulCounts={foulCounts}
-                        activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
-                        onOpponentRegistered={() => { if (selectedSlot) loadRoster(selectedSlot) }}
-                        // 대회는 상대 선수를 기록하지 않는다 — 점수만 위 「상대 득점」 으로 남긴다
-                        opponentRecording={!isTournament}
+                        leftSide={leftSide}
+                        rightSide={rightSide}
+                        sideView={sideView}
+                        teamFoulsOf={teamFoulsOf}
+                        setShowGameLog={setShowGameLog}
+                        setPlusOneConflict={setPlusOneConflict}
+                        setShowPlusOneModal={setShowPlusOneModal}
+                        setShowSubModal={setShowSubModal}
+                        setShowBoxscoreModal={setShowBoxscoreModal}
                       />
 
-                      {/* 상대 점수 안내 (대회) — 실시간으로 따라 누르지 않는다.
-                          사용자 결정(2026-08-30): 우리 기록만으로도 손이 모자라므로
-                          **마감할 때 최종 점수를 한 번에** 넣는다. 그 입력은 마감 모달에 있다. */}
-                      {isTournament && oppTeam && (
-                        <div
-                          className="p-3"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                        >
-                          <p className="text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-                            <strong style={{ color: 'var(--mm-ink-soft)' }}>{oppTeam.name ?? '상대팀'}</strong> 점수는
-                            경기 <strong style={{ color: 'var(--mm-ink-soft)' }}>마감</strong>할 때 최종 점수로 한 번에 넣습니다.
-                            {selectedSlot.opponent_score_manual != null && (
-                              <> · 현재 입력값 <strong style={{ color: 'var(--mm-ink)' }}>{selectedSlot.opponent_score_manual}점</strong></>
-                            )}
-                          </p>
-                        </div>
-                      )}
+                      {/* 쿼터 선택 — 기록 중에는 항상 보인다 */}
+                      <QuarterSelector currentQuarter={currentQuarter} setCurrentQuarter={setCurrentQuarter} />
 
-                      {/* 비정규 선수 추가 — 대회에는 비정규 개념이 없다(참가 등록이 곧 명단) */}
-                      {!isTournament && irregularRoster.length > 0 && (
-                        <div
-                          className="p-3"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                        >
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <UserPlus size={14} style={{ color: 'var(--mm-muted)' }} />
-                            <p className="t-label" style={{ color: 'var(--mm-muted)' }}>게스트·임시 선수 추가</p>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {irregularRoster.map(p => {
-                              const isAdded = assignedIds.has(p.id)
-                              return (
-                                <button
-                                  key={p.id}
-                                  onClick={() => !isAdded && setPendingIrregular(p)}
-                                  disabled={isAdded}
-                                  className="px-2.5 py-1 text-xs font-medium transition-colors"
-                                  style={isAdded
-                                    ? { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', cursor: 'not-allowed', textDecoration: 'line-through', borderRadius: '4px' }
-                                    : { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', cursor: 'pointer', borderRadius: '4px' }
-                                  }
-                                >
-                                  {p.number ? `#${p.number} ` : ''}{p.name}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 타팀 임시 출전 (경기 진행 중) — 칩 클릭 시 팀 선택 모달 사용.
-                          ⚠ 대회에는 "타 팀" 이 없다(미라클 원팀 vs 외부 상대). 여기에 상대팀으로
-                            선수를 보내면 우리 선수 기록이 상대 점수로 들어간다. */}
-                      {(() => {
-                        if (isTournament) return null
-                        const homeLendable = homeRoster.filter(p => p.is_regular !== false)
-                        const awayLendable = awayRoster.filter(p => p.is_regular !== false)
-                        if (homeLendable.length === 0 && awayLendable.length === 0) return null
-                        return (
-                          <div
-                            className="p-3 space-y-2"
-                            style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <RefreshCw size={14} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-                              <p className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>타팀 임시 출전</p>
-                              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>이번 경기에만 적용</span>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {homeLendable.map(p => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => setPendingIrregular(p as IrregularPlayer)}
-                                  className="px-2 py-1 text-xs font-medium cursor-pointer transition-colors"
-                                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-yellow)', color: 'var(--mm-yellow-strong)', borderRadius: '4px' }}
-                                >
-                                  {p.name} <span style={{ color: 'var(--mm-muted)' }}>→ {selectedSlot?.away_team?.name}</span>
-                                </button>
-                              ))}
-                              {awayLendable.map(p => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => setPendingIrregular(p as IrregularPlayer)}
-                                  className="px-2 py-1 text-xs font-medium cursor-pointer transition-colors"
-                                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-yellow)', color: 'var(--mm-yellow-strong)', borderRadius: '4px' }}
-                                >
-                                  {p.name} <span style={{ color: 'var(--mm-muted)' }}>→ {selectedSlot?.home_team?.name}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })()}
+                      {/* 입력 패드 · 상대 점수 안내(대회) · 게스트·임시 선수 · 타팀 임시 출전 */}
+                      <RecordingTools
+                        leagueId={leagueId}
+                        leagueHeaders={leagueHeaders}
+                        selectedSlot={selectedSlot}
+                        selectedSlotId={selectedSlotId}
+                        currentQuarter={currentQuarter}
+                        isTournament={isTournament}
+                        leftSide={leftSide}
+                        rightSide={rightSide}
+                        sideView={sideView}
+                        onCourt={onCourt}
+                        homeRoster={homeRoster}
+                        awayRoster={awayRoster}
+                        irregularRoster={irregularRoster}
+                        assignedIds={assignedIds}
+                        foulCounts={foulCounts}
+                        activePlusOneIds={activePlusOneIds}
+                        oppTeam={oppTeam}
+                        handleEventSaved={handleEventSaved}
+                        fetchLiveScore={fetchLiveScore}
+                        loadRoster={loadRoster}
+                        setPendingIrregular={setPendingIrregular}
+                      />
                     </>
                   ) : (
                     /* 드래그 앤 드롭 선발 선수 선택 */
-                    <div
-                      className="p-3 space-y-3"
-                      style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                    >
-                      {/* 헤더 */}
-                      {(() => {
-                        const hc = homeRoster.filter(p => selectedStarters.has(p.id)).length
-                        const ac = awayRoster.filter(p => selectedStarters.has(p.id)).length
-                        const oc = ourRoster.filter(p => selectedStarters.has(p.id)).length
-                        return (
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>선발 선수 선택</h4>
-                            <div className="flex items-center gap-2 text-xs">
-                              {/* 대회는 우리 한 팀뿐이라 홈/어웨이를 나눠 세지 않는다 */}
-                              {isTournament ? (
-                                <span
-                                  className={oc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
-                                  style={{ color: oc > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
-                                >
-                                  {oc}/5{oc > 5 && <AlertTriangle size={14} aria-hidden />}
-                                </span>
-                              ) : (
-                                <>
-                                  <span
-                                    className={hc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
-                                    style={{ color: hc > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
-                                  >
-                                    홈 {hc}/5{hc > 5 && <AlertTriangle size={14} aria-hidden />}
-                                  </span>
-                                  <span
-                                    className={ac > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
-                                    style={{ color: ac > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
-                                  >
-                                    어웨이 {ac}/5{ac > 5 && <AlertTriangle size={14} aria-hidden />}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })()}
-                      <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                        {isTournament ? (
-                          <>이 경기에 뛴 선수를 고르세요. 상대팀 선수는 기록하지 않습니다.</>
-                        ) : (
-                          <>
-                            <span className="hidden lg:inline">선수를 끌어다 팀에 배정하세요. </span>
-                            <span className="lg:hidden">카드를 탭하여 선발 체크 · 오른쪽 버튼으로 다른 팀 이동. </span>
-                            다른 팀으로 옮긴 선수는 이번 경기에만 적용됩니다.
-                          </>
-                        )}
-                      </p>
-
-                      {/* 지난 경기와 같은 선발 — 같은 날 앞 경기에 이 팀이 나왔을 때만 보인다 */}
-                      {prevStarterSources.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={applyPrevStarters}
-                          disabled={applyingPrevStarters || rosterLoading}
-                          title="같은 날 앞 경기의 선발을 그대로 체크합니다. 체크한 뒤에도 고칠 수 있습니다"
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                        >
-                          {applyingPrevStarters
-                            ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                            : <RefreshCw size={14} aria-hidden />}
-                          지난 경기와 같은 선발
-                          <span className="font-normal" style={{ color: 'var(--mm-muted)' }}>
-                            · {prevStarterSources.map(x => `${x.teamName} ${x.src.slot_num}경기`).join(', ')}
-                          </span>
-                        </button>
-                      )}
-
-                      {/* 대회 — 우리 팀 한 칸만. 상대 칸을 두면 "여기에 상대 선수를 넣나?" 로 읽히고
-                          실제로 넣으면 상대 선수 기록이 우리 통계에 섞인다. */}
-                      {isTournament ? (
-                        <div
-                          className="min-h-[180px] p-2"
-                          style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                        >
-                          <div className="flex items-center justify-between mb-2 px-1">
-                            <span
-                              className="text-xs font-bold px-2 py-0.5"
-                              style={{
-                                color: accentOrInk((ourSide === 'home' ? selectedSlot?.home_team?.color : selectedSlot?.away_team?.color) ?? '#3b82f6'),
-                                backgroundColor: `${(ourSide === 'home' ? selectedSlot?.home_team?.color : selectedSlot?.away_team?.color) ?? '#3b82f6'}22`,
-                                borderRadius: '4px',
-                              }}
-                            >
-                              {(ourSide === 'home' ? selectedSlot?.home_team?.name : selectedSlot?.away_team?.name) ?? '우리 팀'}
-                            </span>
-                            {ourSide && (
-                              <button
-                                onClick={() => selectAllTeam(ourSide)}
-                                className="text-xs font-bold cursor-pointer transition-colors"
-                                style={{ color: 'var(--mm-yellow-strong)' }}
-                              >
-                                전체
-                              </button>
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            {ourSide && ourRoster.map(p => renderStarterCard(p, ourSide))}
-                            {ourRoster.length === 0 && (
-                              <p className="text-xs px-2 py-4 text-center leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-                                이 대회에 등록된 선수가 없습니다.<br />
-                                대회 화면의 <strong style={{ color: 'var(--mm-ink-soft)' }}>참가 등록</strong> 에서 뛸 선수를 골라 주세요.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                      /* 드롭 존 — 홈/어웨이 2컬럼 (홈=파랑 / 어웨이=빨강은 팀 시맨틱 유지) */
-                      /* 두 칸의 **위치만** 이 쿼터의 코트 배치를 따른다. side 값(home/away)은
-                         그대로 넘어가므로 드롭·전체선택·카드 렌더는 언제나 올바른 팀에 붙는다. */
-                      <div className="grid grid-cols-2 gap-3">
-                        {[leftSide, rightSide].map(side => {
-                          const v = sideView(side)
-                          const fallback = side === 'home' ? '#3b82f6' : '#ef4444'
-                          return (
-                            <div
-                              key={side}
-                              onDragOver={e => { e.preventDefault(); setDragOverSide(side) }}
-                              onDragLeave={() => setDragOverSide(null)}
-                              onDrop={e => handleDrop(e, side)}
-                              className="min-h-[180px] p-2 border-2 border-dashed transition-colors"
-                              style={dragOverSide === side
-                                ? { borderColor: v.color, background: `${v.color}1A`, borderRadius: '4px' }
-                                : { borderColor: 'var(--mm-rule)', borderRadius: '4px' }
-                              }
-                            >
-                              <div className="flex items-center justify-between mb-2 px-1">
-                                <span className="text-xs font-bold px-2 py-0.5"
-                                  style={{ color: accentOrInk(v.color), backgroundColor: `${v.color}22`, borderRadius: '4px' }}>
-                                  {v.team?.name ?? (side === 'home' ? '홈팀' : '어웨이팀')}
-                                </span>
-                                <button onClick={() => selectAllTeam(side)} className="text-xs font-bold cursor-pointer transition-colors duration-200" style={{ color: fallback }}>전체</button>
-                              </div>
-                              <div className="space-y-1">
-                                {v.roster.map(p => renderStarterCard(p, side))}
-                                {v.roster.length === 0 && (
-                                  <p className="text-xs px-2 py-4 text-center" style={{ color: 'var(--mm-muted)' }}>선수를 여기로 드래그</p>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      )}
-
-                      {/* 미배정 풀 — 비정규 선수. 대회에는 비정규 개념이 없다(참가 등록이 곧 명단). */}
-                      {!isTournament && irregularRoster.length > 0 && (
-                        <div>
-                          <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>
-                            <span className="hidden lg:inline">위로 드래그하여 팀 배정 / </span>
-                            <span className="lg:hidden">칩을 탭하여 팀 배정 / </span>
-                            팀이 정해지지 않은 선수 (게스트·임시)
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {irregularRoster.map(p => renderDraggableChip(p))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 경기 시작 버튼 */}
-                      <Button
-                        onClick={startGame}
-                        disabled={startingGame || rosterLoading || (homeRoster.length === 0 && awayRoster.length === 0)}
-                        className="w-full bg-green-600 hover:bg-green-500 cursor-pointer"
-                      >
-                        {startingGame
-                          ? <><Loader2 size={14} className="mr-1.5 animate-spin" />시작 중...</>
-                          : <><Play size={14} className="mr-1.5" />경기 시작</>}
-                      </Button>
-                    </div>
+                    <StarterSelect
+                      selectedSlot={selectedSlot}
+                      isTournament={isTournament}
+                      homeRoster={homeRoster}
+                      awayRoster={awayRoster}
+                      irregularRoster={irregularRoster}
+                      rosterLoading={rosterLoading}
+                      ourSide={ourSide}
+                      ourRoster={ourRoster}
+                      leftSide={leftSide}
+                      rightSide={rightSide}
+                      sideView={sideView}
+                      selectedStarters={selectedStarters}
+                      toggleStarter={toggleStarter}
+                      selectAllTeam={selectAllTeam}
+                      dragOverSide={dragOverSide}
+                      setDragOverSide={setDragOverSide}
+                      draggingPlayerId={draggingPlayerId}
+                      setDraggingPlayerId={setDraggingPlayerId}
+                      handleDrop={handleDrop}
+                      prevStarterSources={prevStarterSources}
+                      applyPrevStarters={applyPrevStarters}
+                      applyingPrevStarters={applyingPrevStarters}
+                      addIrregularToTeam={addIrregularToTeam}
+                      addingIrregular={addingIrregular}
+                      setPendingIrregular={setPendingIrregular}
+                      teamNameById={teamNameById}
+                      startGame={startGame}
+                      startingGame={startingGame}
+                    />
                   )}
                 </div>
 
@@ -3786,224 +526,73 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
             {/* 비정규 선수 팀 선택 미니 모달 */}
               {pendingIrregular && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                  <div
-                    className="p-5 w-full max-w-xs space-y-3"
-                    style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                  >
-                    <h3 className="font-black text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-                      {pendingIrregular.name}을(를) 어느 팀에 추가할까요?
-                    </h3>
-                    <div className="flex gap-2">
-                      {(() => {
-                        const hBg = selectedSlot?.home_team?.color ?? '#3b82f6'
-                        const aBg = selectedSlot?.away_team?.color ?? '#ef4444'
-                        return (
-                          <>
-                            <button
-                              onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
-                              disabled={addingIrregular}
-                              className="flex-1 py-2 text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity min-h-[44px]"
-                              style={{ backgroundColor: hBg, color: textOnBg(hBg), borderRadius: '4px' }}
-                            >
-                              {selectedSlot?.home_team?.name ?? '홈팀'}
-                            </button>
-                            <button
-                              onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
-                              disabled={addingIrregular}
-                              className="flex-1 py-2 text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity min-h-[44px]"
-                              style={{ backgroundColor: aBg, color: textOnBg(aBg), borderRadius: '4px' }}
-                            >
-                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
-                            </button>
-                          </>
-                        )
-                      })()}
-                    </div>
-                    <button
-                      onClick={() => setPendingIrregular(null)}
-                      disabled={addingIrregular}
-                      className="w-full py-1.5 text-xs cursor-pointer transition-colors"
-                      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                    >취소</button>
-                  </div>
-                </div>
+                <IrregularTeamModal
+                  selectedSlot={selectedSlot}
+                  pendingIrregular={pendingIrregular}
+                  setPendingIrregular={setPendingIrregular}
+                  addIrregularToTeam={addIrregularToTeam}
+                  addingIrregular={addingIrregular}
+                />
               )}
 
               {/* 교체 모달 */}
               {showSubModal && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowSubModal(false)}>
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                  <div className="relative w-full max-w-lg bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-4 shadow-2xl"
-                    onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-black text-[color:var(--mm-ink)]">선수 교체</h3>
-                      <button onClick={() => setShowSubModal(false)} className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors text-xs">닫기</button>
-                    </div>
-                    <LeagueSubstitutionPanel
-                      leagueId={leagueId}
-                      gameId={selectedSlotId}
-                      currentQuarter={currentQuarter}
-                      leagueHeaders={leagueHeaders}
-                      players={allPlayers}
-                      homeRoster={homeRoster}
-                      awayRoster={awayRoster}
-                      homeTeam={selectedSlot?.home_team ?? undefined}
-                      awayTeam={selectedSlot?.away_team ?? undefined}
-                      minutes={minutes}
-                      onSubstitution={async () => {
-                        await Promise.all([
-                          fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-                            .then(r => r.json()).then(setMinutes),
-                          fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/roster`)
-                            .then(r => r.ok ? r.json() : null)
-                            .then(d => {
-                              if (d?.home) setHomeRoster(d.home)
-                              if (d?.away) setAwayRoster(d.away)
-                            }),
-                        ])
-                      }}
-                    />
-                  </div>
-                </div>
+                <SubstitutionModal
+                  leagueId={leagueId}
+                  leagueHeaders={leagueHeaders}
+                  selectedSlot={selectedSlot}
+                  selectedSlotId={selectedSlotId}
+                  currentQuarter={currentQuarter}
+                  allPlayers={allPlayers}
+                  homeRoster={homeRoster}
+                  awayRoster={awayRoster}
+                  minutes={minutes}
+                  setShowSubModal={setShowSubModal}
+                  setMinutes={setMinutes}
+                  setHomeRoster={setHomeRoster}
+                  setAwayRoster={setAwayRoster}
+                />
               )}
 
               {/* 박스스코어 모달 */}
               {showBoxscoreModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowBoxscoreModal(false)}>
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                  <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-4 shadow-2xl"
-                    onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-black text-[color:var(--mm-ink)]">실시간 박스스코어</h3>
-                      <button onClick={() => setShowBoxscoreModal(false)} className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors text-xs">닫기</button>
-                    </div>
-                    <LeagueStatsPanel
-                      leagueId={leagueId}
-                      gameId={selectedSlotId}
-                      players={allPlayers}
-                      refreshKey={statsRefresh}
-                      homePlayers={homeRoster}
-                      awayPlayers={awayRoster}
-                      homeTeam={selectedSlot?.home_team ?? undefined}
-                      awayTeam={selectedSlot?.away_team ?? undefined}
-                    />
-                  </div>
-                </div>
+                <BoxscoreModal
+                  leagueId={leagueId}
+                  selectedSlot={selectedSlot}
+                  selectedSlotId={selectedSlotId}
+                  allPlayers={allPlayers}
+                  statsRefresh={statsRefresh}
+                  homeRoster={homeRoster}
+                  awayRoster={awayRoster}
+                  setShowBoxscoreModal={setShowBoxscoreModal}
+                />
               )}
 
               {/* 플러스원 선수 선택 모달 */}
               {showPlusOneModal && plusOneConflict && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowPlusOneModal(false)}>
-                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-                  <div className="relative bg-[color:var(--mm-panel)] border border-amber-600/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4 shadow-2xl"
-                    onClick={e => e.stopPropagation()}>
-                    <div className="text-center space-y-1.5">
-                      <div className="flex justify-center text-amber-300" aria-hidden><Zap size={24} /></div>
-                      <h3 className="text-[color:var(--mm-ink)] font-black text-base">플러스원 선수 선택</h3>
-                      <p className="text-[color:var(--mm-ink-soft)] text-sm">
-                        <span className="text-amber-300 font-bold">{plusOneConflict.teamName}</span>에 +1 선수가 {plusOneConflict.players.length}명입니다.<br/>
-                        이 경기에서 +1 혜택을 받을 선수를 선택하세요.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      {plusOneConflict.players.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => handlePlusOneSelect(p.id)}
-                          className="w-full py-3 px-4 rounded-xl bg-amber-900/30 border border-amber-600/50 text-amber-200 font-bold text-sm hover:bg-amber-900/50 hover:border-amber-500 cursor-pointer transition-colors flex items-center justify-between"
-                        >
-                          <span>{p.number != null ? `#${p.number} ` : ''}{p.name}</span>
-                          <span className="text-amber-400 text-xs font-black">+1 선택</span>
-                        </button>
-                      ))}
-                    </div>
-                    <button onClick={() => setShowPlusOneModal(false)} className="w-full text-center text-xs text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink-soft)] cursor-pointer py-1">취소</button>
-                  </div>
-                </div>
+                <PlusOneModal
+                  plusOneConflict={plusOneConflict}
+                  setShowPlusOneModal={setShowPlusOneModal}
+                  handlePlusOneSelect={handlePlusOneSelect}
+                />
               )}
 
               {/* 경기 종료 모달 */}
               {showComplete && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                  <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-6 w-full max-w-sm space-y-4">
-                    <h3 className="text-[color:var(--mm-ink)] font-black">경기 마감</h3>
-                    <p className="text-xs text-[color:var(--mm-ink-soft)]">
-                      {isTournament
-                        ? '우리 팀 점수는 기록에서 자동 계산됩니다. 상대 점수만 입력하세요.'
-                        : '점수는 기록한 득점으로 자동 계산됩니다.'}
-                    </p>
-
-                    {/* 대회 — 상대 최종 점수. 상대는 선수를 기록하지 않으므로 점수가 여기서만 들어온다.
-                        마감 해제 후 다시 열면 저장된 값이 채워져 "고치기" 가 된다. */}
-                    {isTournament && oppTeam && (
-                      <div className="space-y-1.5">
-                        <label htmlFor="opp-final" className="block text-xs font-bold text-[color:var(--mm-ink)]">
-                          {oppTeam.name ?? '상대팀'} 최종 점수
-                        </label>
-                        <input
-                          id="opp-final"
-                          type="number" inputMode="numeric" min={0} max={300}
-                          value={oppFinalScore}
-                          onChange={e => setOppFinalScore(e.target.value)}
-                          onBlur={() => { if (oppFinalScore.trim() !== '') fetchLiveScore() }}
-                          placeholder="예: 42"
-                          className="w-full min-h-[44px] px-3 rounded-lg bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-lg font-bold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        />
-                        <p className="text-xs text-[color:var(--mm-muted)]">
-                          비워 두면 상대 점수는 0으로 남습니다. 나중에 마감을 해제하고 고칠 수 있습니다.
-                        </p>
-                      </div>
-                    )}
-                    {liveScore && (
-                      <div className="bg-[color:var(--mm-panel-alt)] rounded-xl p-4 text-center">
-                        <div className="flex items-center justify-center gap-4">
-                          <div>
-                            <p className="text-xs text-[color:var(--mm-muted)] mb-1" style={{ color: accentOrInk(selectedSlot?.home_team?.color) }}>
-                              {selectedSlot?.home_team?.name ?? '홈'}
-                            </p>
-                            <p className="text-3xl font-black text-[color:var(--mm-ink)]">{liveScore.home}</p>
-                          </div>
-                          <span className="text-[color:var(--mm-muted)] font-bold text-lg">vs</span>
-                          <div>
-                            <p className="text-xs text-[color:var(--mm-muted)] mb-1" style={{ color: accentOrInk(selectedSlot?.away_team?.color) }}>
-                              {selectedSlot?.away_team?.name ?? '어웨이'}
-                            </p>
-                            <p className="text-3xl font-black text-[color:var(--mm-ink)]">{liveScore.away}</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-[color:var(--mm-muted)] mt-2">지금까지 기록한 득점을 더한 점수</p>
-                      </div>
-                    )}
-                    {!liveScore && (
-                      <button
-                        onClick={fetchLiveScore}
-                        className="w-full py-2 rounded-lg bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink-soft)] text-sm cursor-pointer hover:bg-[color:var(--mm-rule)]"
-                      >
-                        현재 점수 확인
-                      </button>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={completeGame}
-                        disabled={completing || savingOppScore}
-                        className="flex-1 bg-blue-600 hover:bg-blue-500 cursor-pointer disabled:opacity-50"
-                        size="sm"
-                      >
-                        {completing || savingOppScore
-                          ? <><Loader2 size={14} className="mr-1 animate-spin" />처리 중...</>
-                          : selectedSlot?.is_complete ? '다시 마감' : '완료 처리'}
-                      </Button>
-                      <Button
-                        onClick={() => { setShowComplete(false); setLiveScore(null) }}
-                        disabled={completing}
-                        variant="outline"
-                        size="sm"
-                        className="border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] cursor-pointer"
-                      >취소</Button>
-                    </div>
-                  </div>
-                </div>
+                <CompleteModal
+                  selectedSlot={selectedSlot}
+                  isTournament={isTournament}
+                  oppTeam={oppTeam}
+                  oppFinalScore={oppFinalScore}
+                  setOppFinalScore={setOppFinalScore}
+                  liveScore={liveScore}
+                  setLiveScore={setLiveScore}
+                  fetchLiveScore={fetchLiveScore}
+                  completeGame={completeGame}
+                  completing={completing}
+                  savingOppScore={savingOppScore}
+                  setShowComplete={setShowComplete}
+                />
               )}
             </>
           ) : (
@@ -4013,7 +602,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           )}
         </div>
       )}
-
       {/* 게임 이벤트 로그 모달 */}
       {showGameLog && selectedSlotId && (
         <GameLogModal

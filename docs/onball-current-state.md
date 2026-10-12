@@ -3,6 +3,11 @@
 최종 갱신 2026-10-10. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-10-12 ⑩, 리뉴얼 6단계 — 기록 화면 내부 분리):**
+- `record/page.tsx` 4,038줄 → 626줄. `record/_lib`(순수 함수) · `record/_hooks`(effect 훅 ①~⑰ 은 **원래 순서대로 page 에서 호출** · 동작 묶음은 렌더마다 새로 만드는 함수) · `record/_components`(화면 조각, 상태·effect 없음). 화면·문구·요청 불변.
+- ⚠ effect 를 하위 컴포넌트로 옮기지 말 것(실행 순서가 바뀐다). 동작 함수에 useCallback/ref 우회를 새로 씌우지 말 것(그 렌더의 값을 보던 동작이 바뀐다). `videoPanelOpen` effect 는 `_hooks/useQuarterVideos.ts`, `autoFillRotation` 은 `_hooks/useSlotCore.ts`.
+- **다음에 할 일**: 다음 토요일 전에 운영진이 기록 화면 점검 목록(16항목)을 한 번 따라 해 보기. 리뉴얼 0~6단계 화면 피드백 반영.
+
 **최근 결정 (2026-10-12 ⑨, 리뉴얼 4단계 — 하이라이트 4탭 → 피드 하나):**
 - `/highlights` 한 페이지 + 칩 한 줄(전체 · 날짜 · 선수 · 베스트샷 · 명경기 · 마일스톤). 상태는 URL — `?date=` · `?player=` · `?f=best|classics|milestones`. 조합은 날짜+선수, 베스트샷+선수만(명경기·마일스톤은 단독). 칩 규칙은 `components/league/highlights/HighlightsFeedChips.tsx` 주석.
 - 옛 주소(`/highlights/[date]` · `/player/[id]` · `/best-shots` · `/classics` · `/milestones`)는 쿼리를 보존해 피드로 redirect(`lib/highlights/feedRedirect.ts`). 홈 등의 옛 링크는 그대로 둬도 된다.
