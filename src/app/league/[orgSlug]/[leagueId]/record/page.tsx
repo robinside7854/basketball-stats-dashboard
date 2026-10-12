@@ -2267,7 +2267,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             <button
               onClick={() => syncYoutube()}
               disabled={ytSyncing}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-[#fff] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               aria-label="YouTube 연동"
             >
               {ytSyncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -2293,10 +2293,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               }}
               className={`relative flex flex-col items-center justify-center px-2 py-2.5 min-h-[44px] rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
                 isSelected
-                  ? 'bg-blue-600 border-blue-500 text-white'
+                  ? 'bg-blue-600 border-blue-500 text-[#fff]'
                   : slot.is_complete
                   ? 'bg-green-900/30 border-green-700/50 text-green-400'
-                  : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-600'
+                  : 'bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:border-[color:var(--mm-rule)]'
               }`}
             >
               {/* 번호 대신 대진명. 숫자만 있으면 어느 탭이 어느 경기인지 알 수 없어
@@ -2318,7 +2318,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   : slot.is_started
                   ? <Circle size={14} className="text-yellow-400" />
                   : hasTeams
-                  ? <Circle size={14} className="text-gray-500" />
+                  ? <Circle size={14} className="text-[color:var(--mm-muted)]" />
                   : null}
               </div>
             </button>
@@ -3203,12 +3203,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         ].map(({ label, delta }) => (
                           <button key={label} onClick={() => seekRelative(delta)}
                             aria-label={`${label}초`}
-                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-gray-200 hover:text-white hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
+                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
                             {label}
                           </button>
                         ))}
                         <button onClick={togglePlay}
-                          className="min-h-[44px] min-w-[44px] rounded-lg text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
+                          className="min-h-[44px] min-w-[44px] rounded-lg text-[color:var(--mm-ink)] hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
                           aria-label="재생/일시정지">
                           <PlayCircle size={24} />
                         </button>
@@ -3218,11 +3218,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         ].map(({ label, delta }) => (
                           <button key={label} onClick={() => seekRelative(delta)}
                             aria-label={`${label}초`}
-                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-gray-200 hover:text-white hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
+                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
                             {label}
                           </button>
                         ))}
-                        <span className="text-xs text-gray-500 ml-1 hidden lg:inline">Space·←·→</span>
+                        <span className="text-xs text-[color:var(--mm-muted)] ml-1 hidden lg:inline">Space·←·→</span>
                       </div>
                     )}
                     {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}
@@ -3230,7 +3230,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       <div className="absolute top-2 left-2 z-10 pointer-events-none">
                         {/* 좌우는 이 쿼터의 코트 배치를 따른다(sidesFlipped). 팀명·색·점수를
                             한 묶음(sideView)으로 꺼내 쓰므로 셋이 따로 놀 수 없다. */}
-                        <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-white">
+                        <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-[#fff]">
                           {(() => {
                             const L = sideView(leftSide)
                             const R = sideView(rightSide)
@@ -3250,7 +3250,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                                 {/* 구분선 + LIVE */}
                                 <div className="flex flex-col items-center justify-center px-2 border-x border-white/10">
                                   <span className="text-xs text-green-400 font-black tracking-widest">LIVE</span>
-                                  <span className="text-lg font-black text-gray-500 leading-none">:</span>
+                                  <span className="text-lg font-black text-[color:var(--mm-muted)] leading-none">:</span>
                                 </div>
                                 {cell(R)}
                               </>
@@ -3293,38 +3293,38 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   {selectedSlot?.is_complete ? (
                     /* ── 마감된 경기 배너 ── */
                     <div className="space-y-3">
-                      <div className="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden">
+                      <div className="bg-[color:var(--mm-ground)] border border-[color:var(--mm-rule)] rounded-2xl overflow-hidden">
                         {/* 최종 스코어 */}
                         <div className="grid grid-cols-[1fr_auto_1fr]">
                           <div className="py-5 px-4 text-center min-w-0">
                             <p className="text-xs font-bold mb-2 break-keep" style={{ color: accentOrInk(selectedSlot.home_team?.color ?? '#3b82f6'), lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               {selectedSlot.home_team?.name ?? '홈팀'}
                             </p>
-                            <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? selectedSlot.home_score}</p>
+                            <p className="text-5xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none">{liveScore?.home ?? selectedSlot.home_score}</p>
                           </div>
-                          <div className="flex flex-col items-center justify-center px-4 border-x border-gray-800">
-                            <span className="text-2xl text-gray-600 font-black leading-none">:</span>
+                          <div className="flex flex-col items-center justify-center px-4 border-x border-[color:var(--mm-rule)]">
+                            <span className="text-2xl text-[color:var(--mm-muted)] font-black leading-none">:</span>
                           </div>
                           <div className="py-5 px-4 text-center min-w-0">
                             <p className="text-xs font-bold mb-2 break-keep" style={{ color: accentOrInk(selectedSlot.away_team?.color ?? '#ef4444'), lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               {selectedSlot.away_team?.name ?? '어웨이팀'}
                             </p>
-                            <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? selectedSlot.away_score}</p>
+                            <p className="text-5xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none">{liveScore?.away ?? selectedSlot.away_score}</p>
                           </div>
                         </div>
                         {/* 마감 배너 */}
-                        <div className="border-t border-gray-800 py-4 px-6 flex flex-col items-center gap-1.5">
+                        <div className="border-t border-[color:var(--mm-rule)] py-4 px-6 flex flex-col items-center gap-1.5">
                           <div className="flex items-center gap-2">
-                            <CheckCircle2 size={20} className="text-gray-500" />
-                            <span className="text-lg font-black text-gray-400 tracking-tight">마감된 경기입니다</span>
+                            <CheckCircle2 size={20} className="text-[color:var(--mm-muted)]" />
+                            <span className="text-lg font-black text-[color:var(--mm-ink-soft)] tracking-tight">마감된 경기입니다</span>
                           </div>
-                          <p className="text-xs text-gray-400">「기록 내역」에서 고치거나 지울 수 있고, 「다시 기록하기」로 이어서 기록할 수 있습니다</p>
+                          <p className="text-xs text-[color:var(--mm-ink-soft)]">「기록 내역」에서 고치거나 지울 수 있고, 「다시 기록하기」로 이어서 기록할 수 있습니다</p>
                         </div>
                         {/* 하단 버튼 행 */}
-                        <div className="grid grid-cols-2 border-t border-gray-800/60">
+                        <div className="grid grid-cols-2 border-t border-[color:var(--mm-rule)]/60">
                           <button
                             onClick={() => setShowGameLog(true)}
-                            className="py-2.5 min-h-11 flex items-center justify-center gap-1.5 text-gray-300 hover:text-white hover:bg-gray-900/60 text-xs font-medium transition-colors cursor-pointer border-r border-gray-800/60"
+                            className="py-2.5 min-h-11 flex items-center justify-center gap-1.5 text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)]/60 text-xs font-medium transition-colors cursor-pointer border-r border-[color:var(--mm-rule)]/60"
                           >
                             <ClipboardList size={14} />
                             기록 내역
@@ -3344,23 +3344,23 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   ) : gameStarted ? (
                     <>
                       {/* 컴팩트 스코어 스트립 */}
-                      <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
+                      <div className="bg-[color:var(--mm-ground)] border border-[color:var(--mm-rule)] rounded-xl overflow-hidden">
                         <div className="flex items-stretch min-h-11">
                           {/* 좌우는 이 쿼터의 코트 배치를 따른다(위 스코어보드와 같은 sideView) */}
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
                             <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(leftSide).color) }}>
                               {sideView(leftSide).team?.name ?? (leftSide === 'home' ? '홈팀' : '어웨이팀')}
                             </span>
-                            <span className="text-2xl font-black text-white tabular-nums leading-none ml-auto">
+                            <span className="text-2xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none ml-auto">
                               {sideView(leftSide).score}
                             </span>
                           </div>
-                          <div className="flex flex-col items-center justify-center px-2 border-x border-gray-800 shrink-0">
+                          <div className="flex flex-col items-center justify-center px-2 border-x border-[color:var(--mm-rule)] shrink-0">
                             <span className="text-xs text-green-400 font-bold tracking-widest">LIVE</span>
-                            <span className="text-sm text-gray-500 font-black leading-none">:</span>
+                            <span className="text-sm text-[color:var(--mm-muted)] font-black leading-none">:</span>
                           </div>
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
-                            <span className="text-2xl font-black text-white tabular-nums leading-none mr-auto">
+                            <span className="text-2xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none mr-auto">
                               {sideView(rightSide).score}
                             </span>
                             <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(rightSide).color) }}>
@@ -3369,7 +3369,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           </div>
                           <button
                             onClick={() => setShowGameLog(true)}
-                            className="border-l border-gray-800 px-3 min-h-11 flex items-center gap-1 text-xs text-gray-300 hover:text-white hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                            className="border-l border-[color:var(--mm-rule)] px-3 min-h-11 flex items-center gap-1 text-xs text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
                           >
                             <ClipboardList size={14} />
                             <span className="hidden sm:inline">기록 내역</span>
@@ -3388,7 +3388,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                                 setPlusOneConflict(conflict)
                                 setShowPlusOneModal(true)
                               }}
-                              className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                              className="border-l border-[color:var(--mm-rule)] px-2.5 flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
                               title="플러스원 선수 설정"
                             >
                               <Zap size={14} aria-hidden />
@@ -3397,14 +3397,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           )}
                           <button
                             onClick={() => setShowSubModal(true)}
-                            className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                            className="border-l border-[color:var(--mm-rule)] px-2.5 flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
                           >
                             <RefreshCw size={14} />
                             <span className="hidden sm:inline">교체</span>
                           </button>
                           <button
                             onClick={() => setShowBoxscoreModal(true)}
-                            className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                            className="border-l border-[color:var(--mm-rule)] px-2.5 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-[color:var(--mm-panel-alt)]/60 cursor-pointer transition-colors shrink-0"
                           >
                             <ClipboardList size={14} />
                             <span className="hidden sm:inline">스탯</span>
@@ -3435,7 +3435,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             )
                           }
                           return (
-                            <div className="flex items-center justify-between gap-2 px-3 py-1 border-t border-gray-800">
+                            <div className="flex items-center justify-between gap-2 px-3 py-1 border-t border-[color:var(--mm-rule)]">
                               {chip(leftSide, 'left')}
                               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{qLabel}</span>
                               {chip(rightSide, 'right')}
@@ -3448,8 +3448,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           종전엔 쿼터 영상이 있는 날에만 보여서, 영상 없이 기록하는 날은 쿼터를 넘길 수단이
                           없었고 팀 파울도 쿼터로 나눌 수 없었다. 쿼터 영상이 있으면 누르는 순간
                           그 쿼터 영상으로 바뀌고(activeVideo), 없으면 기록 쿼터만 바뀐다. */}
-                      <div className="flex items-center gap-1.5 px-2 py-2 border-t border-gray-800 bg-gray-900/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
-                        <span className="pl-1 shrink-0 text-xs font-semibold text-gray-400">쿼터</span>
+                      <div className="flex items-center gap-1.5 px-2 py-2 border-t border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
+                        <span className="pl-1 shrink-0 text-xs font-semibold text-[color:var(--mm-ink-soft)]">쿼터</span>
                         {QUARTER_OPTIONS.map(q => {
                           const active = currentQuarter === q.value
                           return (
@@ -3461,8 +3461,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                               aria-label={`${q.label} 로 기록`}
                               className={`h-11 min-w-11 shrink-0 px-3 text-xs font-black tabular-nums border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
                                 active
-                                  ? 'bg-amber-500 border-amber-400 text-gray-950'
-                                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white'
+                                  ? 'bg-amber-500 border-amber-400 text-[color:var(--mm-black)]'
+                                  : 'bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] hover:text-[color:var(--mm-ink)]'
                               }`}
                             >
                               {q.label}
@@ -3834,11 +3834,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {showSubModal && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowSubModal(false)}>
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                  <div className="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl p-4 shadow-2xl"
+                  <div className="relative w-full max-w-lg bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-4 shadow-2xl"
                     onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-black text-white">선수 교체</h3>
-                      <button onClick={() => setShowSubModal(false)} className="text-gray-500 hover:text-white cursor-pointer transition-colors text-xs">닫기</button>
+                      <h3 className="text-sm font-black text-[color:var(--mm-ink)]">선수 교체</h3>
+                      <button onClick={() => setShowSubModal(false)} className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors text-xs">닫기</button>
                     </div>
                     <LeagueSubstitutionPanel
                       leagueId={leagueId}
@@ -3872,11 +3872,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {showBoxscoreModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowBoxscoreModal(false)}>
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                  <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-gray-900 border border-gray-700 rounded-2xl p-4 shadow-2xl"
+                  <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-4 shadow-2xl"
                     onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-black text-white">실시간 박스스코어</h3>
-                      <button onClick={() => setShowBoxscoreModal(false)} className="text-gray-500 hover:text-white cursor-pointer transition-colors text-xs">닫기</button>
+                      <h3 className="text-sm font-black text-[color:var(--mm-ink)]">실시간 박스스코어</h3>
+                      <button onClick={() => setShowBoxscoreModal(false)} className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors text-xs">닫기</button>
                     </div>
                     <LeagueStatsPanel
                       leagueId={leagueId}
@@ -3896,12 +3896,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {showPlusOneModal && plusOneConflict && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowPlusOneModal(false)}>
                   <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-                  <div className="relative bg-gray-900 border border-amber-600/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4 shadow-2xl"
+                  <div className="relative bg-[color:var(--mm-panel)] border border-amber-600/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4 shadow-2xl"
                     onClick={e => e.stopPropagation()}>
                     <div className="text-center space-y-1.5">
                       <div className="flex justify-center text-amber-300" aria-hidden><Zap size={24} /></div>
-                      <h3 className="text-white font-black text-base">플러스원 선수 선택</h3>
-                      <p className="text-gray-400 text-sm">
+                      <h3 className="text-[color:var(--mm-ink)] font-black text-base">플러스원 선수 선택</h3>
+                      <p className="text-[color:var(--mm-ink-soft)] text-sm">
                         <span className="text-amber-300 font-bold">{plusOneConflict.teamName}</span>에 +1 선수가 {plusOneConflict.players.length}명입니다.<br/>
                         이 경기에서 +1 혜택을 받을 선수를 선택하세요.
                       </p>
@@ -3918,7 +3918,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         </button>
                       ))}
                     </div>
-                    <button onClick={() => setShowPlusOneModal(false)} className="w-full text-center text-xs text-gray-600 hover:text-gray-400 cursor-pointer py-1">취소</button>
+                    <button onClick={() => setShowPlusOneModal(false)} className="w-full text-center text-xs text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink-soft)] cursor-pointer py-1">취소</button>
                   </div>
                 </div>
               )}
@@ -3926,9 +3926,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {/* 경기 종료 모달 */}
               {showComplete && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                  <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
-                    <h3 className="text-white font-black">경기 마감</h3>
-                    <p className="text-xs text-gray-400">
+                  <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-6 w-full max-w-sm space-y-4">
+                    <h3 className="text-[color:var(--mm-ink)] font-black">경기 마감</h3>
+                    <p className="text-xs text-[color:var(--mm-ink-soft)]">
                       {isTournament
                         ? '우리 팀 점수는 기록에서 자동 계산됩니다. 상대 점수만 입력하세요.'
                         : '점수는 기록한 득점으로 자동 계산됩니다.'}
@@ -3938,7 +3938,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         마감 해제 후 다시 열면 저장된 값이 채워져 "고치기" 가 된다. */}
                     {isTournament && oppTeam && (
                       <div className="space-y-1.5">
-                        <label htmlFor="opp-final" className="block text-xs font-bold text-gray-300">
+                        <label htmlFor="opp-final" className="block text-xs font-bold text-[color:var(--mm-ink)]">
                           {oppTeam.name ?? '상대팀'} 최종 점수
                         </label>
                         <input
@@ -3948,37 +3948,37 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           onChange={e => setOppFinalScore(e.target.value)}
                           onBlur={() => { if (oppFinalScore.trim() !== '') fetchLiveScore() }}
                           placeholder="예: 42"
-                          className="w-full min-h-[44px] px-3 rounded-lg bg-gray-800 border border-gray-700 text-white text-lg font-bold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          className="w-full min-h-[44px] px-3 rounded-lg bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-lg font-bold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                         />
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-[color:var(--mm-muted)]">
                           비워 두면 상대 점수는 0으로 남습니다. 나중에 마감을 해제하고 고칠 수 있습니다.
                         </p>
                       </div>
                     )}
                     {liveScore && (
-                      <div className="bg-gray-800 rounded-xl p-4 text-center">
+                      <div className="bg-[color:var(--mm-panel-alt)] rounded-xl p-4 text-center">
                         <div className="flex items-center justify-center gap-4">
                           <div>
-                            <p className="text-xs text-gray-500 mb-1" style={{ color: accentOrInk(selectedSlot?.home_team?.color) }}>
+                            <p className="text-xs text-[color:var(--mm-muted)] mb-1" style={{ color: accentOrInk(selectedSlot?.home_team?.color) }}>
                               {selectedSlot?.home_team?.name ?? '홈'}
                             </p>
-                            <p className="text-3xl font-black text-white">{liveScore.home}</p>
+                            <p className="text-3xl font-black text-[color:var(--mm-ink)]">{liveScore.home}</p>
                           </div>
-                          <span className="text-gray-600 font-bold text-lg">vs</span>
+                          <span className="text-[color:var(--mm-muted)] font-bold text-lg">vs</span>
                           <div>
-                            <p className="text-xs text-gray-500 mb-1" style={{ color: accentOrInk(selectedSlot?.away_team?.color) }}>
+                            <p className="text-xs text-[color:var(--mm-muted)] mb-1" style={{ color: accentOrInk(selectedSlot?.away_team?.color) }}>
                               {selectedSlot?.away_team?.name ?? '어웨이'}
                             </p>
-                            <p className="text-3xl font-black text-white">{liveScore.away}</p>
+                            <p className="text-3xl font-black text-[color:var(--mm-ink)]">{liveScore.away}</p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-600 mt-2">지금까지 기록한 득점을 더한 점수</p>
+                        <p className="text-xs text-[color:var(--mm-muted)] mt-2">지금까지 기록한 득점을 더한 점수</p>
                       </div>
                     )}
                     {!liveScore && (
                       <button
                         onClick={fetchLiveScore}
-                        className="w-full py-2 rounded-lg bg-gray-800 text-gray-400 text-sm cursor-pointer hover:bg-gray-700"
+                        className="w-full py-2 rounded-lg bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink-soft)] text-sm cursor-pointer hover:bg-[color:var(--mm-rule)]"
                       >
                         현재 점수 확인
                       </button>
@@ -3999,7 +3999,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         disabled={completing}
                         variant="outline"
                         size="sm"
-                        className="border-gray-700 text-gray-400 cursor-pointer"
+                        className="border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] cursor-pointer"
                       >취소</Button>
                     </div>
                   </div>

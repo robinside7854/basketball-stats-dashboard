@@ -52,18 +52,18 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-800">
-        <p className="text-sm font-bold text-gray-400">팀 구성 성적 (지난 분기 평균)</p>
-        <p className="text-sm text-gray-400 mt-0.5">드래프트된 선수 + 팀장의 평균. 초록=강점 · 빨강=약점 (다음 픽 참고)</p>
+    <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-[color:var(--mm-rule)]">
+        <p className="text-sm font-bold text-[color:var(--mm-ink-soft)]">팀 구성 성적 (지난 분기 평균)</p>
+        <p className="text-sm text-[color:var(--mm-ink-soft)] mt-0.5">드래프트된 선수 + 팀장의 평균. 초록=강점 · 빨강=약점 (다음 픽 참고)</p>
       </div>
       {/* 잠금 안내는 표 위에 한 번만 — 행마다 반복하면 '—' 보다 더 시끄럽다 */}
       {gated && (
-        <div className="px-4 py-2.5 border-b border-gray-800 bg-gray-800/40 flex items-center gap-2 flex-wrap">
+        <div className="px-4 py-2.5 border-b border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)]/40 flex items-center gap-2 flex-wrap">
           <Lock size={16} className="text-amber-300 shrink-0" aria-hidden />
-          <span className="text-sm text-gray-200">로그인하면 지난 분기 성적이 보입니다</span>
+          <span className="text-sm text-[color:var(--mm-ink)]">로그인하면 지난 분기 성적이 보입니다</span>
           <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-gray-900 text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+            className="ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
             <LogIn size={16} aria-hidden /> 로그인
           </button>
         </div>
@@ -71,7 +71,7 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800/50 text-gray-500">
+            <tr className="border-b border-[color:var(--mm-rule)]/50 text-[color:var(--mm-muted)]">
               <th className="text-left p-2 font-bold">팀</th>
               <th className="text-center p-2 font-bold">인원</th>
               {COLS.map(c => <th key={String(c.key)} className="text-center p-2 font-bold min-w-[52px]">{c.label}</th>)}
@@ -79,14 +79,14 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
           </thead>
           <tbody>
             {rows.map(r => (
-              <tr key={r.team.id} className="border-b border-gray-800/30">
+              <tr key={r.team.id} className="border-b border-[color:var(--mm-rule)]/30">
                 <td className="p-2">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.team.color }} />
-                    <span className="text-gray-200 font-bold">{r.team.name}</span>
+                    <span className="text-[color:var(--mm-ink)] font-bold">{r.team.name}</span>
                   </div>
                 </td>
-                <td className="t-td text-gray-400">{r.count}</td>
+                <td className="t-td text-[color:var(--mm-ink-soft)]">{r.count}</td>
                 {COLS.map(c => {
                   const v = r.avg[c.key]
                   const bw = bestWorst[c.key]
@@ -94,7 +94,7 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
                   const isWorst = bw && r.ranked > 0 && v === bw.worst && bw.best !== bw.worst
                   return (
                     <td key={String(c.key)} className={`t-td ${
-                      isBest ? 'text-emerald-300 font-bold' : isWorst ? 'text-red-400' : 'text-white'
+                      isBest ? 'text-emerald-300 font-bold' : isWorst ? 'text-red-400' : 'text-[color:var(--mm-ink)]'
                     }`}>
                       {r.ranked > 0 ? v.toFixed(1) : '—'}
                     </td>

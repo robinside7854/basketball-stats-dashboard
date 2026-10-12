@@ -74,7 +74,7 @@ const TIER_COLORS: Record<'high' | 'mid' | 'low' | 'none', { fill: string; text:
   high: { fill: '#16a34a', text: 'text-emerald-100', label: '핫'    },
   mid:  { fill: '#f59e0b', text: 'text-yellow-100',  label: '중간'  },
   low:  { fill: '#B91C1C', text: 'text-red-100',     label: '콜드'  },
-  none: { fill: '#57534E', text: 'text-gray-300',    label: '표본 부족' },
+  none: { fill: '#57534E', text: 'text-[color:var(--mm-ink)]',    label: '표본 부족' },
 }
 
 export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGUE_BASELINE }: Props) {
@@ -333,7 +333,7 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
             const c = { post: dsC, layup: luC, mid: mdC, three: thC }[hover]
             const label = { post: '골밑 (DS · 노차지 제한구역)', layup: '레이업 (LU · 페인트 안)', mid: '미드레인지 (MD · 페인트 밖 · 3점 안)', three: '3점 (3P · 코너 + 아크)' }[hover]
             return (
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gray-900/90 border border-gray-700/60 flex-wrap">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[color:var(--mm-panel)]/90 border border-[color:var(--mm-rule)]/60 flex-wrap">
                 <span className="font-bold text-[color:var(--mm-ink)]">{label}</span>
                 <span className="text-[color:var(--mm-ink-soft)]">{z.m}/{z.a}</span>
                 <span className={`font-black ${c.text}`}>{z.a > 0 ? `${z.fg_pct}%` : '—'}</span>

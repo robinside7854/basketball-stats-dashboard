@@ -515,21 +515,21 @@ export default function LeagueDraftPage() {
               <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm mb-5 animate-in slide-in-from-top-4 duration-500"
                 style={{ backgroundColor: `${rc}33`, border: `2px solid ${rc}` }}>
                 <div className="w-3.5 h-3.5 rounded-full animate-pulse border" style={{ backgroundColor: teamInk(rc).bg, borderColor: teamInk(rc).border }} />
-                <span className="text-white font-bold text-xl">{teamMap[reveal.team_id]?.name}</span>
-                <span className="text-white/80 text-base">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
+                <span className="text-[color:var(--mm-ink)] font-bold text-xl">{teamMap[reveal.team_id]?.name}</span>
+                <span className="text-[color:var(--mm-ink)]/80 text-base">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
               </div>
               <p className="font-jersey text-lg mb-3 animate-pulse" style={{ color: teamAccentOnDark(rc) }}>THE PICK IS IN</p>
               <div className="mb-4 animate-in zoom-in-75 duration-500">
                 <PickPhotoFlip photoUrl={reveal.player_photo_url} playerName={reveal.player_name} pickNumber={reveal.pick_number} teamColor={rc} size="md" />
               </div>
-              <h2 className="font-jersey text-6xl sm:text-8xl font-black text-white animate-in zoom-in-90 duration-500"
+              <h2 className="font-jersey text-6xl sm:text-8xl font-black text-[color:var(--mm-ink)] animate-in zoom-in-90 duration-500"
                 style={{ textShadow: `0 0 40px ${rc}, 0 0 80px ${rc}88` }}>
                 {reveal.player_name}
               </h2>
               {reveal.player_number != null && (
                 <p className="font-jersey text-5xl mt-3 tabular-nums font-black" style={{ color: rc }}>#{reveal.player_number}</p>
               )}
-              <p className="text-white/80 text-base mt-4 font-bold leading-relaxed">{teamMap[reveal.team_id]?.name} 지명 완료</p>
+              <p className="text-[color:var(--mm-ink)]/80 text-base mt-4 font-bold leading-relaxed">{teamMap[reveal.team_id]?.name} 지명 완료</p>
             </div>
           </div>
         )
@@ -563,7 +563,7 @@ export default function LeagueDraftPage() {
                 <FlaskConical size={16} aria-hidden /> TEST · 리그 미반영
               </span>
             )}
-            {isFocus &&<span className="text-sm font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-white tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
+            {isFocus &&<span className="text-sm font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-[#fff] tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
           </h1>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <button onClick={() => { primeAudio(); setMuted(v => !v) }} title={muted ? '소리 켜기' : '소리 끄기'}
@@ -783,8 +783,8 @@ export default function LeagueDraftPage() {
                   {/* 시간 종료 — 자동 선택 최종 카운트다운 */}
                   {expired && graceLeft !== null && (
                     <div className="mt-3 rounded-sm bg-[color:var(--mm-live-bg)] px-3 py-2.5 flex items-center justify-center gap-2 animate-pulse flex-wrap">
-                      <span className="inline-flex items-center gap-1.5 text-white text-sm sm:text-base font-bold leading-relaxed"><Clock size={16} aria-hidden /> 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
-                      <span className="font-jersey font-black text-3xl text-white tabular-nums">{graceLeft}</span>
+                      <span className="inline-flex items-center gap-1.5 text-[color:var(--mm-ink)] text-sm sm:text-base font-bold leading-relaxed"><Clock size={16} aria-hidden /> 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
+                      <span className="font-jersey font-black text-3xl text-[color:var(--mm-ink)] tabular-nums">{graceLeft}</span>
                     </div>
                   )}
                   {/* 추가 시간 — 현재 차례 단장에게만 */}

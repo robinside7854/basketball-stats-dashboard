@@ -67,7 +67,7 @@ function eventColor(type: string, result: string | null) {
   if (type === 'oreb' || type === 'dreb') return 'text-yellow-400'
   if (type === 'turnover') return 'text-red-500'
   if (type === 'foul')     return 'text-orange-400'
-  return 'text-gray-400'
+  return 'text-[color:var(--mm-ink-soft)]'
 }
 
 interface Props {
@@ -231,20 +231,20 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
   // Chip style helpers
   const chipBase = 'px-2.5 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-colors'
-  const chipInactive = `${chipBase} border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500`
-  const chipActive = `${chipBase} bg-blue-600 border-blue-500 text-white`
+  const chipInactive = `${chipBase} border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink-soft)] hover:border-[color:var(--mm-muted)]`
+  const chipActive = `${chipBase} bg-blue-600 border-blue-500 text-[#fff]`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[88vh] flex flex-col z-10 shadow-2xl mm-modal-in">
+      <div className="relative bg-[color:var(--mm-ground)] border-0 sm:border border-[color:var(--mm-rule)] rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[88vh] flex flex-col z-10 shadow-2xl mm-modal-in">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-[color:var(--mm-rule)] shrink-0">
           <div className="flex items-center gap-3">
-            <h2 className="text-white font-black text-sm">기록 내역</h2>
+            <h2 className="text-[color:var(--mm-ink)] font-black text-sm">기록 내역</h2>
             {!loading && (
-              <span className="text-xs text-gray-600">
+              <span className="text-xs text-[color:var(--mm-muted)]">
                 {isFiltered ? `${filteredEvents.length}/${events.length}개` : `${events.length}개`}
               </span>
             )}
@@ -259,14 +259,14 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 전체 초기화
               </button>
             )}
-            <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+            <button onClick={onClose} className="rounded-lg hover:bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
               <X size={20} />
             </button>
           </div>
         </div>
 
         {/* Filter bar */}
-        <div className="shrink-0 px-4 py-2.5 border-b border-gray-800 space-y-2">
+        <div className="shrink-0 px-4 py-2.5 border-b border-[color:var(--mm-rule)] space-y-2">
           {/* Row 1: Team + Result */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1 flex-wrap">
@@ -277,7 +277,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
               {homeTeam && (
                 <button
                   onClick={() => setFilterTeam(filterTeam === homeTeam.id ? 'all' : homeTeam.id)}
-                  className={chipBase + (filterTeam === homeTeam.id ? '' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
+                  className={chipBase + (filterTeam === homeTeam.id ? '' : ' border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink-soft)] hover:border-[color:var(--mm-muted)]')}
                   // 팀 컬러가 흰색이면 하드코딩 text-white 가 사라진다 → textOnBg 로 대비색 결정 (2026-08-08 핫픽스)
                   style={filterTeam === homeTeam.id ? { backgroundColor: homeTeam.color, borderColor: homeTeam.color, color: textOnBg(homeTeam.color) } : undefined}
                 >{homeTeam.name}</button>
@@ -285,7 +285,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
               {awayTeam && (
                 <button
                   onClick={() => setFilterTeam(filterTeam === awayTeam.id ? 'all' : awayTeam.id)}
-                  className={chipBase + (filterTeam === awayTeam.id ? '' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
+                  className={chipBase + (filterTeam === awayTeam.id ? '' : ' border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink-soft)] hover:border-[color:var(--mm-muted)]')}
                   style={filterTeam === awayTeam.id ? { backgroundColor: awayTeam.color, borderColor: awayTeam.color, color: textOnBg(awayTeam.color) } : undefined}
                 >{awayTeam.name}</button>
               )}
@@ -315,7 +315,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
             <select
               value={filterPlayer}
               onChange={e => setFilterPlayer(e.target.value)}
-              className="bg-gray-900 border border-gray-700 text-gray-400 text-xs rounded-lg px-2 py-1 cursor-pointer"
+              className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] text-xs rounded-lg px-2 py-1 cursor-pointer"
             >
               <option value="all">전체 선수</option>
               {eventPlayerIds.map(id => {
@@ -334,9 +334,9 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
         {/* Event list */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
           {loading ? (
-            <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-600" /></div>
+            <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-[color:var(--mm-muted)]" /></div>
           ) : filteredEvents.length === 0 ? (
-            <p className="text-center text-sm text-gray-600 py-10">
+            <p className="text-center text-sm text-[color:var(--mm-muted)] py-10">
               {isFiltered && events.length > 0 ? '필터 조건에 맞는 기록이 없습니다' : '아직 기록이 없습니다'}
             </p>
           ) : filteredEvents.map(e => {
@@ -346,20 +346,20 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
             if (isEditing) {
               return (
-                <div key={e.id} className="bg-gray-900 border border-blue-500/40 rounded-xl p-3.5 space-y-3">
+                <div key={e.id} className="bg-[color:var(--mm-panel)] border border-blue-500/40 rounded-xl p-3.5 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs text-gray-600 block mb-1">선수</label>
+                      <label className="text-xs text-[color:var(--mm-muted)] block mb-1">선수</label>
                       <select value={editForm.playerId} onChange={ev => setEditForm(f => ({ ...f, playerId: ev.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
+                        className="w-full bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
                         {editPlayerOptions(editForm.playerId).map(p => <option key={p.id} value={p.id}>{p.number != null ? `#${p.number} ` : ''}{p.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-600 block mb-1">기록 종류</label>
+                      <label className="text-xs text-[color:var(--mm-muted)] block mb-1">기록 종류</label>
                       <select value={editForm.type} onChange={ev => setEditForm(f => ({ ...f, type: ev.target.value, result: '', relatedId: '' }))}
-                        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
+                        className="w-full bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs rounded-lg px-2 py-1.5">
                         {EVENT_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
                       </select>
                     </div>
@@ -368,9 +368,9 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                   {needsResult && (
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-gray-600 block mb-1">결과</label>
+                        <label className="text-xs text-[color:var(--mm-muted)] block mb-1">결과</label>
                         <select value={editForm.result} onChange={ev => setEditForm(f => ({ ...f, result: ev.target.value }))}
-                          className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
+                          className="w-full bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs rounded-lg px-2 py-1.5">
                           <option value="">없음</option>
                           <option value="made">성공</option>
                           <option value="missed">실패</option>
@@ -381,9 +381,9 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
                   {isShotType && (
                     <div>
-                      <label className="text-xs text-gray-600 block mb-1">어시스트 선수</label>
+                      <label className="text-xs text-[color:var(--mm-muted)] block mb-1">어시스트 선수</label>
                       <select value={editForm.relatedId} onChange={ev => setEditForm(f => ({ ...f, relatedId: ev.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
+                        className="w-full bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
                         {editPlayerOptions(editForm.relatedId).filter(p => p.id !== editForm.playerId).map(p => (
                           <option key={p.id} value={p.id}>{p.number != null ? `#${p.number} ` : ''}{p.name}</option>
@@ -394,11 +394,11 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
                   <div className="flex gap-2 pt-0.5">
                     <button onClick={() => handleSave(e.id)} disabled={saving}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg cursor-pointer disabled:opacity-50 transition-colors">
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-600 hover:bg-blue-500 text-[#fff] text-xs font-bold rounded-lg cursor-pointer disabled:opacity-50 transition-colors">
                       {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}저장
                     </button>
                     <button onClick={() => setEditingId(null)}
-                      className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold rounded-lg cursor-pointer transition-colors">
+                      className="flex-1 py-2 bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs font-bold rounded-lg cursor-pointer transition-colors">
                       취소
                     </button>
                   </div>
@@ -408,7 +408,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
             return (
               <div key={e.id}
-                className="flex items-center gap-3 px-3 py-2.5 bg-gray-900/60 border border-gray-800/40 rounded-xl hover:border-gray-700/60 transition-colors group">
+                className="flex items-center gap-3 px-3 py-2.5 bg-[color:var(--mm-panel)]/60 border border-[color:var(--mm-rule)]/40 rounded-xl hover:border-[color:var(--mm-rule)]/60 transition-colors group">
                 {/* 타임스탬프 — 클릭 시 영상 해당 시간으로 이동 */}
                 <div className="shrink-0 w-10 text-center">
                   {e.video_timestamp != null && ytPlayer ? (
@@ -420,7 +420,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                       {fmtTs(e.video_timestamp)}
                     </button>
                   ) : (
-                    <span className="text-xs font-mono font-bold text-gray-600 tabular-nums">
+                    <span className="text-xs font-mono font-bold text-[color:var(--mm-muted)] tabular-nums">
                       {fmtTs(e.video_timestamp)}
                     </span>
                   )}
@@ -429,7 +429,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => e.league_player_id && setQuickViewId(e.league_player_id)}
-                      className="text-white text-sm font-semibold hover:text-blue-300 transition-colors cursor-pointer hover:underline underline-offset-2"
+                      className="text-[color:var(--mm-ink)] text-sm font-semibold hover:text-blue-300 transition-colors cursor-pointer hover:underline underline-offset-2"
                     >
                       {player ? `${player.number != null ? `#${player.number} ` : ''}${player.name}` : '—'}
                     </button>
@@ -444,7 +444,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                     )}
                   </div>
                   {relPlayer && (
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-[color:var(--mm-muted)]">
                       어시스트 → {relPlayer.number != null ? `#${relPlayer.number} ` : ''}{relPlayer.name}
                     </p>
                   )}
@@ -453,11 +453,11 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 {isEditMode && (
                   <div className="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button onClick={() => startEdit(e)}
-                      className="rounded-lg bg-gray-800 hover:bg-blue-900/40 text-gray-500 hover:text-blue-400 cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+                      className="rounded-lg bg-[color:var(--mm-panel-alt)] hover:bg-blue-900/40 text-[color:var(--mm-muted)] hover:text-blue-400 cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
                       <Pencil size={14} />
                     </button>
                     <button onClick={() => handleDelete(e.id)} disabled={deletingId === e.id}
-                      className="rounded-lg bg-gray-800 hover:bg-red-900/40 text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-50 inline-flex items-center justify-center min-h-11 min-w-11">
+                      className="rounded-lg bg-[color:var(--mm-panel-alt)] hover:bg-red-900/40 text-[color:var(--mm-muted)] hover:text-red-400 cursor-pointer transition-colors disabled:opacity-50 inline-flex items-center justify-center min-h-11 min-w-11">
                       {deletingId === e.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                     </button>
                   </div>
@@ -468,8 +468,8 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
         </div>
 
         {!isEditMode && (
-          <div className="px-5 py-2.5 border-t border-gray-800 shrink-0">
-            <p className="text-xs text-gray-700 text-center">수정/삭제하려면 편집 모드를 활성화하세요</p>
+          <div className="px-5 py-2.5 border-t border-[color:var(--mm-rule)] shrink-0">
+            <p className="text-xs text-[color:var(--mm-muted)] text-center">수정/삭제하려면 편집 모드를 활성화하세요</p>
           </div>
         )}
       </div>
@@ -478,19 +478,19 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
       {confirmReset && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setConfirmReset(false)} />
-          <div className="relative bg-gray-900 border border-red-800/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4">
+          <div className="relative bg-[color:var(--mm-panel)] border border-red-800/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4">
             <div className="text-center space-y-2">
               <RotateCcw size={24} className="text-red-400 mx-auto" />
-              <h3 className="text-white font-black text-base">경기 스탯 초기화</h3>
-              <p className="text-gray-400 text-sm">이 경기의 모든 기록이 삭제되고 스코어가 0으로 초기화됩니다.<br/>이 작업은 되돌릴 수 없습니다.</p>
+              <h3 className="text-[color:var(--mm-ink)] font-black text-base">경기 스탯 초기화</h3>
+              <p className="text-[color:var(--mm-ink-soft)] text-sm">이 경기의 모든 기록이 삭제되고 스코어가 0으로 초기화됩니다.<br/>이 작업은 되돌릴 수 없습니다.</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setConfirmReset(false)}
-                className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-bold rounded-xl cursor-pointer transition-colors">
+                className="flex-1 py-2.5 bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-sm font-bold rounded-xl cursor-pointer transition-colors">
                 취소
               </button>
               <button onClick={handleReset} disabled={resetting}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-xl cursor-pointer disabled:opacity-50 transition-colors">
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-500 text-[#fff] text-sm font-bold rounded-xl cursor-pointer disabled:opacity-50 transition-colors">
                 {resetting ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
                 초기화
               </button>

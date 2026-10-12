@@ -69,32 +69,32 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
 
   return (
     <div className="fixed inset-0 z-[58] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-3 border-b border-gray-800 flex items-center gap-2">
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-[color:var(--mm-rule)] flex items-center gap-2">
           <BarChart3 size={16} className="text-blue-400" />
           <div className="flex-1 min-w-0">
-            <p className="text-white font-black text-lg truncate">
-              {player.name}{player.number != null && <span className="text-gray-500 text-sm ml-1.5">#{player.number}</span>}
+            <p className="text-[color:var(--mm-ink)] font-black text-lg truncate">
+              {player.name}{player.number != null && <span className="text-[color:var(--mm-muted)] text-sm ml-1.5">#{player.number}</span>}
             </p>
-            <p className="text-xs text-gray-500">{prevQuarterLabel ? `${prevQuarterLabel} 기록` : '지난 분기 기록'} · 드래프트 풀 내 랭킹</p>
+            <p className="text-xs text-[color:var(--mm-muted)]">{prevQuarterLabel ? `${prevQuarterLabel} 기록` : '지난 분기 기록'} · 드래프트 풀 내 랭킹</p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white cursor-pointer"><X size={20} /></button>
+          <button onClick={onClose} className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer"><X size={20} /></button>
         </div>
 
         {!row || row.gp <= 0 ? (
-          <div className="p-8 text-center text-gray-500 text-sm">지난 분기 출전 기록이 없습니다.</div>
+          <div className="p-8 text-center text-[color:var(--mm-muted)] text-sm">지난 분기 출전 기록이 없습니다.</div>
         ) : (
           <>
             <div className="px-5 pt-3 flex items-center gap-2">
-              <div className="flex bg-gray-800 rounded-lg p-0.5">
+              <div className="flex bg-[color:var(--mm-panel-alt)] rounded-lg p-0.5">
                 {(['avg', 'cum'] as const).map(t => (
                   <button key={t} onClick={() => setTab(t)}
-                    className={`px-3 py-1 rounded-md text-xs font-bold cursor-pointer transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                    className={`px-3 py-1 rounded-md text-xs font-bold cursor-pointer transition-colors ${tab === t ? 'bg-blue-600 text-[#fff]' : 'text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)]'}`}>
                     {t === 'avg' ? '평균' : '누적'}
                   </button>
                 ))}
               </div>
-              <span className="text-xs text-gray-500 ml-auto">{row.gp}일 출전 · 날짜 평균</span>
+              <span className="text-xs text-[color:var(--mm-muted)] ml-auto">{row.gp}일 출전 · 날짜 평균</span>
             </div>
 
             <div className="p-4 overflow-y-auto space-y-1.5">
@@ -107,17 +107,17 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
                 const madeAtt = def.pct && def.madeKey && def.attKey ? `${Number(row[def.madeKey] ?? 0)}/${Number(row[def.attKey] ?? 0)}` : null
                 return (
                   <div key={String(def.key)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 border ${top5 ? 'bg-amber-500/15 border-amber-500/50' : 'bg-gray-800/50 border-transparent'}`}>
-                    <span className="text-sm text-gray-300 font-bold w-20">{def.label}</span>
-                    <span className={`font-display text-xl tabular-nums ${top5 ? 'text-amber-300' : 'text-white'}`}>{display}</span>
-                    {madeAtt && <span className="text-xs text-gray-500">({madeAtt})</span>}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 border ${top5 ? 'bg-amber-500/15 border-amber-500/50' : 'bg-[color:var(--mm-panel-alt)]/50 border-transparent'}`}>
+                    <span className="text-sm text-[color:var(--mm-ink)] font-bold w-20">{def.label}</span>
+                    <span className={`font-display text-xl tabular-nums ${top5 ? 'text-amber-300' : 'text-[color:var(--mm-ink)]'}`}>{display}</span>
+                    {madeAtt && <span className="text-xs text-[color:var(--mm-muted)]">({madeAtt})</span>}
                     <span className="flex-1" />
                     {r ? (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${top1 ? 'bg-amber-500 text-black' : top5 ? 'bg-amber-500/30 text-amber-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${top1 ? 'bg-amber-500 text-black' : top5 ? 'bg-amber-500/30 text-amber-200' : 'bg-[color:var(--mm-rule)]/60 text-[color:var(--mm-ink)]'}`}>
                         {r.rank}위 / {r.total}
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-600">—</span>
+                      <span className="text-xs text-[color:var(--mm-muted)]">—</span>
                     )}
                   </div>
                 )

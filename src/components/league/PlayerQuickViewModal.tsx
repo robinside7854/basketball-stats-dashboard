@@ -486,8 +486,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   style={{ background: 'rgba(0,0,0,0.60)' }}
                 >
                   {uploadingPhoto
-                    ? <Loader2 size={20} className="animate-spin text-white" />
-                    : <span className="text-white text-xs font-bold text-center px-2 inline-flex items-center gap-1"><Camera size={14} aria-hidden /> 사진</span>}
+                    ? <Loader2 size={20} className="animate-spin text-[color:var(--mm-ink)]" />
+                    : <span className="text-[color:var(--mm-ink)] text-xs font-bold text-center px-2 inline-flex items-center gap-1"><Camera size={14} aria-hidden /> 사진</span>}
                   <input type="file" accept="image/*" className="hidden"
                     disabled={uploadingPhoto}
                     onChange={async e => {
@@ -712,7 +712,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, { method: 'DELETE', headers: leagueHeaders })
                   setDeleting(false); onDeleted?.(); onClose()
                 }} disabled={deleting}
-                  className="flex-1 py-2 rounded-sm text-xs font-black uppercase tracking-[0.14em] text-white cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
+                  className="flex-1 py-2 rounded-sm text-xs font-black uppercase tracking-[0.14em] text-[color:var(--mm-ink)] cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
                   style={{ background: 'var(--mm-live-bg)', border: '1px solid var(--mm-black)' }}
                 >
                   {deleting ? '삭제 중...' : '삭제 확인'}

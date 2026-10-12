@@ -103,20 +103,20 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
   const selectedName = availablePlayers.find(p => p.id === activeId)?.name
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-800 flex items-center gap-2 flex-wrap">
-        <p className="text-sm font-bold text-gray-200">남은 선수 성적표</p>
-        <span className="text-sm text-gray-400">{availablePlayers.length}명 · 지표 클릭 정렬{canPick ? ' · 행 선택 후 픽' : ''}</span>
+    <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-[color:var(--mm-rule)] flex items-center gap-2 flex-wrap">
+        <p className="text-sm font-bold text-[color:var(--mm-ink)]">남은 선수 성적표</p>
+        <span className="text-sm text-[color:var(--mm-ink-soft)]">{availablePlayers.length}명 · 지표 클릭 정렬{canPick ? ' · 행 선택 후 픽' : ''}</span>
         <div className="ml-auto flex items-center gap-2">
           {canPick && !isGated && (
             <button onClick={recommend} className="inline-flex items-center gap-1 text-sm px-3 min-h-11 rounded-lg bg-purple-700/70 hover:bg-purple-600 text-purple-100 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
               <Shuffle size={14} /> 랜덤픽(추천)
             </button>
           )}
-          <div className="flex bg-gray-800 rounded-lg p-0.5">
+          <div className="flex bg-[color:var(--mm-panel-alt)] rounded-lg p-0.5">
             {(['prev', 'all'] as const).map(s => (
               <button key={s} onClick={() => setScope(s)}
-                className={`px-3 min-h-11 rounded-md text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${scope === s ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                className={`px-3 min-h-11 rounded-md text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${scope === s ? 'bg-blue-600 text-[#fff]' : 'text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)]'}`}>
                 {s === 'prev' ? (prevQuarterLabel ?? '지난 분기') : '전체 누적'}
               </button>
             ))}
@@ -126,25 +126,25 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
 
       {/* 스탯 잠금 안내 — 빈칸(—)만 보여주면 "기록이 없다"로 오해한다 */}
       {isGated && (
-        <div className="px-4 py-2.5 border-b border-gray-800 bg-gray-800/40 flex items-center gap-2 flex-wrap">
+        <div className="px-4 py-2.5 border-b border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)]/40 flex items-center gap-2 flex-wrap">
           <Lock size={16} className="text-amber-300 shrink-0" aria-hidden />
-          <span className="text-sm text-gray-200">로그인하면 지난 분기 성적이 보입니다</span>
+          <span className="text-sm text-[color:var(--mm-ink)]">로그인하면 지난 분기 성적이 보입니다</span>
           <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-gray-900 text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+            className="ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
             <LogIn size={16} aria-hidden /> 로그인
           </button>
         </div>
       )}
 
       {scope === 'prev' && !prevQuarterId ? (
-        <div className="p-6 text-center text-sm text-gray-500">지난 분기가 없습니다. ‘전체 누적’을 선택하세요.</div>
+        <div className="p-6 text-center text-sm text-[color:var(--mm-muted)]">지난 분기가 없습니다. ‘전체 누적’을 선택하세요.</div>
       ) : (
         <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-gray-900 z-10">
-              <tr className="border-b border-gray-800 text-gray-400">
+            <thead className="sticky top-0 bg-[color:var(--mm-panel)] z-10">
+              <tr className="border-b border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)]">
                 <th onClick={() => clickHeader('name')}
-                  className="text-left p-2.5 font-bold sticky left-0 bg-gray-900 cursor-pointer hover:text-white select-none">
+                  className="text-left p-2.5 font-bold sticky left-0 bg-[color:var(--mm-panel)] cursor-pointer hover:text-[color:var(--mm-ink)] select-none">
                   <span className="inline-flex items-center gap-0.5">
                     선수
                     {activeSort === 'name' && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
@@ -152,7 +152,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                 </th>
                 {COLS.map(c => (
                   <th key={c.key} onClick={() => clickHeader(c.key)}
-                    className="text-center p-2.5 font-bold min-w-[54px] cursor-pointer hover:text-white select-none">
+                    className="text-center p-2.5 font-bold min-w-[54px] cursor-pointer hover:text-[color:var(--mm-ink)] select-none">
                     <span className="inline-flex items-center gap-0.5">
                       {c.label}
                       {activeSort === c.key && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
@@ -169,8 +169,8 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                 return (
                   <tr key={p.id}
                     onClick={canPick ? () => onSelectId?.(sel ? null : p.id) : undefined}
-                    className={`border-b border-gray-800/30 ${canPick ? 'cursor-pointer' : ''} ${sel ? 'bg-emerald-700/30' : 'hover:bg-gray-800/30'}`}>
-                    <td className={`p-2.5 text-base text-left sticky left-0 ${sel ? 'bg-emerald-900/40' : 'bg-gray-900'}`}>
+                    className={`border-b border-[color:var(--mm-rule)]/30 ${canPick ? 'cursor-pointer' : ''} ${sel ? 'bg-emerald-700/30' : 'hover:bg-[color:var(--mm-panel-alt)]/30'}`}>
+                    <td className={`p-2.5 text-base text-left sticky left-0 ${sel ? 'bg-emerald-900/40' : 'bg-[color:var(--mm-panel)]'}`}>
                       <div className="flex items-center gap-1.5">
                         {onShowStats && (
                           <button onClick={e => { e.stopPropagation(); onShowStats(p) }}
@@ -178,8 +178,8 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                             <BarChart3 size={14} />
                           </button>
                         )}
-                        <span className="text-white font-bold">{p.name}</span>
-                        {p.number != null && <span className="text-gray-400 text-sm">#{p.number}</span>}
+                        <span className="text-[color:var(--mm-ink)] font-bold">{p.name}</span>
+                        {p.number != null && <span className="text-[color:var(--mm-ink-soft)] text-sm">#{p.number}</span>}
                       </div>
                     </td>
                     {COLS.map(c => {
@@ -191,21 +191,21 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                         : v.toFixed(1)
                       const isSort = activeSort === c.key
                       return (
-                        <td key={c.key} className={`t-td ${isSort ? 'text-amber-300 font-bold' : 'text-gray-200'}`}>
+                        <td key={c.key} className={`t-td ${isSort ? 'text-amber-300 font-bold' : 'text-[color:var(--mm-ink)]'}`}>
                           {display}
                         </td>
                       )
                     })}
                     {canPick && (
                       <td className="p-2 text-center">
-                        {sel ? <Check size={16} className="text-emerald-300 inline" /> : <span className="text-sm text-gray-400">선택</span>}
+                        {sel ? <Check size={16} className="text-emerald-300 inline" /> : <span className="text-sm text-[color:var(--mm-ink-soft)]">선택</span>}
                       </td>
                     )}
                   </tr>
                 )
               })}
               {rows.length === 0 && (
-                <tr><td colSpan={COLS.length + (canPick ? 2 : 1)} className="p-6 text-center text-gray-500">남은 선수가 없습니다.</td></tr>
+                <tr><td colSpan={COLS.length + (canPick ? 2 : 1)} className="p-6 text-center text-[color:var(--mm-muted)]">남은 선수가 없습니다.</td></tr>
               )}
             </tbody>
           </table>
@@ -216,7 +216,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
       {canPick && selectedId && (
         <div className="p-3 border-t border-emerald-800/40 bg-emerald-950/30">
           <button onClick={() => onPick?.(selectedId)} disabled={!!picking}
-            className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold cursor-pointer flex items-center justify-center gap-2">
+            className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-[#fff] font-bold cursor-pointer flex items-center justify-center gap-2">
             <Check size={16} /> {picking ? '픽 처리 중...' : `${selectedName} 최종 확인 (픽)`}
           </button>
         </div>

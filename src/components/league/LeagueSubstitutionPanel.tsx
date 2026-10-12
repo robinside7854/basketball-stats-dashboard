@@ -265,7 +265,7 @@ export default function LeagueSubstitutionPanel({
         onDragLeave={leaveEl}
         onDrop={e => onDropOnArea(e, teamId, goCourt)}
         className={`rounded-lg px-2 py-1.5 border transition-all ${
-          isOver ? 'bg-blue-900/30 border-blue-400' : overCapacity ? 'bg-red-900/15 border-red-700/40' : 'bg-gray-800/40 border-gray-700/50'
+          isOver ? 'bg-blue-900/30 border-blue-400' : overCapacity ? 'bg-red-900/15 border-red-700/40' : 'bg-[color:var(--mm-panel-alt)]/40 border-[color:var(--mm-rule)]/50'
         }`}
       >
         <div className="flex items-center gap-2 mb-1">
@@ -279,7 +279,7 @@ export default function LeagueSubstitutionPanel({
           {goCourt && Array.from({ length: openSlots }).map((_, i) => (
             <div key={`empty-${i}`}
               className={`px-2.5 py-1 min-h-11 inline-flex items-center rounded-lg text-xs font-medium border border-dashed transition-all ${
-                isOver ? 'border-blue-400 text-blue-200' : 'border-gray-600 text-gray-400'
+                isOver ? 'border-blue-400 text-blue-200' : 'border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)]'
               }`}>
               + 빈자리
             </div>
@@ -301,7 +301,7 @@ export default function LeagueSubstitutionPanel({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between px-1">
           <span className="text-sm font-black" style={{ color: accentOrInk(team.color) }}>{team.name}</span>
-          <span className={`text-xs font-bold tabular-nums ${overCap ? 'text-red-400' : 'text-gray-400'}`}>
+          <span className={`text-xs font-bold tabular-nums ${overCap ? 'text-red-400' : 'text-[color:var(--mm-ink-soft)]'}`}>
             {onCourtPlayers.length}/{COURT_SIZE}
           </span>
         </div>
@@ -310,7 +310,7 @@ export default function LeagueSubstitutionPanel({
         </AreaDropZone>
         <AreaDropZone teamId={team.id} goCourt={false} label={`벤치 (${benchPlayers.length})`} color={team.color}>
           {benchPlayers.map(p => <PlayerChip key={p.id} p={p} accent={accent} />)}
-          {benchPlayers.length === 0 && <p className="text-xs text-gray-400 italic">선수를 드래그해 배정하세요</p>}
+          {benchPlayers.length === 0 && <p className="text-xs text-[color:var(--mm-ink-soft)] italic">선수를 드래그해 배정하세요</p>}
         </AreaDropZone>
       </div>
     )
@@ -318,7 +318,7 @@ export default function LeagueSubstitutionPanel({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-[color:var(--mm-ink-soft)]">
         드래그로 자유롭게 이동 — 코트로 보내면 그 팀 소속으로 출전 처리됩니다.
         선수끼리 드래그하면 자리를 교환하고, 빈 영역에 드롭하면 그쪽으로 이동합니다.
       </p>
@@ -340,8 +340,8 @@ export default function LeagueSubstitutionPanel({
 
       {/* 기타 선수 풀 (어느 팀에도 없음, 벤치) */}
       {unassignedBench.length > 0 && (
-        <details className="rounded-lg bg-gray-800/40 border border-gray-700/60">
-          <summary className="cursor-pointer px-2.5 py-1.5 min-h-11 flex items-center text-xs text-gray-300 font-medium hover:text-white">
+        <details className="rounded-lg bg-[color:var(--mm-panel-alt)]/40 border border-[color:var(--mm-rule)]/60">
+          <summary className="cursor-pointer px-2.5 py-1.5 min-h-11 flex items-center text-xs text-[color:var(--mm-ink)] font-medium hover:text-[color:var(--mm-ink)]">
             기타 선수 ({unassignedBench.length}) — 드래그로 팀에 배정
           </summary>
           <div className="px-2.5 pb-2 pt-1">
