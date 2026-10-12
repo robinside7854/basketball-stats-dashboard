@@ -20,6 +20,8 @@ import {
 } from '@/lib/highlights/clip'
 import { availabilityCounts, availabilityCountsBy, gameQuarterLabel } from '@/lib/highlights/crossFilter'
 import { shortenUrl } from '@/lib/shortUrl'
+import YouTubeOpenLink from './YouTubeOpenLink'
+import { FEED_LIST_COL, FEED_LIST_SCROLL, FEED_PLAYER_COL, replaceFeedUrl, type HighlightsFeedOptions } from './feed'
 import type {
   HighlightClip, HighlightQuarterOption, HighlightShotTypeOption, PlayerHighlightsInfo,
   HighlightGameQuarterOption,
@@ -37,6 +39,8 @@ interface Props {
   clutchTitle?: string            // 클러치 chip tooltip (리그/대회 정의 다름)
   // 베스트샷 핀 지원 (리그 전용) — leagueId + initialPinnedEventIds 함께 전달 시 활성화
   initialPinnedEventIds?: string[]
+  /** 리그 하이라이트 피드 전용 — 생략하면 종전 모양·동작 그대로 (파란날개 선수 화면) */
+  feed?: HighlightsFeedOptions
 }
 
 // URL 쿼리 → 필터 카테고리 · SHOT_CATEGORY_OPTIONS 6종(parseShotCategory) + 컨텍스트 'clutch'
@@ -47,7 +51,7 @@ function parseCategory(v: string | null): HighlightFilterCategory | null {
 
 export default function PlayerHighlightsBrowser({
   player, clips, quarters, groupLabel = '분기', hideCategories, clutchTitle,
-  leagueId, initialPinnedEventIds,
+  leagueId, initialPinnedEventIds, feed,
 }: Props) {
   const pinsEnabled = Boolean(leagueId) && Array.isArray(initialPinnedEventIds)
   const [pinnedEventIds, setPinnedEventIds] = useState<string[]>(initialPinnedEventIds ?? [])
@@ -130,9 +134,10 @@ export default function PlayerHighlightsBrowser({
     if (quarterId) params.set('quarter', quarterId)
     if (gameQuarter != null) params.set('q', String(gameQuarter))
     if (currentIdx > 0) params.set('clip', String(currentIdx))
+    if (feed) { replaceFeedUrl(params, feed.preserveParams); return }
     const qs = params.toString()
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-  }, [category, quarterId, gameQuarter, currentIdx, pathname, router])
+  }, [category, quarterId, gameQuarter, currentIdx, pathname, router, feed])
 
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
 
@@ -367,8 +372,8 @@ export default function PlayerHighlightsBrowser({
       </div>
 
       {/* 플레이어 + 플레이리스트 */}
-      <div className="grid gap-3 lg:grid-cols-12">
-        <div className="lg:col-span-8 space-y-2">
+      <div className={`grid gap-3 lg:grid-cols-12 ${feed ? 'lg:items-start' : ''}`}>
+        <div className={feed ? FEED_PLAYER_COL : 'lg:col-span-8 space-y-2'} style={feed ? { background: 'var(--mm-ground)' } : undefined}>
           <HighlightsPlayer
             clips={filteredClips}
             currentIdx={currentIdx}
@@ -384,13 +389,15 @@ export default function PlayerHighlightsBrowser({
               onChange={setPinnedEventIds}
             />
           )}
+          {feed && <YouTubeOpenLink clip={filteredClips[currentIdx]} className="w-full sm:w-auto" />}
         </div>
         {/* 레이아웃(LeagueLayoutClient)이 이미 pb-[56px+safe-area] 처리 · 플레이리스트 자체 스크롤로 재생기 자연스럽게 상단 유지 */}
-        <div className="lg:col-span-4">
+        <div className={feed ? FEED_LIST_COL : 'lg:col-span-4'}>
           <PlayerHighlightsPlaylist
             clips={filteredClips}
             currentIdx={currentIdx}
             onSelect={onSelectIdx}
+            scrollClassName={feed ? FEED_LIST_SCROLL : undefined}
           />
         </div>
       </div>

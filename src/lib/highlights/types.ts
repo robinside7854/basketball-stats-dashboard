@@ -6,6 +6,8 @@ export type HighlightRound = {
   games_with_video: number     // 유튜브 영상 매핑된 게임 수
   clips_count: number          // 하이라이트 재생 가능 클립 수 (timestamp 있는 성공 슛)
   team_names: string[]         // 대표 팀명 (중복 제거)
+  /** 카드 썸네일용 — 그날 첫 경기(슬롯 순)의 대표 영상(league_games.youtube_url) id. 없으면 null */
+  thumb_video_id?: string | null
   status: 'ready' | 'pending_record' | 'pending_video'
   // ready = 재생 가능 (clips_count > 0)
   // pending_record = 영상 있으나 timestamp 기록 없음 (기록 대기)

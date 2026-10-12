@@ -13,9 +13,11 @@ interface Props {
   clips: HighlightClip[]
   currentIdx: number
   onSelect: (idx: number) => void
+  /** 목록 스크롤 영역 클래스 — 생략하면 종전 그대로(자체 스크롤 55vh/70vh). 리그 하이라이트 피드가 덮어쓴다 */
+  scrollClassName?: string
 }
 
-export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Props) {
+export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scrollClassName }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
 
   // 현재 재생 항목을 뷰포트로 스크롤 (부드러움) — reduce-motion 시 즉시
@@ -65,7 +67,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Prop
   return (
     <div
       ref={listRef}
-      className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]"
+      className={`space-y-1.5 ${scrollClassName ?? 'max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]'}`}
       role="listbox"
       aria-label="하이라이트 플레이리스트"
     >

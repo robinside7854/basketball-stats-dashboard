@@ -3,6 +3,14 @@
 최종 갱신 2026-10-10. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-10-12 ⑨, 리뉴얼 4단계 — 하이라이트 4탭 → 피드 하나):**
+- `/highlights` 한 페이지 + 칩 한 줄(전체 · 날짜 · 선수 · 베스트샷 · 명경기 · 마일스톤). 상태는 URL — `?date=` · `?player=` · `?f=best|classics|milestones`. 조합은 날짜+선수, 베스트샷+선수만(명경기·마일스톤은 단독). 칩 규칙은 `components/league/highlights/HighlightsFeedChips.tsx` 주석.
+- 옛 주소(`/highlights/[date]` · `/player/[id]` · `/best-shots` · `/classics` · `/milestones`)는 쿼리를 보존해 피드로 redirect(`lib/highlights/feedRedirect.ts`). 홈 등의 옛 링크는 그대로 둬도 된다.
+- 접근은 옛 페이지와 같다: 베스트샷만 `isLeaguePrivateGated` 기준(공개 리그면 누구나), 나머지는 승인 회원. 캐시 키·태그도 옛 것 재사용(랜딩만 썸네일 추가로 v4).
+- 공용 `HighlightsBrowser`·`PlayerHighlightsBrowser` 에 옵션 `feed` 추가 — 넘긴 호출부(리그 피드)만 재생기 고정(모바일 sticky · PC 왼쪽) + 「YouTube 앱으로 열기」 + URL 을 `history.replaceState` 로 갱신(피드 파라미터 보존). **파란날개 화면은 옵션을 안 넘기므로 종전 그대로.**
+- 삭제: 베스트샷 선수 갤러리(`BestShotsGallery`) · 리그 `HighlightsPlayerPicker` — 피드의 선수 칩·베스트샷 칩이 대신한다.
+- **다음에 할 일**: 실제 휴대폰에서 고정 재생기 높이 확인(재생기+컨트롤 ≈ 화면 절반 — 높이 560px 미만에선 고정 안 함). 그다음 5단계.
+
 **최근 결정 (2026-10-12 ⑧, 리뉴얼 3단계 — 스탯 카드 · 모바일 비교 · 팀 탭 인사이트):**
 - 스탯 탭: 모바일(<md)은 표 대신 선수 카드(`MobileStatCard` — 사진·팀 칩·핵심 4개 + 1위 대비 막대). PC 표는 유지, 열 이름 한글(약어는 툴팁). 「선수 비교」는 `Sheet` 로 모바일·PC 공용(두 칸 골라 VersusBar).
 - `computeLeagueStats` 응답에 표시용 `team_name`/`team_color`(기간 내 마지막 경기 팀, 정체성 해석) 추가 — 계산·자격 불변.

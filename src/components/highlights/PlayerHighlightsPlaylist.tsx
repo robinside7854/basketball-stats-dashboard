@@ -15,6 +15,8 @@ interface Props {
   clips: HighlightClip[]
   currentIdx: number
   onSelect: (idx: number) => void
+  /** 목록 스크롤 영역 클래스 — 생략하면 종전 그대로(자체 스크롤 55vh/70vh). 리그 하이라이트 피드가 덮어쓴다 */
+  scrollClassName?: string
 }
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -25,7 +27,7 @@ function formatDateHeader(date: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${DAYS[d.getDay()]})`
 }
 
-export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }: Props) {
+export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, scrollClassName }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
 
   // 현재 재생 항목 뷰포트 스크롤
@@ -88,7 +90,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
   return (
     <div
       ref={listRef}
-      className="max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]"
+      className={`${scrollClassName ?? 'max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]'}`}
       role="listbox"
       aria-label="선수 하이라이트 플레이리스트"
     >

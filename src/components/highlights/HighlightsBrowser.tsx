@@ -14,6 +14,8 @@ import HighlightsFilterBar, { type FilterState, type FilterCounts } from './High
 import { categoryOfType, clipMatchesCategory, parseShotCategory, SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
 import { availabilityCounts, availabilityCountsBy, gameQuarterLabel } from '@/lib/highlights/crossFilter'
 import { shortenUrl } from '@/lib/shortUrl'
+import YouTubeOpenLink from './YouTubeOpenLink'
+import { FEED_LIST_COL, FEED_LIST_SCROLL, FEED_PLAYER_COL, replaceFeedUrl, type HighlightsFeedOptions } from './feed'
 import type { HighlightClip, HighlightRoundDetail, HighlightGameQuarterOption } from '@/lib/highlights/types'
 
 interface Props {
@@ -21,6 +23,8 @@ interface Props {
   teamSectionLabel?: string       // 팀 칩 섹션 라벨 — 리그: '팀'(기본) · 대회: '상대'
   hideCategories?: ShotCategory[] // 숨길 슛 유형 (대회: ['andones'])
   clutchTitle?: string            // 클러치 chip tooltip (리그/대회 정의 다름)
+  /** 리그 하이라이트 피드 전용 — 생략하면 종전 모양·동작 그대로 (파란날개 대회 화면) */
+  feed?: HighlightsFeedOptions
 }
 
 // URL 쿼리 → 필터 카테고리 · SHOT_CATEGORY_OPTIONS 6종(parseShotCategory) + 컨텍스트 'clutch'
@@ -29,7 +33,7 @@ function parseCategory(v: string | null): HighlightFilterCategory | null {
   return parseShotCategory(v)
 }
 
-export default function HighlightsBrowser({ detail, teamSectionLabel, hideCategories, clutchTitle }: Props) {
+export default function HighlightsBrowser({ detail, teamSectionLabel, hideCategories, clutchTitle, feed }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -107,9 +111,10 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
     if (filter.category) params.set('type', filter.category)
     if (filter.quarter != null) params.set('q', String(filter.quarter))
     if (currentIdx > 0) params.set('clip', String(currentIdx))
+    if (feed) { replaceFeedUrl(params, feed.preserveParams); return }
     const qs = params.toString()
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-  }, [filter, currentIdx, pathname, router])
+  }, [filter, currentIdx, pathname, router, feed])
 
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
 
@@ -168,6 +173,26 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
         clutchTitle={clutchTitle}
       />
 
+      {feed ? (
+        <div className="grid gap-3 lg:grid-cols-12 lg:items-start">
+          <div className={FEED_PLAYER_COL} style={{ background: 'var(--mm-ground)' }}>
+            <HighlightsPlayer
+              clips={filteredClips}
+              currentIdx={currentIdx}
+              onIndexChange={onSelectIdx}
+            />
+            <YouTubeOpenLink clip={filteredClips[currentIdx]} className="w-full sm:w-auto" />
+          </div>
+          <div className={FEED_LIST_COL}>
+            <HighlightsPlaylist
+              clips={filteredClips}
+              currentIdx={currentIdx}
+              onSelect={onSelectIdx}
+              scrollClassName={FEED_LIST_SCROLL}
+            />
+          </div>
+        </div>
+      ) : (
       <div className="grid gap-3 lg:grid-cols-12">
         <div className="lg:col-span-8">
           <HighlightsPlayer
@@ -185,6 +210,7 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
           />
         </div>
       </div>
+      )}
     </div>
   )
 }

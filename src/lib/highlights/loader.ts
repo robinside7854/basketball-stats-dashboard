@@ -95,7 +95,7 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
     supabase
       .from('league_games')
       .select(`
-        id, date, quarter_id, youtube_url,
+        id, date, quarter_id, youtube_url, slot_num,
         home_team_id, away_team_id,
         home_team:league_teams!league_games_home_team_id_fkey(name),
         away_team:league_teams!league_games_away_team_id_fkey(name)
@@ -113,6 +113,7 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
     date: string
     quarter_id: string | null
     youtube_url: string | null
+    slot_num: number | null
     home_team_id: string | null
     away_team_id: string | null
     home_team: { name: string } | null
@@ -161,7 +162,15 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
     const teamSet = new Set<string>()
     let clipsSum = 0
     let videoCount = 0
+    // 썸네일 — 슬롯 번호가 가장 앞선 경기의 대표 영상. 재생 판정이 아니라 카드 그림일 뿐이라
+    // resolveGameVideo 를 거치지 않는다(쿼터 영상이 있어도 대표가 가장 이른 쿼터로 맞춰져 있다).
+    let thumbSlot = Infinity
+    let thumbVideoId: string | null = null
     for (const g of gamesOfDate) {
+      if (g.youtube_url && (g.slot_num ?? 9999) < thumbSlot) {
+        const vid = extractYouTubeId(g.youtube_url)
+        if (vid) { thumbVideoId = vid; thumbSlot = g.slot_num ?? 9999 }
+      }
       // 분기별 팀명 override 반영 — 없으면 base team name fallback
       const homeId = g.home_team_id ?? null
       const awayId = g.away_team_id ?? null
@@ -182,6 +191,7 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
       games_with_video: videoCount,
       clips_count: clipsSum,
       team_names: Array.from(teamSet),
+      thumb_video_id: thumbVideoId,
       status,
     }
   })

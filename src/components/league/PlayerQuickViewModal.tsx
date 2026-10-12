@@ -568,7 +568,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 )}
                 {orgSlug && (
                   <Link
-                    href={`/league/${orgSlug}/${leagueId}/highlights/player/${playerId}`}
+                    href={`/league/${orgSlug}/${leagueId}/highlights?player=${encodeURIComponent(playerId)}`}
                     onClick={onClose}
                     className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-sm cursor-pointer transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                     style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
