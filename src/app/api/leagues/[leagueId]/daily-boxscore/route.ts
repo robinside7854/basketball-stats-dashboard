@@ -6,7 +6,7 @@ import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { fetchQuarterVideos } from '@/lib/youtube/gameVideo'
-import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, type BoxLine } from '@/lib/stats/boxLine'
+import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, FIELD_SHOT_TYPES, type BoxLine } from '@/lib/stats/boxLine'
 
 // GET /api/leagues/[leagueId]/daily-boxscore?date=YYYY-MM-DD
 export async function GET(
@@ -55,7 +55,7 @@ export async function GET(
     (overrides ?? []) as QuarterOverride[],
   )
 
-  if (!games || games.length === 0) return NextResponse.json({ games: [], daily_stats: [], assist_links: [] })
+  if (!games || games.length === 0) return NextResponse.json({ games: [], daily_stats: [], assist_links: [], shot_types: [] })
 
   const gameIds = games.map(g => g.id)
   // 쿼터별 영상 — 경기 하나에 쿼터 영상이 붙어 있으면 카드에 쿼터 탭으로 내려준다.
@@ -409,7 +409,28 @@ export async function GET(
   }
   const assistLinks = [...linkMap.values()].sort((a, b) => b.count - a.count)
 
+  // ── 공격 유형별 야투 (2026-10-12) ──────────────────────────────────
+  //   (경기, 선수, 슛 유형) 한 줄 = 시도·성공. 팀별·선수별·「전체」 합산은 화면이 더한다 —
+  //   서버가 합산본을 따로 주면 두 벌이 된다(어시스트 연결과 같은 방식).
+  //   경기 단위는 롤업 결과(= 경기 카드), 팀은 위 슬롯 표의 판정(이 경기의 두 팀 중 하나)을 그대로 쓴다.
+  //   야투 수는 applyEventToBoxLine 과 같은 규칙이라 유형별 합 = 박스스코어 FG 다.
+  //   점수는 싣지 않는다 — +1 가산(isPlusOneFor) 때문에 "성공 × 2/3" 이 실제 득점과 어긋난다.
+  type ShotTypeRow = { game_id: string; player_id: string; team_id: string | null; type: string; fga: number; fgm: number }
+  const shotMap = new Map<string, ShotTypeRow>()
+  for (const e of events ?? []) {
+    if (!FIELD_SHOT_TYPES.includes(e.type)) continue
+    const gameId = slotToGame.get(e.league_game_id)
+    if (!gameId || !e.league_player_id) continue
+    const teamId = slotRowTeam.get(e.league_game_id)?.get(e.league_player_id)?.team_id ?? null
+    const key = `${gameId}|${e.league_player_id}|${e.type}`
+    let row = shotMap.get(key)
+    if (!row) { row = { game_id: gameId, player_id: e.league_player_id, team_id: teamId, type: e.type, fga: 0, fgm: 0 }; shotMap.set(key, row) }
+    row.fga++
+    if (e.result === 'made') row.fgm++
+  }
+  const shotTypes = [...shotMap.values()]
+
   // games 는 이미 대진 롤업 결과(= 경기)다. 슬롯 단위 원본은 내려보내지 않는다 —
   //   화면에 "슬롯별 보기" 가 없고(2026-08-23 요청), 응답만 두 배로 불린다.
-  return NextResponse.json({ games: gameList, daily_stats: dailyStats, rolled_up: rolledUp, assist_links: assistLinks })
+  return NextResponse.json({ games: gameList, daily_stats: dailyStats, rolled_up: rolledUp, assist_links: assistLinks, shot_types: shotTypes })
 }

@@ -14,7 +14,9 @@ export const emptyBoxLine = (): BoxLine => ({
   fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
 })
 
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
+/** 야투(필드골) 이벤트 타입 — 자유투·앤드원 제외. 공격 유형 분석도 이 목록을 쓴다. */
+export const FIELD_SHOT_TYPES: readonly string[] = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
+const SHOT_TYPES = FIELD_SHOT_TYPES
 
 /** 성공한 야투 + 어시스트 대상이 있으면 어시스트 1개 */
 export function isAssistEvent(type: string, result: string | null, relatedPlayerId: string | null): boolean {

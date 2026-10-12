@@ -6,7 +6,7 @@
 // 페이지 컨텍스트에서 렌더되도록 조정.
 //
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
-//   · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
+//   · 공격 유형(슛 유형별 비중·야투율) · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
@@ -18,6 +18,7 @@ import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
 import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
+import ShotTypeBreakdown, { type ShotTypeRow } from '@/components/league/boxscore/ShotTypeBreakdown'
 
 // recharts 를 물고 있는 모달 — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
@@ -153,7 +154,10 @@ function sumLine(rows: PlayerRow[]): TotalLine {
   return { ...t, fg_pct: pct(t.fgm, t.fga), fg3_pct: pct(t.fg3m, t.fg3a) }
 }
 
-function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; total?: TotalLine }) {
+/** 합계 줄 옵션 — label 기본 「팀 합계」, gp 를 주면 G 칸에 그 값(하루 합산표 = 그날 경기 수) */
+type TotalOpts = { label?: string; gp?: number }
+
+function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; total?: TotalLine; totalOpts?: TotalOpts }) {
   const [sortKey, setSortKey] = useState('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -280,10 +284,10 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total }: { row
         {total && (
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
-              <th scope="row" className="t-th text-left px-3 sticky left-0" style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)' }}>팀 합계</th>
+              <th scope="row" className="t-th text-left px-3 sticky left-0" style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</th>
               {COLS.map(c => (
                 <td key={c.key} className="t-td-key" style={{ color: 'var(--mm-ink)' }}>
-                  {c.key === 'gp' ? '' : cellVal(total, c.key)}
+                  {c.key === 'gp' ? (totalOpts?.gp != null ? String(totalOpts.gp) : '') : cellVal(total, c.key)}
                 </td>
               ))}
             </tr>
@@ -322,7 +326,7 @@ function LineGrid({ r }: { r: TotalLine }) {
   )
 }
 
-function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort = false, total }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; hideSort?: boolean; total?: TotalLine }) {
+function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort = false, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; hideSort?: boolean; total?: TotalLine; totalOpts?: TotalOpts }) {
   const [sortKey, setSortKey] = useState<'pts' | 'reb' | 'ast'>('pts')
   const sorted = [...rows].sort((a, b) => {
     const av = (a as Record<string, unknown>)[sortKey] as number ?? 0
@@ -377,7 +381,10 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
       {total && (
         <div className="p-3" style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-rule)' }}>
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-base font-black" style={{ color: 'var(--mm-ink)' }}>팀 합계</span>
+            <span className="flex items-baseline gap-2 min-w-0">
+              <span className="text-base font-black truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</span>
+              {showGP && totalOpts?.gp != null && <span className="text-xs font-semibold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{totalOpts.gp}경기</span>}
+            </span>
             <div className="flex items-baseline gap-1 shrink-0">
               <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{total.pts}</span>
               <span className="t-label">PTS</span>
@@ -536,10 +543,12 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const [loading, setLoading] = useState(true)
   // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
   const [expandedGame, setExpandedGame] = useState<string | null>(initialGameId ?? null)
-  const [activeTab, setActiveTab] = useState<'result' | 'players' | 'compare' | 'assist'>('result')
+  const [activeTab, setActiveTab] = useState<'result' | 'players' | 'shots' | 'compare' | 'assist'>('result')
   const [teamFilter, setTeamFilter] = useState<string>('all')
   // 경기별 박스스코어는 경기 카드를 펼친 안에 팀별로 있다 — 선수 기록 탭은 하루 합산만 (2026-10-12).
   const [assistLinks, setAssistLinks] = useState<AssistLink[]>([])
+  // 공격 유형 — (경기, 선수, 슛 유형) 시도·성공. 합산은 ShotTypeBreakdown 이 한다.
+  const [shotTypes, setShotTypes] = useState<ShotTypeRow[]>([])
   // 이미지 저장 진행 상태
   const [savingImage, setSavingImage] = useState(false)
   // 공유용 hidden 캡처 대상 ref (실제 캡처는 ShareableBoxscore)
@@ -620,6 +629,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
         setRolledUp(d.rolled_up === true)
         setDailyStats(d.daily_stats ?? [])
         setAssistLinks(d.assist_links ?? [])
+        setShotTypes(d.shot_types ?? [])
         // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
         //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
         if (initialGameId) {
@@ -717,6 +727,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
           {([
             { key: 'result',  label: '경기결과',  count: games.length },
             { key: 'players', label: '선수 기록', count: dailyStats.length },
+            { key: 'shots',   label: '공격 유형', count: 0 },
             { key: 'compare', label: '팀별 비교', count: 0 },
             { key: 'assist',  label: '어시스트',  count: 0 },
           ] as const).map(tab => {
@@ -728,8 +739,9 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                 aria-selected={active}
                 aria-controls={`daily-boxscore-panel-${tab.key}`}
                 id={`daily-boxscore-tab-${tab.key}`}
-                onClick={() => setActiveTab(tab.key)}
-                className="flex-1 min-w-fit px-2.5 sm:px-6 py-3 text-xs font-black uppercase tracking-[0.02em] sm:tracking-[0.18em] transition-all duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 whitespace-nowrap"
+                // 탭 5개는 360px 에 빠듯하다 — 바는 가로로 밀리고, 누른 탭은 화면 안으로 당겨 온다
+                onClick={e => { setActiveTab(tab.key); e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }}
+                className="flex-1 shrink-0 min-w-fit px-2 sm:px-6 py-3 text-xs font-black uppercase tracking-[0.02em] sm:tracking-[0.18em] transition-all duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 whitespace-nowrap"
                 style={{
                   borderBottom: active ? '3px solid var(--mm-yellow)' : '3px solid transparent',
                   color: active ? 'var(--mm-ink)' : 'var(--mm-muted)',
@@ -738,7 +750,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               >
                 {tab.label}
                 {tab.count > 0 && (
-                  <span className="ml-1.5 sm:ml-2 text-xs tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
+                  <span className="hidden sm:inline ml-2 text-xs tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
                 )}
               </button>
             )
@@ -1021,6 +1033,16 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             const filteredStats = teamFilter === 'all'
               ? dailyStats
               : dailyStats.filter(d => d.team_id === teamFilter)
+            // 합계 줄 — 숫자는 더하고 % 는 합에서 다시 낸다(선수 % 의 평균이 아니다).
+            //   G 칸은 그날 경기 수(팀을 고르면 그 팀이 뛴 경기 수) — 선수 G 의 합은 의미가 없다.
+            const filteredTeam = teamList.find(t => t.id === teamFilter)
+            const dayTotal = sumLine(filteredStats)
+            const totalOpts: TotalOpts = {
+              label: filteredTeam ? `${filteredTeam.name} 합계` : '합계',
+              gp: filteredTeam
+                ? games.filter(g => g.home_team?.id === filteredTeam.id || g.away_team?.id === filteredTeam.id).length
+                : games.length,
+            }
 
             return (
             <div
@@ -1061,11 +1083,11 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                 ? (
                   <>
                     <div className="hidden md:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                      <StatTable rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} />
+                      <StatTable rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
                     </div>
                     {/* 모바일 카드 뷰 */}
                     <div className="md:hidden">
-                      <MobileStatCards rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} />
+                      <MobileStatCards rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
                     </div>
                     {/* 약어는 처음 보는 사람에게 읽히지 않는다 — 표 바로 아래 한 줄 범례 */}
                     {hasDd && <DdLegend />}
@@ -1076,7 +1098,35 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             )
           })()}
 
-          {/* 탭 3: 팀별 비교 — 조합 버튼(팀 3개=3쌍) */}
+          {/* 탭 3: 공격 유형 — 슛 유형별 시도 비중 · 야투율 (2026-10-12) */}
+          {activeTab === 'shots' && (
+            <div
+              role="tabpanel"
+              id="daily-boxscore-panel-shots"
+              aria-labelledby="daily-boxscore-tab-shots"
+              className="p-4 sm:p-5"
+            >
+              <ShotTypeBreakdown
+                rows={shotTypes}
+                games={games.map(g => ({
+                  id: g.id,
+                  numLabel: gameNumLabel(g),
+                  homeName: g.home_team?.name ?? '미정',
+                  awayName: g.away_team?.name ?? '미정',
+                }))}
+                // 경기의 두 팀 + (옛 기록처럼) 그 밖의 팀으로 잡힌 선수의 팀 — 이름을 「팀 미정」으로 잃지 않게
+                teams={[
+                  ...extractTeams(games),
+                  ...dailyStats
+                    .filter(d => d.team_id && d.team_name && !games.some(g => g.home_team?.id === d.team_id || g.away_team?.id === d.team_id))
+                    .map(d => ({ id: d.team_id!, name: d.team_name!, color: d.team_color })),
+                ].filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)}
+                players={new Map(dailyStats.map(d => [d.player_id, { name: d.name, team_id: d.team_id }]))}
+              />
+            </div>
+          )}
+
+          {/* 탭 4: 팀별 비교 — 조합 버튼(팀 3개=3쌍) */}
           {activeTab === 'compare' && (
             <div
               role="tabpanel"
@@ -1088,7 +1138,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             </div>
           )}
 
-          {/* 탭 4: 어시스트 네트워크 — 누가 누구의 득점을 도왔나 (2026-10-12) */}
+          {/* 탭 5: 어시스트 네트워크 — 누가 누구의 득점을 도왔나 (2026-10-12) */}
           {activeTab === 'assist' && (
             <div
               role="tabpanel"
