@@ -12,6 +12,7 @@
 - 핀(베스트샷) API: 읽기 `canViewLeague` · 쓰기 본인 ∥ 팀 어드민·CEO(종전 무인증).
 - `/quarters` 는 `LeagueQuarterContext` 한 곳에서만 받는다(`quarters`·`currentQuarter`·`ready`). 스탯 탭 이중 조회 제거.
 - 스탯 라벨 한글화(득점·리바·어시·스틸·블락…, 약어는 툴팁) · 오렌지 강조 → 노랑.
+- 설정 저장 실패 수정: `PATCH /api/leagues/[id]` 가 CEO 만 받던 것을 팀 어드민(`canEditLeague`)에게도 연다 — 설정 화면 항목만(이름·시즌·규칙은 CEO).
 - **다음에 할 일**: 1단계(디자인 시스템 — 토큰 하나 · 공용 부품 8종 · `@theme` 회색 재매핑 해킹 제거). 팀 탭의 자체 `/quarters` 조회도 컨텍스트로 옮길 것.
 
 **최근 결정 (2026-10-12 ④, 날짜 강제 삭제 — 사용자 실행 완료):**
