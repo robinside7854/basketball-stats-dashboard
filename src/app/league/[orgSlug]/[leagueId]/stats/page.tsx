@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
-import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users } from 'lucide-react'
+import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowLeftRight } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
 import RecordRoomBoard, { type SeasonHighCategory, type SeasonHigh } from '@/components/league/stats/RecordRoomBoard'
@@ -17,6 +17,7 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import { ProgressBar } from '@/components/league/ui/viz'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
+import Avatar from '@/components/league/ui/Avatar'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
@@ -160,6 +161,79 @@ function rankTier(rank: number): { color: string; bg: string; accent: string; bo
   return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent', border: 'none' }
 }
 
+// ─── 모바일 선수 카드 (리뉴얼 3단계, 2026-10-12) ─────────────────────────
+// 폰(<md)에서는 넓은 표 대신 카드 한 장에 한 사람. 정렬 지표를 크게, 핵심 숫자 3~4개는
+// 리그 1위(자격자) 대비 막대로 — 숫자만 줄지어 있으면 「이게 높은 건가」를 판단할 수 없다.
+// 카드 전체가 선수 상세(퀵뷰) 열기. 안에 용어 툴팁 버튼이 있어 <button> 대신 role="button" div.
+type CardItem = { key: string; label: string; value: string; ratio: number | null; mark?: number | null; active?: boolean }
+
+function MobileStatCard({
+  rank, p, ineligible, bigLabel, bigTerm, bigValue, items, footer, onOpen,
+}: {
+  rank: number
+  p: PlayerStat
+  ineligible: boolean
+  bigLabel: string
+  bigTerm: string
+  bigValue: string
+  items: CardItem[]
+  footer?: React.ReactNode
+  onOpen: () => void
+}) {
+  const rt = rankTier(rank)
+  return (
+    <div role="button" tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+      aria-label={`${rank}위 ${p.name} — 선수 상세 보기`}
+      className="w-full text-left px-3 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      style={{
+        background: 'var(--mm-panel)',
+        border: '1px solid var(--mm-rule)',
+        borderLeft: `3px solid ${ineligible ? 'var(--mm-rule)' : (rt.accent === 'transparent' ? 'var(--mm-rule)' : rt.accent)}`,
+        borderRadius: 'var(--mm-radius-card)',
+      }}>
+      <div className="flex items-center gap-2.5">
+        <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
+          style={{ color: rt.color, background: rt.bg, border: rt.border }}>{rank}</span>
+        <Avatar src={p.photo_url} name={p.name} size={40} decorative />
+        <div className="flex-1 min-w-0">
+          <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, overflowWrap: 'anywhere' }}>{p.name}</div>
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-1">
+            {p.team_name && (
+              <Chip size="sm" icon={<span className="inline-block rounded-full" style={{ width: 8, height: 8, background: p.team_color ?? 'var(--mm-rule)', border: '1px solid var(--mm-rule)' }} />}>
+                <span className="truncate max-w-[7rem]">{p.team_name}</span>
+              </Chip>
+            )}
+            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{p.gp}일 출전{ineligible && <IneligibleTag />}</span>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '26px', letterSpacing: '-0.015em' }}>{bigValue}</div>
+          <div className="text-xs font-black mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink-soft)' }}>
+            <StatHeader term={bigTerm} label={bigLabel} />
+          </div>
+        </div>
+      </div>
+      {items.length > 0 && (
+        <div className="grid gap-2 mt-3 pt-2.5" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, borderTop: '1px solid var(--mm-rule)' }}>
+          {items.map(it => (
+            <div key={it.key} className="min-w-0 flex flex-col justify-end">
+              <div className="text-xs font-bold leading-tight break-keep" style={{ color: it.active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{it.label}</div>
+              <div className="t-num text-sm font-black mt-0.5 truncate" style={{ color: 'var(--mm-ink)' }}>{it.value}</div>
+              <ProgressBar
+                value={it.ratio ?? 0} max={1} mark={it.mark ?? null} height={5} className="mt-1"
+                label={`${it.label} ${it.value}${it.ratio != null ? ` · 1위 대비 ${Math.round(it.ratio * 100)}%` : ''}`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {footer}
+    </div>
+  )
+}
+
 function LeagueStatsPageInner() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
@@ -234,6 +308,11 @@ function LeagueStatsPageInner() {
   }
   const compareList = Array.from(compareIds)
   const compareNamesById: Record<string, string> = Object.fromEntries(players.map(p => [p.player_id, p.name]))
+  // 비교 시트의 고르기 목록 — 자격 미달 포함 전원, 가나다순(검색과 함께 쓰므로 순위순보다 찾기 쉽다)
+  const compareCandidates = useMemo(() => [...players]
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+    .map(p => ({ id: p.player_id, name: p.name, photo_url: p.photo_url, team_name: p.team_name, team_color: p.team_color, gp: p.gp })),
+  [players])
 
   // 선택 분기가 확정되기 전(quarterReady=false)에는 조회하지 않는다 —
   //   종전엔 첫 렌더의 'all' 로 한 번, 지금 분기로 또 한 번 불러 시즌 전체 집계가 헛돌았다.
@@ -334,25 +413,41 @@ function LeagueStatsPageInner() {
 
   const isLeader = (p: PlayerStat, key: string) => seasonLeaders[key]?.has(p.player_id) ?? false
 
+  // 모바일 카드 막대의 분모 = 자격자 중 1위 값. 성공률은 시도 5회 이상만 1위 후보(seasonLeaders 와 같은 기준) —
+  //   1개 던져 1개 넣은 100% 가 분모가 되면 모든 막대가 바닥에 깔린다.
+  const leaderPool = players.filter(p => p.gp >= effectiveMinGP)
+  function leaderOf(get: (p: PlayerStat) => number | null, attempts?: (p: PlayerStat) => number): number {
+    let best = 0
+    for (const p of leaderPool) {
+      if (attempts && attempts(p) < 5) continue
+      const v = get(p)
+      if (v != null && Number.isFinite(v) && v > best) best = v
+    }
+    return best
+  }
+  const ratioOf = (v: number | null, leader: number) => (v == null || leader <= 0 ? null : Math.max(0, Math.min(1, v / leader)))
+  const basicAttempts = (key: SortKey): ((p: PlayerStat) => number) | undefined =>
+    key === 'fg3_pct' ? p => p.fg3a : key === 'ft_pct' ? p => p.fta : (key === 'fg_pct' || key === 'efg_pct') ? p => p.fga : undefined
+
   // 테이블 컬럼 정의
-  const AVG_COLS: { key: SortKey; label: string }[] = [
-    // 하루 평균 — 라벨은 한국어(2026-10-12). 약어(PPG 등)는 툴팁(glossary 한국어 키)에만 남긴다.
-    { key: 'gp', label: 'R' }, { key: 'ppg', label: '득점' },
-    { key: 'rpg', label: '리바' }, { key: 'orp', label: '공리' }, { key: 'drp', label: '수리' },
-    { key: 'apg', label: '어시' }, { key: 'spg', label: '스틸' }, { key: 'bpg', label: '블락' },
-    { key: 'topg', label: '턴오버' }, { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' },
-    { key: 'ft_pct', label: 'FT%' }, { key: 'efg_pct', label: 'eFG%' },
+  // label = 화면 글자(한국어), term = 용어 사전 키(툴팁). 약어는 툴팁 안에만 남긴다(2026-10-12 리뉴얼 3단계).
+  const AVG_COLS: { key: SortKey; label: string; term: string }[] = [
+    { key: 'gp', label: '출전', term: 'R' }, { key: 'ppg', label: '득점', term: '득점' },
+    { key: 'rpg', label: '리바', term: '리바' }, { key: 'orp', label: '공리', term: '공리' }, { key: 'drp', label: '수리', term: '수리' },
+    { key: 'apg', label: '어시', term: '어시' }, { key: 'spg', label: '스틸', term: '스틸' }, { key: 'bpg', label: '블락', term: '블락' },
+    { key: 'topg', label: '턴오버', term: '턴오버' }, { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' },
+    { key: 'ft_pct', label: '자유투율', term: 'FT%' }, { key: 'efg_pct', label: '유효야투', term: 'eFG%' },
   ]
-  const TOTAL_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: 'R' }, { key: 'pts', label: 'PTS' },
-    { key: 'reb', label: 'REB' }, { key: 'oreb', label: 'OR' }, { key: 'dreb', label: 'DR' },
-    { key: 'ast', label: 'AST' }, { key: 'stl', label: 'STL' }, { key: 'blk', label: 'BLK' },
-    { key: 'tov', label: 'TOV' },
-    { key: 'fgm', label: 'FG' }, { key: 'fg3m', label: '3P' }, { key: 'ftm', label: 'FT' },
-    { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' }, { key: 'ft_pct', label: 'FT%' },
+  const TOTAL_COLS: { key: SortKey; label: string; term: string }[] = [
+    { key: 'gp', label: '출전', term: 'R' }, { key: 'pts', label: '득점', term: 'PTS' },
+    { key: 'reb', label: '리바', term: 'REB' }, { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
+    { key: 'ast', label: '어시', term: 'AST' }, { key: 'stl', label: '스틸', term: 'STL' }, { key: 'blk', label: '블락', term: 'BLK' },
+    { key: 'tov', label: '턴오버', term: 'TOV' },
+    { key: 'fgm', label: '야투', term: 'FGM' }, { key: 'fg3m', label: '3점', term: '3PM' }, { key: 'ftm', label: '자유투', term: 'FTM' },
+    { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' }, { key: 'ft_pct', label: '자유투율', term: 'FT%' },
     // MIN 은 누적 뷰에만 둔다 — 교체 기록이 거의 없어 이벤트 시각으로 추정한 값이라
-    // 경기당 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
-    { key: 'minutes_est', label: 'MIN' },
+    // 하루 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
+    { key: 'minutes_est', label: '시간', term: 'MIN' },
   ]
 
   // Shooting stats 컬럼 — 슈팅 정확도 + 야투 분포
@@ -360,22 +455,22 @@ function LeagueStatsPageInner() {
   //   · 개별 % 지표는 텍스트 (모바일 카드는 2026-10-12 부터 숫자 아래 미니 막대 + 자격자 평균 기준선)
   //   · 야투 존별 비중 (DS/LU/MD/3P) 4개 컬럼 → SHOT MIX 스택 막대 단일 컬럼으로 통합
   //     한 선수의 슛 성향을 한눈에 파악
-  const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string }[] = [
-    { key: 'fg_pct',   label: 'FG%',      desc: '전체 야투 성공률 · FGM/FGA' },
-    { key: 'fg2_pct',  label: '2P%',      desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
-    { key: 'fg3_pct',  label: '3P%',      desc: '3점 야투 성공률 · 3PM/3PA' },
-    { key: 'ft_pct',   label: 'FT%',      desc: '자유투 성공률 · FTM/FTA' },
-    { key: 'ts_pct',   label: 'TS%',      desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
-    { key: 'shot_mix', label: 'SHOT MIX', desc: '슛 분포 · 골밑(DS) · 레이업(LU) · 미들(MD) · 3점 시도 비중 스택 바' },
+  const SHOOTING_COLS: { key: ShootingKey; label: string; term: string; desc: string }[] = [
+    { key: 'fg_pct',   label: '야투율',   term: 'FG%', desc: '전체 야투 성공률 · FGM/FGA' },
+    { key: 'fg2_pct',  label: '2점률',    term: '2P%', desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
+    { key: 'fg3_pct',  label: '3점률',    term: '3P%', desc: '3점 야투 성공률 · 3PM/3PA' },
+    { key: 'ft_pct',   label: '자유투율', term: 'FT%', desc: '자유투 성공률 · FTM/FTA' },
+    { key: 'ts_pct',   label: '진실야투', term: 'TS%', desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
+    { key: 'shot_mix', label: '슛 분포',  term: '3P share', desc: '골밑 · 레이업 · 미들 · 3점 시도 비중 막대 (정렬은 3점 비중)' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
-  const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
-    { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
-    { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
-    { key: 'a1_rate',   label: 'A1%',   desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
-    { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
-    { key: 'usg_pct',   label: 'USG%',  desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
+  const ADV_COLS: { key: AdvKey; label: string; term: string; desc: string }[] = [
+    { key: 'at_ratio',  label: '어시/턴오버', term: 'A/T',  desc: '어시스트/턴오버 비율' },
+    { key: 'a1_total',  label: '앤드원',      term: 'A1',   desc: '성공한 앤드원(And-One) 횟수 (누적)' },
+    { key: 'a1_rate',   label: '앤드원율',    term: 'A1%',  desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
+    { key: 'trb_pct',   label: '리바 비중',   term: 'TRB%', desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
+    { key: 'usg_pct',   label: '공격 점유',   term: 'USG%', desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
   ]
 
   // usg_pct 만 null 가능(팀 분모 0) — 0% 로 찍으면 "공격을 안 했다"로 읽혀 거짓이 된다
@@ -592,9 +687,9 @@ function LeagueStatsPageInner() {
   const modeChips = (
     <SegmentedTabs<StatMode>
       items={[
-        { key: 'basic',    label: 'Basic' },
-        { key: 'shooting', label: 'Shooting' },
-        { key: 'advanced', label: 'Advanced' },
+        { key: 'basic',    label: '기본' },
+        { key: 'shooting', label: '슈팅' },
+        { key: 'advanced', label: '고급' },
         { key: 'awards',   label: '어워즈' },
       ]}
       value={statMode}
@@ -665,7 +760,7 @@ function LeagueStatsPageInner() {
               세 모드(기본·슈팅·고급)의 칩 행을 하나로 합쳤다 — 지금 모드의 열·정렬 상태만 보여준다. */}
           {(() => {
             const chipRow = statMode === 'basic'
-              ? { cols: COLS.map(c => ({ key: c.key as string, label: c.key === 'gp' ? 'R' : c.label })), active: sortKey as string, dir: sortDir, onPick: (k: string) => handleSort(k as SortKey) }
+              ? { cols: COLS.map(c => ({ key: c.key as string, label: c.label })), active: sortKey as string, dir: sortDir, onPick: (k: string) => handleSort(k as SortKey) }
               : statMode === 'shooting'
               ? { cols: SHOOTING_COLS.map(c => ({ key: c.key as string, label: c.label })), active: shootSortKey as string, dir: shootSortDir, onPick: (k: string) => handleShootSort(k as typeof shootSortKey) }
               : { cols: ADV_COLS.map(c => ({ key: c.key as string, label: c.label })), active: advSortKey as string, dir: advSortDir, onPick: (k: string) => handleAdvSort(k as typeof advSortKey) }
@@ -691,7 +786,7 @@ function LeagueStatsPageInner() {
               <span className="text-xs font-black" style={{ color: 'var(--mm-ink)', letterSpacing: '0.08em' }}>선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
               <button
                 onClick={() => setCompareModalOpen(true)}
-                disabled={compareIds.size !== 2}
+                disabled={compareIds.size === 0}
                 className="ml-auto px-3 py-1 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }}
               >
@@ -759,65 +854,48 @@ function LeagueStatsPageInner() {
                   <Users size={16} aria-hidden="true" />
                   전체 명단 보기
                 </button>
+                {/* 선수 비교 — 폰·PC 공통 진입점. PC 표에서 체크한 선수가 있으면 그 선수로 채워 연다 */}
+                <button
+                  type="button"
+                  onClick={() => setCompareModalOpen(true)}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
+                >
+                  <ArrowLeftRight size={16} aria-hidden="true" />
+                  선수 비교
+                </button>
               </div>
             </div>
 
             {statMode === 'basic' ? (<>
-            {/* Basic — 모바일 카드뷰 */}
-            <div className="md:hidden">
+            {/* Basic — 모바일 카드뷰 (정렬 지표 크게 + 핵심 4칸 · 1위 대비 막대) */}
+            <div className="md:hidden p-2.5 space-y-2">
               {visibleBasic.map((p, i) => {
-                const sortTerm = sortKey === 'gp' ? 'R' : (COLS.find(c => c.key === sortKey)?.label ?? '')
-                const sortVal = cellVal(p, sortKey)
-                // 보조 4칸은 고정 우선순위로 고른다 — 예전엔 표 순서대로 앞 4칸이라, 득점순일 때
-                //   R·RPG·ORpg·DRpg(리바운드만 세 번)가 나오고 어시스트가 빠졌다(2026-10-11).
-                //   출전일(R)은 이름 아래에 이미 있으므로 넣지 않는다.
+                const sortCol = COLS.find(c => c.key === sortKey)
+                // 보조 4칸은 고정 우선순위로 고른다 — 표 순서대로 앞 4칸을 쓰면 득점순일 때
+                //   리바운드만 세 번 나오고 어시스트가 빠졌다(2026-10-11). 출전일은 이름 아래에 있다.
                 const subPref: SortKey[] = viewMode === 'avg'
                   ? ['ppg', 'rpg', 'apg', 'fg_pct', 'spg', 'fg3_pct', 'bpg']
                   : ['pts', 'reb', 'ast', 'fg_pct', 'stl', 'fg3m', 'blk']
-                const subCols = subPref
+                const items: CardItem[] = subPref
                   .filter(k => k !== sortKey)
                   .slice(0, 4)
-                  .map(k => COLS.find(c => c.key === k)!)
-                  .filter(Boolean)
-                const rt = rankTier(i + 1)
-                const openPlayer = () => setQuickViewPlayer({ id: p.player_id, name: p.name })
+                  .map(k => COLS.find(c => c.key === k))
+                  .filter((c): c is NonNullable<typeof c> => !!c)
+                  .map(c => {
+                    const att = basicAttempts(c.key)
+                    const raw = p[c.key] as number
+                    const has = !att || att(p) > 0
+                    return {
+                      key: c.key, label: c.label, value: cellVal(p, c.key),
+                      ratio: has ? ratioOf(raw, leaderOf(q => q[c.key] as number, att)) : null,
+                    }
+                  })
                 return (
-                  // 용어 툴팁(StatHelpTooltip)이 카드 안에 버튼으로 들어가므로 카드 자체는
-                  // <button> 대신 role="button" div — 버튼 안 버튼(invalid HTML) 방지.
-                  // 접근성: 키보드 포커스(tabIndex) + Enter/Space 로 동일 동작 + 포커스 링.
-                  <div key={p.player_id} role="button" tabIndex={0}
-                    onClick={openPlayer}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
-                    className={`w-full text-left px-4 py-3 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1`}
-                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${isIneligible(p) ? 'transparent' : rt.accent}` }}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</div>
-                        <div className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{'R'}{isIneligible(p) && <IneligibleTag />}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
-                        <div className="text-xs font-black mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink)' }}>
-                          <StatHeader term={sortTerm} />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                      {subCols.map(({ key, label }) => {
-                        const term = key === 'gp' ? 'R' : label
-                        return (
-                          <div key={key} className="text-center">
-                            <div className="text-xs font-bold flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                              <StatHeader term={term} />
-                            </div>
-                            <div className="t-num text-base font-black mt-0.5" style={{ color: 'var(--mm-ink)' }}>{cellVal(p, key)}</div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
+                  <MobileStatCard key={p.player_id} rank={i + 1} p={p} ineligible={isIneligible(p)}
+                    bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)}
+                    items={items}
+                    onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
                 )
               })}
             </div>
@@ -830,8 +908,7 @@ function LeagueStatsPageInner() {
                     <th className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th className="t-th px-2 w-8" style={{ color: 'var(--mm-ink)' }}>비교</th>
                     <th className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    {COLS.map(({ key, label }) => {
-                      const term = key === 'gp' ? 'R' : label
+                    {COLS.map(({ key, label, term }) => {
                       return (
                         <th key={key} onClick={() => handleSort(key)}
                           className="t-th px-1.5 cursor-pointer select-none transition-colors duration-200"
@@ -839,7 +916,7 @@ function LeagueStatsPageInner() {
                             color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                             background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
                           }}>
-                          <StatHeader term={term} />
+                          <StatHeader term={term} label={label} />
                           {sortKey === key
                             ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
                             : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
@@ -965,49 +1042,46 @@ function LeagueStatsPageInner() {
               )}
             </div>
             </>) : statMode === 'shooting' ? (<>
-            {/* Shooting — 모바일 카드뷰 */}
+            {/* Shooting — 모바일 카드뷰 (막대 = 1위 대비, 세로선 = 자격자 평균) */}
             <div className="md:hidden">
               <div className="px-4 py-1.5 text-xs flex items-center gap-1.5" style={{ color: 'var(--mm-muted)', borderBottom: '1px solid var(--mm-rule)' }}>
                 <span aria-hidden className="inline-block" style={{ width: 2, height: 10, background: 'var(--mm-ink)' }} />
-                막대 위 세로선 = 자격자 평균
+                막대 = 1위 대비 · 세로선 = 자격자 평균
               </div>
+              <div className="p-2.5 space-y-2">
               {visibleShoot.map(({ p, sh }, i) => {
-                const rt = rankTier(i + 1)
+                const sortCol = SHOOTING_COLS.find(c => c.key === shootSortKey)
+                const isMix = shootSortKey === 'shot_mix'
+                const pref: ShootingKey[] = ['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct', 'fg2_pct']
+                const items: CardItem[] = pref
+                  .filter(k => k !== shootSortKey)
+                  .slice(0, 4)
+                  .map(k => {
+                    const c = SHOOTING_COLS.find(x => x.key === k)!
+                    const att = SHOOT_ATTEMPTS[k]
+                    const has = att(p) > 0
+                    const leader = leaderOf(q => calcShoot(q)[k], att)
+                    return {
+                      key: k, label: c.label, value: has ? `${fmt1(sh[k])}%` : '—',
+                      ratio: has ? ratioOf(sh[k], leader) : null,
+                      mark: shootMarks[k] != null && leader > 0 ? Math.min(1, shootMarks[k]! / leader) : null,
+                    }
+                  })
                 return (
-                  <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className={`w-full text-left px-4 py-3 transition-colors`}
-                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${isIneligible(p) ? 'transparent' : rt.accent}` }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i+1}</span>
-                      <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-xs font-bold ml-auto" style={{ color: 'var(--mm-muted)' }}>{p.gp}{'R'}{isIneligible(p) && <IneligibleTag />}</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                      {SHOOTING_COLS.slice(0, 7).map(({ key, label }) => {
-                        const active = shootSortKey === key
-                        return (
-                          <div key={key} className="text-center">
-                            <div className="text-xs font-bold" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{label}</div>
-                            <div className="t-num text-base font-black mt-0.5" style={{ color: 'var(--mm-ink)' }}>{fmt1(sh[key])}%</div>
-                            <ProgressBar
-                              value={sh[key]} max={100}
-                              mark={shootMarks[key] != null ? shootMarks[key]! / 100 : null}
-                              height={5} className="mt-1"
-                              label={`${label} ${fmt1(sh[key])}%${shootMarks[key] != null ? ` · 평균 ${fmt1(shootMarks[key]!)}%` : ''}`}
-                            />
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {/* 슛 분포 스택 막대 (모바일 · 전체 폭) */}
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="text-xs font-bold shrink-0" style={{ color: shootSortKey === 'shot_mix' ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>SHOT MIX</span>
-                      <div className="flex-1"><ShotMixBar p={p} height={10} /></div>
-                    </div>
-                  </button>
+                  <MobileStatCard key={p.player_id} rank={i + 1} p={p} ineligible={isIneligible(p)}
+                    bigLabel={isMix ? '3점 비중' : (sortCol?.label ?? '')} bigTerm={sortCol?.term ?? ''}
+                    bigValue={SHOOT_ATTEMPTS[shootSortKey](p) > 0 ? `${fmt1(sh[shootSortKey])}%` : '—'}
+                    items={items}
+                    footer={
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className="text-xs font-bold shrink-0" style={{ color: isMix ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>슛 분포</span>
+                        <div className="flex-1 min-w-0"><ShotMixBar p={p} height={10} /></div>
+                      </div>
+                    }
+                    onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
                 )
               })}
+              </div>
             </div>
 
             {/* Shooting — 데스크탑 테이블 */}
@@ -1017,8 +1091,8 @@ function LeagueStatsPageInner() {
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    <th className="t-th px-3">{'R'}</th>
-                    {SHOOTING_COLS.map(({ key, label, desc }, idx) => {
+                    <th className="t-th px-3"><StatHeader term="R" label="출전" /></th>
+                    {SHOOTING_COLS.map(({ key, label, term, desc }, idx) => {
                       // 구분선: 슈팅 효율(0-6) | 야투 분포(7-10)
                       const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-ink)' } : {}
                       return (
@@ -1029,7 +1103,7 @@ function LeagueStatsPageInner() {
                             background: shootSortKey === key ? 'var(--mm-ink)' : 'transparent',
                             ...dividerStyle,
                           }}>
-                          <StatHeader term={label} />
+                          <StatHeader term={term} label={label} />
                           {shootSortKey === key
                             ? (shootSortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
                             : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
@@ -1083,35 +1157,27 @@ function LeagueStatsPageInner() {
               </div>
             </div>
             </>) : (<>
-            {/* Advanced — 모바일 카드뷰 */}
-            <div className="md:hidden">
+            {/* Advanced — 모바일 카드뷰 (정렬 지표 크게 + 나머지 4칸 · 1위 대비 막대) */}
+            <div className="md:hidden p-2.5 space-y-2">
               {visibleAdv.map(({ p, adv }, i) => {
-                const rt = rankTier(i + 1)
+                const fmtAdv = (k: AdvKey, v: number | null) =>
+                  v == null ? '—' : k === 'a1_total' ? String(v) : k === 'at_ratio' ? v.toFixed(2) : `${fmt1(v)}%`
+                const sortCol = ADV_COLS.find(c => c.key === advSortKey)
+                const items: CardItem[] = ADV_COLS
+                  .filter(c => c.key !== advSortKey)
+                  .map(c => {
+                    // A/T 의 99 는 「턴오버 0」 표식이라 1위 분모에서 뺀다(막대가 전부 바닥에 깔린다)
+                    const leader = leaderOf(q => {
+                      const v = calcAdv(q)[c.key]
+                      return c.key === 'at_ratio' && v === 99 ? null : v
+                    })
+                    return { key: c.key, label: c.label, value: fmtAdv(c.key, adv[c.key]), ratio: ratioOf(adv[c.key], leader) }
+                  })
                 return (
-                  <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className={`w-full text-left px-4 py-3 transition-colors`}
-                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${isIneligible(p) ? 'transparent' : rt.accent}` }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i+1}</span>
-                      <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-xs font-bold ml-auto" style={{ color: 'var(--mm-muted)' }}>{p.gp}{'R'}{isIneligible(p) && <IneligibleTag />}</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                      {ADV_COLS.map(({ key, label }) => {
-                        const v = adv[key]
-                        const isRatio = key === 'at_ratio'
-                        const isCount = key === 'a1_total'
-                        const active = advSortKey === key
-                        return (
-                          <div key={key} className="text-center">
-                            <div className="text-xs font-bold" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{label}</div>
-                            <div className="t-num text-base font-black mt-0.5" style={{ color: 'var(--mm-ink)' }}>{v == null ? '—' : isCount ? v : isRatio ? v.toFixed(2) : `${fmt1(v)}%`}</div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </button>
+                  <MobileStatCard key={p.player_id} rank={i + 1} p={p} ineligible={isIneligible(p)}
+                    bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={fmtAdv(advSortKey, adv[advSortKey])}
+                    items={items}
+                    onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
                 )
               })}
             </div>
@@ -1123,15 +1189,15 @@ function LeagueStatsPageInner() {
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    <th className="t-th px-3">{'R'}</th>
-                    {ADV_COLS.map(({ key, label, desc }) => (
+                    <th className="t-th px-3"><StatHeader term="R" label="출전" /></th>
+                    {ADV_COLS.map(({ key, label, term, desc }) => (
                       <th key={key} onClick={() => handleAdvSort(key)} title={desc}
                         className="t-th px-1.5 cursor-pointer select-none transition-colors duration-200"
                         style={{
                           color: advSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: advSortKey === key ? 'var(--mm-ink)' : 'transparent',
                         }}>
-                        <StatHeader term={label} />
+                        <StatHeader term={term} label={label} />
                         {advSortKey === key
                           ? (advSortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
                           : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
@@ -1214,13 +1280,11 @@ function LeagueStatsPageInner() {
         />
       )}
 
-      {compareModalOpen && compareList.length === 2 && (
+      {compareModalOpen && (
         <PlayerCompareModal
           leagueId={leagueId}
-          player1Id={compareList[0]}
-          player2Id={compareList[1]}
-          player1Name={compareNamesById[compareList[0]] ?? ''}
-          player2Name={compareNamesById[compareList[1]] ?? ''}
+          candidates={compareCandidates}
+          initialIds={compareList}
           onClose={() => setCompareModalOpen(false)}
         />
       )}

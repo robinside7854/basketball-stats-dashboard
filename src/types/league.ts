@@ -130,6 +130,9 @@ export type PlayerStat = {
   number: number | null
   position: string | null
   photo_url?: string | null
+  /** 화면 표시용 소속 팀 — 기간 안 마지막 출전 경기의 팀(분기 정체성 이름). 집계에는 쓰지 않는다 */
+  team_name?: string | null
+  team_color?: string | null
   gp: number
   pts: number; ppg: number
   reb: number; rpg: number

@@ -19,6 +19,7 @@ import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type G
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinutes'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { loadIdentityResolver } from './teamIdentity'
 
 export type LeagueStatsUnit = 'round'
 
@@ -98,7 +99,7 @@ export async function computeLeagueStats(
   // 2) 대상 게임 ID 추출
   let gQuery = sb
     .from('league_games')
-    .select('id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, date, round_num')
+    .select('id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, date, round_num, quarter_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     // 친선전(비공식 라운드)은 집계에서 제외한다. 039 는 "순위만 빼고 개인 스탯엔 포함"으로 시작했으나, 팀을 새로 짜서
@@ -126,6 +127,12 @@ export async function computeLeagueStats(
   // 기간 내 열린 라운드 수 = 경기일(date) 유니크 카운트.
   // 최소 출전 자격을 "리그 최다 출전자 대비"가 아니라 "실제 열린 라운드 대비"로 계산하기 위함.
   const totalRounds = new Set(Object.values(gameToDate)).size
+  const gameToQuarter: Record<string, string | null> = {}
+  for (const g of (games ?? [])) gameToQuarter[g.id] = ((g as Record<string, unknown>).quarter_id as string | null) ?? null
+
+  // 화면 표시용 소속 팀(이름·색) — 이벤트 페이지네이션과 겹쳐 받는다(직렬 대기 없음).
+  //   집계 수치에는 쓰지 않는다. 이름은 반드시 (team_id, quarter_id) 정체성으로 푼다(CLAUDE.md).
+  const identityP = loadIdentityResolver(sb, leagueId).catch(() => null)
 
   // 3) 이벤트 페이지네이션
   type EventRow = {
@@ -473,6 +480,23 @@ export async function computeLeagueStats(
 
   // 5) 평균/퍼센트
   if (Object.keys(statsMap).length === 0) return { players: [], total_rounds: totalRounds }
+
+  // 표시용 소속 팀 = 기간 안 마지막 출전일 경기에서 가장 많이 기록된 팀 (분기 정체성으로 이름 결정)
+  const resolveIdentity = await identityP
+  const teamOf: Record<string, { name: string; color: string } | null> = {}
+  if (resolveIdentity) {
+    for (const pid of Object.keys(statsMap)) {
+      const gameTeams = playerTeamGameCount[pid] ?? {}
+      let lastGid: string | null = null
+      for (const gid of Object.keys(gameTeams)) {
+        if (!lastGid || (gameToDate[gid] ?? '') > (gameToDate[lastGid] ?? '')) lastGid = gid
+      }
+      if (!lastGid) { teamOf[pid] = null; continue }
+      const top = Object.entries(gameTeams[lastGid]).sort((a, b) => b[1] - a[1])[0]
+      const ident = top ? resolveIdentity(top[0], gameToQuarter[lastGid]) : null
+      teamOf[pid] = ident ? { name: ident.display_name, color: ident.color } : null
+    }
+  }
   const result: PlayerStat[] = Object.values(statsMap)
     // 게스트는 개인 순위표에서 뺀다 — 위 guestIds 주석 참조. gp>0 필터와 같은 자리에서
     // 걸러야 games_count(경기 수)는 그대로 유지되면서 '사람 목록'만 줄어든다.
@@ -485,6 +509,8 @@ export async function computeLeagueStats(
         number:   ((meta as Record<string,unknown>).number as number | null) ?? null,
         position: ((meta as Record<string,unknown>).position as string | null) ?? null,
         photo_url: ((meta as Record<string,unknown>).photo_url as string | null) ?? null,
+        team_name: teamOf[s.player_id]?.name ?? null,
+        team_color: teamOf[s.player_id]?.color ?? null,
         ppg:  s.gp > 0 ? +(s.pts  / s.gp).toFixed(1) : 0,
         rpg:  s.gp > 0 ? +(s.reb  / s.gp).toFixed(1) : 0,
         orp:  s.gp > 0 ? +(s.oreb / s.gp).toFixed(1) : 0,
