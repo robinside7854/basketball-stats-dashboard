@@ -5,7 +5,7 @@
 
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { ResultChips, ScoreTable, HeadToHead } from './RecordDisplay'
+import { HeadToHead } from './RecordDisplay'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
 
@@ -85,72 +85,59 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                 color: 'var(--mm-ink)',
               }}
             >
-              {/* 상단 행 · 순위 + 팀 컬러 바 + 팀 이름 + 승률 */}
-              <div className="grid items-center gap-2 sm:gap-3 grid-cols-[24px_4px_minmax(0,1fr)_auto] sm:grid-cols-[32px_6px_minmax(0,1fr)_auto]">
-                <span
-                  className="font-jersey font-black tabular-nums text-right leading-none"
-                  style={{
-                    fontSize: isTop ? 'clamp(20px, 5.5vw, 26px)' : 'clamp(18px, 5vw, 22px)',
-                    color: isTop ? 'var(--mm-ink)' : 'var(--mm-muted)',
-                  }}
-                >
-                  {idx + 1}
-                </span>
-                {/* 2026-08-10: 팀 컬러를 더 분명하게 — 얇은 테두리를 추가해 순백(#ffffff) 팀 컬러도
-                    라이트 모드 패널 위에서 사라지지 않게 하고, 팀명 텍스트에도 accentOrInk 로 팀
-                    컬러를 입힌다(대비 낮은 색은 자동으로 --mm-ink 폴백 — contrastColor.ts 참조).
-                    바 높이·행 높이는 그대로라 세로 길이엔 영향 없음. */}
-                <span
-                  aria-hidden
-                  className="block h-6 rounded-sm"
-                  style={{ background: t.color, opacity: isTop ? 0.85 : 1, border: '1px solid var(--mm-rule)' }}
-                />
-                {/* 팀명은 본문 크기 글자 — 유니폼체(좁음)와 uppercase(한글에 무효) 제거.
-                    최소값을 14 → 16px 로 올렸다. 행의 주인공이 화면에서 가장 작은 축이었다. */}
-                <span
-                  className="font-black min-w-0 break-keep"
-                  style={{
-                    fontSize: isTop ? 'clamp(18px, 4.6vw, 22px)' : 'clamp(16px, 3.8vw, 18px)',
-                    letterSpacing: '-0.005em',
-                    color: accentOrInk(t.color),
-                    lineHeight: 1.15,
-                    wordBreak: 'break-word',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {t.name}
-                </span>
-                <span
-                  className="font-jersey font-black tabular-nums leading-none"
-                  style={{
-                    fontSize: isTop ? 'clamp(18px, 5.2vw, 24px)' : 'clamp(18px, 4.6vw, 20px)',
-                    color: rateColor,
-                    minWidth: '64px',
-                    textAlign: 'right',
-                    letterSpacing: '-0.01em',
-                  }}
-                  aria-label={`승률 ${t.winRate.toFixed(1)} 퍼센트`}
-                >
-                  {t.winRate.toFixed(1)}
+              {/* 한 줄 구성 (2026-10-12 재배치) — PC 에서 팀명은 왼쪽 끝, 숫자 상자는 오른쪽 끝이라
+                  가운데가 텅 비었다(사용자 지적). 그 빈자리를 **승·패 막대**로 채운다:
+                  숫자 칩 3개 + 득점/실점/마진 표 → 막대 하나 + 마진 숫자 하나.
+                  · PC(lg): [순위·팀명] [승패 막대 ────] [마진] [승률] 한 줄
+                  · 모바일: 1줄 [순위·팀명 … 승률], 2줄 [승패 막대 … 마진] */}
+              <div className="flex flex-wrap lg:flex-nowrap items-center gap-x-3 gap-y-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 lg:flex-none lg:w-[230px]">
                   <span
-                    className="text-sm font-bold ml-0.5 align-baseline"
-                    style={{ color: 'var(--mm-muted)' }}
+                    className="font-jersey font-black tabular-nums text-right leading-none shrink-0 w-6 sm:w-8"
+                    style={{
+                      fontSize: isTop ? 'clamp(20px, 5.5vw, 26px)' : 'clamp(18px, 5vw, 22px)',
+                      color: isTop ? 'var(--mm-ink)' : 'var(--mm-muted)',
+                    }}
                   >
-                    %
+                    {idx + 1}
                   </span>
-                </span>
-              </div>
+                  <span
+                    aria-hidden
+                    className="block h-6 w-1 sm:w-1.5 rounded-sm shrink-0"
+                    style={{ background: t.color, opacity: isTop ? 0.85 : 1, border: '1px solid var(--mm-rule)' }}
+                  />
+                  <span
+                    className="font-black min-w-0 break-keep truncate"
+                    style={{
+                      fontSize: isTop ? 'clamp(18px, 4.6vw, 22px)' : 'clamp(16px, 3.8vw, 18px)',
+                      letterSpacing: '-0.005em',
+                      color: accentOrInk(t.color),
+                      lineHeight: 1.15,
+                    }}
+                  >
+                    {t.name}
+                  </span>
+                </div>
 
-              {/* 하단 · WIN/LOSE/DRAW 컬러 라벨 + 득점/실점/마진 미니테이블
-                  · 모바일: 아래로 접힘 (칩 라인 + 표 라인)
-                  · sm+: 한 줄에 배치 (칩 + 표) */}
-              <div
-                className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3"
-                style={{ paddingLeft: '32px' }}
-              >
-                <ResultChips wins={t.wins} losses={t.losses} draws={t.draws} isTop={isTop} />
-                <div className="sm:min-w-[220px] sm:max-w-[280px]">
-                  <ScoreTable ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} isTop={isTop} />
+                <div className="order-last basis-full lg:order-none lg:basis-auto lg:flex-1 min-w-0 pl-8 sm:pl-11 lg:pl-0">
+                  <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} />
+                </div>
+
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                  <MarginFigure ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} />
+                  <span
+                    className="font-jersey font-black tabular-nums leading-none text-right"
+                    style={{
+                      fontSize: isTop ? 'clamp(18px, 5.2vw, 24px)' : 'clamp(18px, 4.6vw, 20px)',
+                      color: rateColor,
+                      minWidth: '64px',
+                      letterSpacing: '-0.01em',
+                    }}
+                    aria-label={`승률 ${t.winRate.toFixed(1)} 퍼센트`}
+                  >
+                    {t.winRate.toFixed(1)}
+                    <span className="text-sm font-bold ml-0.5 align-baseline" style={{ color: 'var(--mm-muted)' }}>%</span>
+                  </span>
                 </div>
               </div>
 
@@ -158,7 +145,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   전체이고 어디부터가 상대별인지 구분이 안 된다. 줄을 나누고 라벨을 붙인다.
                   맞붙은 상대가 없으면(첫 경기 전) 컴포넌트가 스스로 아무것도 그리지 않는다. */}
               {(t.h2h?.length ?? 0) > 0 && (
-                <div className="mt-1.5" style={{ paddingLeft: '32px' }}>
+                <div className="mt-2 pl-8 sm:pl-11 lg:pl-[242px]">
                   <HeadToHead records={t.h2h!} />
                 </div>
               )}
@@ -167,5 +154,55 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
         })}
       </div>
     </SectionCard>
+  )
+}
+
+// 승·패·무를 길이로 — 숫자 칩 세 개를 막대 하나로 바꿨다. 칸 안에 「4승」처럼 글자도 남겨
+// 색만으로 읽히지 않게 한다(색각 이상·흑백 인쇄).
+function RecordBar({ wins, losses, draws }: { wins: number; losses: number; draws: number }) {
+  const total = wins + losses + draws
+  if (total === 0) return <span className="t-label">아직 경기 없음</span>
+  const segs = [
+    { n: wins, label: '승', bg: 'var(--mm-positive-bg)', fg: 'var(--mm-positive-fg)', bd: 'var(--mm-positive)' },
+    { n: losses, label: '패', bg: 'var(--mm-negative-bg)', fg: 'var(--mm-negative-fg)', bd: 'var(--mm-negative)' },
+    { n: draws, label: '무', bg: 'var(--mm-neutral-bg)', fg: 'var(--mm-neutral-fg)', bd: 'var(--mm-rule)' },
+  ].filter(x => x.n > 0)
+  return (
+    <div
+      className="flex w-full h-7 overflow-hidden"
+      style={{ borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)' }}
+      role="img"
+      aria-label={`${wins}승 ${losses}패${draws > 0 ? ` ${draws}무` : ''}`}
+    >
+      {segs.map((x, i) => (
+        <div
+          key={x.label}
+          className="flex items-center justify-center text-xs sm:text-sm font-black tabular-nums whitespace-nowrap px-1.5"
+          style={{
+            flexGrow: x.n, flexBasis: 0, minWidth: '2.75rem',
+            background: x.bg, color: x.fg,
+            borderLeft: i > 0 ? `2px solid var(--mm-panel)` : 'none',
+          }}
+        >
+          {x.n}{x.label}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// 득실 마진 하나만 크게, 득점·실점은 그 아래 작게 — 3칸 표를 숫자 하나로 줄였다.
+function MarginFigure({ ptsFor, ptsAgainst }: { ptsFor: number; ptsAgainst: number }) {
+  const diff = ptsFor - ptsAgainst
+  const color = diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-ink-soft)'
+  return (
+    <div className="flex flex-col items-end leading-none" aria-label={`득점 ${ptsFor} 실점 ${ptsAgainst} 마진 ${diff}`}>
+      <span className="font-black tabular-nums text-base sm:text-lg" style={{ color }}>
+        {diff > 0 ? `+${diff}` : diff}
+      </span>
+      <span className="text-[11px] tabular-nums mt-1" style={{ color: 'var(--mm-muted)' }} title="득점-실점">
+        {ptsFor}-{ptsAgainst}
+      </span>
+    </div>
   )
 }
