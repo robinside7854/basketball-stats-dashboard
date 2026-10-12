@@ -114,27 +114,31 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                     return (
                       <li
                         key={t.key}
-                        className="flex items-center gap-2.5 py-2"
+                        className="py-2"
                         style={{
                           borderBottom: idx < shownCount - 1 ? '1px dashed var(--mm-rule)' : 'none',
                         }}
                       >
-                        <span
-                          className="shrink-0 block h-5 w-1.5 rounded-sm"
-                          style={{ background: t.color, border: '1px solid var(--mm-rule)' }}
-                          aria-hidden
-                        />
-                        <span
-                          className="min-w-0 w-[4.5rem] sm:w-[5rem] lg:w-[4.5rem] shrink-0 font-black break-keep text-sm sm:text-base lg:text-sm truncate"
-                          style={{ color: 'var(--mm-ink)', lineHeight: 1.2 }}
-                          title={t.name}
-                        >
-                          {t.name}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} height={22} />
+                        {/* 1줄: 색·이름 … 마진 / 2줄: 승패 막대(카드 폭 전체).
+                            한 줄에 다 넣었더니 PC 4칸 카드에서 막대가 좁아 「무」 칸이 잘렸다(2026-10-12). */}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="shrink-0 block h-4 w-1.5 rounded-sm"
+                            style={{ background: t.color, border: '1px solid var(--mm-rule)' }}
+                            aria-hidden
+                          />
+                          <span
+                            className="min-w-0 flex-1 font-black break-keep text-sm sm:text-base truncate"
+                            style={{ color: 'var(--mm-ink)', lineHeight: 1.2 }}
+                            title={t.name}
+                          >
+                            {t.name}
+                          </span>
+                          <MarginFigure ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} size="sm" />
                         </div>
-                        <MarginFigure ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} size="sm" />
+                        <div className="mt-1.5 pl-3.5">
+                          <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} height={20} />
+                        </div>
                       </li>
                     )
                   })}
@@ -182,10 +186,10 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
           })}
         </div>
 
-        {/* 전체 라운드 하이라이트 CTA — 노랑 배경 · 검정 텍스트 */}
+        {/* 전체 일정 CTA — 지난 날짜 전부는 일정 탭에 있다(2026-10-12, 종전 하이라이트로 연결) */}
         <div className="px-4 sm:px-6 lg:px-8 py-4 md:py-5 flex justify-center">
           <Link
-            href={`/league/${resolvedOrgSlug}/${leagueId}/highlights`}
+            href={`/league/${resolvedOrgSlug}/${leagueId}/schedule`}
             className="mm-brand inline-flex items-center justify-center gap-2 font-bold min-h-[44px] px-6 sm:px-8 py-3 text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"
             style={{
               background: 'var(--mm-ink)',
@@ -194,9 +198,9 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
               borderRadius: '4px',
               boxShadow: '0 4px 0 var(--mm-yellow-strong)',
             }}
-            aria-label="전체 라운드 하이라이트 보기"
+            aria-label="전체 일정 보기"
           >
-            전체 라운드 하이라이트 보기
+            전체 일정 보기
             <ArrowRight size={16} aria-hidden />
           </Link>
         </div>

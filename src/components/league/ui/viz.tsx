@@ -36,7 +36,7 @@ export function RecordBar({
           key={x.label}
           className="flex items-center justify-center text-xs sm:text-sm font-black tabular-nums whitespace-nowrap px-1"
           style={{
-            flexGrow: x.n, flexBasis: 0, minWidth: showLabels ? '2.5rem' : 6,
+            flexGrow: x.n, flexBasis: 0, minWidth: showLabels ? '2.25rem' : 6,
             background: x.bg, color: x.fg,
             borderLeft: i > 0 ? '2px solid var(--mm-panel)' : 'none',
           }}

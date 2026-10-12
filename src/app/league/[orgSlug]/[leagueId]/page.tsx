@@ -53,16 +53,10 @@ async function computeRecentRounds(
     resolverPromise,
   ])
 
-  // 분기가 바뀌면 지난 분기 라운드는 뺀다(팀 구성이 달라 같은 줄에 놓으면 헷갈린다).
-  //   단, 새 분기에 아직 기록이 없으면 빈 섹션 대신 지난 라운드를 그대로 보여 준다.
-  const currentQ = await loadCurrentQuarter(supabase, leagueId)
-  const qStart = currentQ ? (currentQ.start_date ?? null) : null
-  const inQuarter = (g: { date: string; quarter_id: unknown }) =>
-    !currentQ ? true : qStart ? g.date >= qStart : g.quarter_id === currentQ.id
-  const quarterGames = (games ?? []).filter(inQuarter)
-
-  // 라운드(=date) 별로 grouping — 최신순, 기록 있는 날만 RECENT_ROUNDS 개
-  const recent = pickRecentRounds(quarterGames.length > 0 ? quarterGames : (games ?? []))
+  // 분기와 상관없이 기록이 있는 최근 RECENT_ROUNDS 일 (2026-10-12 사용자 요청).
+  //   종전엔 지금 분기 경기만 골라서, 분기 첫 주에는 카드가 1장뿐이었다.
+  //   팀명은 경기마다 (team_id, quarter_id) 로 풀리므로 지난 분기 날짜도 그때 팀명으로 나온다.
+  const recent = pickRecentRounds(games ?? [])
 
   const fmtWeek = (iso: string): string => {
     const d = new Date(iso + 'T00:00:00')
@@ -120,7 +114,7 @@ async function computeCurrentQuarterStandings(
   leagueId: string,
   resolverPromise: IdentityResolverPromise,
 ): Promise<{ standings: StandingRow[]; quarterLabel: string; gamesCount: number }> {
-  // 지금 분기 — 홈의 세 섹션(순위·리더·최근 라운드)이 같은 판정을 쓴다(lib/league/currentQuarter.ts).
+  // 지금 분기 — 홈의 순위·리더가 같은 판정을 쓴다(최근 라운드는 2026-10-12 부터 분기 무관)(lib/league/currentQuarter.ts).
   const [currentQ, resolver] = await Promise.all([
     loadCurrentQuarter(supabase, leagueId),
     resolverPromise,
@@ -243,7 +237,7 @@ const getCachedRecentRounds = (leagueId: string) =>
       const resolverPromise = loadIdentityResolver(sb, leagueId)
       return computeRecentRounds(sb, leagueId, resolverPromise)
     },
-    ['home-recent-rounds', leagueId, String(RECENT_ROUNDS)],
+    ['home-recent-rounds', leagueId, String(RECENT_ROUNDS), 'all-quarters'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
   )
 
