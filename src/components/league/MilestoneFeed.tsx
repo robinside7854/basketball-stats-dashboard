@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Play, ChevronRight, Trophy } from 'lucide-react'
 
-// 카드 클릭 시에만 열리는 모달 — 초기 번들에서 분리 (recharts 4종 포함)
+// 카드 클릭 시에만 열리는 모달 — 초기 번들에서 분리
 const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 // ▶ 클릭 시에만 열리는 클립 모달 — YT iframe API 지연 로드
 const MilestoneClipModal = dynamic(() => import('./MilestoneClipModal'), { ssr: false })

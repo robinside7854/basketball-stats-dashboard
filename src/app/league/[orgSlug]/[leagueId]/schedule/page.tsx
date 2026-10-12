@@ -1,6 +1,6 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
-import { useState, useEffect, Suspense, Fragment } from 'react'
+import { useState, useEffect, useRef, Suspense, Fragment } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -14,6 +14,7 @@ import TournamentSchedule from '@/components/league/TournamentSchedule'
 import { RecordBar } from '@/components/league/ui/viz'
 import Chip from '@/components/league/ui/Chip'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
@@ -23,7 +24,6 @@ type ScheduleDate = {
   id: string; date: string; is_skipped?: boolean
   start_time?: string | null; place?: string | null; capacity?: number | null
 }
-type Quarter = { id: string; year: number; quarter: number; start_date?: string | null; end_date?: string | null }
 // 날짜 카드에 보여 줄 그날 결과 — 팀별 승패. 정규전만 센다(친선은 따로 경기 수만).
 type DayTeam = { name: string; color: string | null; w: number; l: number; d: number }
 type DayResult = { teams: DayTeam[]; games: number; exhibition: number }
@@ -204,7 +204,8 @@ function ScheduleContent() {
   const [autoGenerating, setAutoGenerating] = useState(false)
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
   const [datesWithStats, setDatesWithStats] = useState<Set<string>>(new Set())
-  const [quarters, setQuarters] = useState<Quarter[]>([])
+  // 분기 목록은 LeagueQuarterContext 하나에서 받는다(2026-10-12 리뉴얼 5단계 — 종전엔 여기서 `/quarters` 를 또 불렀다).
+  const { quarters, ready: quartersReady } = useLeagueQuarter()
   const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>(quarterFromRedirect || 'all')
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
   const [dayResults, setDayResults] = useState<Record<string, DayResult>>({})
@@ -216,10 +217,9 @@ function ScheduleContent() {
 
   async function load() {
     setLoading(true)
-    const [dRes, gRes, qRes, lRes] = await Promise.all([
+    const [dRes, gRes, lRes] = await Promise.all([
       fetch(`/api/leagues/${leagueId}/schedule-dates`),
       fetch(`/api/leagues/${leagueId}/games?complete=true`),
-      fetch(`/api/leagues/${leagueId}/quarters`),
       fetch(`/api/leagues/${leagueId}`),
     ])
     if (dRes.ok) setDates(await dRes.json())
@@ -243,17 +243,19 @@ function ScheduleContent() {
       }
       setDateQuarterMap(dqMap)
     }
-    if (qRes.ok) {
-      const qs: Quarter[] = await qRes.json()
-      setQuarters(qs)
-      // 기본 필터는 이번 분기 — 스탯·팀 탭과 같은 기준(2026-10-11). 리다이렉트로 분기가 지정됐으면 그걸 쓴다.
-      if (!quarterFromRedirect) {
-        const cur = pickCurrentQuarter(qs)
-        if (cur) setSelectedQFilter(cur.id)
-      }
-    }
     setLoading(false)
   }
+
+  // 기본 필터는 이번 분기 — 스탯·팀 탭과 같은 기준(2026-10-11). 리다이렉트로 분기가 지정됐으면 그걸 쓴다.
+  //   분기 목록이 확정된 뒤 **한 번만** 고른다.
+  const qDefaultedRef = useRef(false)
+  useEffect(() => {
+    if (!quartersReady || qDefaultedRef.current) return
+    qDefaultedRef.current = true
+    if (quarterFromRedirect) return
+    const cur = pickCurrentQuarter(quarters)
+    if (cur) setSelectedQFilter(cur.id)
+  }, [quartersReady, quarters, quarterFromRedirect])
 
   useEffect(() => { load() }, [leagueId])
 

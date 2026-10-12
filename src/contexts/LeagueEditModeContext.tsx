@@ -7,7 +7,7 @@
 //
 //   isEditMode 는 UI 노출 판단일 뿐이다. 실제 인가는 서버의 canEditLeague 가 매 요청
 //   DB 를 재조회해 판정한다(src/lib/auth/leagueAdmin.ts).
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo } from 'react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
 interface LeagueEditModeCtx {
@@ -38,33 +38,26 @@ const LeagueEditModeContext = createContext<LeagueEditModeCtx>({
 export function useLeagueEditMode() { return useContext(LeagueEditModeContext) }
 
 export function LeagueEditModeProvider({ children }: { children: React.ReactNode; leagueId?: string }) {
-  const { user, loading: authLoading } = useCurrentUser()
+  // CEO 여부는 `/auth/me` 응답에 함께 실려 온다(2026-10-12) — 종전의 `/api/auth/ceo-session` 별도 요청을 없앴다.
+  //   그래서 「로그인 확인이 끝남」과 「CEO 확인이 끝남」이 같은 시점이다.
+  const { user, ceo: isCeo, loading: authLoading } = useCurrentUser()
   const isAdminSession = user?.role === 'admin'
-
-  const [isCeo, setIsCeo] = useState(false)
-  const [ceoChecked, setCeoChecked] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/auth/ceo-session', { cache: 'no-store' })
-      .then(r => (r.ok ? r.json() : { ceo: false }))
-      .then((d: { ceo?: boolean }) => { if (!cancelled) setIsCeo(!!d.ceo) })
-      .catch(() => null)
-      .finally(() => { if (!cancelled) setCeoChecked(true) })
-    return () => { cancelled = true }
-  }, [])
 
   // 레이아웃(LeagueLayoutClient)이 이 이벤트로 로그인 모달을 연다
   const openLogin = useCallback(() => { window.dispatchEvent(new Event('mm-open-login')) }, [])
 
+  // 값 객체를 고정한다 — 레이아웃이 다시 그려질 때마다 새 객체가 나가면 이 컨텍스트를 읽는 화면 전체가 다시 그려진다.
+  const value = useMemo<LeagueEditModeCtx>(() => ({
+    isEditMode: isAdminSession || isCeo,
+    isInitialized: !authLoading,
+    isAdminSession,
+    isCeo,
+    leagueHeaders: HEADERS,
+    openLogin,
+  }), [isAdminSession, isCeo, authLoading, openLogin])
+
   return (
-    <LeagueEditModeContext.Provider value={{
-      isEditMode: isAdminSession || isCeo,
-      isInitialized: !authLoading && ceoChecked,
-      isAdminSession,
-      isCeo,
-      leagueHeaders: HEADERS,
-      openLogin,
-    }}>
+    <LeagueEditModeContext.Provider value={value}>
       {children}
     </LeagueEditModeContext.Provider>
   )

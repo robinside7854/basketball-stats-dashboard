@@ -9,18 +9,14 @@
 //   · 라벨은 한국어, 약어(FG% 등)는 StatHeader 툴팁 안에만.
 
 import { useEffect, useMemo, useState } from 'react'
-import dynamic from 'next/dynamic'
 import { Loader2, Plus, Search, ArrowLeftRight } from 'lucide-react'
 import Sheet from '@/components/league/ui/Sheet'
 import Avatar from '@/components/league/ui/Avatar'
 import { VersusBar } from '@/components/league/ui/viz'
 import StatHeader from '@/components/league/StatHeader'
 
-// Recharts (~90KB gz) 는 두 선수가 정해진 뒤에만 로드 — 초기 번들 감량
-const PlayerCompareRadarChart = dynamic(() => import('@/components/league/charts/PlayerCompareCharts'), {
-  ssr: false,
-  loading: () => <div style={{ height: 240 }} />,
-})
+// 레이더 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿔 바로 import 한다.
+import PlayerCompareRadarChart from '@/components/league/charts/PlayerCompareCharts'
 
 type Detail = {
   player_stats: {

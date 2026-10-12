@@ -9,6 +9,7 @@ import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
+import type { Quarter } from '@/types/league'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
@@ -455,11 +456,13 @@ function LeagueLayout({
   orgSlug,
   leagueId,
   leagueName,
+  initialQuarters,
   children,
 }: {
   orgSlug: string
   leagueId: string
   leagueName: string | null
+  initialQuarters: Quarter[] | null
   children: React.ReactNode
 }) {
   const { theme } = useTheme()
@@ -490,7 +493,7 @@ function LeagueLayout({
   return (
     <LeagueAuthProvider leagueId={leagueId}>
     <LeagueEditModeProvider leagueId={leagueId}>
-    <LeagueQuarterProvider leagueId={leagueId}>
+    <LeagueQuarterProvider leagueId={leagueId} initialQuarters={initialQuarters}>
       <DraftProbe leagueId={leagueId} onChange={setShowDraft} />
       <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
         {/* 경기묶음 전환 — 탭 위 계층이라 탭 바(TabNav/BottomNav)보다 먼저 배치.
@@ -527,12 +530,15 @@ export default function LeagueLayoutClient({
   orgSlug,
   leagueId,
   leagueName,
+  initialQuarters = null,
   children,
 }: {
   orgSlug: string
   leagueId: string
   leagueName: string | null
+  /** 레이아웃(서버)이 미리 받은 분기 목록 — null 이면 프로바이더가 브라우저에서 받는다 */
+  initialQuarters?: Quarter[] | null
   children: React.ReactNode
 }) {
-  return <LeagueLayout orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName}>{children}</LeagueLayout>
+  return <LeagueLayout orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName} initialQuarters={initialQuarters}>{children}</LeagueLayout>
 }

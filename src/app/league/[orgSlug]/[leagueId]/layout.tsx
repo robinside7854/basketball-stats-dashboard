@@ -5,6 +5,7 @@ import LeagueLayoutClient from './_components/LeagueLayoutClient'
 import PrivateLeagueGate from '@/components/league/auth/PrivateLeagueGate'
 import { resolveLeagueAppIdentity } from '@/lib/pwa/leagueApp'
 import { appleWebAppMetadata } from '@/lib/pwa/appShell'
+import { loadLeagueQuarters } from '@/lib/league/loadQuarters'
 
 export async function generateMetadata({
   params,
@@ -83,11 +84,17 @@ export default async function LeagueLayout({
   // 면적이 리그 트리 전 페이지로 넓어져 있었다 — name 컬럼만 좁혀 서버에서 직접 조회하고
   // prop 으로 내려보낸다(추가 라운드트립 없음, '온볼' 폴백 깜빡임도 없음).
   const sb = createClient()
-  const { data: leagueRow } = await sb.from('leagues').select('name').eq('id', leagueId).maybeSingle()
+  // 분기 목록도 여기서 함께 받아 LeagueQuarterProvider 초기값으로 넘긴다 (2026-10-12, 리뉴얼 5단계 — 속도).
+  //   종전엔 진입마다 브라우저가 `/quarters` 를 따로 불렀다. 리그 공용 데이터라(개인 데이터 아님)
+  //   위 게이트를 통과한 뒤라면 실어 보내도 된다. 실패하면 null → 프로바이더가 종전처럼 직접 받는다.
+  const [{ data: leagueRow }, quartersRes] = await Promise.all([
+    sb.from('leagues').select('name').eq('id', leagueId).maybeSingle(),
+    loadLeagueQuarters(sb, leagueId).catch(() => ({ quarters: null })),
+  ])
   const leagueName = (leagueRow?.name as string | undefined) ?? null
 
   return (
-    <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName}>
+    <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName} initialQuarters={quartersRes.quarters}>
       {children}
     </LeagueLayoutClient>
   )

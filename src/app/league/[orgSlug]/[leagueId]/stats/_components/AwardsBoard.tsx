@@ -6,9 +6,10 @@ import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Cross
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { accentOrInk } from '@/lib/util/contrastColor'
 import { ProgressBar } from '@/components/league/ui/viz'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 
 // gsap · PlayerQuickView · AwardDetail 은 카드 클릭 후 실행되는 인터랙션 — 초기 번들에서 분리
-// gsap 3.15 은 ~70KB, PlayerQuickView 는 1441줄 (recharts 4종 내부 lazy)
+// gsap 3.15 은 ~70KB, PlayerQuickView 는 1400줄 넘는 모달
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 const AwardDetailModal = dynamic(() => import('@/components/league/AwardDetailModal'), { ssr: false })
 
@@ -145,8 +146,6 @@ interface AttendanceInfo {
   threshold: number
 }
 
-type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
-
 // 옛 /awards 페이지 본문 — 리더보드의 4번째 모드로 흡수됐다. 헤더·서브탭·분기 칩은 stats 페이지가 가진다.
 export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string; quarterId: string }) {
   const selectedQuarterId = quarterId
@@ -156,8 +155,9 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
   const [loading, setLoading] = useState(true)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
   const [openAward, setOpenAward] = useState<AwardEntry | null>(null)
-  // 자격 요건 박스의 분기 라벨(「26.3Q」)용 — props 를 leagueId·quarterId 로 고정해 두려고 자체 조회한다.
-  const [quarters, setQuarters] = useState<Quarter[]>([])
+  // 자격 요건 박스의 분기 라벨(「26.3Q」)용 — 분기 목록은 LeagueQuarterContext 하나에서 받는다
+  //   (2026-10-12 리뉴얼 5단계 — 종전엔 여기서 `/quarters` 를 또 불렀다).
+  const { quarters } = useLeagueQuarter()
 
   // 펼쳐 둔 부문 — 12개 카드를 전부 펼쳐 세로로 잇지 않는다.
   // 기본값은 **첫 부문 하나만 펼침**이다. 전부 접으면 요약 줄 11개만 남아 빈 화면처럼 보이고
@@ -186,14 +186,6 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
       return next
     })
   }
-
-  // 분기 목록 로드
-  useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/quarters`)
-      .then(r => r.ok ? r.json() : [])
-      .then((qs: Quarter[]) => setQuarters(qs))
-      .catch(() => setQuarters([]))
-  }, [leagueId])
 
   // 어워즈 로드 (분기 변경 시 재조회)
   useEffect(() => {

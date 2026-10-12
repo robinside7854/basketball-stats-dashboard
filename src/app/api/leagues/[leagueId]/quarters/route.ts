@@ -4,7 +4,7 @@ import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
 import { logAudit } from '@/lib/audit'
-import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
+import { loadLeagueQuarters } from '@/lib/league/loadQuarters'
 
 // GET /api/leagues/[leagueId]/quarters
 // Returns quarters with player memberships and team leaders
@@ -17,30 +17,10 @@ export async function GET(
   if (!(await canViewLeague(req, leagueId))) {
     return NextResponse.json({ error: 'login_required' }, { status: 401 })
   }
-  const supabase = createClient()
-
-  const { data: quarters, error } = await supabase
-    .from('league_quarters')
-    .select('*')
-    .eq('league_id', leagueId)
-    .order('year').order('quarter')
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // 「현재 분기」 깃발을 **날짜로 바로잡는다** (2026-10-11).
-  //   10월인데 설정·드래프트·팀 명단이 3분기를 「현재」로 보여줬다 — 홈·스탯은 날짜로 판정해
-  //   4분기였는데, 깃발을 직접 읽는 화면들은 운영자가 깃발을 옮기기 전까지 옛 분기에 머물렀다.
-  //   판정은 정본 `pickCurrentQuarter()`(① 오늘이 기간 안 ② 깃발 ③ 최근) 하나로 하고,
-  //   DB 깃발도 그 결과로 맞춰 둔다 — 깃발을 직접 읽는 서버 코드까지 같은 답을 보게.
-  const rows = (quarters ?? []) as Array<{ id: string; is_current: boolean | null; year: number; quarter: number; start_date: string | null; end_date: string | null; kind?: string | null }>
-  const pick = pickCurrentQuarter(rows)
-  if (pick && !pick.is_current) {
-    const { error: fixErr } = await supabase.from('league_quarters').update({ is_current: false }).eq('league_id', leagueId).neq('id', pick.id)
-    const { error: setErr } = fixErr ? { error: fixErr } : await supabase.from('league_quarters').update({ is_current: true }).eq('id', pick.id)
-    // 깃발 쓰기가 실패해도 이번 응답은 날짜 기준으로 바로잡아 내보낸다.
-    if (setErr) console.error('[quarters] is_current 동기화 실패', setErr.message)
-  }
-  return NextResponse.json(rows.map(q => ({ ...q, is_current: pick ? q.id === pick.id : !!q.is_current })))
+  // 조회 + 「현재 분기」 깃발 날짜 보정은 loadLeagueQuarters 하나 — 리그 레이아웃(서버)도 같은 함수로 초기값을 만든다.
+  const { quarters, error } = await loadLeagueQuarters(createClient(), leagueId)
+  if (error !== null) return NextResponse.json({ error }, { status: 500 })
+  return NextResponse.json(quarters)
 }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/

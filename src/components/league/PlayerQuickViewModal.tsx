@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
-import dynamic from 'next/dynamic'
 import { Loader2, X, Crown, Pencil, Camera, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
@@ -17,24 +16,9 @@ import { LEAGUE_BASELINE, tierAgainst, type ShootingBaseline } from '@/lib/stats
 import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 
-// Recharts (~90KB gz) 는 모달 열림 시점에만 로드 — 초기 번들 감량
-// ssr:false 로 hydration 오류 방지 (client component 내부 chart)
-const MonthlyStatsChart = dynamic(
-  () => import('@/components/league/charts/PlayerQuickViewCharts').then(m => m.MonthlyStatsChart),
-  { ssr: false, loading: () => <div style={{ height: 148 }} /> },
-)
-const GameTrendChart = dynamic(
-  () => import('@/components/league/charts/PlayerQuickViewCharts').then(m => m.GameTrendChart),
-  { ssr: false, loading: () => <div style={{ height: 188 }} /> },
-)
-const PlayerRadarChart = dynamic(
-  () => import('@/components/league/charts/PlayerQuickViewCharts').then(m => m.PlayerRadarChart),
-  { ssr: false, loading: () => <div style={{ height: 160 }} /> },
-)
-const PlayerShotDonut = dynamic(
-  () => import('@/components/league/charts/PlayerQuickViewCharts').then(m => m.PlayerShotDonut),
-  { ssr: false, loading: () => <div style={{ height: 180 }} /> },
-)
+// 차트 4종 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿨다(수 KB).
+//   더 이상 따로 쪼개 늦게 받을 이유가 없어 바로 import 한다(모달 자체가 호출부에서 lazy 로드된다).
+import { MonthlyStatsChart, GameTrendChart, PlayerRadarChart, PlayerShotDonut } from '@/components/league/charts/PlayerQuickViewCharts'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null

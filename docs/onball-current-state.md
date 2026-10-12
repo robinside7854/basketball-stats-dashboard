@@ -11,6 +11,14 @@
 - 삭제: 베스트샷 선수 갤러리(`BestShotsGallery`) · 리그 `HighlightsPlayerPicker` — 피드의 선수 칩·베스트샷 칩이 대신한다.
 - **다음에 할 일**: 실제 휴대폰에서 고정 재생기 높이 확인(재생기+컨트롤 ≈ 화면 절반 — 높이 560px 미만에선 고정 안 함). 그다음 5단계.
 
+**최근 결정 (2026-10-12 ⑨, 리뉴얼 5단계 — 속도):**
+- 리그 화면 진입 시 공통 요청 3개(`/auth/me` · `/api/auth/ceo-session` · `/quarters`) → **1개(`/auth/me`)**.
+  `ceo` 는 `/auth/me` 응답에 함께 실린다(판정은 그대로 `requireCeoSession()`, role 도 매 요청 DB 재조회 · `private, no-store`).
+  분기 목록은 레이아웃(서버)이 `lib/league/loadQuarters.ts` 로 받아 `LeagueQuarterProvider initialQuarters` 로 넘긴다 —
+  `GET /quarters` 도 같은 함수(깃발 날짜 보정 포함). 서버 조회 실패 시에만 브라우저가 받는다. 일정 탭·어워즈의 자체 `/quarters` 조회도 컨텍스트로.
+- 리그 화면은 **recharts 를 import 하지 않는다** — 선수 카드·비교 모달 차트를 `components/league/ui/charts.tsx`(RadarChart·MiniBarChart·MiniLineChart·DonutChart, 인라인 SVG)로. 패키지는 파란날개가 써서 남는다.
+- `/api/auth/ceo-session` 라우트는 이제 호출처가 없다(남겨 둠).
+
 **최근 결정 (2026-10-12 ⑧, 리뉴얼 3단계 — 스탯 카드 · 모바일 비교 · 팀 탭 인사이트):**
 - 스탯 탭: 모바일(<md)은 표 대신 선수 카드(`MobileStatCard` — 사진·팀 칩·핵심 4개 + 1위 대비 막대). PC 표는 유지, 열 이름 한글(약어는 툴팁). 「선수 비교」는 `Sheet` 로 모바일·PC 공용(두 칸 골라 VersusBar).
 - `computeLeagueStats` 응답에 표시용 `team_name`/`team_color`(기간 내 마지막 경기 팀, 정체성 해석) 추가 — 계산·자격 불변.

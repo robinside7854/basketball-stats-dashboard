@@ -23,7 +23,7 @@ import HeadToHeadBars from '@/components/league/HeadToHeadBars'
 import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
 import ShotTypeBreakdown, { type ShotTypeRow } from '@/components/league/boxscore/ShotTypeBreakdown'
 
-// recharts 를 물고 있는 모달 — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
+// 큰 모달(선수 카드) — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
 /** 선수 id → DD/TD. 넘겨받은 줄 기준이다 — 하루 합산표엔 하루 합산, 경기별 표엔 그 경기 한 줄.

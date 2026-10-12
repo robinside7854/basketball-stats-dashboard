@@ -39,7 +39,7 @@ import { useMePeriod, type MePeriod } from '../home/HomeMeContext'
 // 폭죽은 canvas + rAF 라 첫 화면 번들에 들어갈 이유가 없다. 실제로 터질 때만 받아온다.
 const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
 
-// 선수카드 모달 · 클릭 후에만 로드 (recharts 포함)
+// 선수카드 모달 · 클릭 후에만 로드
 const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
 // 비밀번호 변경 모달 · 클릭 시에만 로드
 const PasswordChangeModal = dynamic(() => import('./PasswordChangeModal'), { ssr: false })

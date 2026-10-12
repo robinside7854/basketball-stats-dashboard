@@ -1,13 +1,9 @@
 'use client'
-// Recharts 를 초기 번들에서 분리하기 위한 별도 모듈 (dynamic import 대상)
-// PlayerQuickViewModal 이 모달 진입 시점에만 로드 — 초기 번들 감량
+// 선수 카드(PlayerQuickViewModal) 차트 4종 — 월별 막대 · 경기별 추이 · 능력치 레이더 · 슛 비중 도넛.
+// 2026-10-12 리뉴얼 5단계: recharts(~90KB gz) → 자체 인라인 SVG(`components/league/ui/charts.tsx`).
+//   그림의 뜻(축·기준선·색·툴팁 내용)은 그대로다. 리그 화면은 recharts 를 import 하지 않는다.
 import { useState } from 'react'
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, XAxis, YAxis, Tooltip,
-  BarChart, Bar, PieChart, Pie, Cell as PieCell,
-  LineChart, Line, ReferenceLine, CartesianGrid,
-} from 'recharts'
+import { RadarChart, MiniBarChart, MiniLineChart, DonutChart } from '@/components/league/ui/charts'
 
 // ---------------------------------------------------------------------------
 // Monthly Stats Bar Chart
@@ -42,17 +38,12 @@ export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={100}>
-        <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-          <XAxis dataKey="label" tick={{ fill: 'var(--mm-muted)', fontSize: 13 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: 'var(--mm-muted)', fontSize: 13 }} axisLine={false} tickLine={false} />
-          <Tooltip
-            contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 4, fontSize: 14, color: 'var(--mm-ink)' }}
-            formatter={(v) => [String(v), MONTH_STATS.find(s => s.key === monthStat)?.label ?? '']}
-          />
-          <Bar dataKey={monthStat} fill="var(--mm-yellow)" radius={[2, 2, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      <MiniBarChart
+        data={data.map(d => ({ label: d.label, value: d[monthStat] }))}
+        valueLabel={MONTH_STATS.find(x => x.key === monthStat)?.label ?? ''}
+        height={100}
+        color="var(--mm-yellow)"
+      />
     </div>
   )
 }
@@ -109,29 +100,14 @@ export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={140}>
-        <LineChart data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: -22 }}>
-          <CartesianGrid strokeDasharray="2 4" stroke="var(--mm-rule)" vertical={false} />
-          <XAxis
-            dataKey="idx"
-            tick={{ fill: 'var(--mm-muted)', fontSize: 13 }}
-            axisLine={false}
-            tickLine={false}
-            interval={Math.max(0, Math.floor(chartData.length / 6) - 1)}
-          />
-          <YAxis tick={{ fill: 'var(--mm-muted)', fontSize: 13 }} axisLine={false} tickLine={false} />
-          <Tooltip
-            contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 4, fontSize: 14, color: 'var(--mm-ink)' }}
-            labelFormatter={(v, payload) => {
-              const p = payload?.[0]?.payload as { date?: string } | undefined
-              return `#${v}${p?.date ? ` (${p.date})` : ''}`
-            }}
-            formatter={(val) => [val as (string | number), activeMeta.label]}
-          />
-          <ReferenceLine y={seasonAvg} stroke="var(--mm-muted)" strokeDasharray="3 3" label={{ value: `평균 ${seasonAvg}`, position: 'insideTopRight', fill: 'var(--mm-muted)', fontSize: 13 }} />
-          <Line type="monotone" dataKey="value" stroke={activeMeta.color} strokeWidth={2.5} dot={{ r: 2, fill: activeMeta.color }} activeDot={{ r: 4 }} />
-        </LineChart>
-      </ResponsiveContainer>
+      <MiniLineChart
+        points={chartData.map(p => ({ tick: String(p.idx), value: p.value, title: `#${p.idx}${p.date ? ` (${p.date})` : ''}` }))}
+        valueLabel={activeMeta.label}
+        color={activeMeta.color}
+        reference={seasonAvg}
+        referenceLabel="평균"
+        height={140}
+      />
     </div>
   )
 }
@@ -144,20 +120,19 @@ export type RadarAccent = { stroke: string; fillA: string; fillB: string }
 
 export function PlayerRadarChart({ data, accent }: { data: RadarStat[]; accent: RadarAccent }) {
   return (
-    <ResponsiveContainer width="100%" height={160}>
-      <RadarChart data={data} margin={{ top: 8, right: 20, bottom: 8, left: 20 }}>
-        <defs>
-          <radialGradient id="playerRadarFill" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={accent.fillB} stopOpacity={0.55} />
-            <stop offset="100%" stopColor={accent.fillA} stopOpacity={0.15} />
-          </radialGradient>
-        </defs>
-        <PolarGrid stroke="var(--mm-rule)" />
-        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--mm-ink-soft)', fontSize: 13, fontWeight: 600 }} />
-        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-        <Radar dataKey="value" stroke={accent.stroke} fill="url(#playerRadarFill)" strokeWidth={2.25} />
-      </RadarChart>
-    </ResponsiveContainer>
+    <RadarChart
+      axes={data.map(d => d.stat)}
+      series={[{
+        name: '리그 백분위',
+        values: data.map(d => d.value),
+        stroke: accent.stroke,
+        strokeWidth: 2.25,
+        gradient: { inner: accent.fillB, innerOpacity: 0.55, outer: accent.fillA, outerOpacity: 0.15 },
+      }]}
+      max={100}
+      height={160}
+      label="능력치 · 리그 백분위"
+    />
   )
 }
 
@@ -175,38 +150,20 @@ export type DonutEntry = {
 
 export function PlayerShotDonut({ data }: { data: DonutEntry[] }) {
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="name"
-          innerRadius="58%"
-          outerRadius="86%"
-          paddingAngle={2}
-          stroke="none"
-          isAnimationActive
-          animationDuration={600}
-        >
-          {data.map((d, i) => <PieCell key={i} fill={d.color} />)}
-        </Pie>
-        <Tooltip
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null
-            const p = payload[0].payload as DonutEntry
-            return (
-              <div
-                className="rounded-sm px-2.5 py-1.5 text-xs"
-                style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', boxShadow: '0 10px 24px -8px rgba(0,0,0,0.25)' }}
-              >
-                <p className="font-black" style={{ color: p.color }}>{p.name}</p>
-                <p className="mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>{p.m}/{p.a} · FG {p.fg_pct}%</p>
-                <p style={{ color: 'var(--mm-muted)' }}>비중 {p.value}%</p>
-              </div>
-            )
-          }}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <DonutChart
+      label="슛 종류별 시도 비중"
+      height={180}
+      segments={data.map(d => ({
+        name: d.name,
+        value: d.value,
+        color: d.color,
+        detail: (
+          <>
+            <p className="mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>{d.m}/{d.a} · FG {d.fg_pct}%</p>
+            <p style={{ color: 'var(--mm-muted)' }}>비중 {d.value}%</p>
+          </>
+        ),
+      }))}
+    />
   )
 }
