@@ -10,10 +10,9 @@ import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
-  CalendarDays, PlayCircle, Zap, AlertTriangle, Sparkles, X, ArrowLeftRight,
+  CalendarDays, PlayCircle, Zap, AlertTriangle, X, ArrowLeftRight,
   Link2, Search, Plus, Trash2, ChevronDown,
 } from 'lucide-react'
-import { volumeForRound } from '@/lib/social/volume'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
@@ -202,7 +201,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
   const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
-  const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number; complete: number; started: number; unused: number; pending: number }>>({})
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
@@ -210,8 +208,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [ytSyncing, setYtSyncing] = useState(false)
   const [minutes, setMinutes] = useState<MinRow[]>([])
   const [statsRefresh, setStatsRefresh] = useState(0)
-  // 라운드가 방금 전수 마감됐을 때 뜨는 안내 (인스타 카드 발행 유도). null = 안 뜸
-  const [roundDone, setRoundDone] = useState<{ date: string; vol: number | null } | null>(null)
   const [mobileTab, setMobileTab] = useState<'record' | 'stats'>('record')
 
   // 분기별 홈/어웨이 선수 명단
@@ -453,29 +449,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   }, [homeRoster, awayRoster, gameStarted, selectedSlotId, isTournament])
 
 
-  // 날짜별 집계 — 서버가 이미 세어 준 값을 받는다(`/games/date-summary`).
-  //   예전에는 `/games` 로 전 경기(303행 × 전 컬럼 + 팀 조인)를 받아 브라우저에서 셌다.
-  //   화면에 쓰이는 건 날짜당 숫자 넷뿐이고, 무엇보다 PostgREST 가 1000행에서 조용히 잘려
-  //   시즌이 쌓이면 뒷부분이 통째로 빠진 집계가 나온다.
-  //   unused/pending 만 여기서 가른다 — '오늘' 기준이라 서버 시간대에 맡기지 않는다.
-  function applyDateSummaries(rows: Array<{ date: string; total: number; started: number; complete: number; yt: number }>) {
-    const today = new Date().toISOString().slice(0, 10)
-    const stats: Record<string, { total: number; yt: number; complete: number; started: number; unused: number; pending: number }> = {}
-    for (const r of rows) {
-      // 시작도 마감도 안 된 슬롯 = 과거면 미사용(영상이 9개 안 됐던 날의 남은 칸), 오늘·미래면 미시작
-      const idle = r.total - r.complete - Math.max(0, r.started - r.complete)
-      stats[r.date] = {
-        total: r.total,
-        yt: r.yt,
-        complete: r.complete,
-        started: Math.max(0, r.started - r.complete),
-        unused: r.date < today ? idle : 0,
-        pending: r.date < today ? 0 : idle,
-      }
-    }
-    setDateStats(stats)
-  }
-
   // 초기 로드
   useEffect(() => {
     async function init() {
@@ -501,7 +474,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       }
       if (gRes.ok) {
         const summaries = await gRes.json()
-        applyDateSummaries(summaries)
         // 날짜 → 분기 맵 — 집계 응답이 날짜당 quarter_id 를 함께 준다(전 경기 순회 불필요)
         const dqMap: Record<string, string> = {}
         for (const r of summaries as Array<{ date: string; quarter_id: string | null }>) {
@@ -1167,7 +1139,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     const current = !!selectedSlot.is_exhibition
     const next = !current
     const msg = next
-      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위·개인 스탯·배지·마일스톤 집계에서 모두 제외됨\n· 박스스코어·하이라이트에는 그대로 남음\n\n· 팀 구성이 이 경기 전용으로 바뀝니다 — 분기 소속을 따르지 않고\n  이 화면에서 직접 배정한 선수만 명단이 됩니다\n\n· 팀도 이 날짜 전용 임시팀에서 고릅니다 — 아래에서 만들어 배정하세요'
+      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위·개인 스탯·마일스톤 집계에서 모두 제외됨\n· 박스스코어·하이라이트에는 그대로 남음\n\n· 팀 구성이 이 경기 전용으로 바뀝니다 — 분기 소속을 따르지 않고\n  이 화면에서 직접 배정한 선수만 명단이 됩니다\n\n· 팀도 이 날짜 전용 임시팀에서 고릅니다 — 아래에서 만들어 배정하세요'
       : '이 경기를 정규전으로 되돌리시겠습니까?\n\n· 리그 순위·개인 스탯 집계에 다시 포함됨\n· 명단이 분기 소속 기준으로 돌아갑니다\n\n· 임시팀이 배정돼 있으면 되돌릴 수 없습니다 (상시팀으로 먼저 교체)'
     if (!confirm(msg)) return
     const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
@@ -1299,7 +1271,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         // 연동이 칸을 새로 늘렸으면(예: 4~9경기) 그 빈 칸에도 대진을 채운다
         const fresh = await refreshSlots()
         if (fresh) await autoFillRotation(fresh, { onlyEmpty: true })
-        fetch(`/api/leagues/${leagueId}/games/date-summary`).then(r => r.json()).then(applyDateSummaries).catch(() => null)
       } else {
         const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
         toast.error(msg, { duration: 10000, action: retryAction })
@@ -1870,19 +1841,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         action: { label: `${next.slot_num}경기 기록하기 →`, onClick: () => { selectSlot(next) } },
       } : undefined)
       refreshSlots()
-
-      // ── 라운드 전수 마감 감지 → 인스타 카드 준비 안내 ──────────────────
-      // 이 슬롯을 뺀 나머지가 전부 마감이면 방금 이 라운드가 끝난 것이다.
-      // "시작된 슬롯만" 으로 느슨하게 잡으면 5경기째 마감했을 때 아직 시작 안 한 6~9번이
-      // 없는 것으로 처리돼 너무 일찍 뜬다 — 그래서 전 슬롯 마감을 기준으로 한다.
-      const others = slots.filter(s => s.id !== selectedSlotId)
-      if (others.length > 0 && others.every(s => s.is_complete)) {
-        const done = Object.entries(dateStats)
-          .filter(([, st]) => st.total > 0 && st.complete >= st.total)
-          .map(([d]) => d)
-        if (!done.includes(selectedDate)) done.push(selectedDate)
-        setRoundDone({ date: selectedDate, vol: volumeForRound(selectedDate, done) })
-      }
     } catch (e) {
       toast.error(`마감 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
     } finally {
@@ -2280,43 +2238,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   return (
     <div className="mm-brand space-y-4">
       <LeagueSubTabs group="games" />
-      {/* 라운드 전수 마감 → 인스타 카드 준비 완료 안내.
-          카드 생성기는 편집 권한자만 쓰는 도구라 여기(기록 화면)에 띄운다 — 마지막 경기를
-          마감한 바로 그 자리가 카드를 만들 마음이 드는 유일한 순간이다. */}
-      {roundDone && (
-        <div
-          className="flex items-center gap-3 flex-wrap p-3"
-          style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-ink)', borderRadius: '4px' }}
-        >
-          <Sparkles size={16} aria-hidden style={{ color: 'var(--mm-ink)' }} />
-          <div className="min-w-0">
-            <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
-              {roundDone.date} 라운드 마감 완료 — 인스타 카드{' '}
-              {roundDone.vol != null ? <><b>VOL.{roundDone.vol}</b> </>: ''}준비됨
-            </p>
-            <p className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
-              카드 9장이 이 라운드 기록으로 채워져 있습니다. 눌러서 확인하고 저장하세요.
-            </p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <a
-              href={`/league/${orgSlug}/${leagueId}/social?date=${roundDone.date}`}
-              className="inline-flex items-center justify-center px-4 min-h-11 text-xs font-black cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-              style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: '4px' }}
-            >
-              카드 만들러 가기
-            </a>
-            <button
-              onClick={() => setRoundDone(null)}
-              aria-label="안내 닫기"
-              className="inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-colors"
-              style={{ color: 'var(--mm-ink-soft)' }}
-            >
-              <X size={16} aria-hidden />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 날짜 헤더 + YouTube 연동 (1행) */}
       <div className="flex items-center gap-3 flex-wrap">

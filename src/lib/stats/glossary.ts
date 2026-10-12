@@ -47,6 +47,16 @@ export const GLOSSARY: Record<string, StatDef> = {
   TOPG: { short: 'TOPG', long: '하루 평균 턴오버',  formula: 'TOV / R', description: '경기한 날 하루 평균 턴오버 · 낮을수록 좋음', direction: 'low' },
   ORpg: { short: 'ORpg', long: '하루 평균 공격리바', formula: 'OREB / R', description: '경기한 날 하루 평균 공격 리바운드' },
   DRpg: { short: 'DRpg', long: '하루 평균 수비리바', formula: 'DREB / R', description: '경기한 날 하루 평균 수비 리바운드' },
+  // 리그 표의 하루 평균 컬럼은 한국어 라벨로 보인다(2026-10-12 — PPG 같은 약어·「경기당」 금지).
+  //   라벨을 그대로 term 으로 넘기므로 같은 설명을 한국어 키로도 건다. 약어는 툴팁 안에만 남긴다.
+  득점:   { short: '득점',   long: '하루 평균 득점 (PPG)',    formula: 'PTS / R', description: '경기한 날 하루에 평균 몇 점 넣는지 (하루 여러 경기를 합친 값)' },
+  리바:   { short: '리바',   long: '하루 평균 리바운드 (RPG)', formula: 'REB / R', description: '경기한 날 하루 평균 리바운드' },
+  공리:   { short: '공리',   long: '하루 평균 공격 리바운드',  formula: 'OREB / R', description: '경기한 날 하루 평균 공격 리바운드' },
+  수리:   { short: '수리',   long: '하루 평균 수비 리바운드',  formula: 'DREB / R', description: '경기한 날 하루 평균 수비 리바운드' },
+  어시:   { short: '어시',   long: '하루 평균 어시스트 (APG)', formula: 'AST / R', description: '경기한 날 하루 평균 어시스트' },
+  스틸:   { short: '스틸',   long: '하루 평균 스틸 (SPG)',    formula: 'STL / R', description: '경기한 날 하루 평균 스틸' },
+  블락:   { short: '블락',   long: '하루 평균 블락 (BPG)',    formula: 'BLK / R', description: '경기한 날 하루 평균 블락' },
+  턴오버: { short: '턴오버', long: '하루 평균 턴오버 (TOPG)', formula: 'TOV / R', description: '경기한 날 하루 평균 턴오버 · 낮을수록 좋음', direction: 'low' },
 
   // ── 슈팅 % ────────────────────────────
   'FG%': { short: 'FG%', long: '야투 성공률',    formula: 'FGM / FGA', description: '전체 야투 성공률 (2점+3점)' },
@@ -104,7 +114,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   NetRtg: { short: 'NET', long: '순 효율', formula: 'ORtg - DRtg',
             description: '득실 효율 차이. +5 이상이면 강팀' },
   Pace: { short: 'Pace', long: '페이스', formula: '(팀 POSS + 상대 POSS) / 2 / GP',
-          description: '경기당 소유권 수 (경기 템포)' },
+          description: '평균 소유권 수 (경기 템포)' },
 
   // ── 기타 ───────────────────────────
   W:     { short: 'W', long: '승리', description: '해당 팀/선수 참가 승리 수' },

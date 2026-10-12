@@ -245,20 +245,20 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                           style={{ background: 'rgba(0,0,0,0.5)' }}
                         >
                           {/* 아이콘 4단계(14/16/20/24) 예외 — 썸네일 전체를 덮는 재생 오버레이(그래픽) */}
-                          <PlayCircle size={32} style={{ color: 'var(--color-hoop-orange-500)' }} fill="rgba(0,0,0,0.4)" />
+                          <PlayCircle size={32} style={{ color: 'var(--mm-yellow)' }} fill="rgba(0,0,0,0.4)" />
                         </span>
                       </div>
-                      {/* 상시 노출 재생 뱃지 — 모바일(호버 없음)에서도 '재생됨' 신호 · 브랜드 주황 · hover 확대 */}
+                      {/* 상시 노출 재생 뱃지 — 모바일(호버 없음)에서도 '재생됨' 신호 · 브랜드 옐로우 · hover 확대 */}
                       <span
                         aria-hidden
                         className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full transition-transform duration-200 group-hover:scale-110"
                         style={{
-                          background: 'var(--color-hoop-orange-500)',
+                          background: 'var(--mm-yellow)',
                           border: '2px solid var(--mm-panel)',
                           boxShadow: '0 2px 6px -2px rgba(0,0,0,0.4)',
                         }}
                       >
-                        <Play size={14} style={{ color: '#ffffff' }} fill="#ffffff" />
+                        <Play size={14} style={{ color: 'var(--mm-black)' }} fill="var(--mm-black)" />
                       </span>
                     </div>
                   </div>
@@ -304,8 +304,8 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       <span
                         className="text-xs font-semibold px-1.5 py-0.5"
                         style={{
-                          background: 'var(--color-hoop-orange-500)',
-                          color: '#ffffff',
+                          background: 'var(--mm-yellow)',
+                          color: 'var(--mm-black)',
                           borderRadius: '3px',
                         }}
                       >

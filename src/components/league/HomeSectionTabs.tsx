@@ -75,7 +75,7 @@ export default function HomeSectionTabs({
               {on && (
                 <span
                   aria-hidden
-                  className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-sm bg-[color:var(--color-hoop-orange-500)]"
+                  className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-sm bg-[color:var(--mm-yellow-strong)]"
                 />
               )}
             </button>

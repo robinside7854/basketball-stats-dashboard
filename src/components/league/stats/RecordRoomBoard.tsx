@@ -127,7 +127,7 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
               const cellStyle: CSSProperties = {
                 background: isHighlight ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
-                borderTop: `2px solid ${isHighlight ? 'var(--color-hoop-orange-500)' : 'transparent'}`,
+                borderTop: `2px solid ${isHighlight ? 'var(--mm-yellow-strong)' : 'transparent'}`,
               }
               const unit = category === 'PTS' ? '점' : ''
 

@@ -26,7 +26,7 @@ export default function LeagueGroupTabs({ tabs }: { tabs: LeagueGroupTab[] }) {
                 aria-current={active ? 'page' : undefined}
                 className={`shrink-0 px-3.5 py-2.5 min-h-11 -mb-px border-b-2 font-bold text-sm lg:text-base flex items-center gap-1 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
                   active
-                    ? 'border-[color:var(--color-hoop-orange-500)] text-[color:var(--mm-ink)]'
+                    ? 'border-[color:var(--mm-yellow-strong)] text-[color:var(--mm-ink)]'
                     : 'border-transparent text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)]'
                 }`}
               >

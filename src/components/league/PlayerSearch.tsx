@@ -278,7 +278,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, i)}
-      <mark className="bg-transparent" style={{ color: 'var(--color-hoop-orange-500)' }}>{text.slice(i, i + q.length)}</mark>
+      <mark className="bg-transparent" style={{ color: 'var(--mm-yellow-strong)' }}>{text.slice(i, i + q.length)}</mark>
       {text.slice(i + q.length)}
     </>
   )

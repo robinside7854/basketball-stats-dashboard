@@ -68,14 +68,14 @@ type StatMode = 'basic'|'shooting'|'advanced'
 
 const AVG_COLS: { key: BasicKey; label: string }[] = [
   { key: 'gp',      label: 'R'    },
-  { key: 'ppg',     label: 'PPG'  },
-  { key: 'rpg',     label: 'RPG'  },
-  { key: 'orp',     label: 'ORpg' },
-  { key: 'drp',     label: 'DRpg' },
-  { key: 'apg',     label: 'APG'  },
-  { key: 'spg',     label: 'SPG'  },
-  { key: 'bpg',     label: 'BPG'  },
-  { key: 'topg',    label: 'TOPG' },
+  { key: 'ppg',     label: '득점'   },
+  { key: 'rpg',     label: '리바'   },
+  { key: 'orp',     label: '공리'   },
+  { key: 'drp',     label: '수리'   },
+  { key: 'apg',     label: '어시'   },
+  { key: 'spg',     label: '스틸'   },
+  { key: 'bpg',     label: '블락'   },
+  { key: 'topg',    label: '턴오버' },
   { key: 'fg_pct',  label: 'FG%'  },
   { key: 'fg3_pct', label: '3P%'  },
   { key: 'ft_pct',  label: 'FT%'  },
@@ -545,7 +545,7 @@ function StatsTable({
                 <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
+                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
                       {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
@@ -573,7 +573,7 @@ function StatsTable({
                 <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
+                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
                       {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
@@ -602,7 +602,7 @@ function StatsTable({
                 <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
+                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
                       {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
@@ -769,10 +769,10 @@ function TeamDetailPanel({
                 <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 내 1위</p>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
                   {[
-                    { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)} PPG` : null },
-                    { label: '리바운드', player: computed.byRpg, val: computed.byRpg ? `${computed.byRpg.rpg.toFixed(1)} RPG` : null },
-                    { label: '어시스트', player: computed.byApg, val: computed.byApg ? `${computed.byApg.apg.toFixed(1)} APG` : null },
-                    { label: '수비왕', player: computed.byDef, val: computed.byDef ? `${(computed.byDef.spg + computed.byDef.bpg).toFixed(1)} SPG+BPG` : null },
+                    { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)}점` : null },
+                    { label: '리바운드', player: computed.byRpg, val: computed.byRpg ? `리바 ${computed.byRpg.rpg.toFixed(1)}` : null },
+                    { label: '어시스트', player: computed.byApg, val: computed.byApg ? `어시 ${computed.byApg.apg.toFixed(1)}` : null },
+                    { label: '수비왕', player: computed.byDef, val: computed.byDef ? `스틸+블락 ${(computed.byDef.spg + computed.byDef.bpg).toFixed(1)}` : null },
                     { label: '효율왕', player: computed.byEfg, val: computed.byEfg ? `${computed.byEfg.efg_pct.toFixed(1)}% eFG` : null },
                   ].filter(item => item.player && item.val).map(item => (
                     <button
@@ -1499,10 +1499,10 @@ function LeagueTeamsPageInner() {
 
           {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
           <StatsReadingGuide items={[
-            { term: 'PPG', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
-            { term: 'RPG', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
-            { term: 'APG', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
-            { term: 'TOPG', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
+            { term: '득점 (PPG)', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
+            { term: '리바 (RPG)', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
+            { term: '어시 (APG)', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
+            { term: '턴오버 (TOPG)', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
           ]} />
 
           {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).

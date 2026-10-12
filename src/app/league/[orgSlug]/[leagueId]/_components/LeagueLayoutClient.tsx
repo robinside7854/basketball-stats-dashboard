@@ -15,6 +15,7 @@ import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
 import PlayerSearch from '@/components/league/PlayerSearch'
 import { rememberLeague } from '@/lib/lastLeague'
 import { usePendingSignups } from '@/lib/hooks/usePendingSignups'
+import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 
 // 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
 // useParams()/props 의 leagueId 는 UUID 지만, usePathname() 은 브라우저의 slug URL 을 반환한다.
@@ -93,12 +94,13 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/teams`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
-    ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
+    // 드래프트는 주장·운영진 전용 절차다(2026-10-12) — 일반 회원 탭 줄에는 띄우지 않는다.
+    ...(showDraft && isEditMode ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
   ]
 
-  // 프로필 칩 활성 판정 — /me 와 /social(설정에서만 가는 운영자 화면)을 함께 흡수한다.
+  // 프로필 칩 활성 판정 — /me 를 흡수한다.
   // 탭에서 빠졌으므로 이 경로들에서는 상단 밑줄 인디케이터가 꺼지고, 대신 칩이 켜진다.
-  const meActive = pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/social`)
+  const meActive = pathname.startsWith(`${base}/me`)
   // 홈 탭은 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
   // 팀(/teams)은 스탯 탭의 match 배열에 있다(위 tabs 참조, 2026-08-08; /awards·/roster 는 2026-09-28 흡수·리다이렉트) —
   // 경기 탭 match 에서는 반드시 빠져야 두 탭이 동시에 켜지는 걸 막는다.
@@ -127,7 +129,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     const ro = new ResizeObserver(measure)
     ro.observe(wrap)
     return () => ro.disconnect()
-  }, [pathname, showDraft, leagueName])
+  }, [pathname, showDraft, isEditMode, leagueName])
 
   return (
     <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
@@ -167,7 +169,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                   style={{
                     width: indicator.width,
                     transform: `translateX(${indicator.left}px)`,
-                    background: 'var(--color-hoop-orange-500)',
+                    background: 'var(--mm-yellow-strong)',
                     transition: 'transform var(--mm-motion-base) var(--mm-ease-out), width var(--mm-motion-base) var(--mm-ease-out)',
                   }}
                 />
@@ -217,7 +219,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                     이 버튼이 여는 모달은 로그인과 가입 요청을 모두 담고 있으므로, 라벨에도 둘 다
                     적어야 신규 회원이 들어올 입구가 있다는 걸 알 수 있다. */}
                 <span className="hidden sm:inline">{signupPending ? '승인 대기중' : '가입/로그인'}</span>
-                {signupPending && <span aria-hidden className="sm:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[color:var(--color-hoop-orange-500)]" />}
+                {signupPending && <span aria-hidden className="sm:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[color:var(--mm-yellow-strong)]" />}
               </button>
             )}
             {/* 편집 권한 표시 — 2026-10-11 편집 PIN 폐지로 「편집」 잠금 버튼이 사라졌다.
@@ -286,7 +288,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                   style={{
                     background: 'var(--mm-panel-alt)',
                     // 활성일 때만 테두리를 준다 — 항상 그리면 비활성 상태와 구분이 안 된다.
-                    boxShadow: meActive ? '0 0 0 2px var(--color-hoop-orange-500)' : 'none',
+                    boxShadow: meActive ? '0 0 0 2px var(--mm-yellow-strong)' : 'none',
                   }}
                 >
                   {user.photo_url ? (
@@ -304,6 +306,13 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
       </div>
     </div>
   )
+}
+
+// 경기묶음(리그 ↔ 대회) 전환은 CEO 전용 — 편집 모드 컨텍스트를 읽어야 해서 Provider 안쪽 컴포넌트로 뺐다.
+function CeoCompetitionSwitcher({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
+  const { isCeo } = useLeagueEditMode()
+  if (!isCeo) return null
+  return <CompetitionSwitcher orgSlug={orgSlug} leagueId={leagueId} />
 }
 
 function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
@@ -334,14 +343,14 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   //   홈과 스탯 두 탭이 동시에 켜지거나, 반대로 어느 탭도 안 켜지는 문제가 생긴다.
   // 홈 매칭 — 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
   // 경기 우산 매칭 — /schedule 이면서 /boxscore·/record 도 경기 탭 활성.
-  // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings·/social 도 여기로 흡수한다. 셋 다 하단 탭이
+  // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings 도 여기로 흡수한다. 둘 다 하단 탭이
   //   따로 없고 /me 의 "바로가기"(또는 설정)로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부
-  //   꺼진다. /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면(리뷰 항목 5).
+  //   꺼진다. (인스타 카드 생성기 /social 은 2026-10-12 폐지)
   const isActive = (href: string) => {
     if (href === base) return pathname === base
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`)
     if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
-    if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`) || pathname.startsWith(`${base}/social`)
+    if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`)
     return pathname.startsWith(href)
   }
 
@@ -354,7 +363,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
       <nav
         aria-label="주요 메뉴"
-        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)] border-t ${isEditMode ? 'border-[color:var(--color-hoop-orange-500)]' : 'border-[color:var(--mm-rule)]'}`}
+        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)] border-t ${isEditMode ? 'border-[color:var(--mm-yellow-strong)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="relative flex items-stretch justify-around h-14">
           {/* 활성 인디케이터 — 탭마다 따로 그리지 않고 하나를 옮긴다.
@@ -372,7 +381,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 transition: 'transform var(--mm-motion-base) var(--mm-ease-out)',
               }}
             >
-              <span className="block w-8 h-0.5 rounded-b-full" style={{ background: 'var(--color-hoop-orange-500)' }} />
+              <span className="block w-8 h-0.5 rounded-b-full" style={{ background: 'var(--mm-yellow-strong)' }} />
             </span>
           )}
           {mainTabs.map(({ href, label, Icon, ariaLabel }) => {
@@ -435,6 +444,13 @@ function RecordAwareContainer({
   return <div key={pathname} className={`max-w-[1280px] mx-auto px-4 lg:px-6 py-6 ${enter}`}>{children}</div>
 }
 
+/** 진행 중 드래프트 여부를 레이아웃 state 로 올려 준다 — 어드민(편집 모드)일 때만 조회(useActiveDraft) */
+function DraftProbe({ leagueId, onChange }: { leagueId: string; onChange: (v: boolean) => void }) {
+  const active = useActiveDraft(leagueId)
+  useEffect(() => { onChange(active) }, [active, onChange])
+  return null
+}
+
 function LeagueLayout({
   orgSlug,
   leagueId,
@@ -449,22 +465,10 @@ function LeagueLayout({
   const { theme } = useTheme()
   const pathname = usePathname()
   const [loginOpen, setLoginOpen] = useState(false)
-  // 드래프트 메뉴 조건부 표시 — 현재 분기에 진행 중(미완료) 세션이 있을 때만
+  // 드래프트 메뉴 조건부 표시 — 현재 분기에 진행 중(미완료) 세션이 있을 때만.
+  //   판정은 프로바이더 안쪽의 <DraftProbe> 가 한다(이 컴포넌트는 프로바이더 바깥이라 컨텍스트를 못 읽는다).
+  //   분기 목록은 LeagueQuarterContext 하나에서 받는다 — 여기서 /quarters 를 다시 부르지 않는다(2026-10-12).
   const [showDraft, setShowDraft] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const qs = await fetch(`/api/leagues/${leagueId}/quarters`).then(r => r.json())
-        const cur = (qs ?? []).find((q: { is_current?: boolean }) => q.is_current) ?? (qs ?? [])[qs.length - 1]
-        if (!cur) return
-        const d = await fetch(`/api/leagues/${leagueId}/drafts/current?quarterId=${cur.id}`).then(r => r.json())
-        if (!cancelled) setShowDraft(!!d.draft && d.draft.status !== 'completed')
-      } catch { /* ignore */ }
-    })()
-    return () => { cancelled = true }
-  }, [leagueId])
 
   // #1 비로그인 티저 등에서 로그인 모달 열기 요청 (mm-open-login 이벤트)
   useEffect(() => {
@@ -487,11 +491,13 @@ function LeagueLayout({
     <LeagueAuthProvider leagueId={leagueId}>
     <LeagueEditModeProvider leagueId={leagueId}>
     <LeagueQuarterProvider leagueId={leagueId}>
+      <DraftProbe leagueId={leagueId} onChange={setShowDraft} />
       <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
         {/* 경기묶음 전환 — 탭 위 계층이라 탭 바(TabNav/BottomNav)보다 먼저 배치.
             데스크톱·모바일 어느 쪽에서 보든 이 지점이 공통이라 양쪽에서 닿는다.
-            묶음이 1개뿐이면(현재 미라클 일반 회원) 컴포넌트가 null 을 반환해 화면이 지금과 동일하다. */}
-        <CompetitionSwitcher orgSlug={orgSlug} leagueId={leagueId} />
+            묶음이 1개뿐이면(현재 미라클 일반 회원) 컴포넌트가 null 을 반환해 화면이 지금과 동일하다.
+            ⚠ 대회 기능은 사실상 안 쓰여(2026-10-12 운영진) CEO 에게만 보인다 — 대회 코드는 지우지 않는다. */}
+        <CeoCompetitionSwitcher orgSlug={orgSlug} leagueId={leagueId} />
         <TabNav
           orgSlug={orgSlug}
           leagueId={leagueId}

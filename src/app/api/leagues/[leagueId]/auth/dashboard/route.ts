@@ -1,13 +1,20 @@
 // GET /api/leagues/[leagueId]/auth/dashboard
 //   로그인 유저 개인화 대시보드 데이터
-//     a. 이번 시즌 참석 라운드 · 누적 PTS/REB/AST/STL/BLK + 각 항목별 리그 랭킹
+//     a. **이번 분기 · 하루 평균** PTS/REB/AST/STL/BLK + 각 항목 리그 순위 (2026-10-12)
+//        — 홈 「리그 리더」와 같은 기준(분기 = loadCurrentQuarter/gameDateRange, 하루 평균,
+//          최소 출전 = leaderMinRounds). 종전엔 시즌 누적 합계 순위라 홈 리더와 숫자가 안 맞았다.
+//     a'. 시즌 누적 합계(보조 줄) — 마일스톤 체이서도 이 누적값 기준
 //     b. "이번 주 하이라이트" 활성 여부 (직전 라운드 참여 시 true + href)
-//     c. 최근 5경기(=최근 5개 참여 라운드) 스탯 트렌드 + 마일스톤 체이서
+//     c. 마일스톤 체이서 · 진행 중 스트릭
+//   친선전은 computeLeagueStats 가 제외한다. 게스트도 거기서 순위 모집단에서 빠진다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { computeStreaks, type StreakCategory } from '@/lib/stats/streaks'
+import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
+import { leaderMinRounds } from '@/lib/stats/eligibility'
+import type { PlayerStat } from '@/types/league'
 
 // 진행 중 스트릭 라벨 (개인 대시보드 표기용)
 const STREAK_LABEL: Record<StreakCategory, string> = {
@@ -23,6 +30,13 @@ const MILESTONE_LADDER: Record<'pts' | 'reb' | 'ast' | 'stl' | 'blk', number[]> 
   stl: [25, 50, 100, 150, 250, 400, 500, 750, 1000],
   blk: [10, 25, 50, 100, 150, 250, 400, 500],
 }
+
+type Metric = 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
+// 하루 평균 필드 — 홈 리더(NbaLeaders)와 같은 값(computeLeagueStats 가 소수 첫째 자리로 반올림)
+const PER_DAY_KEY: Record<Metric, 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg'> = {
+  pts: 'ppg', reb: 'rpg', ast: 'apg', stl: 'spg', blk: 'bpg',
+}
+const METRICS: Metric[] = ['pts', 'reb', 'ast', 'stl', 'blk']
 
 export async function GET(
   _req: Request,
@@ -41,12 +55,18 @@ export async function GET(
   const sb = createClient()
   const pid = session.pid
 
-  // 1) 시즌 통계 + 스트릭 (독립 → 병렬)
-  const [{ players }, streaksResult] = await Promise.all([
+  // 1) 이번 분기(홈 리더와 같은 판정) · 시즌 누적 · 스트릭 — 독립 → 병렬
+  const q = await loadCurrentQuarter(sb, leagueId)
+  const range = q ? gameDateRange(q) : null
+  const [quarterStats, seasonStats, streaksResult] = await Promise.all([
+    computeLeagueStats(sb, leagueId, {
+      unit: 'round',
+      ...(range ? { from: range.from, to: range.to } : q ? { quarterId: q.id } : {}),
+    }),
     computeLeagueStats(sb, leagueId),
     computeStreaks(sb, leagueId, { minStreak: 2 }),
   ])
-  const me = players.find(p => p.player_id === pid)
+  const me = seasonStats.players.find(p => p.player_id === pid)
 
   // 진행 중 스트릭 (이 선수) — 연속 참석 먼저, 이후 지표 스트릭 count 내림차순
   const myAtt = streaksResult.attendance.find(a => a.player_id === pid)
@@ -61,30 +81,40 @@ export async function GET(
       .map(s => ({ key: s.category, label: STREAK_LABEL[s.category] ?? s.category, count: s.count, unit: '경기' })),
   )
 
+  // 이번 분기 · 하루 평균 + 순위 — 순위 모집단 = 홈 리더와 같은 「최소 출전」 충족자
+  const qPlayers = quarterStats.players
+  const minRounds = leaderMinRounds(qPlayers)
+  const eligible = qPlayers.filter(p => p.gp >= minRounds)
+  const qMe = qPlayers.find(p => p.player_id === pid)
+  const isEligible = !!qMe && qMe.gp >= minRounds
+  const rankOf = (mine: PlayerStat, key: Metric): { rank: number; total: number } => {
+    const f = PER_DAY_KEY[key]
+    const higher = eligible.filter(p => p[f] > mine[f]).length
+    return { rank: higher + 1, total: eligible.length }
+  }
+  const quarter = {
+    label: q?.label ?? null,
+    attended_rounds: qMe?.gp ?? 0,
+    total_rounds: quarterStats.total_rounds ?? 0,
+    min_rounds: minRounds,
+    eligible: isEligible,
+    per_day: Object.fromEntries(METRICS.map(k => [k, qMe ? qMe[PER_DAY_KEY[k]] : 0])) as Record<Metric, number>,
+    ranks: (qMe && isEligible
+      ? Object.fromEntries(METRICS.map(k => [k, rankOf(qMe, k)]))
+      : {}) as Partial<Record<Metric, { rank: number; total: number }>>,
+  }
+
   if (!me) {
     return NextResponse.json({
-      season: { attended_rounds: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, ranks: {} },
+      quarter,
+      season: { attended_rounds: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 },
       weekly: { available: false },
       milestoneChasers: [],
       streaks,
     })
   }
 
-  // 게스트 제외한 랭킹
-  const { data: nonGuestRows } = await sb
-    .from('league_players')
-    .select('id, is_guest')
-    .eq('league_id', leagueId)
-  const guestIds = new Set(((nonGuestRows ?? []) as Array<{ id: string; is_guest: boolean | null }>).filter(r => r.is_guest).map(r => r.id))
-  const nonGuestPlayers = players.filter(p => !guestIds.has(p.player_id))
-
-  const rankOf = (key: 'pts' | 'reb' | 'ast' | 'stl' | 'blk'): { rank: number; total: number } => {
-    const myVal = me[key]
-    const total = nonGuestPlayers.filter(p => p[key] > 0).length
-    const higher = nonGuestPlayers.filter(p => p[key] > myVal).length
-    return { rank: higher + 1, total }
-  }
-
+  // 시즌 누적 합계 — 보조 줄 · 마일스톤 체이서 기준
   const season = {
     attended_rounds: me.gp,
     pts: me.pts,
@@ -92,13 +122,6 @@ export async function GET(
     ast: me.ast,
     stl: me.stl,
     blk: me.blk,
-    ranks: {
-      pts: rankOf('pts'),
-      reb: rankOf('reb'),
-      ast: rankOf('ast'),
-      stl: rankOf('stl'),
-      blk: rankOf('blk'),
-    },
   }
 
   // 2) "이번 주 하이라이트" · 이 선수가 최근 참여한 라운드로 바로 연결
@@ -168,6 +191,7 @@ export async function GET(
   chasers.sort((a, b) => a.remaining - b.remaining)
 
   return NextResponse.json({
+    quarter,
     season,
     weekly,
     milestoneChasers: chasers,

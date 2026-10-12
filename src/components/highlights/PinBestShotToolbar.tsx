@@ -1,12 +1,17 @@
 'use client'
 // 선수 하이라이트 페이지 재생기 하단 · 현재 클립을 "내 베스트샷"에 핀/해제
-// 최대 3개 · 편집은 오픈 (로그인 없음, 자기 프로필 꾸미기 전제)
+// 최대 3개 · 편집은 **본인(로그인 회원의 player_id) ∥ 팀 어드민·CEO** 만 (2026-10-12).
+//   종전엔 로그인 없이 누구나 남의 카드 핀을 바꿀 수 있었다. 서버(pins route)가 같은 규칙으로
+//   재확인한다 — 여기서 숨기는 것은 표시용일 뿐이다.
+//   ⚠ 리그 화면(LeagueAuthProvider 안) 전용 — useCurrentUser 가 프로바이더 밖에서는 throw 한다.
 // 낙관적 업데이트 + 실패 시 롤백 · toast 알림
 
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { NumberedBasketball } from '@/components/league/BasketballIcons'
 import type { HighlightClip } from '@/lib/highlights/types'
+import { useCurrentUser } from '@/contexts/LeagueAuthContext'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 
 const MAX_PINS = 3
 
@@ -23,6 +28,9 @@ export default function PinBestShotToolbar({
   leagueId, playerId, playerName, currentClip, pinnedEventIds, onChange,
 }: Props) {
   const [busy, setBusy] = useState(false)
+  const { user } = useCurrentUser()
+  const { isEditMode } = useLeagueEditMode()
+  const canPin = isEditMode || (!!user && user.player_id === playerId)
   const eventId = currentClip.event_id
   const isPinned = pinnedEventIds.includes(eventId)
   const atCap = !isPinned && pinnedEventIds.length >= MAX_PINS
@@ -57,6 +65,8 @@ export default function PinBestShotToolbar({
   }
 
   // 현재 클립이 핀된 위치 (1-indexed) · 안 됐으면 null
+  if (!canPin) return null
+
   const currentSlot = isPinned ? (pinnedEventIds.indexOf(eventId) + 1) as 1 | 2 | 3 : null
 
   return (

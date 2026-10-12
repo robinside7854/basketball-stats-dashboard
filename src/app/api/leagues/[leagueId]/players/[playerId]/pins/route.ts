@@ -3,12 +3,16 @@
 // - 저장 형태: league_players.pinned_event_ids uuid[]
 // - 최대 3개 · 서버측 캡 (열려있는 편집이지만 배열 폭주만 방지)
 // - 이벤트 소유권 검증: 해당 이벤트가 이 선수(league_player_id) + 이 리그의 game 인지만 확인
-//   (로그인 없는 오픈 편집 전제 · 남용 가능성 낮음 인정)
+// - 권한 (2026-10-12 · 종전엔 로그인 없는 오픈 편집이었다 — 누구나 남의 카드 핀을 바꿀 수 있었다)
+//   · 읽기: canViewLeague (비공개 리그는 회원만)
+//   · 쓰기: 본인(승인 회원 세션의 league_player_id === playerId) ∥ 리그 편집 권한(팀 어드민 · CEO)
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { revalidateTag } from 'next/cache'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { canViewLeague, getApprovedSession } from '@/lib/auth/guard'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 const MAX_PINS = 3
 
@@ -28,11 +32,21 @@ async function fetchPins(leagueId: string, playerId: string) {
   return (data as { id: string; pinned_event_ids: string[] | null })
 }
 
+/** 핀 편집 권한 — 본인 ∥ 리그 편집 권한. role 은 매 요청 DB 재조회(getApprovedSession·canEditLeague). */
+async function canEditPins(req: Request, leagueId: string, playerId: string): Promise<boolean> {
+  const session = await getApprovedSession(leagueId)
+  if (session && session.pid === playerId) return true
+  return canEditLeague(req, leagueId)
+}
+
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string; playerId: string }> },
 ) {
   const { leagueId, playerId } = await params
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const row = await fetchPins(leagueId, playerId)
   if (!row) return NextResponse.json({ error: 'not found' }, { status: 404 })
   return NextResponse.json({ pinned_event_ids: row.pinned_event_ids ?? [] })
@@ -44,6 +58,9 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string; playerId: string }> },
 ) {
   const { leagueId, playerId } = await params
+  if (!(await canEditPins(req, leagueId, playerId))) {
+    return NextResponse.json({ error: '본인 또는 팀 어드민만 핀을 바꿀 수 있어요' }, { status: 403 })
+  }
   let body: { action?: unknown; eventId?: unknown; order?: unknown }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
   const action = body.action

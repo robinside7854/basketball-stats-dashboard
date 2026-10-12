@@ -1,6 +1,8 @@
 'use client'
 // 로그인 유저 전용 · 개인화 대시보드 (홈 상단)
-//   a. 이번 시즌 참석 라운드 + 누적 PTS/REB/AST/STL/BLK + 각 항목 랭킹 (1-3위 메달 · 3-10위 초록 강조)
+//   a. **이번 분기 · 하루 평균** 득점/리바/어시/스틸/블락 + 각 항목 순위 (2026-10-12)
+//      — 홈 「리그 리더」와 같은 기준(지금 분기 · 하루 평균 · 같은 최소 출전). 종전엔 시즌 누적 합계라
+//        홈에서 본 순위와 여기 순위가 달랐다. 시즌 누적 합계는 아래 보조 줄로 남긴다.
 //   b. "이번 주 나의 하이라이트" CTA — 최근 참여한 라운드의 하이라이트로 연결
 //   c. 마일스톤 체이서 (가장 도달 가능한 것부터)
 //   d. 프로필카드 열기 CTA
@@ -21,12 +23,22 @@ const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { 
 const PasswordChangeModal = dynamic(() => import('./PasswordChangeModal'), { ssr: false })
 
 interface RankInfo { rank: number; total: number }
+type Metric = 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
+interface QuarterSummaryData {
+  /** `26.4Q` — 분기가 하나도 없으면 null(시즌 전체) */
+  label: string | null
+  attended_rounds: number
+  /** 이 분기에 실제로 열린 경기일 수 */
+  total_rounds: number
+  /** 순위에 오르는 최소 출전 일수 (홈 리그 리더와 같은 식) */
+  min_rounds: number
+  eligible: boolean
+  per_day: Record<Metric, number>
+  ranks: Partial<Record<Metric, RankInfo>>
+}
 interface Season {
   attended_rounds: number
   pts: number; reb: number; ast: number; stl: number; blk: number
-  ranks: {
-    pts?: RankInfo; reb?: RankInfo; ast?: RankInfo; stl?: RankInfo; blk?: RankInfo
-  }
 }
 interface Weekly { available: boolean; date?: string }
 interface Chaser {
@@ -39,6 +51,7 @@ interface Chaser {
 }
 interface StreakItem { key: string; label: string; count: number; unit: string }
 interface DashboardData {
+  quarter?: QuarterSummaryData
   season: Season
   weekly: Weekly
   milestoneChasers: Chaser[]
@@ -53,8 +66,9 @@ interface Props {
 const METRIC_COLOR: Record<Chaser['metric'], string> = {
   pts: '#F59E0B', reb: '#F97316', ast: '#06B6D4', stl: '#10B981', blk: '#EF4444',
 }
-const METRIC_LABEL: Record<Chaser['metric'], string> = { pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK' }
 const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블락' }
+// 하루 평균 카드 라벨 — 홈 리그 리더의 칩 표기(득점·리바·어시·스틸·블락)와 맞춘다
+const METRIC_SHORT: Record<Metric, string> = { pts: '득점', reb: '리바', ast: '어시', stl: '스틸', blk: '블락' }
 
 // 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (배경/전경 쌍 · 캐주얼 전환 2026-08-06)
 function proximityStyle(progressPct: number): { bg: string; fg: string } {
@@ -146,7 +160,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
               <Sparkles size={16} style={{ color: 'var(--mm-ink-soft)' }} />
             </div>
             <div className="text-xs md:text-sm font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-              나의 이번 시즌 대시보드
+              나의 기록 대시보드
             </div>
           </div>
           <button
@@ -167,8 +181,8 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
           </div>
         ) : (
           <>
-            {/* a. 시즌 통계 + 랭킹 (메달 · 초록 강조) */}
-            <SeasonSummary season={data.season} />
+            {/* a. 이번 분기 · 하루 평균 + 순위 (홈 리그 리더와 같은 기준) · 시즌 누적은 보조 줄 */}
+            <QuarterSummary quarter={data.quarter} season={data.season} />
 
             {/* a-2. 진행 중 스트릭 (연속 기록) — 있을 때만 */}
             <StreakBoard streaks={data.streaks ?? []} />
@@ -235,35 +249,55 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
   )
 }
 
-function SeasonSummary({ season }: { season: Season }) {
-  const cells: Array<{ key: Chaser['metric']; value: number }> = [
-    { key: 'pts', value: season.pts },
-    { key: 'reb', value: season.reb },
-    { key: 'ast', value: season.ast },
-    { key: 'stl', value: season.stl },
-    { key: 'blk', value: season.blk },
-  ]
+function QuarterSummary({ quarter, season }: { quarter?: QuarterSummaryData; season: Season }) {
+  // 옛 응답(배포 직후 캐시 등)에는 quarter 가 없다 — 빈 값으로 그린다
+  const q: QuarterSummaryData = quarter ?? {
+    label: null, attended_rounds: 0, total_rounds: 0, min_rounds: 1, eligible: false,
+    per_day: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }, ranks: {},
+  }
+  const metrics: Metric[] = ['pts', 'reb', 'ast', 'stl', 'blk']
   return (
     <div className="px-4 sm:px-5 py-3 sm:py-4">
-      <div className="flex items-baseline gap-2 mb-3">
-        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
+      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1 mb-3">
+        <span className="font-bold text-base md:text-lg break-keep" style={{ color: 'var(--mm-ink)' }}>
+          {q.label ? `이번 분기 · 하루 평균` : '하루 평균'}
+        </span>
+        {q.label && (
+          <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{q.label}</span>
+        )}
         <span
-          className="inline-flex items-center text-xs md:text-sm font-black px-2 py-0.5"
+          className="inline-flex items-center text-xs md:text-sm font-black px-2 py-0.5 tabular-nums"
           style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
         >
-          {season.attended_rounds}R 참석
+          출전 {q.attended_rounds}일 / 전체 {q.total_rounds}일
         </span>
       </div>
-      {/* 5개 지표 카드 · 각 지표 컬러 tint · 여백 최소화 */}
+      {/* 5개 지표 카드 · 하루 평균 */}
       <div className="grid grid-cols-5 gap-1.5 md:gap-2">
-        {cells.map(({ key, value }) => (
+        {metrics.map(key => (
           <StatCard
             key={key}
             metricKey={key}
-            value={value}
-            rank={season.ranks[key]}
+            value={q.per_day[key] ?? 0}
+            rank={q.ranks[key]}
           />
         ))}
+      </div>
+      {/* 순위가 안 보이는 이유를 숫자로 알려준다 — 홈 리그 리더와 같은 최소 출전 */}
+      {q.attended_rounds > 0 && !q.eligible && (
+        <p className="text-xs font-bold mt-2" style={{ color: 'var(--mm-muted)' }}>
+          순위는 이번 분기 {q.min_rounds}일 이상 출전하면 보여요
+        </p>
+      )}
+      {q.total_rounds > 0 && q.attended_rounds === 0 && (
+        <p className="text-xs font-bold mt-2" style={{ color: 'var(--mm-muted)' }}>
+          이번 분기에는 아직 출전 기록이 없어요
+        </p>
+      )}
+      {/* 시즌 누적 합계 — 보조 줄 (마일스톤 체이서가 이 값 기준) */}
+      <div className="text-xs mt-2.5 tabular-nums break-keep" style={{ color: 'var(--mm-muted)' }}>
+        <b style={{ color: 'var(--mm-ink-soft)' }}>시즌 누적</b>
+        {' '}· {season.attended_rounds}일 출전 · 득점 {season.pts} · 리바 {season.reb} · 어시 {season.ast} · 스틸 {season.stl} · 블락 {season.blk}
       </div>
     </div>
   )
@@ -287,18 +321,19 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
         className="text-xs font-black mt-0.5"
         style={{ color: 'var(--mm-muted)' }}
       >
-        {METRIC_LABEL[metricKey]}
+        {METRIC_SHORT[metricKey]}
       </div>
       {/* 큰 숫자 */}
       <div
         className="font-jersey font-black tabular-nums leading-none my-1"
         style={{
           color: 'var(--mm-ink)',
-          fontSize: 'clamp(24px, 5.5vw, 40px)',
+          // 하루 평균은 소수 한 자리(「12.3」)라 5칸 그리드 375px 폭에서 넘치지 않게 한 단계 줄였다
+          fontSize: 'clamp(20px, 5vw, 36px)',
           letterSpacing: '-0.015em',
         }}
       >
-        {value}
+        {value.toFixed(1)}
       </div>
       {/* 랭킹 뱃지 · 통일 규칙 (2026-07-22 · 2026-08-06 이모지 메달 제거)
           1-3위: N위 · 골드/실버/브론즈 배경
@@ -339,7 +374,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
         <div className="flex-1 min-w-0">
           <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
           <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-            우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>시즌 득점·리바운드 랭킹</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>진행 중 스트릭·마일스톤</b>을 확인하세요.
+            우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>이번 분기 하루 평균·순위</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>진행 중 스트릭·마일스톤</b>을 확인하세요.
             <br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
           </p>
           <button
@@ -372,7 +407,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
       <div className="flex items-center gap-1.5 mb-2.5">
         {/* 불꽃만 깜빡인다 — "진행 중"이라는 상태 자체를 나타내므로 무한 반복이 정당하다(LIVE 배지와 같은 근거).
             투명도만 흔들어 크기는 그대로 둔다. 크기를 흔들면 옆 글자가 밀린다. */}
-        <Flame size={16} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
+        <Flame size={16} className="mm-flicker" style={{ color: 'var(--mm-yellow-strong)' }} />
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
         <span className="text-xs font-bold ml-1" style={{ color: 'var(--mm-muted)' }}>다음 경기에 이어가요</span>
       </div>
@@ -383,7 +418,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md"
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
           >
-            <Flame size={14} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
+            <Flame size={14} className="mm-flicker" style={{ color: 'var(--mm-yellow-strong)' }} />
             <span className="font-jersey font-black tabular-nums text-lg md:text-xl leading-none" style={{ color: 'var(--mm-ink)' }}>
               {s.count}{s.unit}
             </span>

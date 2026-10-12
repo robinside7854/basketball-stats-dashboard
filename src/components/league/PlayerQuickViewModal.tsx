@@ -35,7 +35,6 @@ const PlayerShotDonut = dynamic(
   () => import('@/components/league/charts/PlayerQuickViewCharts').then(m => m.PlayerShotDonut),
   { ssr: false, loading: () => <div style={{ height: 180 }} /> },
 )
-// 배지 도감 — 버튼을 눌렀을 때만 필요하므로 지연 로드(카드 첫 렌더 비용에 얹지 않는다)
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -203,7 +202,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     onDragEnd: () => setDragY(0),
     edgeGuardPx: 0,  // 헤더 영역이므로 엣지 가드 불필요
   })
-  // 현재 photo 가 AI 생성물인지 판단 — 재생성 버튼 노출 조건
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   // 미니 탭 — 세로 스크롤 과다 해소 (2026-08-03). 탭 전환 시 본문 최상단으로 스크롤 복귀.
   const [activeTab, setActiveTab] = useState<PlayerTabKey>('season')
@@ -437,7 +435,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             </div>
           )}
           <div className="relative flex items-start gap-4 sm:gap-5">
-            {/* 아바타 (편집모드 = 호버 오버레이 업로드/AI · 뷰모드 = 클릭 시 라이트박스 확대) */}
+            {/* 아바타 (편집모드 = 호버 오버레이 업로드 · 뷰모드 = 클릭 시 라이트박스 확대) */}
             {/* 크기: 프로 선수 프로필처럼 큼 */}
             <div className="relative shrink-0 group/avatar">
               <div
@@ -610,7 +608,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
           >
             <p className="text-xs font-black uppercase tracking-[0.20em]" style={{ color: 'var(--mm-yellow-strong)' }}>선수 정보 수정</p>
-            <p className="text-xs -mt-1" style={{ color: 'var(--mm-muted)' }}>프로필 사진은 위 아바타에 마우스를 올려 업로드/AI 생성하세요.</p>
+            <p className="text-xs -mt-1" style={{ color: 'var(--mm-muted)' }}>프로필 사진은 위 아바타에 마우스를 올려 업로드하세요.</p>
 
             <div className="grid grid-cols-1 gap-2">
               <div>
@@ -748,7 +746,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               상세 스탯은 회원 전용
             </p>
             <p className="text-sm mt-1.5 leading-relaxed max-w-xs break-keep" style={{ color: 'var(--mm-muted)' }}>
-              선수별 시즌 기록·배지·차트는 가입 승인된 회원만 볼 수 있어요.
+              선수별 시즌 기록·차트는 가입 승인된 회원만 볼 수 있어요.
             </p>
             <button
               type="button"
@@ -796,7 +794,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
             </div>
 
-            {/* 미니 탭 — 시즌 스탯 / 성과 뱃지 / 다이나믹 듀오 / 공격 스타일 / 커리어 하이 / 최근 트렌드 */}
+            {/* 미니 탭 — 시즌 스탯 / 다이나믹 듀오 / 공격 스타일 / 커리어 하이 / 최근 트렌드 */}
             <PlayerMiniTabs active={activeTab} onChange={changeTab} available={availableTabs} topOffset={actionBarH} />
 
             {/* ── 시즌 스탯 ─────────────────────────────── */}

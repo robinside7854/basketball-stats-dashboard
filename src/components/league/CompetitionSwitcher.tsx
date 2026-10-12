@@ -69,10 +69,10 @@ export default function CompetitionSwitcher({
             onClick={() => setOpen(v => !v)}
             aria-haspopup="listbox"
             aria-expanded={open}
-            className="flex items-center gap-1.5 pl-2.5 pr-2 py-2 min-h-[44px] rounded-md border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] text-xs font-bold cursor-pointer hover:border-[color:var(--mm-ink-soft)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-hoop-orange-500)]"
+            className="flex items-center gap-1.5 pl-2.5 pr-2 py-2 min-h-[44px] rounded-md border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] text-xs font-bold cursor-pointer hover:border-[color:var(--mm-ink-soft)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
           >
             {current.mode === 'tournament'
-              ? <Trophy size={14} className="text-[color:var(--color-hoop-orange-500)] shrink-0" aria-hidden />
+              ? <Trophy size={14} className="text-[color:var(--mm-yellow-strong)] shrink-0" aria-hidden />
               : <Layers size={14} className="text-[color:var(--mm-muted)] shrink-0" aria-hidden />}
             <span className="max-w-[160px] truncate">{current.name}</span>
             <ChevronDown size={14} className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden />
@@ -91,14 +91,14 @@ export default function CompetitionSwitcher({
                   role="option"
                   aria-selected={c.id === leagueId}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--color-hoop-orange-500)] ${
+                  className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)] ${
                     c.id === leagueId
                       ? 'bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] font-bold'
                       : 'text-[color:var(--mm-ink-soft)] hover:bg-[color:var(--mm-panel-alt)] hover:text-[color:var(--mm-ink)]'
                   }`}
                 >
                   {c.mode === 'tournament'
-                    ? <Trophy size={14} className="text-[color:var(--color-hoop-orange-500)] shrink-0" aria-hidden />
+                    ? <Trophy size={14} className="text-[color:var(--mm-yellow-strong)] shrink-0" aria-hidden />
                     : <Layers size={14} className="text-[color:var(--mm-muted)] shrink-0" aria-hidden />}
                   <span className="flex-1 truncate">{c.name}</span>
                   {/* 대회 묶음 시각적 구분 — 같은 이름의 두 묶음을 헷갈리면 엉뚱한 곳에 기록하게 된다 */}

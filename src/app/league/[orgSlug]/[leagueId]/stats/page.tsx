@@ -1,5 +1,4 @@
 'use client'
-import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -17,9 +16,9 @@ import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { ProgressBar } from '@/components/league/ui/viz'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
-import { useLeagueQuarter, quarterStorageKey } from '@/contexts/LeagueQuarterContext'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
-import type { Quarter, PlayerStat } from '@/types/league'
+import type { PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 import AwardsBoard from './_components/AwardsBoard'
 import { calcUsg } from '@/lib/stats/advanced'
@@ -166,9 +165,9 @@ function LeagueStatsPageInner() {
   // ?mode=awards 는 옛 /awards 페이지가 리다이렉트로 보내는 진입점 — 초기 모드로만 읽는다.
   const searchParams = useSearchParams()
 
-  const [quarters, setQuarters] = useState<Quarter[]>([])
-  // 페이지 간 분기 선택 공유 (LeagueQuarterContext)
-  const { selectedQuarterId, setSelectedQuarterId } = useLeagueQuarter()
+  // 페이지 간 분기 선택 공유 + 분기 목록의 단일 출처 (LeagueQuarterContext).
+  //   목록·기본 분기(지금 분기) 판정은 컨텍스트가 한다 — 여기서 /quarters 를 다시 부르지 않는다.
+  const { selectedQuarterId, setSelectedQuarterId, quarters, ready: quarterReady } = useLeagueQuarter()
   const [players, setPlayers] = useState<PlayerStat[]>([])
   const [totalRounds, setTotalRounds] = useState(0)  // 기간 내 열린 라운드 수 (자격 커트라인 분모)
   const [loading, setLoading] = useState(true)
@@ -233,25 +232,10 @@ function LeagueStatsPageInner() {
   const compareList = Array.from(compareIds)
   const compareNamesById: Record<string, string> = Object.fromEntries(players.map(p => [p.player_id, p.name]))
 
+  // 선택 분기가 확정되기 전(quarterReady=false)에는 조회하지 않는다 —
+  //   종전엔 첫 렌더의 'all' 로 한 번, 지금 분기로 또 한 번 불러 시즌 전체 집계가 헛돌았다.
   useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/quarters`)
-      .then(r => r.json())
-      .then((qs: Quarter[]) => {
-        setQuarters(qs)
-        // 사용자가 이전에 선택한 분기 (localStorage) 가 없을 때만 현재 분기로 자동 설정.
-        // selectedQuarterId 는 첫 렌더 값('all')이라 context 복원 여부를 알 수 없다 → 저장값을 직접 본다(팀 페이지와 같은 가드)
-        let saved: string | null = null
-        try { saved = localStorage.getItem(quarterStorageKey(leagueId)) } catch { /* private mode */ }
-        if (!saved && selectedQuarterId === 'all') {
-          const current = pickCurrentQuarter(qs)
-          if (current) setSelectedQuarterId(current.id)
-        }
-      })
-      .catch(() => null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId])
-
-  useEffect(() => {
+    if (!quarterReady) return
     setLoading(true)
     const url = selectedQuarterId === 'all'
       ? `/api/leagues/${leagueId}/stats`
@@ -264,7 +248,7 @@ function LeagueStatsPageInner() {
       })
       .then(d => { if (d) { setPlayers(d.players ?? []); setTotalRounds(d.total_rounds ?? 0); setLoading(false) } })
       .catch(() => setLoading(false))
-  }, [leagueId, selectedQuarterId])
+  }, [leagueId, selectedQuarterId, quarterReady])
 
   // 기록실 8칸 보드용 시즌 최고 — 분기 변경 시 함께 다시 조회. 8개 카테고리뿐이라 페이로드가 작아
   // statMode 와 무관하게 항상 가져온다(Basic 모드로 돌아왔을 때 재요청 없이 바로 보이도록).
@@ -272,13 +256,14 @@ function LeagueStatsPageInner() {
   // 렌더되므로(8칸 자리를 미리 잡아 레이아웃이 튀지 않게), 자체 로딩 상태로 스켈레톤을 보여준다.
   useEffect(() => {
     if (isAwards) return  // 어워즈 모드엔 기록실이 없다 — 표 모드로 돌아올 때 조회
+    if (!quarterReady) return  // 선택 분기 확정 전 이중 조회 방지 (위 스탯 조회와 같은 이유)
     setHighsLoading(true)
     const qs = selectedQuarterId !== 'all' ? `?quarterId=${selectedQuarterId}` : ''
     fetch(`/api/leagues/${leagueId}/season-highs${qs}`)
       .then(r => r.ok ? r.json() : { categoryHighs: [] })
       .then(d => { setCategoryHighs(d.categoryHighs ?? []); setHighsLoading(false) })
       .catch(() => { setCategoryHighs([]); setHighsLoading(false) })
-  }, [leagueId, selectedQuarterId, isAwards])
+  }, [leagueId, selectedQuarterId, isAwards, quarterReady])
 
   // 정렬 지표·정렬 방향·스탯 모드·평균/누적·분기를 바꾸면 늘려둔 노출 수를 초기값으로 되돌린다.
   // 안 되돌리면 "PPG 로 30명까지 펼쳐 둔 상태" 가 3P% 정렬에 그대로 남아, 보려던 상위권이 아니라
@@ -348,10 +333,11 @@ function LeagueStatsPageInner() {
 
   // 테이블 컬럼 정의
   const AVG_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: 'R' }, { key: 'ppg', label: 'PPG' },
-    { key: 'rpg', label: 'RPG' }, { key: 'orp', label: 'ORpg' }, { key: 'drp', label: 'DRpg' },
-    { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' }, { key: 'bpg', label: 'BPG' },
-    { key: 'topg', label: 'TOPG' }, { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' },
+    // 하루 평균 — 라벨은 한국어(2026-10-12). 약어(PPG 등)는 툴팁(glossary 한국어 키)에만 남긴다.
+    { key: 'gp', label: 'R' }, { key: 'ppg', label: '득점' },
+    { key: 'rpg', label: '리바' }, { key: 'orp', label: '공리' }, { key: 'drp', label: '수리' },
+    { key: 'apg', label: '어시' }, { key: 'spg', label: '스틸' }, { key: 'bpg', label: '블락' },
+    { key: 'topg', label: '턴오버' }, { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' },
     { key: 'ft_pct', label: 'FT%' }, { key: 'efg_pct', label: 'eFG%' },
   ]
   const TOTAL_COLS: { key: SortKey; label: string }[] = [
@@ -709,7 +695,7 @@ function LeagueStatsPageInner() {
 
           {/* 비교하기 버튼 */}
           {compareIds.size > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--color-hoop-orange-500)' }}>
+            <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)' }}>
               <span className="text-xs font-black" style={{ color: 'var(--mm-ink)', letterSpacing: '0.08em' }}>선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
               <button
                 onClick={() => setCompareModalOpen(true)}
@@ -731,10 +717,10 @@ function LeagueStatsPageInner() {
 
           {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
           <StatsReadingGuide items={[
-            { term: 'PPG', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
-            { term: 'RPG', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
-            { term: 'APG', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
-            { term: 'TOPG', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
+            { term: '득점 (PPG)', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
+            { term: '리바 (RPG)', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
+            { term: '어시 (APG)', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
+            { term: '턴오버 (TOPG)', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
             { term: 'USG%', text: '팀 내 공격 점유율 · 본인이 뛴 경기에서 팀 야투+0.44×자유투+턴오버 중 본인 몫' },
           ]} />
 
@@ -884,7 +870,7 @@ function LeagueStatsPageInner() {
                           disabled={!compareIds.has(p.player_id) && compareIds.size >= 2}
                           onChange={() => toggleCompare(p)} aria-label={`${p.name} 비교 선택`}
                           className="cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
-                          style={{ accentColor: 'var(--color-hoop-orange-500)' }} />
+                          style={{ accentColor: 'var(--mm-yellow-strong)' }} />
                       </td>
                       <td className="px-2 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}

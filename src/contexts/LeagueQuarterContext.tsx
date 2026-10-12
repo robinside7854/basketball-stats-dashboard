@@ -11,14 +11,28 @@
 //
 // 사용:
 //   const { selectedQuarterId, setSelectedQuarterId } = useLeagueQuarter()
+//   const { quarters, currentQuarter, ready } = useLeagueQuarter()
+//
+// 분기 목록의 단일 출처 (2026-10-12):
+//   종전엔 레이아웃(드래프트 탭 판정)·이 컨텍스트·스탯 페이지가 각자 `/quarters` 를 불렀다(진입마다 3회).
+//   이제 여기서 한 번 받아 `quarters`·`currentQuarter`(= pickCurrentQuarter) 로 내준다.
+//   `ready` = 저장값 복원 + 분기 목록 수신(실패 포함)이 끝남 → 선택 분기가 확정됐다는 뜻.
+//   스탯처럼 분기로 조회하는 화면은 ready 전에 fetch 하지 않는다('all' 로 한 번 → 실제 분기로 또 한 번 이중 조회 방지).
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
+import type { Quarter } from '@/types/league'
 
 interface LeagueQuarterContextValue {
   /** 'all' 또는 특정 분기 id · 기본 'all' */
   selectedQuarterId: string
   setSelectedQuarterId: (v: string) => void
+  /** `/quarters` 응답 그대로(대회 행 포함) — 받기 전·실패 시 [] */
+  quarters: Quarter[]
+  /** 지금 분기 — 정본 pickCurrentQuarter (대회 행 제외). 없으면 null */
+  currentQuarter: Quarter | null
+  /** 저장값 복원 + 분기 목록 수신이 끝났는가 (selectedQuarterId 가 확정됨) */
+  ready: boolean
 }
 
 const Ctx = createContext<LeagueQuarterContextValue | null>(null)
@@ -31,39 +45,53 @@ export function LeagueQuarterProvider({ leagueId, children }: { leagueId: string
 
   // 초기 로드 시 localStorage 에서 복원 (SSR-safe)
   const [selectedQuarterId, setSelectedQuarterIdInner] = useState<string>('all')
+  const [restored, setRestored] = useState(false)
+  const [quarters, setQuarters] = useState<Quarter[] | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
       const saved = localStorage.getItem(storageKey)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 복원은 클라이언트 전용, 마운트 1회(SSR 첫 렌더와 맞추려고 초기값에 못 넣는다)
       if (saved) setSelectedQuarterIdInner(saved)
     } catch { /* SSR / private mode 등 무시 */ }
+    setRestored(true)
   }, [storageKey])
 
-  // 분기가 넘어가면 기억해 둔 분기를 **한 번** 새 분기로 옮긴다 (2026-10-10).
-  //   기억값이 있으면 화면들이 「현재 분기」 기본값을 안 쓰므로, 3분기를 보던 기기는 4분기가 돼도
-  //   계속 3분기 순위·스탯을 보여 줬다. 「지난번에 본 현재 분기」를 따로 적어 두고, 그게 바뀐 날
-  //   한 번만 덮는다 — 그 뒤 사용자가 3분기를 다시 고르면 그대로 둔다. 「전체」를 고른 사람은 건드리지 않는다.
+  // 분기 목록 수신 + 기본 선택.
+  //   ① 저장값이 없으면 지금 분기를 기본으로 고른다(저장하지 않는다 — 다음 분기에도 날짜를 따라간다).
+  //      종전엔 스탯·팀 페이지가 각자 같은 가드로 하던 일이다.
+  //   ② 분기가 넘어가면 기억해 둔 분기를 **한 번** 새 분기로 옮긴다 (2026-10-10).
+  //      기억값이 있으면 화면들이 「현재 분기」 기본값을 안 쓰므로, 3분기를 보던 기기는 4분기가 돼도
+  //      계속 3분기 순위·스탯을 보여 줬다. 「지난번에 본 현재 분기」를 따로 적어 두고, 그게 바뀐 날
+  //      한 번만 덮는다 — 그 뒤 사용자가 3분기를 다시 고르면 그대로 둔다. 「전체」를 고른 사람은 건드리지 않는다.
   useEffect(() => {
     let cancelled = false
     const seenKey = `league:${leagueId}:lastCurrentQuarterId`
     fetch(`/api/leagues/${leagueId}/quarters`)
       .then(r => (r.ok ? r.json() : null))
-      .then((qs: Parameters<typeof pickCurrentQuarter>[0] & { id: string }[] | null) => {
-        if (cancelled || !Array.isArray(qs)) return
-        const cur = pickCurrentQuarter(qs as { id: string; year: number; quarter: number }[])
+      .then((qs: Quarter[] | null) => {
+        if (cancelled) return
+        const list = Array.isArray(qs) ? qs : []
+        setQuarters(list)
+        const cur = pickCurrentQuarter(list)
         if (!cur) return
         try {
           const seen = localStorage.getItem(seenKey)
           const saved = localStorage.getItem(storageKey)
-          if (seen && seen !== cur.id && saved && saved !== 'all') {
+          if (!saved) {
+            setSelectedQuarterIdInner(cur.id)
+          } else if (seen && seen !== cur.id && saved !== 'all') {
             setSelectedQuarterIdInner(cur.id)
             localStorage.setItem(storageKey, cur.id)
           }
           localStorage.setItem(seenKey, cur.id)
-        } catch { /* private mode */ }
+        } catch {
+          // private mode — 저장값을 못 읽으면 지금 분기를 기본으로
+          setSelectedQuarterIdInner(cur.id)
+        }
       })
-      .catch(() => null)
+      .catch(() => { if (!cancelled) setQuarters([]) })
     return () => { cancelled = true }
   }, [leagueId, storageKey])
 
@@ -72,24 +100,32 @@ export function LeagueQuarterProvider({ leagueId, children }: { leagueId: string
     try { localStorage.setItem(storageKey, v) } catch { /* ignore */ }
   }, [storageKey])
 
-  return (
-    <Ctx.Provider value={{ selectedQuarterId, setSelectedQuarterId }}>
-      {children}
-    </Ctx.Provider>
-  )
+  const value = useMemo<LeagueQuarterContextValue>(() => {
+    const list = quarters ?? []
+    return {
+      selectedQuarterId,
+      setSelectedQuarterId,
+      quarters: list,
+      currentQuarter: pickCurrentQuarter(list),
+      ready: restored && quarters !== null,
+    }
+  }, [selectedQuarterId, setSelectedQuarterId, quarters, restored])
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
+const FALLBACK: LeagueQuarterContextValue = {
+  selectedQuarterId: 'all',
+  setSelectedQuarterId: () => {},
+  quarters: [],
+  currentQuarter: null,
+  ready: true,
 }
 
 /**
- * @returns 컨텍스트가 없으면 { selectedQuarterId: 'all', setSelectedQuarterId: noop } 반환.
+ * @returns 컨텍스트가 없으면 { selectedQuarterId: 'all', quarters: [], ready: true, ... } 반환.
  *          Provider 없는 곳에서 optional 하게 사용 가능.
  */
 export function useLeagueQuarter(): LeagueQuarterContextValue {
-  const v = useContext(Ctx)
-  if (!v) {
-    return {
-      selectedQuarterId: 'all',
-      setSelectedQuarterId: () => {},
-    }
-  }
-  return v
+  return useContext(Ctx) ?? FALLBACK
 }

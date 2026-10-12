@@ -15,6 +15,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { ProgressBar } from '@/components/league/ui/viz'
 import type { PlayerStat } from '@/types/league'
+import { leaderMinRounds } from '@/lib/stats/eligibility'
 
 interface Props {
   leagueId: string
@@ -93,10 +94,8 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId])
 
-  const maxGP = players.reduce((m, p) => Math.max(m, p.gp), 0)
-  // 최소 출전 — 평소엔 3라운드 이상(하루 반짝한 선수가 1위에 앉지 않게).
-  //   분기 초에는 아무도 3라운드를 못 채워 카드가 통째로 비므로, 지금까지 열린 라운드 수까지 낮춘다.
-  const effectiveMinGP = minGP ?? Math.max(1, Math.min(3, maxGP), Math.ceil(maxGP / 2))
+  // 최소 출전 — 정본은 leaderMinRounds (개인 대시보드 순위도 같은 식을 쓴다)
+  const effectiveMinGP = minGP ?? leaderMinRounds(players)
 
   return (
     <>

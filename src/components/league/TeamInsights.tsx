@@ -215,7 +215,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             <TrendingUp size={14} className="inline mr-1 mb-0.5" style={{ color: 'var(--mm-ink-soft)' }} />
             Advanced 팀 평가
             <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>
-              100 포제션당 득실 · Pace = 경기당 평균 포제션
+              100 포제션당 득실 · Pace = 평균 포제션
             </span>
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -291,7 +291,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                 {adv.pace}
               </div>
               <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
-                경기당 평균 포제션
+                평균 포제션
               </div>
             </div>
           </div>

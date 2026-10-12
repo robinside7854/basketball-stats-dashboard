@@ -102,7 +102,7 @@ function BirthDateInput({ value, onChange, className }: {
     }
   }
 
-  const base = `bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] text-center focus:outline-none focus:border-[var(--color-hoop-orange-500)] ${className ?? ''}`
+  const base = `bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] text-center focus:outline-none focus:border-[var(--mm-yellow-strong)] ${className ?? ''}`
   return (
     <div className="flex items-center gap-1">
       <input
@@ -1024,7 +1024,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                   onClick={() => setFilterPosition(pos)}
                   className={`px-2.5 lg:px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer ${
                     filterPosition === pos
-                      ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
+                      ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--mm-yellow-strong)]'
                       : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
                   }`}
                 >
@@ -1045,7 +1045,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                 aria-pressed={onlyVerified}
                 className={`px-2.5 lg:px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer flex items-center gap-1.5 ${
                   onlyVerified
-                    ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
+                    ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--mm-yellow-strong)]'
                     : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
                 }`}
                 title="로그인 계정을 등록·인증한 회원만 표시"
@@ -1054,7 +1054,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                   size={14}
                   aria-hidden
                   className="shrink-0"
-                  style={{ color: onlyVerified ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)' }}
+                  style={{ color: onlyVerified ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                 />
                 <span>{onlyVerified ? '인증회원만' : '전체'}</span>
                 <span

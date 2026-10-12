@@ -3,16 +3,16 @@
 // 테마 토글이 이 페이지로 내려오면서 생긴 유일한 계정/개인 화면.
 //   비로그인: LoginTeaser(홈 위젯과 달리 닫기 없이 항상 노출 — 여기가 목적지이므로)
 //   로그인: PersonalDashboard 를 그대로 재사용(새로 만들지 않음)
-//   바로가기: 내 하이라이트(로그인 시만, D5→D3 해소 지점) · 드래프트(진행 중)
+//   바로가기: 내 하이라이트(로그인 시만, D5→D3 해소 지점) · 드래프트(진행 중 · 어드민만)
 //     — 선수 명단·팀 순위는 스탯 탭으로, 설정은 상단 바 어드민 버튼으로 이동했다(둘 다 여기서 제거,
 //       2026-08-08 stats-umbrella-move 기준 갱신).
 //   계정: 라이트/다크 · 로그아웃 — 둘러보기 버튼은 기능 자체가 삭제되어 함께 제거했다(Task 4-A).
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
 import { LogOut, ChevronRight, ClipboardList, Film } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
+import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import SectionCard from '@/components/league/ui/SectionCard'
@@ -33,23 +33,9 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   const base = deriveLeagueBase(pathname, orgSlug, leagueId)
   const { user, loading: authLoading, logout } = useCurrentUser()
 
-  // 드래프트 바로가기 노출 조건 — LeagueLayoutClient 의 showDraft 판정과 동일한 기존 API 를
-  // 다시 호출한다(신규 쿼리 아님 · 새 페이지가 기존 것을 그대로 쓰는 Global Constraint 1 의 예외).
-  const [showDraft, setShowDraft] = useState(false)
-  // 배지 도감 — 자동·특성 두 계열 전체 목록과 내 보유 여부를 한 번에 본다.
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const qs = await fetch(`/api/leagues/${leagueId}/quarters`).then(r => r.json())
-        const cur = (qs ?? []).find((q: { is_current?: boolean }) => q.is_current) ?? (qs ?? [])[qs.length - 1]
-        if (!cur) return
-        const d = await fetch(`/api/leagues/${leagueId}/drafts/current?quarterId=${cur.id}`).then(r => r.json())
-        if (!cancelled) setShowDraft(!!d.draft && d.draft.status !== 'completed')
-      } catch { /* ignore */ }
-    })()
-    return () => { cancelled = true }
-  }, [leagueId])
+  // 드래프트 바로가기 — 드래프트는 주장·어드민 전용이 됐다(2026-10-12) → 편집 모드(어드민 ∥ CEO)에게만,
+  //   그리고 현재 분기에 진행 중인 세션이 있을 때만. 레이아웃 드래프트 탭과 같은 훅(useActiveDraft)으로 판정한다.
+  const showDraft = useActiveDraft(leagueId)
 
   return (
     <div className="space-y-4 lg:space-y-5">

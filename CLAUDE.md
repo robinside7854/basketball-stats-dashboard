@@ -494,6 +494,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   박스스코어의 DD/TD 칩은 배지가 아니라 표시라 남았다(`lib/stats/doubleDouble.ts`). 명경기 위닝샷 문구는 `classicGames.ts` 가 직접 판정.
 - **AI 기능** — 파란날개 AI MVP/X-FACTOR/투혼상, 리그 AI 프로필 사진. SDK 2종 제거. `games.ai_mvp` 값은 보존.
 - **참여신청(RSVP)**, 어드민 콘솔 「일정 자동 생성」·`manage` 페이지.
+- **인스타 카드(`/social`)** (2026-10-12 리뉴얼 0단계). 드래프트는 팀 어드민 전용 · 대회 전환 스위치는 CEO 전용으로 숨겼다(대회 사실상 미사용).
 
 ### "지금 분기" 판정 — 정본은 `src/lib/league/currentQuarter.ts` (2026-10-10)
 

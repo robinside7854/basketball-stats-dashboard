@@ -87,7 +87,7 @@ function IntroStep({ onProceed }: { onProceed: () => void }) {
           {/* 멀티테넌트 전환(온볼): LoginModal 은 leagueName prop 없이 leagueId 만 받으므로 특정 클럽명 대신 중립 문구 사용 */}
           <p className="font-bold mb-1">지금도 우리 팀 스탯 서비스를 이용할 수 있어요.</p>
           <p style={{ color: 'var(--mm-ink-soft)' }}>
-            가입하면 <b>개인화 대시보드</b> · <b>내 뱃지 컬렉션</b> 등 더 많은 기능이 열립니다.
+            가입하면 <b>개인화 대시보드</b> · <b>내 하이라이트</b> 등 더 많은 기능이 열립니다.
           </p>
         </div>
       </div>

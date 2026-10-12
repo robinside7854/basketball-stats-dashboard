@@ -366,7 +366,7 @@ function ScheduleContent() {
       const updated: ScheduleDate = await res.json()
       setDates(prev => prev.map(d => (d.date === date ? { ...d, ...updated } : d)))
       if (next) setEditingDate(null)
-      toast.success(next ? '대관 없음으로 지정 — 이 주는 신청을 받지 않습니다' : '대관 없음 해제')
+      toast.success(next ? '대관 없음으로 지정 — 이 주는 모이지 않습니다' : '대관 없음 해제')
     } else {
       const d = await res.json().catch(() => ({}))
       toast.error(d.error ?? '변경 실패')
@@ -374,7 +374,7 @@ function ScheduleContent() {
   }
 
   async function removeDate(date: string) {
-    if (!confirm(`${date} 일정을 삭제하시겠습니까?\n해당 날짜의 경기 슬랏과 참여신청도 함께 삭제됩니다.\n(이미 기록이 있는 경기는 지워지지 않습니다)`)) return
+    if (!confirm(`${date} 일정을 삭제하시겠습니까?\n해당 날짜의 빈 경기 슬롯도 함께 삭제됩니다.\n(이미 기록이 있는 경기는 지워지지 않습니다)`)) return
     setDeletingDate(date)
 
     // 해당 날짜의 경기 슬랏부터 지운다.
@@ -650,7 +650,7 @@ function ScheduleContent() {
                       borderRadius: 'var(--mm-radius-chip)',
                     }}
                     title={isFuture
-                      ? '대관이 없어 이번 주는 모이지 않습니다. 참여신청도 받지 않습니다.'
+                      ? '대관이 없어 이번 주는 모이지 않습니다.'
                       : '영상도 기록도 없이 일주일이 지나 미실시로 정리된 날짜입니다. 자동 등록으로 다시 생기지 않습니다.'}
                   >
                     {isFuture ? '대관 없음' : '미실시'}
@@ -678,7 +678,7 @@ function ScheduleContent() {
                     </Link>
                   )}
                   {!upcoming && boxscoreEl}
-                  {/* 대관 없음 토글 — 지정하면 그 주는 참여신청을 받지 않는다.
+                  {/* 대관 없음 토글 — 지정하면 그 주는 모이지 않는 것으로 표시한다.
                       되돌릴 수 있어야 한다: 대관이 뒤늦게 잡히는 일이 흔하다. */}
                   {isFuture && (
                     <button

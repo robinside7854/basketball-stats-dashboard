@@ -163,17 +163,17 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                     <ClipboardList size={14} aria-hidden />
                     박스스코어
                   </Link>
-                  {/* 영상 재생 CTA — 브랜드 주황(hoop-orange)으로 강조 · 검정 텍스트(WCAG AA 5.9:1)
+                  {/* 영상 재생 CTA — 브랜드 옐로우(mm-yellow)로 강조 · 검정 텍스트
                       hover 밝기 · active 눌림 · focus 링 · 200ms */}
                   <Link
                     href={`${base}/highlights/${r.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-sm font-black whitespace-nowrap cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-hoop-orange-500)] focus-visible:ring-offset-1"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-sm font-black whitespace-nowrap cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                     style={{
-                      background: 'var(--color-hoop-orange-500)',
+                      background: 'var(--mm-yellow)',
                       color: 'var(--mm-black)',
-                      border: '1px solid var(--color-hoop-orange-500)',
+                      border: '1px solid var(--mm-yellow)',
                       borderRadius: '4px',
-                      boxShadow: '0 2px 8px -3px rgba(234,88,12,0.55)',
+                      boxShadow: '0 2px 8px -3px rgba(242,181,60,0.55)',
                     }}
                     aria-label={`${r.weekLabel} 득점 하이라이트 재생`}
                   >
