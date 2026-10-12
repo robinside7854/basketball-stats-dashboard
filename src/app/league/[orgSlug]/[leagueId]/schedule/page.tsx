@@ -267,35 +267,49 @@ function ScheduleContent() {
   // 분기 필터를 바꾸면 이전 필터 기준으로 늘려둔 "더 보기" 상태를 초기값으로 되돌린다.
   useEffect(() => { setVisibleCount(INITIAL_VISIBLE) }, [selectedQFilter])
 
-  // 정기 일정 등록 — 첫 정기일부터 매주 같은 요일을 8주 앞까지 채우고, 지난 빈 날짜는 미실시로 접는다.
-  //   (2026-10-11 까지는 영상 연동도 같이 했지만, 운영진 결정으로 영상은 기록 화면에서 수동으로 붙인다)
+  // 영상으로 일정 맞추기 (2026-10-12 운영진 결정 — 「영상이 올라온 날 = 경기한 날」).
+  //   영상이 올라온 날짜를 일정에 넣고 영상을 붙이며, 아무 흔적 없는 날짜(예정·영상 없는 지난 날)는
+  //   빈 슬롯째 지운다. 지우는 일이라 먼저 미리보기(dryRun)로 무엇이 바뀌는지 보여 주고 확인받는다.
+  //   매일 밤 자동으로도 돈다(/api/cron/video-schedule) — 이 버튼은 「지금 바로」용이다.
   async function autoGenerate() {
     setAutoGenerating(true)
     try {
-      const res = await fetch(`/api/leagues/${leagueId}/schedule-dates/sync`, {
+      const call = (dryRun: boolean) => fetch(`/api/leagues/${leagueId}/schedule-dates/video-sync`, {
         method: 'POST',
         headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ dryRun }),
       })
-      const data = await res.json()
-      if (res.ok) {
-        // 한 줄에 다 담는다 — 세 개의 토스트가 연달아 뜨면 무엇이 됐는지 오히려 안 읽힌다.
-        const parts: string[] = []
-        if (data.inserted > 0) {
-          // 예정 일정은 따로 센다 — 참여신청을 붙일 날짜가 몇 개 생겼는지가 총무의 관심사다.
-          const future = data.inserted_future ?? 0
-          parts.push(future > 0 ? `일정 ${data.inserted}개 등록 (예정 ${future}개)` : `일정 ${data.inserted}개 등록`)
-        }
-        if (data.skipped_marked > 0) parts.push(`미실시 ${data.skipped_marked}일 정리`)
-        toast.success(parts.length > 0 ? parts.join(' · ') : '변경 사항 없음 — 이미 최신입니다')
-        load()
-      } else {
-        toast.error(data.error ?? '동기화 실패')
+      const pre = await call(true)
+      const plan = await pre.json()
+      if (!pre.ok) { toast.error(plan.error ?? '확인 실패'); return }
+      const added: string[] = plan.added ?? []
+      const synced: Array<{ date: string }> = plan.synced ?? []
+      const pruned: Array<{ date: string; future: boolean }> = plan.pruned ?? []
+      if (added.length === 0 && synced.length === 0 && pruned.length === 0) {
+        toast.success(plan.error ? `변경 없음 · ${plan.error}` : '변경 없음 — 이미 영상과 맞습니다')
+        return
       }
+      const fmt = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`
+      const lines: string[] = []
+      if (added.length) lines.push(`추가: ${added.map(fmt).join(', ')}`)
+      if (synced.length) lines.push(`영상 연동: ${synced.map(x => fmt(x.date)).join(', ')}`)
+      if (pruned.length) lines.push(`삭제(경기 없음): ${pruned.map(x => fmt(x.date) + (x.future ? '(예정)' : '')).join(', ')}`)
+      if (!window.confirm(`영상 기준으로 일정을 맞춥니다.\n\n${lines.join('\n')}\n\n기록이나 영상이 있는 날짜는 지우지 않습니다. 진행할까요?`)) return
+      const res = await call(false)
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? '실패'); return }
+      const mapped = (data.synced ?? []).reduce((s: number, x: { mapped: number }) => s + (x.mapped ?? 0), 0)
+      const parts: string[] = []
+      if (data.added?.length) parts.push(`${data.added.length}일 추가`)
+      if (mapped > 0) parts.push(`영상 ${mapped}개 연동`)
+      if (data.pruned?.length) parts.push(`${data.pruned.length}일 삭제`)
+      toast.success(parts.join(' · ') || '완료')
+      load()
     } catch {
       toast.error('네트워크 오류')
+    } finally {
+      setAutoGenerating(false)
     }
-    setAutoGenerating(false)
   }
 
   async function addDate() {
@@ -465,7 +479,7 @@ function ScheduleContent() {
             }}
           >
             {autoGenerating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-            정기 일정 등록
+            영상으로 일정 맞추기
           </button>
         ) : null}
       </div>
@@ -524,7 +538,7 @@ function ScheduleContent() {
           title="등록된 일정이 없습니다"
           description="경기 일정을 추가하면 여기에 목록으로 표시됩니다."
           isEditMode={isEditMode}
-          editorHint="위 입력창에서 날짜를 추가하거나 '정기 일정 등록' 을 눌러 보세요"
+          editorHint="영상이 올라오면 매일 밤 자동으로 등록됩니다. 지금 바로 하려면 「영상으로 일정 맞추기」를 누르세요"
         />
       ) : (
         <>

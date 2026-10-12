@@ -5,5 +5,11 @@
       "claude/**": false,
       "ccr-*": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/video-schedule",
+      "schedule": "30 14 * * *"
+    }
+  ]
 }

@@ -71,6 +71,7 @@ export type AuditAction =
   | 'event.delete'
   | 'schedule.regenerate'
   | 'schedule_date.delete'
+  | 'schedule_date.video_reconcile'
   // 대회(미라클 대회 묶음) — 대회 한 개와 그 경기는 리그 분기와 달리 화면에서 만들고 지운다.
   // 지우면 그 대회의 경기·기록이 함께 사라지는 경로라 흔적을 남긴다.
   | 'tournament.create'
