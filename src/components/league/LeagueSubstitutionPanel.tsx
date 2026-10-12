@@ -331,7 +331,7 @@ export default function LeagueSubstitutionPanel({
       {/* 미배정 코트 (유령 상태) */}
       {unassignedOnCourt.length > 0 && (
         <div className="rounded-lg px-2 py-1.5 bg-amber-900/15 border border-amber-700/40">
-          <p className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 mb-1"><AlertTriangle size={14} aria-hidden /> 미배정 코트 ({unassignedOnCourt.length}) — 드래그로 팀에 배정하세요</p>
+          <p className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 mb-1"><AlertTriangle size={14} aria-hidden /> 팀이 정해지지 않은 코트 선수 ({unassignedOnCourt.length}) — 드래그로 팀에 배정하세요</p>
           <div className="flex flex-wrap gap-1.5">
             {unassignedOnCourt.map(p => <PlayerChip key={p.id} p={p} accent="ghost" />)}
           </div>

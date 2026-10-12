@@ -16,7 +16,16 @@ interface Props {
   homeTeam?: { id: string; name: string; color: string; is_external?: boolean }
   awayTeam?: { id: string; name: string; color: string; is_external?: boolean }
   leagueHeaders: Record<string, string>
-  onEventSaved: () => void
+  /**
+   * 기록이 저장·취소될 때 부른다. `eventType` 은 방금 바뀐 기록의 종류 —
+   * 부모가 파울 수처럼 특정 종류만 다시 셀 때 쓴다(모르면 undefined).
+   */
+  onEventSaved: (eventType?: string) => void
+  /**
+   * 선수별 개인 파울 수(이 경기 전체). 부모가 이 경기 기록에서 센다.
+   * 4개부터 주의, 5개(퇴장 기준)부터 경고로 선수 버튼에 표시한다.
+   */
+  foulCounts?: Record<string, number>
   activePlusOneIds?: string[]  // per-game override; if set, only these player IDs get +1
   /**
    * 기록 중인 경기 쿼터(1~4, 연장 5~6). league_game_events.quarter 에 그대로 저장된다.
@@ -51,7 +60,7 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
   {
     label: '슈팅', cols: 4,
     buttons: [
-      { type: 'shot_3p',       label: '3P',     color: 'bg-yellow-600 hover:bg-yellow-500', activeColor: 'bg-yellow-500', needsResult: true, needsRelated: true },
+      { type: 'shot_3p',       label: '3점슛',  color: 'bg-yellow-600 hover:bg-yellow-500', activeColor: 'bg-yellow-500', needsResult: true, needsRelated: true },
       { type: 'shot_2p_mid',   label: '미들슛',  color: 'bg-blue-600 hover:bg-blue-500',    activeColor: 'bg-blue-500',   needsResult: true, needsRelated: true },
       { type: 'shot_layup',    label: '레이업',  color: 'bg-blue-700 hover:bg-blue-600',    activeColor: 'bg-blue-600',   needsResult: true, needsRelated: true },
       { type: 'shot_post',     label: '골밑슛',  color: 'bg-violet-700 hover:bg-violet-600', activeColor: 'bg-violet-600', needsResult: true, needsRelated: true },
@@ -60,17 +69,17 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
   {
     label: '리바운드', cols: 2,
     buttons: [
-      { type: 'oreb', label: '공격REB', color: 'bg-green-700 hover:bg-green-600', activeColor: 'bg-green-600' },
-      { type: 'dreb', label: '수비REB', color: 'bg-green-600 hover:bg-green-500', activeColor: 'bg-green-500' },
+      { type: 'oreb', label: '공격 리바', color: 'bg-green-700 hover:bg-green-600', activeColor: 'bg-green-600' },
+      { type: 'dreb', label: '수비 리바', color: 'bg-green-600 hover:bg-green-500', activeColor: 'bg-green-500' },
     ],
   },
   {
     label: '기타', cols: 4,
     buttons: [
-      { type: 'steal',    label: 'STL', color: 'bg-purple-600 hover:bg-purple-500', activeColor: 'bg-purple-500' },
-      { type: 'block',    label: 'BLK', color: 'bg-indigo-600 hover:bg-indigo-500', activeColor: 'bg-indigo-500' },
-      { type: 'turnover', label: 'TOV', color: 'bg-red-700 hover:bg-red-600',       activeColor: 'bg-red-600' },
-      { type: 'foul',     label: 'PF',  color: 'bg-orange-600 hover:bg-orange-500', activeColor: 'bg-orange-500' },
+      { type: 'steal',    label: '스틸', color: 'bg-purple-600 hover:bg-purple-500', activeColor: 'bg-purple-500' },
+      { type: 'block',    label: '블록', color: 'bg-indigo-600 hover:bg-indigo-500', activeColor: 'bg-indigo-500' },
+      { type: 'turnover', label: '턴오버', color: 'bg-red-700 hover:bg-red-600',       activeColor: 'bg-red-600' },
+      { type: 'foul',     label: '파울', color: 'bg-orange-600 hover:bg-orange-500', activeColor: 'bg-orange-500' },
     ],
   },
   {
@@ -79,9 +88,9 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
       { type: 'and_one',    label: '앤드원',      color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500' },
       // 정식 룰(1구 1점). 미라클 자체룰 경기와 한 화면에 공존하므로 라벨에 득점을 박아 둔다 —
       // 버튼만 보고는 어느 룰인지 구분되지 않아 잘못 누르면 그대로 점수가 어긋난다.
-      { type: 'free_throw', label: 'FT 1점',      color: 'bg-teal-500 hover:bg-teal-400',   activeColor: 'bg-teal-400',  needsResult: true },
-      { type: 'ft_2pt',     label: '2P파울 2점',  color: 'bg-teal-600 hover:bg-teal-500',   activeColor: 'bg-teal-500',  needsResult: true },
-      { type: 'ft_3pt_1',   label: '3P파울 2+1',  color: 'bg-teal-700 hover:bg-teal-600',   activeColor: 'bg-teal-600',  needsResult: true },
+      { type: 'free_throw', label: '자유투 1점',  color: 'bg-teal-500 hover:bg-teal-400',   activeColor: 'bg-teal-400',  needsResult: true },
+      { type: 'ft_2pt',     label: '2점슛 파울(2점)',  color: 'bg-teal-600 hover:bg-teal-500',   activeColor: 'bg-teal-500',  needsResult: true },
+      { type: 'ft_3pt_1',   label: '3점슛 파울(2+1)',  color: 'bg-teal-700 hover:bg-teal-600',   activeColor: 'bg-teal-600',  needsResult: true },
     ],
   },
 ]
@@ -106,6 +115,7 @@ export default function LeagueEventInputPad({
   onOpponentRegistered,
   opponentRecording = true,
   currentQuarter = 1,
+  foulCounts,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
 
@@ -280,7 +290,7 @@ export default function LeagueEventInputPad({
           if (saved?.id) {
             setLastEvent(prev => prev?.id === tempId ? { ...prev, id: saved.id } : prev)
             setLastEventPending(false)
-            onEventSaved()
+            onEventSaved(shot.type)
           } else {
             toast.error('저장 실패 - 되돌립니다')
             setLastEvent(prev => prev?.id === tempId ? null : prev)
@@ -326,7 +336,7 @@ export default function LeagueEventInputPad({
     setPendingResult(null)
     if (shotType === 'ft_3pt_1') {
       // 2구 자동 진입
-      setPendingShot({ type: 'ft_3pt_2', label: '3P파울 2구', color: 'bg-teal-800 hover:bg-teal-700', activeColor: 'bg-teal-700', needsResult: true })
+      setPendingShot({ type: 'ft_3pt_2', label: '3점슛 파울 2구째', color: 'bg-teal-800 hover:bg-teal-700', activeColor: 'bg-teal-700', needsResult: true })
       setPendingResult(null)
     } else if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt' || shotType === 'ft_3pt_2') {
       setPendingShot(null)
@@ -347,7 +357,7 @@ export default function LeagueEventInputPad({
         if (saved?.id) {
           setLastEvent(prev => prev?.id === tempId ? { ...prev, id: saved.id } : prev)
           setLastEventPending(false)
-          onEventSaved()
+          onEventSaved(shotType)
         } else {
           toast.error('저장 실패 - 되돌립니다')
           setLastEvent(prev => prev?.id === tempId ? null : prev)
@@ -371,8 +381,8 @@ export default function LeagueEventInputPad({
         team_id: p?.team_id ?? null, result: null, related_player_id: null,
       })
       if (id) {
-        toast.success(`기록: ${p?.name ?? ''} — TOV (페어)`)
-        onEventSaved()
+        toast.success(`기록: ${p?.name ?? ''} — 턴오버 (스틸 연결)`)
+        onEventSaved('turnover')
       }
       // STL 이벤트에 TOV 선수 ID 연결 (스틸-턴오버 관계 분석용)
       if (lastStlEventId) {
@@ -422,7 +432,7 @@ export default function LeagueEventInputPad({
           // 스틸이면 lastStlEventId 도 실 id 로 갱신 (TOV 페어 PATCH 참조)
           setLastStlEventId(prev => prev === tempId ? saved.id : prev)
           setLastEventPending(false)
-          onEventSaved()
+          onEventSaved(btn.type)
         } else {
           toast.error('저장 실패 - 되돌립니다')
           setLastEvent(prev => prev?.id === tempId ? null : prev)
@@ -471,8 +481,8 @@ export default function LeagueEventInputPad({
         setSelectedPlayer(rebounderId)       // 리바운더가 공 소유 → 자동 선택
         setPossessionPlayerId(rebounderId)   // 포제션 인디케이터 활성화
         const rName = rebounder?.name ?? ''
-        toast.success(`기록: ${rName} — ${rebType === 'oreb' ? '공격REB' : '수비REB'}`)
-        onEventSaved()
+        toast.success(`기록: ${rName} — ${rebType === 'oreb' ? '공격 리바' : '수비 리바'}`)
+        onEventSaved(rebType)
       }
     } else {
       setLastReboundId(null)  // 아웃바운드/건너뛰기
@@ -497,9 +507,10 @@ export default function LeagueEventInputPad({
     const r = await fetch(`/api/leagues/${leagueId}/events/${lastEvent.id}`, { method: 'DELETE', headers: leagueHeaders })
     if (!r.ok) { toast.error('취소 실패'); return }
     toast(`↩ 취소: ${lastEvent.label}${rebId ? ' + 리바운드' : ''}`)
+    const undoneType = lastEvent.type
     setLastEvent(null)
     setShowLastMenu(false)
-    onEventSaved()
+    onEventSaved(undoneType)
   }
 
   // 마지막 이벤트에 어시스트 추가 (삭제 후 재입력 + 어시스트 선택)
@@ -514,7 +525,7 @@ export default function LeagueEventInputPad({
     if (btn) { setPendingShot(btn); setPendingResult('made') }
     setAddingAssistForLast(true)
     setAwaitingAssist(false) // 직접 선택 (타임아웃 없이)
-    onEventSaved()
+    onEventSaved(lastEvent.type)
   }
 
   async function finishAssistForLast(assistId?: string) {
@@ -533,7 +544,7 @@ export default function LeagueEventInputPad({
     setAddingAssistForLast(false)
     setPendingShot(null)
     setPendingResult(null)
-    onEventSaved()
+    onEventSaved(lastEvent.type)
   }
 
   const canAddAssist = lastEvent && SHOT_TYPES.includes(lastEvent.type) && lastEvent.result === 'made'
@@ -542,6 +553,7 @@ export default function LeagueEventInputPad({
   function renderPlayerBtn(p: RosterPlayer, teamColor: string) {
     const isSelected = selectedPlayer === p.id
     const hasPossession = possessionPlayerId === p.id
+    const fouls = foulCounts?.[p.id] ?? 0
     // 선택 시 배경 = 팀 컬러(또는 소유 표시 초록). 흰/노랑 등 밝은 팀 컬러에서
     // 텍스트가 안 보이는 것을 방지하기 위해 배경 휘도에 따라 텍스트 컬러 자동 결정.
     const selectedBg = hasPossession ? '#16a34a' : teamColor
@@ -556,6 +568,7 @@ export default function LeagueEventInputPad({
             : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
         } ${(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? 'ring-1 ring-amber-400/60' : ''}`}
         style={isSelected ? { backgroundColor: selectedBg, borderColor: selectedBg, color: selectedText } : {}}
+        aria-label={fouls > 0 ? `${p.name} (개인 파울 ${fouls}개${fouls >= 5 ? ' · 퇴장 기준' : ''})` : undefined}
       >
         {p.number != null && (
           <div className="text-base font-black font-mono leading-none mb-0.5">#{p.number}</div>
@@ -566,6 +579,20 @@ export default function LeagueEventInputPad({
         </div>
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) && (
           <span className="absolute top-1 right-1 text-xs font-black text-amber-300 leading-none">+1</span>
+        )}
+        {/* 개인 파울 — 0개면 안 그린다. 4개 주의 · 5개 퇴장 기준(경고) */}
+        {fouls > 0 && (
+          <span
+            className="absolute top-1 left-1 px-1 text-xs font-black leading-tight tabular-nums"
+            style={fouls >= 5
+              ? { background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: '3px' }
+              : fouls >= 4
+              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }
+              : { color: 'inherit', opacity: 0.75 }}
+            title={fouls >= 5 ? `개인 파울 ${fouls}개 — 퇴장 기준(5반칙)` : `개인 파울 ${fouls}개`}
+          >
+            F{fouls}
+          </span>
         )}
       </button>
     )
@@ -678,7 +705,7 @@ export default function LeagueEventInputPad({
             )}
             <button onClick={undoLast}
               className="w-full text-left px-4 py-2.5 min-h-11 text-sm text-red-400 hover:bg-gray-800 cursor-pointer transition-colors flex items-center gap-2">
-              <span>↩</span> 이벤트 취소
+              <span>↩</span> 기록 취소
             </button>
             <button onClick={() => setShowLastMenu(false)}
               className="w-full text-left px-4 py-2.5 min-h-11 text-xs text-gray-400 hover:bg-gray-800 cursor-pointer transition-colors">
@@ -734,7 +761,7 @@ export default function LeagueEventInputPad({
               {/* 팀 색이 없을 때 회색 리터럴로 떨어뜨리면 라이트 모드에서 3:1 이 안 나온다 —
                   accentOrInk 는 인자가 없으면 테마 잉크로 간다. */}
               <p className="t-label mb-1.5 px-1" style={{ color: accentOrInk(team?.color) }}>
-                {team?.name ?? '팀'} — {isShooterTeam ? '공격리바' : '수비리바'}
+                {team?.name ?? '팀'} — {isShooterTeam ? '공격 리바' : '수비 리바'}
               </p>
               <div className="grid grid-cols-3 gap-1.5">
                 {tPlayers.map(p => {
@@ -765,7 +792,7 @@ export default function LeagueEventInputPad({
           {pendingShot?.type === 'ft_3pt_2' ? (
             <div>
               <div className="flex items-center justify-between mb-0.5">
-                <p className="text-xs font-semibold text-gray-400">3P파울 2구</p>
+                <p className="text-xs font-semibold text-gray-400">3점슛 파울 2구째 (1점)</p>
                 <button onClick={() => setPendingShot(null)} className="text-xs text-gray-400 hover:text-gray-200 cursor-pointer min-h-11 px-2 inline-flex items-center">취소</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -826,7 +853,7 @@ export default function LeagueEventInputPad({
                           if (btn.needsResult) handleShotClick(btn)
                           else saveInstant(btn)
                         }}
-                        className={`py-3 min-h-[44px] rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
+                        className={`py-3 px-1 min-h-[44px] rounded-xl text-sm font-bold leading-tight break-keep text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
                       >
                         {btn.label}
                       </button>

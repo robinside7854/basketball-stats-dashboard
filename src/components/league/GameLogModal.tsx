@@ -29,9 +29,9 @@ const EVENT_OPTS = [
   { v: 'shot_post',     l: '골밑슛'       },
   { v: 'free_throw',    l: '자유투'       },
   { v: 'and_one',       l: '앤드원 +1'    },
-  { v: 'ft_2pt',        l: '2P파울 FT'    },
-  { v: 'ft_3pt_1',      l: '3P파울 1구'   },
-  { v: 'ft_3pt_2',      l: '3P파울 2구'   },
+  { v: 'ft_2pt',        l: '2점슛 파울(2점)' },
+  { v: 'ft_3pt_1',      l: '3점슛 파울 1구(2점)' },
+  { v: 'ft_3pt_2',      l: '3점슛 파울 2구(1점)' },
   { v: 'oreb',          l: '공격리바운드'  },
   { v: 'dreb',          l: '수비리바운드'  },
   { v: 'steal',         l: '스틸'         },
@@ -174,7 +174,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
     const r = await fetch(`/api/leagues/${leagueId}/events/${id}`, { method: 'DELETE', headers: leagueHeaders })
     setDeletingId(null)
     if (!r.ok) { toast.error('삭제 실패'); return }
-    toast.success('이벤트 삭제됨')
+    toast.success('기록 삭제됨')
     await loadEvents()
     onChanged()
   }
@@ -208,7 +208,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
     })
     setSaving(false)
     if (!r.ok) { toast.error('수정 실패'); return }
-    toast.success('이벤트 수정됨')
+    toast.success('기록 수정됨')
     setEditingId(null)
     await loadEvents()
     onChanged()
@@ -242,7 +242,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
-            <h2 className="text-white font-black text-sm">게임 이벤트 로그</h2>
+            <h2 className="text-white font-black text-sm">기록 내역</h2>
             {!loading && (
               <span className="text-xs text-gray-600">
                 {isFiltered ? `${filteredEvents.length}/${events.length}개` : `${events.length}개`}
@@ -337,7 +337,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
             <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-600" /></div>
           ) : filteredEvents.length === 0 ? (
             <p className="text-center text-sm text-gray-600 py-10">
-              {isFiltered && events.length > 0 ? '필터 조건에 맞는 이벤트가 없습니다' : '이벤트가 없습니다'}
+              {isFiltered && events.length > 0 ? '필터 조건에 맞는 기록이 없습니다' : '아직 기록이 없습니다'}
             </p>
           ) : filteredEvents.map(e => {
             const player    = e.league_player_id ? playerMap[e.league_player_id] : null
@@ -357,7 +357,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-600 block mb-1">이벤트</label>
+                      <label className="text-xs text-gray-600 block mb-1">기록 종류</label>
                       <select value={editForm.type} onChange={ev => setEditForm(f => ({ ...f, type: ev.target.value, result: '', relatedId: '' }))}
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         {EVENT_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
@@ -482,7 +482,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
             <div className="text-center space-y-2">
               <RotateCcw size={24} className="text-red-400 mx-auto" />
               <h3 className="text-white font-black text-base">경기 스탯 초기화</h3>
-              <p className="text-gray-400 text-sm">모든 이벤트가 삭제되고 스코어가 0으로 초기화됩니다.<br/>이 작업은 되돌릴 수 없습니다.</p>
+              <p className="text-gray-400 text-sm">이 경기의 모든 기록이 삭제되고 스코어가 0으로 초기화됩니다.<br/>이 작업은 되돌릴 수 없습니다.</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setConfirmReset(false)}

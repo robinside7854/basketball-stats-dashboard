@@ -67,7 +67,13 @@ type GameSlot = {
   home_team?: { id: string; name: string; color: string; is_external?: boolean } | null
   away_team?: { id: string; name: string; color: string; is_external?: boolean } | null
 }
-type MinRow = { id: string; league_player_id: string; league_game_id: string; out_time: number | null }
+type MinRow = {
+  id: string; league_player_id: string; league_game_id: string; out_time: number | null
+  /** 선발은 in_time 0 으로 들어간다(doStartGame). 「지난 경기와 같은 선발」이 이걸로 고른다. */
+  in_time?: number | null; quarter?: number | null; created_at?: string | null
+}
+/** 파울 집계용 — /events 응답 중 쓰는 필드만 */
+type FoulRow = { type: string; league_player_id: string | null; team_id: string | null; quarter?: number | null }
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
 type IrregularPlayer = LeaguePlayer & { team_id: string | null; is_regular: boolean | null }
 
@@ -128,20 +134,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     } catch {}
   }
 
-  // Backspace 핸들러를 위해 최신 selectedSlotId 보관 (state 정의 전에 ref 생성)
-  const selectedSlotIdRef = useRef<string>('')
-  const deleteLastEventRef = useRef<() => Promise<void>>(async () => {})
-
-  // 키보드 단축키: Space(재생/정지), ←/→(±5s), Shift+←/→(±10s), Backspace(마지막 이벤트 삭제)
+  // 키보드 단축키: Space(재생/정지), ←/→(±5s), Shift+←/→(±10s)
+  //   ⚠ Backspace(마지막 기록 삭제) 단축키는 2026-10-12 에 뺐다 — 화면 어디서든 눌리면
+  //     확인 없이 기록이 지워졌다. 되돌리기는 기록 패드의 「↩ 취소」 하나로 한다.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      if (e.code === 'Backspace') {
-        e.preventDefault()
-        deleteLastEventRef.current()
-        return
-      }
       if (!ytPlayer) return
       if (e.code === 'Space')      { e.preventDefault(); togglePlay() }
       else if (e.code === 'ArrowLeft')  { e.preventDefault(); seekRelative(e.shiftKey ? -10 : -5) }
@@ -157,9 +156,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
   const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
-  const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
   const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number; complete: number; started: number; unused: number; pending: number }>>({})
-  const [quarters, setQuarters] = useState<{ id: string; year: number; quarter: number }[]>([])
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
@@ -202,7 +199,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [creatingTeam, setCreatingTeam] = useState(false)
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null)
 
-  // 팀 선택 (슬랏별)
+  // 팀 선택 (슬롯별)
   const [pendingHome, setPendingHome] = useState('')
   const [pendingAway, setPendingAway] = useState('')
   const [savingTeam, setSavingTeam] = useState(false)
@@ -225,7 +222,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [showBoxscoreModal, setShowBoxscoreModal] = useState(false)
 
   // 선발 체크: 선택된 선수 ID 셋 (홈+어웨이 통합)
-  const [showStarterPicker, setShowStarterPicker] = useState(false)
   const [selectedStarters, setSelectedStarters] = useState<Set<string>>(new Set())
 
   // 드래그 앤 드롭
@@ -438,7 +434,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   useEffect(() => {
     async function init() {
       setLoadingDates(true)
-      const [dRes, tRes, pRes, lRes, gRes, qRes] = await Promise.all([
+      const [dRes, tRes, pRes, lRes, gRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/schedule-dates`),
         fetch(`/api/leagues/${leagueId}/teams`),
         // 기록 화면은 상대 선수를 눌러 득점을 남겨야 하므로 옵트인
@@ -446,7 +442,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         fetch(`/api/leagues/${leagueId}`),
         // 집계 전용 — 전 경기(303행 × 전 컬럼 + 팀 조인)를 받던 것을 날짜당 한 줄로 줄였다.
         fetch(`/api/leagues/${leagueId}/games/date-summary`),
-        fetch(`/api/leagues/${leagueId}/quarters`),
       ])
       if (dRes.ok) setScheduleDates(await dRes.json())
       if (tRes.ok) setTeams(await tRes.json())
@@ -454,12 +449,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       if (lRes.ok) {
         const ld = await lRes.json()
         setLeagueYtChannel(ld.youtube_channel ?? null)
-        setPlusOneAge(ld.plus_one_age ?? null)
         // 대회 묶음이면 영상 연동이 통째로 다르다 — 경기 하나에 쿼터별 영상 4개가 붙고,
         //   제목 추측 방식의 자동 매핑은 쓰지 않는다(엉뚱한 자리에 조용히 붙는다).
         setIsTournament(ld.mode === 'tournament')
       }
-      if (qRes.ok) setQuarters(await qRes.json())
       if (gRes.ok) {
         const summaries = await gRes.json()
         applyDateSummaries(summaries)
@@ -503,12 +496,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingDates, scheduleDates.length, leagueId])
 
-  // 선택한 날짜/슬랏의 분기로 teams 자동 갱신 — 분기별 팀명/색상 override 적용
+  // 선택한 날짜/슬롯의 분기로 teams 자동 갱신 — 분기별 팀명/색상 override 적용
   //   버그 수정 (2026-07-18): dateQuarterMap 이 초기 로딩 타이밍 문제로 미준비 상태이거나
   //     이전 분기 teams 상태(락다운 등)가 남아있는 경우 잘못된 이름이 dropdown 에 노출됨.
   //   개선: selectedSlot 이 있으면 slot.quarter_id (더 직접적) · 없으면 dateQuarterMap fallback.
   //         cache: 'no-store' 로 Next.js fetch dedupe 캐시 방지.
-  //   슬랏 목록(slots)에서 selectedSlotId 로 찾은 slot 의 quarter_id 가 최우선.
+  //   슬롯 목록(slots)에서 selectedSlotId 로 찾은 slot 의 quarter_id 가 최우선.
   useEffect(() => {
     if (!selectedDate) return
     const slotQid = slots.find(s => s.id === selectedSlotId)?.quarter_id
@@ -608,7 +601,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     setRosterLoading(false)
   }
 
-  // 날짜 선택 → 슬랏 초기화 + 로드
+  // 날짜 선택 → 슬롯 초기화 + 로드
   async function selectDate(date: string) {
     setSelectedDate(date)
     setSelectedSlotId('')
@@ -631,10 +624,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         })
     setInitializingSlots(false)
     if (res.ok) setSlots(await res.json())
-    else toast.error(isTournament ? '경기를 불러오지 못했습니다' : '슬랏 생성 실패')
+    else toast.error(isTournament ? '경기를 불러오지 못했습니다' : '슬롯 생성 실패')
   }
 
-  // 슬랏 선택
+  // 슬롯 선택
   async function selectSlot(slot: GameSlot) {
     setSelectedSlotId(slot.id)
     setPendingHome(slot.home_team_id ?? '')
@@ -768,7 +761,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         `· 어웨이: ${teamNameById(selectedSlot!.away_team_id) ?? '-'} → ${nameOf(pendingAway)}
 
 ` +
-        `이 경기에 저장된 기록(이벤트·명단)의 소속 팀도 함께 옮깁니다.
+        `이 경기에 저장된 기록과 명단의 소속 팀도 함께 옮깁니다.
 ` +
         `좌우가 통째로 뒤집히는 경우에는 스코어도 같이 뒤집습니다.`
       )) return
@@ -816,7 +809,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   // ── 대진 자동 편성 (2026-10-10 재도입) ─────────────────────────────
   // 1·2경기 팀을 저장하면 3경기부터 끝 슬롯까지 「승자 잔류 · 2연속 휴식」 순서로 채운다.
   //   규칙은 src/lib/league/rotation.ts — 1·2경기에 같이 나온 팀이 1경기 승자다(점수 불필요).
-  //   운영자는 각 경기 직전에 좌우만 뒤집으면 된다(팀 선택 사이의 ⇄ 버튼).
+  //   운영자는 각 경기 직전에 홈·원정만 뒤집으면 된다(팀 선택 사이의 「홈↔원정」 버튼).
   // ⚠ 건드리는 슬롯: 기록 전(시작·마감 아님)만. 기록이 있는 경기의 팀은 이벤트 이관이
   //   필요하므로(reassign-teams) 여기서 절대 바꾸지 않는다.
   // ⚠ 이미 같은 대진이면 그대로 둔다 — 운영자가 좌우를 바꿔 둔 것을 1·2경기 재저장이 되돌리지 않게.
@@ -867,7 +860,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       await refreshSlots()
       const last = targets[targets.length - 1].slot_num
       toast.success(`3~${last}경기 대진 자동 배정 (${filled}경기)`, {
-        description: '좌우가 다르면 경기마다 팀 선택 사이의 ⇄ 버튼만 누르세요'
+        description: '홈·원정이 다르면 경기마다 팀 선택 사이의 「홈↔원정」 버튼만 누르세요'
           + (skippedRecorded > 0 ? ` · 이미 기록된 ${skippedRecorded}경기는 그대로 뒀습니다` : ''),
         duration: 6000,
       })
@@ -880,8 +873,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     const slot = slots.find(s => s.id === slotId)
     if (!slot?.home_team_id || !slot?.away_team_id) { toast.error('먼저 두 팀을 지정하세요'); return }
     if (slot.is_started || slot.is_complete) {
-      toast.error('기록이 시작된 경기는 좌우를 바꿀 수 없습니다', {
-        description: '이미 저장된 점수·이벤트와 홈/어웨이가 어긋납니다',
+      toast.error('기록이 시작된 경기는 홈·원정을 바꿀 수 없습니다', {
+        description: '이미 저장된 점수·기록과 홈·원정이 어긋납니다. 화면 배치만 맞추려면 영상 칸의 「화면 좌우 반전」을 쓰세요',
         duration: 6000,
       })
       return
@@ -901,9 +894,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         const updated = { ...slot, home_team_id: slot.away_team_id, away_team_id: slot.home_team_id }
         await loadRoster(updated)
       }
-      toast.success('좌우 교체됨')
+      toast.success('홈·원정을 바꿨습니다')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '좌우 교체 실패')
+      toast.error(e instanceof Error ? e.message : '홈·원정 바꾸기 실패')
     } finally {
       setSwappingId(null)
     }
@@ -1084,7 +1077,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   async function clearYoutubeUrl() {
     if (!selectedSlotId || !selectedSlot) return
     if (!selectedSlot.youtube_url) return
-    if (!confirm('이 슬롯의 YouTube 영상 링크를 제거하시겠습니까?\n\n· 잘못 매핑된 영상을 정리할 때 사용\n· 이후 \"전체 날짜 YouTube 연동\" 버튼으로 재매핑 가능')) return
+    if (!confirm('이 슬롯의 YouTube 영상 링크를 제거하시겠습니까?\n\n· 잘못 매핑된 영상을 정리할 때 사용\n· 다시 붙이려면 날짜 옆 「YouTube 연동」 버튼을 누르거나 링크를 직접 넣으세요')) return
     const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
       headers: leagueHeaders,
@@ -1116,7 +1109,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       toast.success(next ? '친선전으로 변경 — 팀 구성을 이 화면에서 직접 배정하세요' : '정규전으로 복귀')
       await refreshSlots()
       // 명단 기준이 통째로 바뀌므로(분기 소속 ↔ 이 경기 전용) 다시 읽는다.
-      //   refreshSlots 는 슬랏만 갱신해서, 안 하면 바뀌기 전 명단이 화면에 그대로 남는다.
+      //   refreshSlots 는 슬롯만 갱신해서, 안 하면 바뀌기 전 명단이 화면에 그대로 남는다.
       const reloaded = { ...selectedSlot, is_exhibition: next }
       if (reloaded.home_team_id && reloaded.away_team_id) await loadRoster(reloaded)
     } else {
@@ -1281,7 +1274,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       `${selectedSlot.slot_num}경기 슬롯을 삭제하시겠습니까?
 
 ` +
-      `· 기록(이벤트)이 하나라도 있으면 삭제되지 않습니다
+      `· 기록이 하나라도 있으면 삭제되지 않습니다
 ` +
       `· 뒤 슬롯 번호는 다시 매기지 않습니다 (번호가 비어도 기록에는 지장 없음)`
     )) return
@@ -1408,16 +1401,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     return null
   }
 
-  // 선발 체크 모달 열기 (기본: 모두 해제)
-  function openStarterPicker() {
-    if (homeRoster.length === 0 && awayRoster.length === 0) {
-      toast.error('출전 가능한 선수가 없습니다')
-      return
-    }
-    setSelectedStarters(new Set())
-    setShowStarterPicker(true)
-  }
-
   function toggleStarter(pid: string) {
     setSelectedStarters(prev => {
       const next = new Set(prev)
@@ -1436,6 +1419,82 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       else ids.forEach(id => next.add(id))
       return next
     })
+  }
+
+  // ── 「지난 경기와 같은 선발」 ──────────────────────────────────────
+  //   하루 9경기 로테이션이라 같은 팀이 하루에 여러 번 나오고, 선발도 대개 그대로다.
+  //   같은 날 앞 경기(기록이 시작된 것) 중 이 팀이 나온 가장 가까운 경기의 선발을 그대로 체크해 준다.
+  //   ⚠ 맞는 팀만 채운다 — 다른 쪽 팀의 체크는 건드리지 않는다. 채운 뒤에도 손으로 고칠 수 있다.
+  //   선발은 출전시간 표에 in_time 0 으로 들어간다(doStartGame). 경기 중 영상 없이 교체하면
+  //   교체도 in_time 0 이 될 수 있어, 첫 줄이 저장된 시각 근처(15초)에 함께 들어간 행만 선발로 본다.
+  //   대회에서는 쓰지 않는다 — 대회 경기는 날짜마다 하나뿐이라 "같은 날 앞 경기"가 없다.
+  const [applyingPrevStarters, setApplyingPrevStarters] = useState(false)
+  const prevStarterSources: { side: 'home' | 'away'; teamName: string; src: GameSlot }[] = (() => {
+    if (isTournament || !selectedSlot) return []
+    const out: { side: 'home' | 'away'; teamName: string; src: GameSlot }[] = []
+    for (const side of ['home', 'away'] as const) {
+      const teamId = side === 'home' ? selectedSlot.home_team_id : selectedSlot.away_team_id
+      if (!teamId) continue
+      const src = slots
+        .filter(x => x.id !== selectedSlot.id && x.slot_num < selectedSlot.slot_num && x.is_started
+          && (x.home_team_id === teamId || x.away_team_id === teamId))
+        .sort((a, b) => b.slot_num - a.slot_num)[0]
+      if (src) {
+        const team = side === 'home' ? selectedSlot.home_team : selectedSlot.away_team
+        out.push({ side, teamName: team?.name ?? (side === 'home' ? '홈팀' : '어웨이팀'), src })
+      }
+    }
+    return out
+  })()
+
+  function startersFromMinutes(rows: MinRow[]): Set<string> {
+    const zero = rows.filter(r => r.in_time === 0)
+    if (zero.length === 0) return new Set()
+    const firstQ = Math.min(...zero.map(r => r.quarter ?? 1))
+    const inQ = zero.filter(r => (r.quarter ?? 1) === firstQ)
+    const times = inQ.map(r => (r.created_at ? Date.parse(r.created_at) : NaN)).filter(Number.isFinite)
+    if (times.length === 0) return new Set(inQ.map(r => r.league_player_id))
+    const first = Math.min(...times)
+    return new Set(inQ
+      .filter(r => !r.created_at || Date.parse(r.created_at) - first <= 15_000)
+      .map(r => r.league_player_id))
+  }
+
+  async function applyPrevStarters() {
+    if (prevStarterSources.length === 0) return
+    setApplyingPrevStarters(true)
+    try {
+      const bySlot = new Map<string, MinRow[]>()
+      for (const id of new Set(prevStarterSources.map(x => x.src.id))) {
+        const r = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${id}`, { cache: 'no-store' }).catch(() => null)
+        bySlot.set(id, r?.ok ? ((await r.json()) as MinRow[]) : [])
+      }
+      const picks: { rosterIds: string[]; pick: string[] }[] = []
+      const filled: string[] = []
+      for (const { side, teamName, src } of prevStarterSources) {
+        const starters = startersFromMinutes(bySlot.get(src.id) ?? [])
+        const roster = side === 'home' ? homeRoster : awayRoster
+        const pick = roster.filter(p => starters.has(p.id)).map(p => p.id)
+        if (pick.length === 0) continue
+        picks.push({ rosterIds: roster.map(p => p.id), pick })
+        filled.push(`${teamName} ${pick.length}명 (${src.slot_num}경기 선발)`)
+      }
+      if (picks.length === 0) {
+        toast.info('앞 경기의 선발 기록을 찾지 못했습니다', { description: '직접 체크해 주세요' })
+        return
+      }
+      setSelectedStarters(prev => {
+        const next = new Set(prev)
+        for (const { rosterIds, pick } of picks) {
+          rosterIds.forEach(id => next.delete(id))
+          pick.forEach(id => next.add(id))
+        }
+        return next
+      })
+      toast.success('지난 경기와 같은 선발로 체크했습니다', { description: filled.join(' · ') })
+    } finally {
+      setApplyingPrevStarters(false)
+    }
   }
 
   // ── 드래그 앤 드롭 헬퍼 ───────────────────────────────────────
@@ -1510,7 +1569,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             className="shrink-0 text-xs font-bold px-1"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
           >
-            비정규
+            게스트·임시
           </span>
         )}
         {/* 모바일 전용: 다른 팀으로 이동 (iOS Safari DnD 불가 대체)
@@ -1586,7 +1645,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     ))
     setLineup(starterIds)
     setGameStarted(true)
-    setShowStarterPicker(false)
     await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
       headers: leagueHeaders,
@@ -1760,6 +1818,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   // 마감된 경기를 다시 기록 모드로 복귀 (이벤트 유지, is_complete만 해제)
   async function reopenGame() {
     if (!selectedSlotId) return
+    if (!confirm('마감을 풀고 이 경기를 다시 기록할까요?\n\n· 지금까지의 기록은 그대로 남습니다\n· 다 고친 뒤에는 다시 「마감」을 눌러 주세요')) return
     setReopening(true)
     const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
@@ -1768,7 +1827,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     })
     setReopening(false)
     if (!res.ok) { toast.error('전환 실패'); return }
-    toast.success('기록 모드로 복귀했습니다. 기존 이벤트는 유지됩니다.')
+    toast.success('다시 기록할 수 있습니다 — 지금까지의 기록은 그대로입니다')
     await refreshSlots()
     // 코트 상태 복원 (다시 기록하기 후에도 선수 표시 유지)
     const mRes = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
@@ -1799,12 +1858,60 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
-  function handleEventSaved() {
+  function handleEventSaved(eventType?: string) {
     setStatsRefresh(k => k + 1)
     if (selectedSlotId) {
       fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
         .then(r => r.json()).then(setMinutes)
     }
+    // 파울 수는 파울이 저장·취소됐을 때만 다시 센다(종류를 모르면 안전하게 다시 센다) —
+    //   매 기록마다 이벤트 전체를 다시 받지 않기 위해서다.
+    if (eventType === undefined || eventType === 'foul') refreshFoulEvents()
+  }
+
+  // ── 파울 집계 ───────────────────────────────────────────────────────
+  //   개인 파울(경기 전체)과 팀 파울(지금 쿼터)을 이 경기 기록에서 센다. 별도 저장값은 없다 —
+  //   기록이 곧 진실이고, 기록 내역에서 지우면 그대로 줄어든다.
+  //   ⚠ 늦게 온 앞 경기 응답이 지금 경기 수를 덮지 않도록 요청 토큰으로 막는다.
+  const [foulEvents, setFoulEvents] = useState<{ gameId: string; rows: FoulRow[] }>({ gameId: '', rows: [] })
+  const foulReqRef = useRef(0)
+  function refreshFoulEvents() {
+    const gameId = selectedSlotId
+    if (!gameId) return
+    const token = ++foulReqRef.current
+    fetch(`/api/leagues/${leagueId}/events?gameId=${gameId}`, { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((rows: FoulRow[] | null) => {
+        if (foulReqRef.current !== token || !Array.isArray(rows)) return
+        setFoulEvents({ gameId, rows: rows.filter(e => e.type === 'foul') })
+      })
+      .catch(() => null)
+  }
+  const gameFouls = foulEvents.gameId === selectedSlotId ? foulEvents.rows : []
+  /** 선수별 개인 파울(경기 전체) */
+  const foulCounts: Record<string, number> = {}
+  for (const e of gameFouls) {
+    if (e.league_player_id) foulCounts[e.league_player_id] = (foulCounts[e.league_player_id] ?? 0) + 1
+  }
+  /** 지금 쿼터의 팀 파울 — 이벤트에 쿼터가 없으면(옛 기록) 1쿼터로 본다 */
+  function teamFoulsOf(teamId: string | null | undefined): number {
+    if (!teamId) return 0
+    return gameFouls.filter(e => e.team_id === teamId && (e.quarter ?? 1) === currentQuarter).length
+  }
+
+  // ── 기록 중 이탈 경고 ────────────────────────────────────────────────
+  //   기록은 누를 때마다 저장되므로 떠나도 사라지지 않는다. 다만 「마감」을 안 하고 떠나면
+  //   그 경기가 진행 중으로 남아, 다음에 누가 열었을 때 끝난 경기인지 알 수 없다.
+  const recordingInProgress = !!selectedSlot && gameStarted && !selectedSlot.is_complete
+  useEffect(() => {
+    if (!recordingInProgress) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [recordingInProgress])
+  function confirmLeave(): boolean {
+    if (!recordingInProgress) return true
+    return confirm('기록 중인 경기가 있어요.\n이동해도 기록은 저장돼 있지만, 마감은 아직 안 됐어요.\n\n이동할까요?')
   }
 
   // 선택한 경기의 쿼터 복원 — 새로고침·경기 전환 후에도 마지막으로 기록하던 쿼터에서 이어간다.
@@ -1814,14 +1921,19 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     if (!selectedSlotId) { setCurrentQuarter(1); setQuarterRestore(null); return }
     let cancelled = false
     const slotId = selectedSlotId
+    // 같은 응답으로 파울 수도 채운다 — 경기를 열 때 이벤트를 두 번 받지 않게.
+    const foulToken = ++foulReqRef.current
     fetch(`/api/leagues/${leagueId}/events?gameId=${slotId}`)
       .then(r => (r.ok ? r.json() : null))
-      .then((rows: Array<{ quarter?: number | null }> | null) => {
+      .then((rows: Array<FoulRow> | null) => {
         if (cancelled) return
         if (!Array.isArray(rows)) {
           // 조회 실패도 "끝났다"고 알려야 한다 — 안 그러면 시작 쿼터 보정이 영영 안 돈다.
           setQuarterRestore({ slotId, hasEvents: false })
           return
+        }
+        if (foulReqRef.current === foulToken) {
+          setFoulEvents({ gameId: slotId, rows: rows.filter(e => e.type === 'foul') })
         }
         const max = rows.reduce((m, e) => Math.max(m, e.quarter ?? 1), 1)
         setCurrentQuarter(Math.min(Math.max(max, 1), 6))
@@ -1831,31 +1943,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       .catch(() => { if (!cancelled) setQuarterRestore({ slotId, hasEvents: false }) })
     return () => { cancelled = true }
   }, [leagueId, selectedSlotId])
-
-  // Backspace 단축키용: 최신 selectedSlotId와 deleteLastEvent 함수를 ref로 노출
-  useEffect(() => {
-    selectedSlotIdRef.current = selectedSlotId
-    deleteLastEventRef.current = async () => {
-      const slotId = selectedSlotIdRef.current
-      if (!slotId) return
-      try {
-        const r = await fetch(`/api/leagues/${leagueId}/events?gameId=${slotId}`)
-        if (!r.ok) return
-        const events = await r.json() as Array<{ id: string; created_at?: string }>
-        if (!Array.isArray(events) || events.length === 0) return
-        const last = events[events.length - 1]
-        if (!last?.id) return
-        const del = await fetch(`/api/leagues/${leagueId}/events/${last.id}`, {
-          method: 'DELETE',
-          headers: leagueHeaders,
-        })
-        if (del.ok) {
-          handleEventSaved()
-          fetchLiveScore()
-        }
-      } catch {}
-    }
-  }, [selectedSlotId, leagueId, leagueHeaders]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 비정규 선수를 홈/어웨이 팀에 추가 (이 경기 하나에만 유효 — 다른 경기에 뛰면 그 경기에서 따로 지정)
   async function addIrregularToTeam(player: IrregularPlayer, side: 'home' | 'away') {
@@ -1873,7 +1960,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     })
     if (!res.ok) {
       setAddingIrregular(false)
-      toast.error('비정규 선수 추가 실패')
+      toast.error('게스트·임시 선수 추가 실패')
       return
     }
     // 게임이 시작된 경우, minutes도 INSERT
@@ -1959,9 +2046,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     )
   }
 
-  // ── 슬랏 초기화 중 ────────────────────────────────────────
+  // ── 슬롯 초기화 중 ────────────────────────────────────────
   if (initializingSlots) {
-    return <div className="flex flex-col items-center gap-3 py-16" style={{ color: 'var(--mm-muted)' }}><Loader2 size={24} className="animate-spin" /><span className="text-sm">경기 슬랏 생성 중...</span></div>
+    return <div className="flex flex-col items-center gap-3 py-16" style={{ color: 'var(--mm-muted)' }}><Loader2 size={24} className="animate-spin" /><span className="text-sm">경기 슬롯 생성 중...</span></div>
   }
 
   const dateLabel = (() => {
@@ -1970,7 +2057,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     return `${d.getMonth() + 1}/${d.getDate()} (${days[d.getDay()]})`
   })()
 
-  // ── 슬랏 그리드 + 기록 UI ─────────────────────────────────
+  // ── 슬롯 그리드 + 기록 UI ─────────────────────────────────
   return (
     <div className="mm-brand space-y-4">
       <LeagueSubTabs group="games" />
@@ -2016,6 +2103,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       <div className="flex items-center gap-3 flex-wrap">
         <a
           href={`/league/${orgSlug}/${leagueId}/schedule`}
+          onClick={e => { if (!confirmLeave()) e.preventDefault() }}
           className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors cursor-pointer shrink-0"
           style={{ color: 'var(--mm-muted)' }}
           aria-label="일정으로 돌아가기"
@@ -2050,7 +2138,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         )}
       </div>
 
-      {/* 슬랏 그리드 — 하루 경기 수만큼. 9열 고정이던 것을 슬롯 수에 맞췄다(2026-09-07):
+      {/* 슬롯 그리드 — 하루 경기 수만큼. 9열 고정이던 것을 슬롯 수에 맞췄다(2026-09-07):
           하루 9경기 로테이션에서 3대진으로 바뀌어 9열이면 3칸이 왼쪽에 몰리고 나머지가 빈다. */}
       <div className={`grid grid-cols-4 sm:grid-cols-5 gap-2 ${slots.length <= 4 ? 'lg:grid-cols-4' : slots.length <= 6 ? 'lg:grid-cols-6' : 'lg:grid-cols-9'}`}>
         {slots.map(slot => {
@@ -2060,7 +2148,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           return (
             <button
               key={slot.id}
-              onClick={() => selectSlot(slot)}
+              onClick={() => {
+                if (slot.id !== selectedSlotId && !confirmLeave()) return
+                selectSlot(slot)
+              }}
               className={`relative flex flex-col items-center justify-center px-2 py-2.5 min-h-[44px] rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
                 isSelected
                   ? 'bg-blue-600 border-blue-500 text-white'
@@ -2124,14 +2215,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         </p>
       )}
 
-      {/* 슬랏 미선택 */}
+      {/* 슬롯 미선택 */}
       {!selectedSlotId && (
         <div className="text-center py-8 text-sm" style={{ color: 'var(--mm-muted)' }}>
-          위 슬랏을 선택하면 기록을 시작할 수 있습니다
+          위 슬롯을 선택하면 기록을 시작할 수 있습니다
         </div>
       )}
 
-      {/* 선택된 슬랏 기록 UI */}
+      {/* 선택된 슬롯 기록 UI */}
       {selectedSlot && (
         <div className="pt-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
           {/* ── 기록 준비 ─────────────────────────────────────────────────────────
@@ -2208,18 +2299,21 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 <option value="">{selectedSlot.is_exhibition ? '홈 임시팀 선택' : '홈 팀 선택'}</option>
                 {teamOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              {/* 좌우 교체 — 코트 배치가 현장에서 무작위로 정해져 매번 두 셀렉트를 다시 고르던 자리 */}
+              {/* 홈·원정 바꾸기 — 이 경기의 홈 팀과 원정 팀을 **저장값으로** 맞바꾼다(기록 시작 전만).
+                  아래 영상 칸의 「N쿼터 화면 좌우 반전」과는 다른 일이다 — 그쪽은 화면 배치만 뒤집는다.
+                  둘 다 ⇄ 아이콘이라 헷갈려서 2026-10-12 에 글자로 구분했다. */}
               <button
                 onClick={() => swapSides(selectedSlot.id)}
                 disabled={gameStarted || swappingId === selectedSlot.id || !selectedSlot.home_team_id || !selectedSlot.away_team_id}
-                title="홈↔어웨이 좌우 바꾸기"
-                aria-label="홈과 어웨이 좌우 바꾸기"
-                className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                title="홈 팀과 원정 팀을 서로 바꿔 저장합니다 (기록 시작 전에만 가능)"
+                aria-label="홈 팀과 원정 팀 바꾸기"
+                className="shrink-0 inline-flex items-center justify-center gap-1 px-2 min-h-[44px] min-w-[44px] text-xs font-bold whitespace-nowrap cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
                 {swappingId === selectedSlot.id
                   ? <Loader2 size={14} className="animate-spin" aria-hidden />
                   : <ArrowLeftRight size={14} aria-hidden />}
+                홈↔원정
               </button>
               <select
                 value={pendingAway}
@@ -2425,7 +2519,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </div>
               )}
 
-              {/* 좌우 바꾸기는 **영상과 무관하다** — 코트 배치가 화면과 반대인 날에 쓴다.
+              {/* 화면 좌우 반전은 **영상과 무관하다** — 영상 속 코트 배치가 화면과 반대인 쿼터에 쓴다.
+                  홈·원정(저장값)은 그대로이고 화면 배치만 그 쿼터에서 뒤집는다 — 팀 줄의 「홈↔원정」과 다르다.
                   쿼터 UI 를 감춘 경기에서도 닿아야 해서 게이트 밖에 둔다. */}
               <div className="flex items-center gap-2 flex-wrap mb-2">
                 {selectedSlot.home_team_id && selectedSlot.away_team_id && !isTournament && (
@@ -2433,9 +2528,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     type="button"
                     onClick={toggleQuarterSides}
                     aria-pressed={sidesFlipped}
-                    title={showQuarterUi
-                      ? `${currentQuarter}쿼터 화면 좌우를 바꿉니다 — 기록·점수는 그대로입니다`
-                      : '화면 좌우를 바꿉니다 — 기록·점수는 그대로입니다'}
+                    title={`${currentQuarter}쿼터에서만 화면의 왼쪽·오른쪽 팀 배치를 뒤집습니다 — 영상 속 코트 방향에 맞추는 용도입니다. 홈·원정과 기록·점수는 그대로입니다`}
                     className="inline-flex items-center gap-1.5 shrink-0 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     style={{
                       background: sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
@@ -2445,7 +2538,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     }}
                   >
                     <ArrowLeftRight size={14} strokeWidth={2.5} aria-hidden />
-                    {showQuarterUi ? `${currentQuarter}쿼터 좌우` : '좌우'}{sidesFlipped ? ' 바뀜' : ' 바꾸기'}
+                    {`${currentQuarter}쿼터 화면만 좌우 반전`}{sidesFlipped ? ' · 켜짐' : ''}
                   </button>
                 )}
                 {/* 되돌아올 길 — 쿼터 영상이 없는 날도 나중에 쿼터별로 쪼갠 영상을 붙일 수 있어야 한다 */}
@@ -2767,9 +2860,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 className="mt-2 text-xs leading-relaxed"
                 style={{ color: 'var(--mm-muted)' }}
               >
-                <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>스팟 구성</span>
-                {' — 이 경기의 팀은 분기 소속을 따르지 않습니다. 위 드롭다운의 팀도, 아래 미배정 목록의 선수도 이 날짜 전용입니다. '}
-                {'여기서 한 배정은 이 경기에만 적용되고 분기 팀 구성은 바뀌지 않습니다.'}
+                <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>그날 짠 팀</span>
+                {' — 친선전은 평소 소속 팀을 따르지 않습니다. 위 목록의 팀도, 아래에서 배정하는 선수도 이 날짜에만 쓰입니다. '}
+                {'여기서 한 배정은 이 경기에만 적용되고 평소 팀 구성은 바뀌지 않습니다.'}
               </p>
             )}
 
@@ -3086,7 +3179,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             <CheckCircle2 size={20} className="text-gray-500" />
                             <span className="text-lg font-black text-gray-400 tracking-tight">마감된 경기입니다</span>
                           </div>
-                          <p className="text-xs text-gray-400">이벤트 로그에서 수정·삭제, 또는 아래에서 기록 모드로 복귀할 수 있습니다</p>
+                          <p className="text-xs text-gray-400">「기록 내역」에서 고치거나 지울 수 있고, 「다시 기록하기」로 이어서 기록할 수 있습니다</p>
                         </div>
                         {/* 하단 버튼 행 */}
                         <div className="grid grid-cols-2 border-t border-gray-800/60">
@@ -3095,7 +3188,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             className="py-2.5 min-h-11 flex items-center justify-center gap-1.5 text-gray-300 hover:text-white hover:bg-gray-900/60 text-xs font-medium transition-colors cursor-pointer border-r border-gray-800/60"
                           >
                             <ClipboardList size={14} />
-                            이벤트 로그
+                            기록 내역
                           </button>
                           <button
                             onClick={reopenGame}
@@ -3140,7 +3233,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             className="border-l border-gray-800 px-3 min-h-11 flex items-center gap-1 text-xs text-gray-300 hover:text-white hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                           >
                             <ClipboardList size={14} />
-                            <span className="hidden sm:inline">로그</span>
+                            <span className="hidden sm:inline">기록 내역</span>
                           </button>
                           {/* 플러스원 선수 재설정 버튼 — plus_one 선수가 있을 때만 표시 */}
                           {[...homeRoster, ...awayRoster].some(p => p.plus_one) && (
@@ -3178,11 +3271,44 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             <span className="hidden sm:inline">스탯</span>
                           </button>
                         </div>
+                        {/* 팀 파울 — 지금 쿼터 기준. 5개부터 보너스(상대 자유투)라 강조한다.
+                            좌우는 위 스트립과 같은 sideView 를 따른다. 외부(대회 상대) 팀은
+                            파울을 기록하지 않으므로 칸을 비운다 — 0 으로 보이면 사실처럼 읽힌다. */}
+                        {(() => {
+                          const qLabel = QUARTER_OPTIONS.find(q => q.value === currentQuarter)?.label ?? `${currentQuarter}Q`
+                          const chip = (side: 'home' | 'away', align: 'left' | 'right') => {
+                            const v = sideView(side)
+                            if (!v.team || v.team.is_external) return <span />
+                            const n = teamFoulsOf(v.team.id)
+                            const bonus = n >= 5
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-bold tabular-nums ${align === 'right' ? 'flex-row-reverse' : ''}`}
+                                style={bonus
+                                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
+                                  : n === 4
+                                  ? { color: 'var(--mm-yellow)' }
+                                  : { color: 'var(--mm-muted)' }}
+                                title={bonus ? `${v.team.name} 팀파울 ${n}개 — 상대 보너스(자유투) 구간` : `${v.team.name} 팀파울 ${n}개 (${qLabel})`}
+                              >
+                                팀파울 {n}{bonus && <span>· 보너스</span>}
+                              </span>
+                            )
+                          }
+                          return (
+                            <div className="flex items-center justify-between gap-2 px-3 py-1 border-t border-gray-800">
+                              {chip(leftSide, 'left')}
+                              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{qLabel}</span>
+                              {chip(rightSide, 'right')}
+                            </div>
+                          )
+                        })()}
                       </div>
 
-                      {/* 쿼터 선택 — 1~4쿼터 정식 경기용. 안 건드리면 1Q 고정이라 기존 슬롯 경기와 동일하다.
-                          쿼터 영상이 없는 날은 쿼터가 나뉘지 않은 경기라 감춘다(이벤트는 그대로 1쿼터로 저장). */}
-                      {showQuarterUi && (
+                      {/* 쿼터 선택 — 기록 중에는 **항상** 보인다 (2026-10-12).
+                          종전엔 쿼터 영상이 있는 날에만 보여서, 영상 없이 기록하는 날은 쿼터를 넘길 수단이
+                          없었고 팀 파울도 쿼터로 나눌 수 없었다. 쿼터 영상이 있으면 누르는 순간
+                          그 쿼터 영상으로 바뀌고(activeVideo), 없으면 기록 쿼터만 바뀐다. */}
                       <div className="flex items-center gap-1.5 px-2 py-2 border-t border-gray-800 bg-gray-900/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
                         <span className="pl-1 shrink-0 text-xs font-semibold text-gray-400">쿼터</span>
                         {QUARTER_OPTIONS.map(q => {
@@ -3205,7 +3331,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           )
                         })}
                       </div>
-                      )}
 
                       {/* 좌우가 뒤집힌 쿼터에서는 패드에 **넘기는 짝을 통째로 맞바꾼다.**
                           패드 안에서는 '왼쪽/오른쪽' 으로만 쓰이고 이벤트의 team_id 는 선수
@@ -3221,7 +3346,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         awayPlayers={sideView(rightSide).roster.filter(p => onCourt.includes(p.id))}
                         homeTeam={sideView(leftSide).team ?? undefined}
                         awayTeam={sideView(rightSide).team ?? undefined}
-                        onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
+                        onEventSaved={(eventType) => { handleEventSaved(eventType); fetchLiveScore() }}
+                        foulCounts={foulCounts}
                         activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
                         onOpponentRegistered={() => { if (selectedSlot) loadRoster(selectedSlot) }}
                         // 대회는 상대 선수를 기록하지 않는다 — 점수만 위 「상대 득점」 으로 남긴다
@@ -3254,7 +3380,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         >
                           <div className="flex items-center gap-1.5 mb-2">
                             <UserPlus size={14} style={{ color: 'var(--mm-muted)' }} />
-                            <p className="t-label" style={{ color: 'var(--mm-muted)' }}>비정규 선수 추가</p>
+                            <p className="t-label" style={{ color: 'var(--mm-muted)' }}>게스트·임시 선수 추가</p>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {irregularRoster.map(p => {
@@ -3372,10 +3498,30 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           <>
                             <span className="hidden lg:inline">선수를 끌어다 팀에 배정하세요. </span>
                             <span className="lg:hidden">카드를 탭하여 선발 체크 · 오른쪽 버튼으로 다른 팀 이동. </span>
-                            정규선수 이동은 이번 경기만 적용됩니다.
+                            다른 팀으로 옮긴 선수는 이번 경기에만 적용됩니다.
                           </>
                         )}
                       </p>
+
+                      {/* 지난 경기와 같은 선발 — 같은 날 앞 경기에 이 팀이 나왔을 때만 보인다 */}
+                      {prevStarterSources.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={applyPrevStarters}
+                          disabled={applyingPrevStarters || rosterLoading}
+                          title="같은 날 앞 경기의 선발을 그대로 체크합니다. 체크한 뒤에도 고칠 수 있습니다"
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                        >
+                          {applyingPrevStarters
+                            ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                            : <RefreshCw size={14} aria-hidden />}
+                          지난 경기와 같은 선발
+                          <span className="font-normal" style={{ color: 'var(--mm-muted)' }}>
+                            · {prevStarterSources.map(x => `${x.teamName} ${x.src.slot_num}경기`).join(', ')}
+                          </span>
+                        </button>
+                      )}
 
                       {/* 대회 — 우리 팀 한 칸만. 상대 칸을 두면 "여기에 상대 선수를 넣나?" 로 읽히고
                           실제로 넣으면 상대 선수 기록이 우리 통계에 섞인다. */}
@@ -3460,7 +3606,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>
                             <span className="hidden lg:inline">위로 드래그하여 팀 배정 / </span>
                             <span className="lg:hidden">칩을 탭하여 팀 배정 / </span>
-                            미배정 선수
+                            팀이 정해지지 않은 선수 (게스트·임시)
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {irregularRoster.map(p => renderDraggableChip(p))}
@@ -3646,7 +3792,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     <p className="text-xs text-gray-400">
                       {isTournament
                         ? '우리 팀 점수는 기록에서 자동 계산됩니다. 상대 점수만 입력하세요.'
-                        : '이벤트 기반 점수로 자동 계산됩니다.'}
+                        : '점수는 기록한 득점으로 자동 계산됩니다.'}
                     </p>
 
                     {/* 대회 — 상대 최종 점수. 상대는 선수를 기록하지 않으므로 점수가 여기서만 들어온다.
@@ -3687,7 +3833,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             <p className="text-3xl font-black text-white">{liveScore.away}</p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-600 mt-2">이벤트 합산 기준</p>
+                        <p className="text-xs text-gray-600 mt-2">지금까지 기록한 득점을 더한 점수</p>
                       </div>
                     )}
                     {!liveScore && (
@@ -3742,6 +3888,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           onChanged={() => {
             fetchLiveScore()
             setStatsRefresh(k => k + 1)
+            refreshFoulEvents()
           }}
           homeTeam={selectedSlot?.home_team ?? undefined}
           awayTeam={selectedSlot?.away_team ?? undefined}
