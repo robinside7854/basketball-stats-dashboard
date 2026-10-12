@@ -174,7 +174,7 @@ export async function reconcileScheduleWithVideos(
     if (!needSync.has(date)) continue
     if (dryRun) { result.synced.push({ date, mapped: 0, note: '연동 예정' }); continue }
     try {
-      await ensureDateSlots(supabase, leagueId, date, league.games_per_round ?? 9)
+      await ensureDateSlots(supabase, leagueId, date, league.games_per_round ?? 10)
       const out = await syncYoutubeForLeague(supabase, leagueId, league.youtube_channel as string, date, apiKey as string)
       result.synced.push(out.ok ? { date, mapped: out.mapped, note: out.skipped > 0 ? `${out.skipped}개 못 붙임` : undefined } : { date, mapped: 0, note: out.reason })
     } catch (e) {

@@ -244,7 +244,7 @@ export async function POST(
 
   // 리그 설정에서 games_per_round 가져오기
   const { data: league } = await supabase.from('leagues').select('games_per_round').eq('id', leagueId).single()
-  const slotCount = league?.games_per_round ?? 9
+  const slotCount = league?.games_per_round ?? 10
 
   // 이미 있는 슬랏 확인
   const { data: existing } = await supabase
