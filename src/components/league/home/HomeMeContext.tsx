@@ -10,21 +10,31 @@
 // 요청은 승인 회원일 때만 2개:
 //   · GET /auth/dashboard            — 이번 분기 하루 평균·순위·마일스톤 (/me 와 같은 응답)
 //   · GET /daily-boxscore?date=      — 홈이 이미 아는 최근 경기일 하루
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
 type Metric = 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
 
+/** 기간 블록 — 「이번 분기」(quarter) · 「전체」(career) 가 같은 모양이다 */
+export interface MePeriodBlock {
+  label: string | null
+  attended_rounds: number
+  /** 이 기간에 리그가 연 날 전체 */
+  total_rounds: number
+  /** 그중 내 첫 기록일 이후 — 출석 분모 (2026-10-12 추가 · 옛 응답엔 없다) */
+  my_total_rounds?: number
+  /** 내 첫 기록일(리그 전체 기준) — 이날 이전은 「결장」이 아니다 */
+  joined_on?: string | null
+  min_rounds: number
+  eligible: boolean
+  per_day: Record<Metric, number>
+  ranks: Partial<Record<Metric, { rank: number; total: number }>>
+}
+
 export interface HomeDashboard {
-  quarter?: {
-    label: string | null
-    attended_rounds: number
-    total_rounds: number
-    min_rounds: number
-    eligible: boolean
-    per_day: Record<Metric, number>
-    ranks: Partial<Record<Metric, { rank: number; total: number }>>
-  }
+  quarter?: MePeriodBlock
+  /** 「전체」 — 이 리그 시즌 첫 경기일부터 */
+  career?: MePeriodBlock
   milestoneChasers?: Array<{
     metric: Metric
     current: number
@@ -67,6 +77,32 @@ interface HomeMeState {
 const Ctx = createContext<HomeMeState>({ isMember: false, serverMember: false, status: 'idle', dashboard: null, day: null })
 
 export function useHomeMe() { return useContext(Ctx) }
+
+// ── 내 기록 기간 선택 「이번 분기 | 전체」 — 홈 내 카드와 /me 가 같은 기억값을 쓴다 ──
+export type MePeriod = 'quarter' | 'career'
+const periodKey = (leagueId: string) => `league:${leagueId}:mePeriod`
+
+/** 보는 사람별로 고른 기간을 기억한다(localStorage — 실패해도 「이번 분기」로 그린다) */
+export function useMePeriod(leagueId: string): [MePeriod, (p: MePeriod) => void] {
+  const [period, setPeriodState] = useState<MePeriod>('quarter')
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(periodKey(leagueId))
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 는 클라이언트 전용, 마운트 1회
+      if (v === 'career' || v === 'quarter') setPeriodState(v)
+    } catch { /* 저장소가 막혀 있으면 기본값 */ }
+  }, [leagueId])
+  const setPeriod = useCallback((p: MePeriod) => {
+    setPeriodState(p)
+    try { localStorage.setItem(periodKey(leagueId), p) } catch { /* 무시 */ }
+  }, [leagueId])
+  return [period, setPeriod]
+}
+
+/** 기간 블록의 출석 분모 — 첫 기록일 이후 경기일(옛 응답이면 리그 전체 일수) */
+export function myTotalRounds(b: Pick<MePeriodBlock, 'total_rounds' | 'my_total_rounds'>): number {
+  return b.my_total_rounds ?? b.total_rounds
+}
 
 // daily-boxscore 응답에서 쓰는 부분만
 interface BoxGame {

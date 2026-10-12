@@ -1,7 +1,8 @@
 'use client'
 // 홈 맨 위 「내 카드」 (리뉴얼 2단계, 2026-10-12) — "토요일 아침 농구 한 번 = 하루 1라운드".
 //   ① 지난 경기일 내 하루(득점·리바·어시… + 그날 내 경기 승패)
-//   ② 이번 분기 하루 평균 + 순위(가장 높은 항목의 「상위 N%」 막대)
+//   ② 하루 평균 + 순위(가장 높은 항목의 「상위 N%」 막대) — 「이번 분기 | 전체」 전환(2026-10-12)
+//      출전 분모는 내 첫 기록일부터(중간 합류 회원이 그 전 경기일을 결장으로 잡히지 않게)
 //   ③ 다음 마일스톤(시즌 누적)
 // 숫자는 전부 기존 응답 그대로다 — 새 지표를 만들지 않는다(②③ = /auth/dashboard, ① = daily-boxscore).
 // 비로그인: 얇은 로그인 안내 한 줄. 로그인했지만 미승인: 아무것도 그리지 않는다.
@@ -15,7 +16,8 @@ import Avatar from '@/components/league/ui/Avatar'
 import Chip from '@/components/league/ui/Chip'
 import { ProgressBar, ResultDots } from '@/components/league/ui/viz'
 import { accentOrInk } from '@/lib/util/contrastColor'
-import { useHomeMe, type HomeDashboard } from './HomeMeContext'
+import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
+import { useHomeMe, useMePeriod, myTotalRounds, type MePeriod, type MePeriodBlock } from './HomeMeContext'
 
 type Metric = 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
 const SHORT: Record<Metric, string> = { pts: '득점', reb: '리바', ast: '어시', stl: '스틸', blk: '블락' }
@@ -56,33 +58,74 @@ function Block({ title, meta, children }: { title: string; meta?: ReactNode; chi
   )
 }
 
-function QuarterBlock({ q }: { q: NonNullable<HomeDashboard['quarter']> }) {
-  const title = `${q.label ? `${q.label} · ` : ''}하루 평균`
-  if (q.attended_rounds === 0) {
-    return (
-      <Block title={title}>
-        <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>이번 분기 출전 기록이 아직 없어요.</p>
-      </Block>
+function shortDate(iso: string): string {
+  const [, m, d] = iso.split('-')
+  return `${Number(m)}.${Number(d)}`
+}
+
+/** 「첫 기록 5.16부터 · 12일 중 10일 출전」 — 첫 기록일이 이 기간 중간일 때만 첫 기록일을 밝힌다 */
+function attendanceCopy(b: MePeriodBlock): string {
+  const mine = myTotalRounds(b)
+  const joinedMid = !!b.joined_on && mine < b.total_rounds
+  return `${joinedMid ? `첫 기록 ${shortDate(b.joined_on!)}부터 · ` : ''}${mine}일 중 ${b.attended_rounds}일 출전`
+}
+
+function PeriodBlock({ b, period, onPeriod }: {
+  b: MePeriodBlock | undefined
+  period: MePeriod
+  onPeriod: (p: MePeriod) => void
+}) {
+  const toggle = (
+    <SegmentedTabs
+      size="sm"
+      ariaLabel="내 기록 기간"
+      value={period}
+      onChange={onPeriod}
+      items={[{ key: 'quarter', label: '이번 분기' }, { key: 'career', label: '전체' }]}
+    />
+  )
+  const head = (
+    <div className="flex items-center justify-between gap-2 mb-2.5">
+      <h3 className="text-sm font-black break-keep min-w-0" style={{ color: 'var(--mm-ink)' }}>
+        하루 평균{period === 'quarter' && b?.label ? <span className="t-label ml-1.5">{b.label}</span> : null}
+      </h3>
+      {toggle}
+    </div>
+  )
+  const wrap = (children: ReactNode) => (
+    <div className="px-4 lg:px-5 py-3.5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+      {head}
+      {children}
+    </div>
+  )
+  // 옛 응답(배포 직후)에는 career 가 없다
+  if (!b) return wrap(<p className="text-sm" style={{ color: 'var(--mm-muted)' }}>잠시 후 다시 열면 보여요.</p>)
+  if (b.attended_rounds === 0) {
+    return wrap(
+      <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>
+        {period === 'quarter' ? '이번 분기 출전 기록이 아직 없어요.' : '아직 출전 기록이 없어요.'}
+      </p>,
     )
   }
   // 가장 높은 순위의 항목 하나로 「상위 N%」 — 순위 모집단은 홈 리그 리더와 같은 최소 출전 충족자
-  const best = (Object.entries(q.ranks) as Array<[Metric, { rank: number; total: number }]>)
+  const best = (Object.entries(b.ranks) as Array<[Metric, { rank: number; total: number }]>)
     .filter(([, r]) => r && r.total > 0)
-    .sort((a, b) => a[1].rank / a[1].total - b[1].rank / b[1].total)[0]
+    .sort((x, y) => x[1].rank / x[1].total - y[1].rank / y[1].total)[0]
   const topPct = best ? Math.max(1, Math.ceil((best[1].rank / best[1].total) * 100)) : null
-  return (
-    <Block title={title} meta={`${q.attended_rounds}/${q.total_rounds}일 출전`}>
+  return wrap(
+    <>
+      <p className="t-label break-keep -mt-1 mb-2.5 tabular-nums">{attendanceCopy(b)}</p>
       <div className="grid grid-cols-3 gap-2">
         {(['pts', 'reb', 'ast'] as const).map(m => (
           <StatCell
             key={m}
             label={SHORT[m]}
-            value={(q.per_day[m] ?? 0).toFixed(1)}
-            sub={q.ranks[m] ? `${q.ranks[m]!.rank}위` : undefined}
+            value={(b.per_day[m] ?? 0).toFixed(1)}
+            sub={b.ranks[m] ? `${b.ranks[m]!.rank}위` : undefined}
           />
         ))}
       </div>
-      {q.eligible && best && topPct != null ? (
+      {b.eligible && best && topPct != null ? (
         <div className="mt-3">
           <div className="flex items-baseline justify-between gap-2 mb-1.5">
             <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
@@ -101,14 +144,14 @@ function QuarterBlock({ q }: { q: NonNullable<HomeDashboard['quarter']> }) {
         <div className="mt-3">
           <div className="flex items-baseline justify-between gap-2 mb-1.5">
             <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
-              순위는 {q.min_rounds}일 출전부터
+              순위는 {b.min_rounds}일 출전부터
             </span>
-            <span className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-muted)' }}>{q.attended_rounds}/{q.min_rounds}일</span>
+            <span className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-muted)' }}>{b.attended_rounds}/{b.min_rounds}일</span>
           </div>
-          <ProgressBar value={q.attended_rounds} max={Math.max(1, q.min_rounds)} height={8} label={`순위 진입까지 ${Math.max(0, q.min_rounds - q.attended_rounds)}일`} />
+          <ProgressBar value={b.attended_rounds} max={Math.max(1, b.min_rounds)} height={8} label={`순위 진입까지 ${Math.max(0, b.min_rounds - b.attended_rounds)}일`} />
         </div>
       )}
-    </Block>
+    </>,
   )
 }
 
@@ -121,6 +164,7 @@ export default function HomeMyCard({ orgSlug, leagueId, latestLabel }: {
   const { user, loading: authLoading } = useCurrentUser()
   const { openLogin } = useLeagueEditMode()
   const { isMember, serverMember, status, dashboard, day } = useHomeMe()
+  const [period, setPeriod] = useMePeriod(leagueId)
   const meHref = `/league/${orgSlug}/${leagueId}/me`
 
   // 비로그인 — 얇은 안내 한 줄(페이지를 밀어내지 않게)
@@ -161,6 +205,7 @@ export default function HomeMyCard({ orgSlug, leagueId, latestLabel }: {
 
   const loading = status === 'idle' || status === 'loading'
   const q = dashboard?.quarter
+  const block = period === 'quarter' ? q : dashboard?.career
   const chaser = dashboard?.milestoneChasers?.[0]
   const today = todayKst()
   const showNotice = today < BASIS_NOTICE_UNTIL || (q != null && q.total_rounds <= 1)
@@ -179,7 +224,7 @@ export default function HomeMyCard({ orgSlug, leagueId, latestLabel }: {
             </p>
             {showNotice && (
               <p className="text-[11px] font-medium break-keep mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-                이번 분기 · 하루 평균 기준으로 보여줘요
+                {period === 'quarter' ? '이번 분기' : '전체 기간'} · 하루 평균 기준으로 보여줘요
               </p>
             )}
           </div>
@@ -238,8 +283,8 @@ export default function HomeMyCard({ orgSlug, leagueId, latestLabel }: {
             </Block>
           )}
 
-          {/* ② 이번 분기 하루 평균 · 순위 */}
-          {q && <QuarterBlock q={q} />}
+          {/* ② 하루 평균 · 순위 — 「이번 분기 | 전체」 (고른 값은 보는 사람별로 기억) */}
+          {q && <PeriodBlock b={block} period={period} onPeriod={setPeriod} />}
 
           {/* ③ 다음 마일스톤 (시즌 누적) */}
           {chaser && (

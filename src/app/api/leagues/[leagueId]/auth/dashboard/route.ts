@@ -9,6 +9,9 @@
 //     d. (2026-10-12 · /me 확장) 출석률 `attendance` · 하루별 트렌드 `trend` · 베스트샷 `pinned_clips`
 //        — 모두 **추가 필드**다. 홈(내 카드)이 quarter/season/milestoneChasers 를 읽으므로 기존 모양은 건드리지 않는다.
 //        트렌드·출석의 하루 단위 집계는 computePerDayStats(친선 제외 · scorePoints/isPlusOneFor 판정) 재사용.
+//     e. (2026-10-12 · 기간 선택) `career` — quarter 와 같은 모양의 「전체(이 리그 시즌 첫 경기일부터)」 블록.
+//        두 블록·attendance 에 내 「첫 기록일」(joined_on)과 그 이후 경기일 수(my_total_rounds · since_join) 추가 —
+//        중간 합류 회원의 출석률 분모를 첫 기록일부터 센다. 순위 자격은 리그 공통 규칙 그대로.
 //   친선전은 computeLeagueStats 가 제외한다. 게스트도 거기서 순위 모집단에서 빠진다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
@@ -93,49 +96,78 @@ export async function GET(
       .map(s => ({ key: s.category, label: STREAK_LABEL[s.category] ?? s.category, count: s.count, unit: '경기' })),
   )
 
-  // 이번 분기 · 하루 평균 + 순위 — 순위 모집단 = 홈 리더와 같은 「최소 출전」 충족자
-  const qPlayers = quarterStats.players
-  const minRounds = leaderMinRounds(qPlayers)
-  const eligible = qPlayers.filter(p => p.gp >= minRounds)
-  const qMe = qPlayers.find(p => p.player_id === pid)
-  const isEligible = !!qMe && qMe.gp >= minRounds
-  const rankOf = (mine: PlayerStat, key: Metric): { rank: number; total: number } => {
-    const f = PER_DAY_KEY[key]
-    const higher = eligible.filter(p => p[f] > mine[f]).length
-    return { rank: higher + 1, total: eligible.length }
-  }
-  const quarter = {
-    label: q?.label ?? null,
-    attended_rounds: qMe?.gp ?? 0,
-    total_rounds: quarterStats.total_rounds ?? 0,
-    min_rounds: minRounds,
-    eligible: isEligible,
-    per_day: Object.fromEntries(METRICS.map(k => [k, qMe ? qMe[PER_DAY_KEY[k]] : 0])) as Record<Metric, number>,
-    ranks: (qMe && isEligible
-      ? Object.fromEntries(METRICS.map(k => [k, rankOf(qMe, k)]))
-      : {}) as Partial<Record<Metric, { rank: number; total: number }>>,
-  }
+  // 내 「첫 기록일」 = 이 리그(정규 · 친선 제외)에서 내 이벤트가 처음 남은 경기일 (2026-10-12).
+  //   중간에 들어온 회원의 출석률 분모를 이날부터 센다 — 들어오기 전 경기일을 「결장」으로 치지 않는다.
+  //   판정은 computePerDayStats 의 「뛴 날」과 같다(내 이벤트 · 어시스트로 이름이 남은 날 포함).
+  //   ⚠ 순위 자격(leaderMinRounds)은 리그 공통 규칙 그대로다 — 홈 리그 리더와 갈라지면 안 된다.
+  const myDays = perDay.dayStats.get(pid) ?? new Map()
+  const joinedOn: string | null = [...myDays.keys()].sort()[0] ?? null
+  const sinceJoin = (d: string): boolean => joinedOn != null && d >= joinedOn
 
-  // 출석률 · 트렌드 — 「리그가 열린 날」 = 우리 선수 기록이 하나라도 있는 정규 경기일(allDates)
   const inQuarter = (d: string): boolean =>
     range ? d >= range.from && d <= range.to : quarterDates ? quarterDates.has(d) : true
-  const myDays = perDay.dayStats.get(pid) ?? new Map()
+  const seasonDays = [...perDay.allDates].sort()
+  const quarterDays = seasonDays.filter(inQuarter)
+
+  // 기간 블록(이번 분기 · 전체) — 같은 모양. 순위 모집단 = 홈 리더와 같은 「최소 출전」 충족자
+  const buildPeriod = (stats: { players: PlayerStat[]; total_rounds?: number }, label: string | null, days: string[]) => {
+    const players = stats.players
+    const minRounds = leaderMinRounds(players)
+    const eligible = players.filter(p => p.gp >= minRounds)
+    const mine = players.find(p => p.player_id === pid)
+    const isEligible = !!mine && mine.gp >= minRounds
+    const rankOf = (m: PlayerStat, key: Metric): { rank: number; total: number } => {
+      const f = PER_DAY_KEY[key]
+      return { rank: eligible.filter(p => p[f] > m[f]).length + 1, total: eligible.length }
+    }
+    const attended = mine?.gp ?? 0
+    return {
+      label,
+      attended_rounds: attended,
+      total_rounds: stats.total_rounds ?? 0,
+      /** (추가) 이 기간 경기일 중 내 첫 기록일 이후 — 출석 분모. 출전일이 이보다 클 수 없게 맞춘다 */
+      my_total_rounds: Math.max(attended, days.filter(sinceJoin).length),
+      /** (추가) 내 첫 기록일 — 기간과 무관하게 리그 전체 기준 */
+      joined_on: joinedOn,
+      min_rounds: minRounds,
+      eligible: isEligible,
+      per_day: Object.fromEntries(METRICS.map(k => [k, mine ? mine[PER_DAY_KEY[k]] : 0])) as Record<Metric, number>,
+      ranks: (mine && isEligible
+        ? Object.fromEntries(METRICS.map(k => [k, rankOf(mine, k)]))
+        : {}) as Partial<Record<Metric, { rank: number; total: number }>>,
+    }
+  }
+  const quarter = buildPeriod(quarterStats, q?.label ?? null, quarterDays)
+  // 「전체」 = 이 리그 시즌의 기록 전부(첫 경기일부터). 미라클은 리그 시즌이 하나(2026)라 곧 「기록 시작 이후 전부」다.
+  //   시즌 누적(seasonStats)을 그대로 쓴다 — 요청 수를 늘리지 않는다.
+  const career = { ...buildPeriod(seasonStats, '전체', seasonDays), from: seasonDays[0] ?? null }
+
+  // 출석률 · 트렌드 — 「리그가 열린 날」 = 정규(친선 제외) 경기일(allDates)
   const toPoint = (d: string) => {
     const s = myDays.get(d)!
     return { date: d, pts: s.pts, reb: s.reb, ast: s.ast }
   }
-  const seasonDays = [...perDay.allDates].sort()
-  const quarterDays = seasonDays.filter(inQuarter)
   const mySeasonDays = seasonDays.filter(d => myDays.has(d))
   const myQuarterDays = quarterDays.filter(d => myDays.has(d))
   const attendance = {
+    /** (추가) 내 첫 기록일 — 이날 이전 경기일은 분모·날짜 칸에서 뺀다 */
+    joined_on: joinedOn,
     quarter: {
       attended: myQuarterDays.length,
+      /** 이 분기에 리그가 연 날 전체 */
       total: quarterDays.length,
-      /** 분기 경기일 하나하나 — 출석 점 표시용(오름차순) */
-      days: quarterDays.map(d => ({ date: d, played: myDays.has(d) })),
+      /** (추가) 그중 내 첫 기록일 이후 — 출석률 분모 */
+      since_join: quarterDays.filter(sinceJoin).length,
+      /** 분기 경기일(내 첫 기록일부터) — 출석 칸 표시용(오름차순) */
+      days: quarterDays.filter(sinceJoin).map(d => ({ date: d, played: myDays.has(d) })),
     },
-    season: { attended: mySeasonDays.length, total: seasonDays.length },
+    season: {
+      attended: mySeasonDays.length,
+      total: seasonDays.length,
+      since_join: seasonDays.filter(sinceJoin).length,
+      /** (추가) 시즌 경기일(내 첫 기록일부터) — 「전체」 출석 칸 */
+      days: seasonDays.filter(sinceJoin).map(d => ({ date: d, played: myDays.has(d) })),
+    },
     current_streak: myAtt?.current_streak ?? 0,
     longest_streak: myAtt?.longest_streak ?? 0,
   }
@@ -147,6 +179,7 @@ export async function GET(
   if (!me) {
     return NextResponse.json({
       quarter,
+      career,
       attendance,
       trend,
       pinned_clips: pinnedClips,
@@ -235,6 +268,7 @@ export async function GET(
 
   return NextResponse.json({
     quarter,
+    career,
     attendance,
     trend,
     pinned_clips: pinnedClips,

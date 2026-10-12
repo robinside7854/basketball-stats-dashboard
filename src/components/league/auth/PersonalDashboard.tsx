@@ -8,7 +8,8 @@
 //     · 이번 분기 · 하루 평균 5지표 + 순위(홈 「리그 리더」와 같은 기준 · 같은 최소 출전) · 시즌 누적 보조 줄
 //     · 계정(비밀번호 변경)
 //   오른쪽(자세히)
-//     · 출석률 — 내가 뛴 날 / 리그가 열린 날 (이번 분기 + 시즌) · 경기일마다 점
+//     · 출석률 — 내가 뛴 날 / 리그가 열린 날 (이번 분기 + 전체) · 경기일마다 칸 · 분모는 내 첫 기록일부터
+//   (2026-10-12) 맨 위 「이번 분기 | 전체」 — 요약·출석·트렌드가 함께 바뀐다. 고른 값은 홈 내 카드와 같이 기억한다.
 //     · 내 트렌드 — 하루별 득점(리바·어시) 선 + 점선 = 내 하루 평균 (인라인 SVG, recharts 안 씀)
 //     · 내 베스트샷 — 핀 고정한 클립(최대 3) + 최근 하이라이트 바로가기
 //     · 진행 중 스트릭 · 마일스톤 체이서 (종전 그대로)
@@ -34,6 +35,7 @@ import { Ring } from '@/components/league/ui/viz'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 import MeTrendChart from './MeTrendChart'
+import { useMePeriod, type MePeriod } from '../home/HomeMeContext'
 // 폭죽은 canvas + rAF 라 첫 화면 번들에 들어갈 이유가 없다. 실제로 터질 때만 받아온다.
 const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
 
@@ -53,6 +55,12 @@ interface QuarterSummaryData {
   /** 이 분기에 실제로 열린 경기일 수 */
   total_rounds: number
   /** 순위에 오르는 최소 출전 일수 (홈 리그 리더와 같은 식) */
+  /** 그중 내 첫 기록일 이후(출석 분모) — 2026-10-12 추가 */
+  my_total_rounds?: number
+  /** 내 첫 기록일 */
+  joined_on?: string | null
+  /** (career 만) 이 리그 시즌 첫 경기일 */
+  from?: string | null
   min_rounds: number
   eligible: boolean
   per_day: Record<Metric, number>
@@ -72,15 +80,27 @@ interface Chaser {
   progressPct: number
 }
 interface StreakItem { key: string; label: string; count: number; unit: string }
+interface AttendancePeriod {
+  attended: number
+  /** 리그가 연 날 전체 */
+  total: number
+  /** 그중 내 첫 기록일 이후 — 출석 분모(옛 응답엔 없다) */
+  since_join?: number
+  /** 내 첫 기록일부터의 경기일 */
+  days?: Array<{ date: string; played: boolean }>
+}
 interface AttendanceData {
-  quarter: { attended: number; total: number; days: Array<{ date: string; played: boolean }> }
-  season: { attended: number; total: number }
+  joined_on?: string | null
+  quarter: AttendancePeriod
+  season: AttendancePeriod
   current_streak: number
   longest_streak: number
 }
 interface TrendRow { date: string; pts: number; reb: number; ast: number }
 interface DashboardData {
   quarter?: QuarterSummaryData
+  /** 「전체」 — quarter 와 같은 모양(이 리그 시즌 첫 경기일부터) */
+  career?: QuarterSummaryData
   season: Season
   weekly: Weekly
   milestoneChasers: Chaser[]
@@ -137,6 +157,8 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
   const [loading, setLoading] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
+  // 「이번 분기 | 전체」 — 홈 내 카드와 같은 기억값
+  const [period, setPeriod] = useMePeriod(leagueId)
   // #1 비로그인 로그인 티저 — 30일 억제. 초기 true(플래시 방지) → 마운트 후 판정.
   const [teaserDismissed, setTeaserDismissed] = useState(true)
   useEffect(() => {
@@ -177,9 +199,26 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
     ? `${myHighlightsHref}?date=${data.weekly.date}`
     : null
   const ready = !loading && !!data
+  const block: QuarterSummaryData | undefined = period === 'quarter' ? data?.quarter : data?.career
+  const joinedOn = data?.attendance?.joined_on ?? data?.quarter?.joined_on ?? null
 
   return (
     <>
+      {/* 기간 선택 — 왼쪽 요약·오른쪽 출석·트렌드가 함께 바뀐다 */}
+      <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap mb-3 lg:mb-4">
+        <SegmentedTabs
+          ariaLabel="내 기록 기간"
+          value={period}
+          onChange={setPeriod}
+          items={[{ key: 'quarter', label: '이번 분기' }, { key: 'career', label: '전체' }]}
+        />
+        <span className="text-xs font-bold break-keep tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+          {period === 'quarter'
+            ? (data?.quarter?.label ? `${data.quarter.label} 경기일 기준` : '이번 분기 경기일 기준')
+            : (data?.career?.from ? `${formatDate(data.career.from)} 첫 경기일부터 전부` : '기록이 시작된 날부터 전부')}
+          {joinedOn ? ` · 내 첫 기록 ${formatDate(joinedOn)}` : ''}
+        </span>
+      </div>
       <div className="grid gap-4 lg:gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start">
         {/* ── 왼쪽: 요약 (PC 에서 스크롤해도 따라온다) ── */}
         <div className="min-w-0 lg:sticky lg:top-[64px]">
@@ -195,7 +234,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
                   <Sparkles size={16} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
                 </div>
                 <div className="text-xs md:text-sm font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-                  {data?.quarter?.label ? `${data.quarter.label} · 나의 기록` : '나의 기록'}
+                  {period === 'career' ? '전체 · 나의 기록' : data?.quarter?.label ? `${data.quarter.label} · 나의 기록` : '나의 기록'}
                 </div>
               </div>
               <button
@@ -217,9 +256,9 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
             ) : (
               <>
                 {/* 상단 3칸 — 출전 · 하루 평균 득점 · 다음 목표까지 */}
-                <TopTiles quarter={data.quarter ?? EMPTY_QUARTER} chaser={data.milestoneChasers[0] ?? null} />
-                {/* 이번 분기 · 하루 평균 5지표 + 순위 · 시즌 누적은 보조 줄 */}
-                <QuarterSummary quarter={data.quarter} season={data.season} />
+                <TopTiles quarter={block ?? EMPTY_QUARTER} chaser={data.milestoneChasers[0] ?? null} />
+                {/* 기간 하루 평균 5지표 + 순위 · 시즌 누적은 보조 줄 */}
+                <QuarterSummary quarter={block} season={data.season} period={period} />
               </>
             )}
 
@@ -258,8 +297,8 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
         {/* ── 오른쪽: 자세히 ── */}
         {ready && (
           <div className="min-w-0 space-y-4 lg:space-y-5">
-            <AttendanceCard attendance={data.attendance} quarterLabel={data.quarter?.label ?? null} />
-            <TrendCard trend={data.trend} />
+            <AttendanceCard attendance={data.attendance} quarterLabel={data.quarter?.label ?? null} period={period} />
+            <TrendCard trend={data.trend} period={period} />
             <BestShotsCard
               clips={data.pinned_clips ?? []}
               playerName={user.name ?? user.login_id}
@@ -327,7 +366,11 @@ function TopTiles({ quarter, chaser }: { quarter: QuarterSummaryData; chaser: Ch
       >
         <Tile label="출전" first>
           <BigNum>{quarter.attended_rounds}<Unit>일</Unit></BigNum>
-          <TileSub>전체 {quarter.total_rounds}일 중</TileSub>
+          {/* 분모 = 이 기간 경기일 중 내 첫 기록일 이후 — 합류 전 경기일은 결장이 아니다 */}
+          <TileSub>
+            {(quarter.my_total_rounds ?? quarter.total_rounds) < quarter.total_rounds ? '첫 기록 후 ' : '전체 '}
+            {quarter.my_total_rounds ?? quarter.total_rounds}일 중
+          </TileSub>
         </Tile>
         <Tile label="하루 평균 득점">
           <BigNum>{(quarter.per_day.pts ?? 0).toFixed(1)}</BigNum>
@@ -386,7 +429,7 @@ function TileSub({ children }: { children: ReactNode }) {
   return <span className="text-[11px] font-bold leading-tight break-keep" style={{ color: 'var(--mm-muted)' }}>{children}</span>
 }
 
-function QuarterSummary({ quarter, season }: { quarter?: QuarterSummaryData; season: Season }) {
+function QuarterSummary({ quarter, season, period }: { quarter?: QuarterSummaryData; season: Season; period: MePeriod }) {
   // 옛 응답(배포 직후 캐시 등)에는 quarter 가 없다 — 빈 값으로 그린다
   const q: QuarterSummaryData = quarter ?? EMPTY_QUARTER
   const metrics: Metric[] = ['pts', 'reb', 'ast', 'stl', 'blk']
@@ -394,9 +437,9 @@ function QuarterSummary({ quarter, season }: { quarter?: QuarterSummaryData; sea
     <div className="px-4 sm:px-5 py-3 sm:py-4">
       <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1 mb-2.5">
         <span className="font-bold text-sm md:text-base break-keep" style={{ color: 'var(--mm-ink)' }}>
-          {q.label ? `이번 분기 · 하루 평균` : '하루 평균'}
+          {period === 'career' ? '전체 · 하루 평균' : q.label ? `이번 분기 · 하루 평균` : '하루 평균'}
         </span>
-        {q.label && (
+        {period === 'quarter' && q.label && (
           <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{q.label}</span>
         )}
       </div>
@@ -414,12 +457,12 @@ function QuarterSummary({ quarter, season }: { quarter?: QuarterSummaryData; sea
       {/* 순위가 안 보이는 이유를 숫자로 알려준다 — 홈 리그 리더와 같은 최소 출전 */}
       {q.attended_rounds > 0 && !q.eligible && (
         <p className="text-xs font-bold mt-2" style={{ color: 'var(--mm-muted)' }}>
-          순위는 이번 분기 {q.min_rounds}일 이상 출전하면 보여요
+          순위는 {period === 'quarter' ? '이번 분기' : '전체 기간'} {q.min_rounds}일 이상 출전하면 보여요
         </p>
       )}
       {q.total_rounds > 0 && q.attended_rounds === 0 && (
         <p className="text-xs font-bold mt-2" style={{ color: 'var(--mm-muted)' }}>
-          이번 분기에는 아직 출전 기록이 없어요
+          {period === 'quarter' ? '이번 분기에는 아직 출전 기록이 없어요' : '아직 출전 기록이 없어요'}
         </p>
       )}
       {/* 시즌 누적 합계 — 보조 줄 (마일스톤 체이서가 이 값 기준) */}
@@ -469,37 +512,53 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
 }
 
 // ─── 출석률 ───────────────────────────────────────────────────
-// 내가 뛴 날 / 리그가 열린 날(정규 경기일 · 친선 제외). 경기일마다 점 하나.
-function AttendanceCard({ attendance, quarterLabel }: { attendance?: AttendanceData; quarterLabel: string | null }) {
+// 내가 뛴 날 / 리그가 열린 날(정규 경기일 · 친선 제외). 경기일마다 칸 하나.
+//   분모는 내 첫 기록일부터 센다(2026-10-12) — 중간에 들어온 회원이 들어오기 전 경기일을 결장으로 잡히지 않게.
+//   날짜 칸도 첫 기록일부터만 그린다.
+function AttendanceCard({ attendance, quarterLabel, period }: {
+  attendance?: AttendanceData; quarterLabel: string | null; period: MePeriod
+}) {
   const pct = (a: number, t: number) => (t > 0 ? Math.round((a / t) * 100) : 0)
+  const denom = (x: AttendancePeriod) => x.since_join ?? x.total
+  const periodName = (p: MePeriod) => (p === 'quarter' ? '이번 분기' : '전체')
+  const cur = attendance ? (period === 'quarter' ? attendance.quarter : attendance.season) : null
+  const other = attendance ? (period === 'quarter' ? attendance.season : attendance.quarter) : null
+  const otherPeriod: MePeriod = period === 'quarter' ? 'career' : 'quarter'
+  const joinedOn = attendance?.joined_on ?? null
+  const joinedMid = !!cur && !!joinedOn && denom(cur) < cur.total
+  const days = cur?.days ?? []
   return (
     <SectionCard variant="standalone">
       <CardTitle
         icon={CalendarCheck}
         title="출석률"
         sub="내가 뛴 날 / 리그가 열린 날"
-        right={quarterLabel ? <Chip tone="neutral">{quarterLabel}</Chip> : undefined}
+        right={<Chip tone="neutral">{period === 'quarter' ? (quarterLabel ?? '이번 분기') : '전체'}</Chip>}
       />
-      {!attendance || attendance.season.total === 0 ? (
+      {!attendance || !cur || !other || attendance.season.total === 0 ? (
         <EmptyState variant="compact" icon={CalendarCheck} title="아직 열린 경기일이 없어요" />
       ) : (
         <>
           <div className="flex items-center gap-4">
             <Ring
-              ratio={attendance.quarter.total > 0 ? attendance.quarter.attended / attendance.quarter.total : 0}
+              ratio={denom(cur) > 0 ? cur.attended / denom(cur) : 0}
               size={76}
               stroke={8}
-              label={`이번 분기 출석률 ${pct(attendance.quarter.attended, attendance.quarter.total)}%`}
+              label={`${periodName(period)} 출석률 ${pct(cur.attended, denom(cur))}%`}
             >
-              <span className="text-sm">{pct(attendance.quarter.attended, attendance.quarter.total)}%</span>
+              <span className="text-sm">{pct(cur.attended, denom(cur))}%</span>
             </Ring>
             <div className="min-w-0 flex-1 space-y-1">
-              <div className="text-sm md:text-base font-bold tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                이번 분기 <b className="font-black">{attendance.quarter.attended}</b>
-                <span style={{ color: 'var(--mm-muted)' }}> / {attendance.quarter.total}일</span>
+              <div className="text-sm md:text-base font-bold tabular-nums break-keep" style={{ color: 'var(--mm-ink)' }}>
+                {periodName(period)} {denom(cur)}일 중 <b className="font-black">{cur.attended}</b>일
               </div>
-              <div className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
-                시즌 {attendance.season.attended} / {attendance.season.total}일 · {pct(attendance.season.attended, attendance.season.total)}%
+              {joinedMid && joinedOn && (
+                <div className="text-xs font-bold tabular-nums break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
+                  첫 기록 {formatDate(joinedOn)}부터 셌어요 · 그 전 {cur.total - denom(cur)}일은 빼요
+                </div>
+              )}
+              <div className="text-xs font-bold tabular-nums break-keep" style={{ color: 'var(--mm-muted)' }}>
+                {periodName(otherPeriod)} {other.attended} / {denom(other)}일 · {pct(other.attended, denom(other))}%
               </div>
               {(attendance.current_streak >= 2 || attendance.longest_streak >= 2) && (
                 <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -513,10 +572,10 @@ function AttendanceCard({ attendance, quarterLabel }: { attendance?: AttendanceD
               )}
             </div>
           </div>
-          {attendance.quarter.days.length > 0 && (
+          {days.length > 0 && (
             <div className="mt-4">
-              <ul className="flex flex-wrap gap-1.5" aria-label="이번 분기 경기일별 출전">
-                {attendance.quarter.days.map(d => (
+              <ul className="flex flex-wrap gap-1.5" aria-label={`${periodName(period)} 경기일별 출전${joinedMid ? ' (내 첫 기록일부터)' : ''}`}>
+                {days.map(d => (
                   <li
                     key={d.date}
                     title={`${formatDate(d.date)} · ${d.played ? '출전' : '결장'}`}
@@ -537,7 +596,7 @@ function AttendanceCard({ attendance, quarterLabel }: { attendance?: AttendanceD
                 <span className="inline-flex items-center gap-1">
                   <span aria-hidden className="inline-block w-2.5 h-2.5" style={{ borderRadius: 2, border: '1.5px solid var(--mm-rule)' }} />결장
                 </span>
-                <span className="ml-auto">오래된 날 → 최근</span>
+                <span className="ml-auto break-keep text-right">{joinedMid ? '첫 기록 날부터 → 최근' : '오래된 날 → 최근'}</span>
               </div>
             </div>
           )}
@@ -548,17 +607,15 @@ function AttendanceCard({ attendance, quarterLabel }: { attendance?: AttendanceD
 }
 
 // ─── 내 트렌드 ─────────────────────────────────────────────────
-type TrendPeriod = 'quarter' | 'season'
 type TrendMetric = 'pts' | 'reb' | 'ast'
 const TREND_METRICS: Array<{ key: TrendMetric; label: string }> = [
   { key: 'pts', label: '득점' }, { key: 'reb', label: '리바' }, { key: 'ast', label: '어시' },
 ]
 
-function TrendCard({ trend }: { trend?: { quarter: TrendRow[]; season: TrendRow[] } }) {
-  // 이번 분기에 뛴 날이 없으면(분기 첫 주 등) 시즌으로 시작한다
-  const [period, setPeriod] = useState<TrendPeriod>(() => ((trend?.quarter.length ?? 0) > 0 ? 'quarter' : 'season'))
+// 기간은 화면 위 「이번 분기 | 전체」를 따른다(전체 = 응답의 trend.season — 이 리그 시즌 전부)
+function TrendCard({ trend, period }: { trend?: { quarter: TrendRow[]; season: TrendRow[] }; period: MePeriod }) {
   const [metric, setMetric] = useState<TrendMetric>('pts')
-  const rows = useMemo(() => (trend ? trend[period] : []), [trend, period])
+  const rows = useMemo(() => (trend ? trend[period === 'quarter' ? 'quarter' : 'season'] : []), [trend, period])
   const points = useMemo(() => rows.map(r => ({ date: r.date, value: r[metric] })), [rows, metric])
   const avg = points.length > 0 ? points.reduce((s, p) => s + p.value, 0) / points.length : null
   const best = points.reduce<{ date: string; value: number } | null>((b, p) => (!b || p.value > b.value ? p : b), null)
@@ -568,16 +625,7 @@ function TrendCard({ trend }: { trend?: { quarter: TrendRow[]; season: TrendRow[
     <SectionCard variant="standalone">
       <CardTitle icon={TrendingUp} title="내 트렌드" sub="하루별 기록 · 점선 = 내 하루 평균" />
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <SegmentedTabs
-          size="sm"
-          ariaLabel="트렌드 기간"
-          value={period}
-          onChange={setPeriod}
-          items={[
-            { key: 'quarter', label: '이번 분기' },
-            { key: 'season', label: '시즌' },
-          ]}
-        />
+        <Chip tone="neutral" size="sm">{period === 'quarter' ? '이번 분기' : '전체'}</Chip>
         <div className="flex gap-1.5 ml-auto" role="group" aria-label="지표">
           {TREND_METRICS.map(m => (
             <Chip key={m.key} as="button" size="sm" selected={metric === m.key} onClick={() => setMetric(m.key)}>
@@ -591,7 +639,7 @@ function TrendCard({ trend }: { trend?: { quarter: TrendRow[]; season: TrendRow[
           variant="compact"
           icon={TrendingUp}
           title={period === 'quarter' ? '이번 분기에는 아직 뛴 날이 없어요' : '아직 기록된 날이 없어요'}
-          description="경기를 뛰면 하루에 점 하나씩 생겨요"
+          description={period === 'quarter' ? '위에서 「전체」를 고르면 지난 기록을 볼 수 있어요' : '경기를 뛰면 하루에 점 하나씩 생겨요'}
         />
       ) : (
         <>
