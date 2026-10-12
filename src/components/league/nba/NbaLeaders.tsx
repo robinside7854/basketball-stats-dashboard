@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
+import { BarChart3 } from 'lucide-react'
 
 // 리더 카드 클릭 시에만 열리는 모달 — 초기 홈 번들에서 분리
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
@@ -16,6 +17,8 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import { ProgressBar } from '@/components/league/ui/viz'
 import type { PlayerStat } from '@/types/league'
 import { leaderMinRounds } from '@/lib/stats/eligibility'
+import Chip from '@/components/league/ui/Chip'
+import EmptyState from '@/components/league/ui/EmptyState'
 
 interface Props {
   leagueId: string
@@ -118,7 +121,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
         {loading ? (
           <div className="flex justify-center py-10"><BasketballLoader size={24} /></div>
         ) : players.length === 0 ? (
-          <div className="text-center py-10 text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록된 스탯이 없습니다</div>
+          <EmptyState variant="compact" icon={BarChart3} title="아직 기록된 스탯이 없습니다" />
         ) : (
           <>
             {/* 모바일 전용 카테고리 chip 필터 · sm+ 는 그리드로 전체 노출 */}
@@ -126,21 +129,15 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
               {CATEGORIES.map(cat => {
                 const active = cat.key === selectedCatKey
                 return (
-                  <button
+                  <Chip
                     key={String(cat.key)}
-                    type="button"
+                    as="button"
+                    size="md"
+                    selected={active}
                     onClick={() => setSelectedCatKey(cat.key)}
-                    className="shrink-0 min-h-11 px-3 py-1.5 text-sm font-black transition-colors duration-200 cursor-pointer whitespace-nowrap"
-                    style={{
-                      background: active ? 'var(--mm-ink)' : 'var(--mm-panel-alt)',
-                      color: active ? 'var(--mm-panel)' : 'var(--mm-ink-soft)',
-                      border: `1px solid ${active ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
-                      borderRadius: '4px',
-                    }}
-                    aria-pressed={active}
                   >
                     {cat.term}
-                  </button>
+                  </Chip>
                 )
               })}
             </div>

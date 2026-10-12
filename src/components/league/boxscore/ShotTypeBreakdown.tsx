@@ -9,6 +9,7 @@
 // 색만으로 구분하지 않는다: 모든 막대 옆에 유형 이름·숫자를 글로 둔다.
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Target } from 'lucide-react'
+import EmptyState from '@/components/league/ui/EmptyState'
 
 export interface ShotTypeRow {
   game_id: string
@@ -191,10 +192,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players }: {
 
   if (rows.length === 0) {
     return (
-      <div className="text-center py-12" style={{ color: 'var(--mm-muted)' }}>
-        <Target size={24} className="mx-auto mb-2" aria-hidden />
-        <p className="text-sm">이날 기록된 야투가 없습니다.</p>
-      </div>
+      <EmptyState icon={Target} title="이날 기록된 야투가 없습니다." />
     )
   }
 
@@ -240,9 +238,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players }: {
       <Legend />
 
       {dayTot.fga === 0 ? (
-        <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)' }}>
-          이 경기에는 기록된 야투가 없습니다.
-        </p>
+        <EmptyState variant="compact" framed title="이 경기에는 기록된 야투가 없습니다." />
       ) : view === 'team' ? (
         <div className="space-y-3">
           <TeamCard title={scope === 'all' ? '이날 전체' : '이 경기 전체'} color={null} counts={dayCounts} />

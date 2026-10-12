@@ -12,6 +12,7 @@ import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
 import TournamentSchedule from '@/components/league/TournamentSchedule'
 import { RecordBar } from '@/components/league/ui/viz'
+import Chip from '@/components/league/ui/Chip'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
@@ -546,20 +547,17 @@ function ScheduleContent() {
         {quarters.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
             {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => {
-              const active = selectedQFilter === tab.id
               return (
-                <button
+                <Chip
                   key={tab.id}
+                  as="button"
+                  size="md"
+                  selected={selectedQFilter === tab.id}
                   onClick={() => setSelectedQFilter(tab.id)}
-                  className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-sm font-black whitespace-nowrap transition-colors cursor-pointer"
-                  style={{
-                    background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                    color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
-                    border: active ? '1px solid var(--mm-yellow)' : '1px solid var(--mm-rule)',
-                  }}
+                  className="min-w-[44px]"
                 >
                   {tab.label}
-                </button>
+                </Chip>
               )
             })}
           </div>
@@ -627,34 +625,19 @@ function ScheduleContent() {
                   {formatDate(sd.date)}
                 </span>
                 {upcoming && (
-                  <span
-                    className="shrink-0 t-label font-medium whitespace-nowrap px-2 py-0.5"
-                    style={{
-                      background: 'var(--mm-yellow-soft)',
-                      color: 'var(--mm-yellow-strong)',
-                      border: '1px solid var(--mm-yellow)',
-                      borderRadius: 'var(--mm-radius-chip)',
-                    }}
-                  >
-                    예정
-                  </span>
+                  <Chip tone="accent">예정</Chip>
                 )}
                 {/* 같은 플래그(is_skipped)를 시제로만 가른다 — 담는 사실은 '이 날은 경기가 없다'로
                     같다. 앞으로의 주에 '미실시'라고 쓰면 아직 벌어지지도 않은 일을 단정하게 된다. */}
                 {sd.is_skipped && (
-                  <span
-                    className="shrink-0 t-label font-medium whitespace-nowrap px-2 py-0.5"
-                    style={{
-                      background: 'var(--mm-neutral-bg)',
-                      color: 'var(--mm-neutral-fg)',
-                      borderRadius: 'var(--mm-radius-chip)',
-                    }}
+                  <Chip
+                    tone="neutral"
                     title={isFuture
                       ? '대관이 없어 이번 주는 모이지 않습니다.'
                       : '영상도 기록도 없이 일주일이 지나 미실시로 정리된 날짜입니다. 자동 등록으로 다시 생기지 않습니다.'}
                   >
                     {isFuture ? '대관 없음' : '미실시'}
-                  </span>
+                  </Chip>
                 )}
               </div>
               {/* 읽기 모드에서만 날짜와 같은 줄에 붙인다. 편집 모드에서는 버튼이 최대 3개까지

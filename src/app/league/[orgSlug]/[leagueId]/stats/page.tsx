@@ -15,6 +15,9 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { ProgressBar } from '@/components/league/ui/viz'
+import Chip from '@/components/league/ui/Chip'
+import EmptyState from '@/components/league/ui/EmptyState'
+import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
@@ -587,23 +590,17 @@ function LeagueStatsPageInner() {
   // Basic / Shooting / Advanced / 어워즈 토글 — 헤더(분기 칩 아래)에 한 번만 둔다. 어워즈 모드는 표·로딩
   // 게이트 바깥에서 렌더되므로 표 카드 안에 두면 어워즈에서 표로 돌아갈 칩이 사라진다.
   const modeChips = (
-    <div className="flex overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)' }}>
-      {([
-        { k: 'basic'      as StatMode, label: 'Basic' },
-        { k: 'shooting'   as StatMode, label: 'Shooting' },
-        { k: 'advanced'   as StatMode, label: 'Advanced' },
-        { k: 'awards'     as StatMode, label: '어워즈' },
-      ]).map(({ k, label }) => (
-        <button key={k} type="button" aria-pressed={statMode === k} onClick={() => setStatMode(k)}
-          className="px-3 py-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press min-h-11"
-          style={statMode === k
-            ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }
-            : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
-          }>
-          {label}
-        </button>
-      ))}
-    </div>
+    <SegmentedTabs<StatMode>
+      items={[
+        { key: 'basic',    label: 'Basic' },
+        { key: 'shooting', label: 'Shooting' },
+        { key: 'advanced', label: 'Advanced' },
+        { key: 'awards',   label: '어워즈' },
+      ]}
+      value={statMode}
+      onChange={setStatMode}
+      ariaLabel="표 모드"
+    />
   )
 
   if (gated) {
@@ -647,11 +644,11 @@ function LeagueStatsPageInner() {
       ) : loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
       ) : players.length === 0 ? (
-        <div className="text-center py-16" style={{ color: 'var(--mm-muted)' }}>
-          <Trophy size={24} className="mx-auto mb-3" style={{ color: 'var(--mm-muted)' }} />
-          <p>아직 완료된 경기 데이터가 없습니다</p>
-          <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>경기를 기록하고 완료 처리하면 스탯이 집계됩니다</p>
-        </div>
+        <EmptyState
+          icon={Trophy}
+          title="아직 완료된 경기 데이터가 없습니다"
+          description="경기를 기록하고 완료 처리하면 스탯이 집계됩니다"
+        />
       ) : (
         <>
           {/* TOP 5 슬롯 — 테이블 컬럼 헤더 클릭 시 해당 지표 TOP 5 표시 */}
@@ -676,15 +673,10 @@ function LeagueStatsPageInner() {
               <div className="md:hidden -mx-1 px-1 mb-2 overflow-x-auto" role="group" aria-label="정렬 기준 (TOP 5 함께 바뀜)">
                 <div className="flex gap-1.5 whitespace-nowrap pb-1">
                   {chipRow.cols.map(({ key, label }) => (
-                    <button key={key} onClick={() => chipRow.onPick(key)}
-                      aria-pressed={chipRow.active === key}
-                      className="px-3 min-h-9 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                      style={chipRow.active === key
-                        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
-                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
-                      }>
+                    <Chip key={key} as="button" size="sm" onClick={() => chipRow.onPick(key)}
+                      selected={chipRow.active === key}>
                       {label}{chipRow.active === key && (chipRow.dir === 'desc' ? ' ↓' : ' ↑')}
-                    </button>
+                    </Chip>
                   ))}
                 </div>
               </div>

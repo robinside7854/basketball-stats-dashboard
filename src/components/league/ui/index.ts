@@ -1,0 +1,12 @@
+// 리그(회원 화면) 디자인 시스템 공용 부품 — 한 곳에서 가져다 쓴다 (리뉴얼 1단계, 2026-10-12).
+export { default as SectionCard } from './SectionCard'
+export { default as Chip } from './Chip'
+export type { ChipProps, ChipTone, ChipSize } from './Chip'
+export { default as Avatar } from './Avatar'
+export type { AvatarSize } from './Avatar'
+export { default as EmptyState } from './EmptyState'
+export { default as Sheet } from './Sheet'
+export { default as SegmentedTabs, tabPanelProps } from './SegmentedTabs'
+export type { SegmentedTabItem } from './SegmentedTabs'
+export { StatTable, Th, Td, Tr } from './StatTable'
+export * from './viz'

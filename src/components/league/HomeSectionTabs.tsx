@@ -2,6 +2,7 @@
 // 홈 하단 4섹션(팀 승률·최근 라운드·리그 리더·하이라이트)을 탭으로 묶어 스크롤 길이 단축.
 // 서버에서 렌더된 섹션 노드를 슬롯으로 받아 활성 탭만 노출(나머지는 display:none → 높이 0, 상태 유지).
 import { useState, useEffect, type ReactNode } from 'react'
+import SegmentedTabs, { tabPanelProps } from '@/components/league/ui/SegmentedTabs'
 
 type TabKey = 'standings' | 'rounds' | 'leaders' | 'highlights'
 const HOME_TAB_SEEN = 'mm_home_tab_seen'
@@ -46,45 +47,22 @@ export default function HomeSectionTabs({
 
   // 캐주얼 전환(2026-08) — 탭 안에 들어가는 SectionCard(variant="stack")가 이제 자체
   // border+radius 를 갖는 독립 카드라서, 예전처럼 이 래퍼가 둘러싸는 카드 프레임 역할을
-  // 하면 이중 테두리가 생긴다. 탭 바는 카드 프레임 없이 얇은 하단 룰선만 갖고,
+  // 하면 이중 테두리가 생긴다. 탭 바는 카드 프레임 없이 알약 트랙(SegmentedTabs)만 갖고,
   // 아래 카드와는 간격(mb-4 lg:mb-5, 다른 탭 3종과 통일 — 가독성 업그레이드 ⑥)으로 분리한다.
   return (
     <div>
-      {/* 탭 바 */}
-      <div
-        role="tablist"
-        aria-label="홈 요약 섹션"
-        className="mb-4 lg:mb-5 flex items-stretch gap-1 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)] px-1"
-      >
-        {tabs.map(t => {
-          const on = active === t.key
-          return (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={on}
-              aria-current={on ? 'page' : undefined}
-              onClick={() => setActive(t.key)}
-              className={`relative shrink-0 px-3.5 py-2.5 min-h-11 text-sm lg:text-base font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
-                on
-                  ? 'text-[color:var(--mm-ink)]'
-                  : 'text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)]'
-              }`}
-            >
-              {t.label}
-              {on && (
-                <span
-                  aria-hidden
-                  className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-sm bg-[color:var(--mm-yellow-strong)]"
-                />
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {/* 탭 바 — 공용 SegmentedTabs(리뉴얼 1단계). 키보드 ←/→ · 넘치면 가로 스크롤 */}
+      <SegmentedTabs
+        items={tabs.map(t => ({ key: t.key, label: t.label }))}
+        value={active}
+        onChange={setActive}
+        ariaLabel="홈 요약 섹션"
+        idPrefix="home-section"
+        className="mb-4 lg:mb-5"
+      />
       {/* 패널 — 모두 마운트 유지(클라이언트 상태·프리페치 보존), 비활성은 display:none 으로 높이 0 */}
       {tabs.map(t => (
-        <div key={t.key} role="tabpanel" hidden={active !== t.key}>
+        <div key={t.key} {...tabPanelProps('home-section', t.key)} hidden={active !== t.key}>
           {t.node}
         </div>
       ))}

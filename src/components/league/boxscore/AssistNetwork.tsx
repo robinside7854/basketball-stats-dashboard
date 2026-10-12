@@ -10,6 +10,7 @@
 import { useId, useMemo, useState, type CSSProperties } from 'react'
 import { Handshake } from 'lucide-react'
 import { accentOrInk } from '@/lib/util/contrastColor'
+import EmptyState from '@/components/league/ui/EmptyState'
 
 export interface AssistLink {
   game_id: string
@@ -82,10 +83,7 @@ export default function AssistNetwork({ links, games, players }: {
 
   if (links.length === 0) {
     return (
-      <div className="text-center py-12" style={{ color: 'var(--mm-muted)' }}>
-        <Handshake size={24} className="mx-auto mb-2" aria-hidden />
-        <p className="text-sm">이날 기록된 어시스트가 없습니다.</p>
-      </div>
+      <EmptyState icon={Handshake} title="이날 기록된 어시스트가 없습니다." />
     )
   }
 
@@ -125,9 +123,7 @@ export default function AssistNetwork({ links, games, players }: {
       )}
 
       {teams.length === 0 ? (
-        <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)' }}>
-          이 경기에는 기록된 어시스트가 없습니다.
-        </p>
+        <EmptyState variant="compact" framed title="이 경기에는 기록된 어시스트가 없습니다." />
       ) : (
         <>
           {/* 베스트 콤비 */}

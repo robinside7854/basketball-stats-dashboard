@@ -14,6 +14,7 @@ import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
 import CountUp from '@/components/league/ui/CountUp'
 import GrowBar from '@/components/league/ui/GrowBar'
+import Avatar from '@/components/league/ui/Avatar'
 // 폭죽은 canvas + rAF 라 첫 화면 번들에 들어갈 이유가 없다. 실제로 터질 때만 받아온다.
 const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
 
@@ -140,18 +141,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
       <SectionCard variant="standalone" emphasized pad="none">
         {/* 헤더 · 유저 프로필 + 프로필카드 CTA · PC 확대 */}
         <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <div
-            className="relative w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
-            style={{ background: 'var(--mm-panel-alt)', border: '2px solid var(--mm-rule)' }}
-            aria-hidden
-          >
-            {user.photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <UserIcon size={20} style={{ color: 'var(--mm-muted)' }} />
-            )}
-          </div>
+          <Avatar src={user.photo_url} name={user.name ?? user.login_id} size={56} decorative priority />
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5">
               <span className="font-jersey font-black text-xl md:text-2xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}>

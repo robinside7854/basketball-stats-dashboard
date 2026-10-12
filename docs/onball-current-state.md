@@ -3,6 +3,13 @@
 최종 갱신 2026-10-10. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-10-12 ⑥, 리뉴얼 1단계 — 디자인 체계):**
+- 리그 화면(`src/app/league`·`src/components/league`)의 회색·흰색 Tailwind 클래스를 `--mm-*` 토큰으로 일괄 이관(코드모드). 옛 `@theme` 회색 재매핑은 **파란날개가 아직 쓰므로 남겨 둔다** — 리그 화면은 이제 그것에 기대지 않는다. 새 리그 코드에 `gray-*`·`text-white` 를 쓰지 말 것(색 위 흰 글씨는 `text-[#fff]`).
+- 차트 다계열 색 `--mm-series-1~6` 추가(의미색과 값이 같아도 참조하지 않고 복제).
+- 공용 부품 `components/league/ui/`: Chip · Avatar · EmptyState · Sheet(모바일 바텀시트/PC 대화상자) · SegmentedTabs · StatTable(+ SectionCard·viz). `index.ts` 에서 함께 export. 선택 상태는 노랑.
+- 적용: 확인창(ConfirmModal→Sheet) · 홈 섹션 탭 · 박스스코어 5탭·빈 상태·주인공 사진 · 스탯 탭 전환·정렬 칩 · 일정 분기 칩 · 리그 리더 필터 · 내 기록 사진.
+- **다음에 할 일**: 화면 확인 피드백. 남은 이관 — QuarterChips·PlayerMiniTabs → Chip/SegmentedTabs, 스탯 표 → StatTable, 기존 모달들 → Sheet. 그다음 2단계(홈 「내 카드」·지난 토요일 타임라인·/me).
+
 **최근 결정 (2026-10-12 ⑤, 리뉴얼 0단계 — 정리 · 숫자 기준 통일 · 운영진 결정 6건 반영):**
 - 계획서: https://claude.ai/artifact/BYUrg4ycJStQ5xL1riu6c9 (0~6단계). 결정: 강조색 노랑 · 회원 전용 · 대회 사실상 미사용(CEO 만 전환 스위치) · 드래프트는 팀 어드민 전용 · 인스타 카드 폐지 · PC/모바일 동시 적용.
 - 삭제: `/social`(인스타 카드)·`lib/social/*`. 기록 화면의 「라운드 완료」 배너·날짜 요약 상태 제거. 설정의 인스타·RSVP 문구 제거.

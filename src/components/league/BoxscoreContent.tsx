@@ -8,13 +8,15 @@
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
 //   · 공격 유형(슛 유형별 비중·야투율) · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 import { ProgressBar } from '@/components/league/ui/viz'
+import Avatar from '@/components/league/ui/Avatar'
+import EmptyState from '@/components/league/ui/EmptyState'
+import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 // html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
@@ -692,8 +694,8 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
       {/* "그날의 주인공" — 박스스코어 상세 첫 화면이 곧장 표였던 것 개선(2026-08-10).
           그날 최다 득점자 얼굴 + 한 줄. 접이식이 아니라 고정 한 줄 높이(약 44px)로 — 표를
-          밀어내지 않으면서도 항상 보인다(탭과 무관하게 상단 고정). 사진 없으면 팀 컬러 배경 +
-          textOnBg 로 대비 확보한 이니셜 폴백(팀 색이 #ffffff 인 팀도 안전). */}
+          밀어내지 않으면서도 항상 보인다(탭과 무관하게 상단 고정). 얼굴은 공용 Avatar —
+          팀 색은 테두리로만, accentOrInk 로 대비를 맞춘다(팀 색이 #ffffff 인 팀도 안전). */}
       {!loading && dailyStats.length > 0 && dailyStats[0].pts > 0 && (() => {
         const hero = dailyStats[0]
         const heroColor = hero.team_color
@@ -702,21 +704,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             className="shrink-0 px-4 sm:px-6 py-2 flex items-center gap-2.5 min-h-11"
             style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}
           >
-            <span
-              className="relative shrink-0 w-8 h-8 rounded-full overflow-hidden flex items-center justify-center"
-              style={{
-                border: `2px solid ${heroColor ?? 'var(--mm-rule)'}`,
-                background: heroColor ?? 'var(--mm-panel)',
-              }}
-            >
-              {hero.photo_url ? (
-                <Image src={hero.photo_url} alt={hero.name} fill sizes="32px" className="object-cover object-top" />
-              ) : (
-                <span className="font-jersey font-black text-xs leading-none" style={{ color: heroColor ? textOnBg(heroColor) : 'var(--mm-ink)' }}>
-                  {hero.name.length > 1 ? hero.name.slice(1) : hero.name}
-                </span>
-              )}
-            </span>
+            <Avatar src={hero.photo_url} name={hero.name} size={32} ringColor={heroColor ? accentOrInk(heroColor) : null} decorative />
             <p className="text-xs sm:text-sm min-w-0 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
               <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               이날의 주인공 · <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{hero.name}</span>
@@ -730,52 +718,29 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
       {/* 탭 바 — 스코어보드 접이식 섹션 제거, 콘텐츠는 경기결과 탭으로 이관 */}
       {!loading && games.length > 0 && (
-        <div
-          role="tablist"
-          aria-label="박스스코어 뷰"
-          className="shrink-0 flex overflow-x-auto"
-          style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
-        >
-          {([
-            { key: 'result',  label: '경기결과',  count: games.length },
-            { key: 'players', label: '선수 기록', count: dailyStats.length },
-            { key: 'shots',   label: '공격 유형', count: 0 },
-            { key: 'compare', label: '팀별 비교', count: 0 },
-            { key: 'assist',  label: '어시스트',  count: 0 },
-          ] as const).map(tab => {
-            const active = activeTab === tab.key
-            return (
-              <button
-                key={tab.key}
-                role="tab"
-                aria-selected={active}
-                aria-controls={`daily-boxscore-panel-${tab.key}`}
-                id={`daily-boxscore-tab-${tab.key}`}
-                // 탭 5개는 360px 에 빠듯하다 — 바는 가로로 밀리고, 누른 탭은 화면 안으로 당겨 온다
-                onClick={e => { setActiveTab(tab.key); e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }}
-                className="flex-1 shrink-0 min-w-fit px-2 sm:px-6 py-3 text-xs font-black uppercase tracking-[0.02em] sm:tracking-[0.18em] transition-all duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 whitespace-nowrap"
-                style={{
-                  borderBottom: active ? '3px solid var(--mm-yellow)' : '3px solid transparent',
-                  color: active ? 'var(--mm-ink)' : 'var(--mm-muted)',
-                  background: active ? 'var(--mm-panel-alt)' : 'transparent',
-                }}
-              >
-                {tab.label}
-                {tab.count > 0 && (
-                  <span className="hidden sm:inline ml-2 text-xs tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
-                )}
-              </button>
-            )
-          })}
+        // 공용 SegmentedTabs(리뉴얼 1단계) — 5탭은 360px 에 빠듯해 트랙이 가로로 밀리고, 고른 탭은 화면 안으로 당겨 온다
+        <div className="shrink-0 px-4 sm:px-6 py-2.5" style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}>
+          <SegmentedTabs
+            items={[
+              { key: 'result',  label: '경기결과',  count: games.length },
+              { key: 'players', label: '선수 기록', count: dailyStats.length },
+              { key: 'shots',   label: '공격 유형' },
+              { key: 'compare', label: '팀별 비교' },
+              { key: 'assist',  label: '어시스트' },
+            ]}
+            value={activeTab}
+            onChange={setActiveTab}
+            ariaLabel="박스스코어 뷰"
+            idPrefix="daily-boxscore"
+            size="sm"
+          />
         </div>
       )}
 
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
       ) : games.length === 0 ? (
-        <div className="text-center py-20" style={{ color: 'var(--mm-muted)' }}>
-          <p className="text-base">이 날 기록된 경기가 없습니다</p>
-        </div>
+        <EmptyState icon={CalendarX} title="이 날 기록된 경기가 없습니다" />
       ) : (
         <div>
 
