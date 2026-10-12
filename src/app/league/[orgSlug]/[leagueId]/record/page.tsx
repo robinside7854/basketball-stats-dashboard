@@ -17,7 +17,7 @@ import { volumeForRound } from '@/lib/social/volume'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
-import { seekBy } from '@/lib/youtube/utils'
+import { seekBy, extractYouTubeId } from '@/lib/youtube/utils'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
@@ -46,6 +46,52 @@ const QUARTER_OPTIONS = [
 ] as const
 
 type ScheduleDate = { id: string; date: string }
+
+// ── 이어서 기록하기 (2026-10-12) ─────────────────────────────────────
+//   기록 중에 다른 탭으로 나갔다가 돌아오면 **그 장면부터** 다시 잡는다 — 날짜·경기·쿼터·영상 위치.
+//   기록 자체는 누를 때마다 서버에 저장되므로, 여기 담는 건 "어디를 보고 있었나" 뿐이다.
+//   그래서 서버가 아니라 기기 localStorage 에 둔다(다른 기기의 기록원과 섞일 일이 없다).
+//   ⚠ 경기를 마감하면 지운다. 돌아왔을 때 그 경기가 이미 마감됐으면(다른 사람이 마감) 무시하고 지운다.
+const LEAVE_MESSAGE = '기록 중인 경기가 있어요.\n이동해도 기록은 저장돼 있지만, 마감은 아직 안 됐어요.\n\n이동할까요?'
+const RESUME_MAX_AGE_MS = 12 * 60 * 60 * 1000
+type ResumeEntry = {
+  date: string
+  gameId: string
+  slotNum: number | null
+  quarter: number
+  /** 영상 재생 위치(초). 영상이 없거나 못 읽었으면 null */
+  videoTime: number | null
+  /** 그 시각에 재생 중이던 영상 — 돌아왔을 때 다른 영상이면 위치를 옮기지 않는다 */
+  videoUrl: string | null
+  savedAt: number
+}
+const resumeKey = (leagueId: string) => `record:${leagueId}:resume`
+function readResume(leagueId: string): ResumeEntry | null {
+  try {
+    const raw = window.localStorage.getItem(resumeKey(leagueId))
+    if (!raw) return null
+    const v = JSON.parse(raw) as ResumeEntry
+    if (!v || typeof v.gameId !== 'string' || typeof v.date !== 'string') return null
+    if (typeof v.savedAt !== 'number' || Date.now() - v.savedAt > RESUME_MAX_AGE_MS) return null
+    return v
+  } catch { return null }
+}
+function writeResume(leagueId: string, v: ResumeEntry) {
+  try { window.localStorage.setItem(resumeKey(leagueId), JSON.stringify(v)) } catch { /* 사생활 보호 모드 등 */ }
+}
+function clearResume(leagueId: string, gameId?: string) {
+  try {
+    if (gameId) {
+      const raw = window.localStorage.getItem(resumeKey(leagueId))
+      if (raw && (JSON.parse(raw) as ResumeEntry | null)?.gameId !== gameId) return
+    }
+    window.localStorage.removeItem(resumeKey(leagueId))
+  } catch { /* ignore */ }
+}
+function fmtClock(sec: number): string {
+  const s = Math.max(0, Math.floor(sec))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
 type GameSlot = {
   id: string; slot_num: number; date: string; is_complete: boolean; is_started: boolean
   is_exhibition?: boolean
@@ -479,7 +525,25 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     if (loadingDates || scheduleDates.length === 0) return
     const sp = new URLSearchParams(window.location.search)
     const date = sp.get('date')
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { deepLinkRef.current = true; return }
+    const resume = readResume(leagueId)
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      deepLinkRef.current = true
+      // 날짜 없이 들어왔다(「경기 기록」 탭 등) — 기록하다 나간 경기가 있으면 그 장면으로 돌아간다.
+      //   ⚠ 날짜를 열기 **전에** 경기가 아직 안 끝났는지 본다. 리그의 selectDate 는 슬롯을 까는
+      //     POST 라, 이미 마감된 경기 때문에 날짜를 열어 버리면 엉뚱한 화면에 떨어진다.
+      if (!resume) return
+      ;(async () => {
+        const res = await fetch(`/api/leagues/${leagueId}/games?date=${resume.date}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const rows = (await res.json()) as GameSlot[]
+        const hit = rows.find(s => s.id === resume.gameId)
+        if (!hit || hit.is_complete || !hit.is_started) { clearResume(leagueId, resume.gameId); return }
+        await selectDate(resume.date)
+        setResumeTarget(resume)
+        await selectSlot(hit)
+      })()
+      return
+    }
     deepLinkRef.current = true
     ;(async () => {
       await selectDate(date)
@@ -490,7 +554,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       if (!res.ok) return
       const rows = (await res.json()) as GameSlot[]
       const hit = rows.find(s => s.id === gameId)
-      if (hit) await selectSlot(hit)
+      if (!hit) return
+      // 딥링크가 기록하다 나간 그 경기면 쿼터·영상 위치도 되살린다.
+      if (resume && resume.gameId === hit.id) {
+        if (hit.is_complete) clearResume(leagueId, hit.id)
+        else setResumeTarget(resume)
+      }
+      await selectSlot(hit)
     })()
     // selectDate/selectSlot 은 매 렌더 새로 만들어진다 — 넣으면 매번 다시 돈다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1785,6 +1855,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         throw new Error((err.error as string) ?? `완료 처리 실패 (${patchRes.status})`)
       }
       setShowComplete(false)
+      // 마감했으니 「이어서 기록」 대상이 아니다. 저장 effect 의 정리 함수가 한 번 더 쓰지 않게
+      //   먼저 스냅샷을 끈다(이 경기가 is_complete 로 바뀌며 effect 가 정리된다).
+      resumeSnapRef.current = { ...resumeSnapRef.current, on: false }
+      if (selectedSlotId) completedIdsRef.current.add(selectedSlotId)
+      clearResume(leagueId, selectedSlotId)
       // 마감 → 다음 경기로 한 번에 (2026-10-11). 종전엔 위로 올라가 슬롯을 다시 골라야 했다.
       const cur = slots.find(s => s.id === selectedSlotId)
       const next = cur
@@ -1827,6 +1902,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     })
     setReopening(false)
     if (!res.ok) { toast.error('전환 실패'); return }
+    completedIdsRef.current.delete(selectedSlotId)
     toast.success('다시 기록할 수 있습니다 — 지금까지의 기록은 그대로입니다')
     await refreshSlots()
     // 코트 상태 복원 (다시 기록하기 후에도 선수 표시 유지)
@@ -1903,16 +1979,159 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   //   기록은 누를 때마다 저장되므로 떠나도 사라지지 않는다. 다만 「마감」을 안 하고 떠나면
   //   그 경기가 진행 중으로 남아, 다음에 누가 열었을 때 끝난 경기인지 알 수 없다.
   const recordingInProgress = !!selectedSlot && gameStarted && !selectedSlot.is_complete
+
+  // 지금 장면(이어서 기록하기용) — 이벤트 핸들러·타이머가 늘 최신 값을 읽도록 ref 로 둔다.
+  const resumeSnapRef = useRef<{ on: boolean; date: string; gameId: string; slotNum: number | null; quarter: number; videoUrl: string | null }>(
+    { on: false, date: '', gameId: '', slotNum: null, quarter: 1, videoUrl: null },
+  )
+  resumeSnapRef.current = {
+    on: recordingInProgress,
+    date: selectedDate,
+    gameId: selectedSlotId,
+    slotNum: selectedSlot?.slot_num ?? null,
+    quarter: currentQuarter,
+    videoUrl: activeVideo?.url ?? null,
+  }
+  const ytPlayerRef = useRef(ytPlayer)
+  ytPlayerRef.current = ytPlayer
+  // ⚠ 복원(seek)이 끝나기 전에는 저장하지 않는다 — 플레이어가 막 떠서 0초인 상태로
+  //   저장된 위치를 덮어써 버린다.
+  const resumeHoldRef = useRef(false)
+  // 마감한 경기 — 슬롯 목록이 새로 오기 전까지 recordingInProgress 가 잠깐 true 로 남으므로 따로 막는다.
+  const completedIdsRef = useRef<Set<string>>(new Set())
+  const saveResumeNow = useCallback(() => {
+    const s = resumeSnapRef.current
+    if (!s.on || !s.gameId || !s.date || resumeHoldRef.current) return
+    if (completedIdsRef.current.has(s.gameId)) return
+    let videoTime: number | null = null
+    try {
+      const p = ytPlayerRef.current
+      const id = s.videoUrl ? extractYouTubeId(s.videoUrl) : null
+      // 플레이어가 지금 영상과 같은 것을 틀고 있을 때만 위치를 믿는다(쿼터 전환 중이면 앞 영상일 수 있다).
+      if (p && id && (p.getVideoUrl?.() ?? '').includes(id)) {
+        const t = p.getCurrentTime()
+        if (Number.isFinite(t)) videoTime = t
+      }
+    } catch { /* 플레이어 파괴 중 */ }
+    // 위치를 못 읽었으면(화면을 떠나며 플레이어가 먼저 없어진 경우 등) 직전에 저장한 위치를 지킨다.
+    if (videoTime == null) {
+      const prev = readResume(leagueId)
+      if (prev && prev.gameId === s.gameId && prev.videoUrl === s.videoUrl && prev.quarter === s.quarter) {
+        videoTime = prev.videoTime
+      }
+    }
+    writeResume(leagueId, {
+      date: s.date, gameId: s.gameId, slotNum: s.slotNum, quarter: s.quarter,
+      videoTime, videoUrl: s.videoUrl, savedAt: Date.now(),
+    })
+  }, [leagueId])
+
+  // 기록 중에는 5초마다 · 쿼터가 바뀔 때 · 탭이 가려질 때 · 화면을 떠날 때 장면을 저장한다.
   useEffect(() => {
     if (!recordingInProgress) return
-    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    saveResumeNow()
+    const iv = window.setInterval(saveResumeNow, 5000)
+    const onVis = () => { if (document.visibilityState === 'hidden') saveResumeNow() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pagehide', saveResumeNow)
+    return () => {
+      window.clearInterval(iv)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pagehide', saveResumeNow)
+      // 화면을 떠나는 순간(앱 안 이동으로 언마운트)도 한 번 더 — 마감으로 꺼진 경우는
+      //   completeGame 이 곧바로 지우므로 남지 않는다.
+      saveResumeNow()
+    }
+  }, [recordingInProgress, currentQuarter, selectedSlotId, saveResumeNow])
+
+  // 기록 중 이탈 경고 — 브라우저 닫기·새로고침(beforeunload) + **앱 안 링크 이동**.
+  //   하위 탭·하단 내비·헤더 링크는 전부 Next <Link> 라 beforeunload 가 안 뜬다. 그래서 문서 전체의
+  //   링크 클릭을 capture 단계에서 먼저 받아 확인을 묻는다 — 거절하면 Link 의 onClick(React 루트)까지
+  //   가지 않게 막는다. 각 컴포넌트를 고칠 필요가 없고, 새 링크가 생겨도 자동으로 걸린다.
+  //   ⚠ 브라우저 「뒤로」는 막지 않는다(App Router 의 history 상태를 건드리면 라우터가 깨질 수 있다).
+  //     대신 떠나는 순간 장면이 저장돼 있어 돌아오면 이어서 기록된다.
+  const leaveApprovedRef = useRef(false)
+  useEffect(() => {
+    if (!recordingInProgress) return
+    leaveApprovedRef.current = false
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      saveResumeNow()
+      if (leaveApprovedRef.current) return  // 링크 클릭에서 이미 물어봤다 — 두 번 묻지 않는다
+      e.preventDefault(); e.returnValue = ''
+    }
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!a) return
+      if (a.target && a.target !== '_self') return
+      if (a.hasAttribute('download')) return
+      let url: URL
+      try { url = new URL(a.href, window.location.href) } catch { return }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return
+      // 같은 화면(해시·쿼리만 다른 링크)은 떠나는 게 아니다.
+      if (url.origin === window.location.origin && url.pathname === window.location.pathname) return
+      saveResumeNow()
+      if (confirm(LEAVE_MESSAGE)) { leaveApprovedRef.current = true; return }
+      e.preventDefault()
+      e.stopPropagation()
+    }
     window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [recordingInProgress])
+    document.addEventListener('click', onClick, true)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      document.removeEventListener('click', onClick, true)
+    }
+  }, [recordingInProgress, saveResumeNow])
   function confirmLeave(): boolean {
     if (!recordingInProgress) return true
-    return confirm('기록 중인 경기가 있어요.\n이동해도 기록은 저장돼 있지만, 마감은 아직 안 됐어요.\n\n이동할까요?')
+    saveResumeNow()
+    return confirm(LEAVE_MESSAGE)
   }
+
+  // ── 돌아왔을 때 그 장면으로 ─────────────────────────────────────────
+  //   쿼터는 **아래 「이벤트 기반 쿼터 복원」이 끝난 뒤에** 덮어쓴다(quarterRestore 도착을 기다림) —
+  //   먼저 덮으면 복원 effect 가 늦게 와서 마지막 기록 쿼터로 되돌려 버린다. 둘이 다르면
+  //   기록원이 실제로 보고 있던 쿼터(저장값)가 이긴다. 시작 쿼터 보정은 시작된 경기에서 물러나므로 안 싸운다.
+  const [resumeTarget, setResumeTarget] = useState<ResumeEntry | null>(null)
+  const [pendingSeek, setPendingSeek] = useState<{ gameId: string; quarter: number; time: number; videoUrl: string } | null>(null)
+  useEffect(() => {
+    if (!resumeTarget) return
+    if (selectedSlotId && selectedSlotId !== resumeTarget.gameId) { setResumeTarget(null); return }
+    if (selectedSlotId !== resumeTarget.gameId) return
+    if (quarterRestore?.slotId !== selectedSlotId || videosLoadedFor !== selectedSlotId) return
+    const q = Math.min(Math.max(Math.round(resumeTarget.quarter) || 1, 1), 6)
+    setCurrentQuarter(q)
+    const t = resumeTarget.videoTime
+    if (t != null && t > 1 && resumeTarget.videoUrl) {
+      resumeHoldRef.current = true
+      // 플레이어가 끝내 안 뜨면(영상 삭제 등) 저장을 영영 막지 않도록 풀어 둔다.
+      window.setTimeout(() => { resumeHoldRef.current = false }, 15000)
+      setPendingSeek({ gameId: resumeTarget.gameId, quarter: q, time: t, videoUrl: resumeTarget.videoUrl })
+    }
+    const slotLabel = resumeTarget.slotNum != null ? `${resumeTarget.slotNum}경기 ` : ''
+    toast.success(`이어서 기록합니다 · ${slotLabel}${q}쿼터${t != null && t > 1 ? ` ${fmtClock(t)}` : ''}`)
+    setResumeTarget(null)
+  }, [resumeTarget, selectedSlotId, quarterRestore, videosLoadedFor])
+
+  // 플레이어가 준비되면 저장된 위치로 옮긴다. 쿼터를 바꾸면 플레이어가 새 영상으로 다시 뜨므로,
+  //   **그 쿼터의 그 영상**이 떴을 때만 적용한다(앞 영상에 걸면 엉뚱한 지점으로 간다).
+  useEffect(() => {
+    if (!pendingSeek) return
+    const giveUp = () => { resumeHoldRef.current = false; setPendingSeek(null) }
+    if (selectedSlotId !== pendingSeek.gameId) { giveUp(); return }
+    if (currentQuarter !== pendingSeek.quarter) return
+    if (!activeVideo) return
+    if (activeVideo.url !== pendingSeek.videoUrl) { giveUp(); return }  // 그사이 영상이 바뀌었다
+    if (!ytPlayer) return
+    const id = extractYouTubeId(pendingSeek.videoUrl)
+    try {
+      if (!id || !(ytPlayer.getVideoUrl?.() ?? '').includes(id)) return  // 아직 앞 영상 플레이어
+      const playing = ytPlayer.getPlayerState() === 1
+      ytPlayer.seekTo(Math.floor(pendingSeek.time), true)
+      if (!playing) ytPlayer.pauseVideo()
+    } catch { /* 플레이어가 막 파괴됨 — 다음 준비 때 다시 */ return }
+    giveUp()
+  }, [pendingSeek, ytPlayer, currentQuarter, selectedSlotId, activeVideo])
 
   // 선택한 경기의 쿼터 복원 — 새로고침·경기 전환 후에도 마지막으로 기록하던 쿼터에서 이어간다.
   //   전용 컬럼을 두지 않고 이미 저장된 이벤트의 최대 쿼터를 읽는다(기록이 곧 진실).
@@ -2103,7 +2322,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       <div className="flex items-center gap-3 flex-wrap">
         <a
           href={`/league/${orgSlug}/${leagueId}/schedule`}
-          onClick={e => { if (!confirmLeave()) e.preventDefault() }}
           className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors cursor-pointer shrink-0"
           style={{ color: 'var(--mm-muted)' }}
           aria-label="일정으로 돌아가기"
