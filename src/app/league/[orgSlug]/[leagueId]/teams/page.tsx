@@ -1,10 +1,10 @@
 'use client'
 import HeadToHeadSection from '@/components/league/HeadToHeadSection'
-import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
+import TeamInsightsSection from '@/components/league/TeamInsightsSection'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
-import { useLeagueQuarter, quarterStorageKey } from '@/contexts/LeagueQuarterContext'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { useState, useEffect, useMemo, useRef, Suspense, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -44,7 +44,7 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import StatHeader from '@/components/league/StatHeader'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
-import type { Quarter, PlayerStat, Leader } from '@/types/league'
+import type { PlayerStat, Leader } from '@/types/league'
 
 type Game = {
   id: string
@@ -906,11 +906,16 @@ function LeagueTeamsPageInner() {
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
   }
 
-  const [quarters, setQuarters] = useState<Quarter[]>([])
   // 분기 선택은 리더보드·어워즈와 공유한다(페이지 이동 시 같은 분기 유지). 이름은 기존 참조를 살리려 그대로 둔다.
-  const { selectedQuarterId: selectedQId, setSelectedQuarterId: setSelectedQId } = useLeagueQuarter()
+  // 분기 목록·기본 분기(지금 분기) 판정도 컨텍스트가 단일 출처다 — 여기서 /quarters 를 다시 부르지 않는다(2026-10-12).
+  const {
+    selectedQuarterId: selectedQId, setSelectedQuarterId: setSelectedQId,
+    quarters, currentQuarter, ready: quarterCtxReady, reloadQuarters,
+  } = useLeagueQuarter()
+  // 기본 팀 목록(/teams) 수신 여부 — 아래 분기별 /teams?quarterId= 응답을 override 없는 기본 목록이 덮어쓰지 않게
+  const [baseTeamsLoaded, setBaseTeamsLoaded] = useState(false)
   // 분기 목록이 오기 전에 'all' 로 fetch 하면 리더 집계(quarters 순회)가 빈 채로 끝나므로 로드 후에만 데이터 fetch
-  const [quartersReady, setQuartersReady] = useState(false)
+  const quartersReady = quarterCtxReady && baseTeamsLoaded
   const [teams, setTeams] = useState<Team[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [allStats, setAllStats] = useState<PlayerStat[]>([])
@@ -946,26 +951,21 @@ function LeagueTeamsPageInner() {
   const [statMode, setStatMode] = useState<StatMode>('basic')
   const [viewMode, setViewMode] = useState<'avg'|'total'>('avg')
 
-  // 분기 + 팀 초기 로드
+  // 팀 초기 로드 (+ 편집 닫기 때 분기 목록 재조회)
+  //   기본 분기(저장값이 없으면 「현재 분기」)는 LeagueQuarterContext 가 고른다.
   useEffect(() => {
     // 재조회 중엔 분기별 로드를 막는다 — 옛 quarters(분기 0개 포함)로 리더 집계하지 않도록.
     // 목록이 오면 true 로 돌아가며 데이터 로드가 새 quarters 로 다시 돈다.
-    setQuartersReady(false)
+    setBaseTeamsLoaded(false)
     Promise.all([
-      fetch(`/api/leagues/${leagueId}/quarters`).then(r => r.json()),
+      // 편집기에서 분기를 추가·수정했을 수 있다 — 닫을 때만 컨텍스트의 목록을 다시 받는다(첫 진입은 컨텍스트가 이미 받는 중)
+      reloadKey > 0 ? reloadQuarters() : Promise.resolve(),
       fetch(`/api/leagues/${leagueId}/teams`).then(r => r.json()),
-    ]).then(([qs, ts]) => {
-      setQuarters(qs ?? [])
+    ]).then(([, ts]) => {
       setTeams(ts ?? [])
-      const cur = pickCurrentQuarter((qs ?? []) as Quarter[])
-      // 팀순위의 기본은 「현재 분기」였다. 다른 화면에서 고른 적이 없을 때(저장값 없음)만 그 기본을 적용해
-      // 사용자가 이미 고른 분기(「전체」 포함)를 덮어쓰지 않는다. 저장 키는 LeagueQuarterContext 와 같다.
-      let saved: string | null = null
-      try { saved = localStorage.getItem(quarterStorageKey(leagueId)) } catch { /* private mode */ }
-      if (cur && !saved && selectedQId === 'all') setSelectedQId(cur.id)
-      setQuartersReady(true)
+      setBaseTeamsLoaded(true)
     }).catch(() => setLoading(false))
-  // 마운트(리그) 당 1회 + 편집 닫기(reloadKey) — selectedQId 변화로 기본값을 다시 적용하면 안 된다
+  // 마운트(리그) 당 1회 + 편집 닫기(reloadKey)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, reloadKey])
 
@@ -1212,7 +1212,8 @@ function LeagueTeamsPageInner() {
 
   // 「전체」에서 비정규·게스트는 시즌 누적이 아니라 현재 분기 기준으로 보여준다 —
   // 비정규 참가자는 분기마다 바뀌어서 누적으로 합치면 이미 떠난 사람이 목록을 채운다.
-  const currentQuarterId = (quarters.find(q => q.is_current) ?? quarters.at(-1))?.id ?? null
+  // 「지금 분기」 정본(pickCurrentQuarter) — is_current 깃발만 보면 운영자가 늦게 옮길 때 화면마다 갈린다
+  const currentQuarterId = currentQuarter?.id ?? null
   const [currentQuarterStats, setCurrentQuarterStats] = useState<PlayerStat[]>([])
   useEffect(() => {
     if (selectedQId !== 'all' || !currentQuarterId) { setCurrentQuarterStats([]); return }
@@ -1435,6 +1436,9 @@ function LeagueTeamsPageInner() {
         {!editing && (<>
         {/* ── 섹션 1.5: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
         <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} />
+
+        {/* ── 섹션 1.6: 시즌 어시스트 · 공격 유형 (2026-10-12) — 날짜별 박스스코어의 두 탭을 분기·전체로 쌓은 것 ── */}
+        <TeamInsightsSection leagueId={leagueId} quarterId={selectedQId} teamOrder={standings.map(s => s.identityKey)} />
 
         {/* ── 섹션 2: 팀별 선수 ── */}
         <div className="space-y-4">

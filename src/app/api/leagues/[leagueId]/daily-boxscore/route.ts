@@ -6,7 +6,8 @@ import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { fetchQuarterVideos } from '@/lib/youtube/gameVideo'
-import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, FIELD_SHOT_TYPES, type BoxLine } from '@/lib/stats/boxLine'
+import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, type BoxLine } from '@/lib/stats/boxLine'
+import { assistPairOf, fieldShotOf, pickGameSideTeam, assistTeamOf } from '@/lib/stats/gameInsights'
 
 // GET /api/leagues/[leagueId]/daily-boxscore?date=YYYY-MM-DD
 export async function GET(
@@ -181,15 +182,12 @@ export async function GET(
       // 이 경기에서 **실제로 어느 편이었나**. 후보를 모아 "이 경기의 두 팀 중 하나" 를 먼저 고른다.
       //   순서만 정해 놓고 첫 값을 그냥 쓰면, 분기 소속(qTeamMap)이 이 경기와 무관한 팀을 돌려줘도
       //   그대로 박힌다 — 그 선수는 홈도 어웨이도 아닌 팀이 되어 박스스코어·팀비교에서 사라진다.
-      const teamCandidates = [
+      //   판정은 lib/stats/gameInsights.ts — 시즌 어시스트·공격 유형(team-insights)과 공용.
+      const teamId = pickGameSideTeam([
         gpTeamMap[g.id]?.[pid],                 // 이 경기 한정 배정
         eventTeamMap[g.id]?.[pid],              // 기록에 남은 팀
         qId ? qTeamMap[qId]?.[pid] : null,      // 분기 소속 (정규전 폴백)
-      ].filter(Boolean) as string[]
-      const teamId =
-        teamCandidates.find(t => t === g.home_team_id || t === g.away_team_id)
-        ?? teamCandidates[0]
-        ?? null
+      ], g.home_team_id, g.away_team_id)
       // 선수 팀 표시도 identity 기반 (락다운 vs 굿모닝 분리)
       const playerIdentity = teamId ? identityResolver(teamId, qId) : null
       return {
@@ -396,14 +394,13 @@ export async function GET(
   type AssistLink = { game_id: string; from: string; to: string; team_id: string | null; team_name: string | null; team_color: string | null; count: number }
   const linkMap = new Map<string, AssistLink>()
   for (const e of events ?? []) {
-    if (!isAssistEvent(e.type, e.result, e.related_player_id)) continue
-    const from = e.related_player_id as string
-    const to = e.league_player_id
-    if (!from || !to || from === to) continue
+    const pair = assistPairOf(e)
+    if (!pair) continue
+    const { from, to } = pair
     const gameId = slotToGame.get(e.league_game_id)
     if (!gameId) continue
     const teams = slotRowTeam.get(e.league_game_id)
-    const t = teams?.get(to)?.team_id ? teams.get(to)! : teams?.get(from) ?? { team_id: null, team_name: null, team_color: null }
+    const t = assistTeamOf(teams?.get(to), teams?.get(from)) ?? { team_id: null, team_name: null, team_color: null }
     const key = `${gameId}|${from}|${to}|${t.team_id ?? ''}`
     const cur = linkMap.get(key)
     if (cur) cur.count++
@@ -420,15 +417,16 @@ export async function GET(
   type ShotTypeRow = { game_id: string; player_id: string; team_id: string | null; type: string; fga: number; fgm: number }
   const shotMap = new Map<string, ShotTypeRow>()
   for (const e of events ?? []) {
-    if (!FIELD_SHOT_TYPES.includes(e.type)) continue
+    const shot = fieldShotOf(e)
+    if (!shot) continue
     const gameId = slotToGame.get(e.league_game_id)
-    if (!gameId || !e.league_player_id) continue
+    if (!gameId) continue
     const teamId = slotRowTeam.get(e.league_game_id)?.get(e.league_player_id)?.team_id ?? null
     const key = `${gameId}|${e.league_player_id}|${e.type}`
     let row = shotMap.get(key)
     if (!row) { row = { game_id: gameId, player_id: e.league_player_id, team_id: teamId, type: e.type, fga: 0, fgm: 0 }; shotMap.set(key, row) }
     row.fga++
-    if (e.result === 'made') row.fgm++
+    if (shot.made) row.fgm++
   }
   const shotTypes = [...shotMap.values()]
 

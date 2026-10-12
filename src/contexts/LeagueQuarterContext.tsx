@@ -33,6 +33,11 @@ interface LeagueQuarterContextValue {
   currentQuarter: Quarter | null
   /** 저장값 복원 + 분기 목록 수신이 끝났는가 (selectedQuarterId 가 확정됨) */
   ready: boolean
+  /**
+   * 분기 목록을 다시 받는다(선택 분기는 건드리지 않는다). 팀 탭 명단 편집의 「분기 관리」처럼
+   * 분기를 추가·수정한 화면이 닫힐 때 부른다. 받기가 끝나면 resolve.
+   */
+  reloadQuarters: () => Promise<void>
 }
 
 const Ctx = createContext<LeagueQuarterContextValue | null>(null)
@@ -100,6 +105,14 @@ export function LeagueQuarterProvider({ leagueId, children }: { leagueId: string
     try { localStorage.setItem(storageKey, v) } catch { /* ignore */ }
   }, [storageKey])
 
+  const reloadQuarters = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/quarters`)
+      const qs = r.ok ? await r.json() : null
+      if (Array.isArray(qs)) setQuarters(qs as Quarter[])
+    } catch { /* 네트워크 실패 — 기존 목록 유지 */ }
+  }, [leagueId])
+
   const value = useMemo<LeagueQuarterContextValue>(() => {
     const list = quarters ?? []
     return {
@@ -108,8 +121,9 @@ export function LeagueQuarterProvider({ leagueId, children }: { leagueId: string
       quarters: list,
       currentQuarter: pickCurrentQuarter(list),
       ready: restored && quarters !== null,
+      reloadQuarters,
     }
-  }, [selectedQuarterId, setSelectedQuarterId, quarters, restored])
+  }, [selectedQuarterId, setSelectedQuarterId, quarters, restored, reloadQuarters])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
@@ -120,6 +134,7 @@ const FALLBACK: LeagueQuarterContextValue = {
   quarters: [],
   currentQuarter: null,
   ready: true,
+  reloadQuarters: async () => {},
 }
 
 /**

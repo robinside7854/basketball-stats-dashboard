@@ -130,12 +130,16 @@ function TeamCard({ title, color, counts }: { title: string; color: string | nul
   )
 }
 
-export default function ShotTypeBreakdown({ rows, games, teams, players }: {
+export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTitle = '이날 기록된 야투가 없습니다.', overallTitle }: {
   rows: ShotTypeRow[]
   games: ShotGame[]
   /** 그날 출전한 팀(이름·색) — 팀 id 로 이름을 찾는다 */
   teams: ShotTeam[]
   players: Map<string, ShotPlayer>
+  /** 야투가 하나도 없을 때 문구 — 팀 탭(시즌)은 「이날」이 아니다 */
+  emptyTitle?: string
+  /** 팀별 보기 맨 위 합계 카드 제목. 생략하면 「이날 전체」/「이 경기 전체」, null 이면 카드를 감춘다(한 팀만 넘길 때) */
+  overallTitle?: string | null
 }) {
   const [scope, setScope] = useState<string>('all')
   const [view, setView] = useState<'team' | 'player'>('team')
@@ -192,7 +196,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players }: {
 
   if (rows.length === 0) {
     return (
-      <EmptyState icon={Target} title="이날 기록된 야투가 없습니다." />
+      <EmptyState icon={Target} title={emptyTitle} />
     )
   }
 
@@ -241,8 +245,10 @@ export default function ShotTypeBreakdown({ rows, games, teams, players }: {
         <EmptyState variant="compact" framed title="이 경기에는 기록된 야투가 없습니다." />
       ) : view === 'team' ? (
         <div className="space-y-3">
-          <TeamCard title={scope === 'all' ? '이날 전체' : '이 경기 전체'} color={null} counts={dayCounts} />
-          <div className="grid gap-3 lg:grid-cols-2">
+          {overallTitle !== null && (
+            <TeamCard title={overallTitle ?? (scope === 'all' ? '이날 전체' : '이 경기 전체')} color={null} counts={dayCounts} />
+          )}
+          <div className={`grid gap-3 ${byTeam.length > 1 ? 'lg:grid-cols-2' : ''}`}>
             {byTeam.map(t => <TeamCard key={t.key} title={t.name} color={t.color} counts={t.counts} />)}
           </div>
         </div>

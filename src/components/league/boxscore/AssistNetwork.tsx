@@ -51,10 +51,12 @@ const chipStyle = (on: boolean): CSSProperties => on
 type Edge = { from: string; to: string; count: number }
 type TeamNet = { key: string; name: string; color: string | null; edges: Edge[]; total: number }
 
-export default function AssistNetwork({ links, games, players }: {
+export default function AssistNetwork({ links, games, players, emptyTitle = '이날 기록된 어시스트가 없습니다.' }: {
   links: AssistLink[]
   games: AssistGame[]
   players: Map<string, AssistPlayer>
+  /** 연결이 하나도 없을 때 문구 — 팀 탭(시즌)은 「이날」이 아니다 */
+  emptyTitle?: string
 }) {
   const [scope, setScope] = useState<string>('all')
   const gamesWithAssists = useMemo(() => new Set(links.map(l => l.game_id)), [links])
@@ -90,7 +92,7 @@ export default function AssistNetwork({ links, games, players }: {
 
   if (links.length === 0) {
     return (
-      <EmptyState icon={Handshake} title="이날 기록된 어시스트가 없습니다." />
+      <EmptyState icon={Handshake} title={emptyTitle} />
     )
   }
 
@@ -159,7 +161,8 @@ export default function AssistNetwork({ links, games, players }: {
           </section>
 
           {/* 팀별 네트워크 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* 한 팀만 있으면(팀 탭에서 팀을 고른 경우) 반폭으로 남지 않게 한 칸으로 */}
+          <div className={`grid grid-cols-1 gap-4 ${teams.length > 1 ? 'lg:grid-cols-2' : ''}`}>
             {teams.map(t => (
               <TeamNetwork key={t.key} team={t} players={players} />
             ))}
