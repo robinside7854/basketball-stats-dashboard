@@ -129,6 +129,8 @@ const BASIC_PCT_KEYS = new Set<BasicKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pc
 const BASIC_INT_KEYS = new Set<BasicKey>(['gp','pts','reb','oreb','dreb','ast','stl','blk','tov','fgm','fg3m','ftm'])
 
 // 기본 색상 (셀) — mm-* 팔레트에 맞춰 라이트/다크 자동 대응
+// 리뉴얼 1단계(2026-10-12): 열마다 다른 무지개색을 걷고 의미색만 남겼다 —
+// 실책=negative · 공격/수비 리바운드=--mm-or/--mm-dr · 3점 계열=yellow-strong · 나머지는 잉크 단계
 const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
   gp: 'text-[color:var(--mm-muted)]',
   ppg: 'font-black text-[color:var(--mm-ink)]', pts: 'font-black text-[color:var(--mm-ink)]',
@@ -136,24 +138,24 @@ const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
   orp: 'text-[color:var(--mm-muted)]', oreb: 'text-[color:var(--mm-muted)]',
   drp: 'text-[color:var(--mm-muted)]', dreb: 'text-[color:var(--mm-muted)]',
   apg: 'text-[color:var(--mm-ink-soft)]', ast: 'text-[color:var(--mm-ink-soft)]',
-  spg: 'text-purple-700 dark:text-purple-300', stl: 'text-purple-700 dark:text-purple-300',
-  bpg: 'text-indigo-700 dark:text-indigo-300', blk: 'text-indigo-700 dark:text-indigo-300',
-  topg: 'text-red-700 dark:text-red-300', tov: 'text-red-700 dark:text-red-300',
+  spg: 'text-[color:var(--mm-ink-soft)]', stl: 'text-[color:var(--mm-ink-soft)]',
+  bpg: 'text-[color:var(--mm-ink-soft)]', blk: 'text-[color:var(--mm-ink-soft)]',
+  topg: 'text-[color:var(--mm-negative)]', tov: 'text-[color:var(--mm-negative)]',
   fg_pct: 'text-[color:var(--mm-muted)]', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
-  ft_pct: 'text-cyan-700 dark:text-cyan-300', efg_pct: 'text-teal-700 dark:text-teal-300',
+  ft_pct: 'text-[color:var(--mm-ink-soft)]', efg_pct: 'text-[color:var(--mm-ink-soft)]',
   fgm: 'text-[color:var(--mm-muted)]', fg3m: 'text-[color:var(--mm-muted)]', ftm: 'text-[color:var(--mm-muted)]',
 }
 const ADV_COLOR: Partial<Record<AdvKey, string>> = {
-  at_ratio: 'text-blue-700 dark:text-blue-300',
-  ast_pct: 'text-purple-700 dark:text-purple-300', tov_pct: 'text-red-700 dark:text-red-300',
-  a1_total: 'text-orange-700 dark:text-orange-300', a1_rate: 'text-amber-700 dark:text-amber-300',
-  orb_pct: 'text-amber-700 dark:text-amber-300', drb_pct: 'text-emerald-700 dark:text-emerald-300', trb_pct: 'text-violet-700 dark:text-violet-300',
+  at_ratio: 'text-[color:var(--mm-ink-soft)]',
+  ast_pct: 'text-[color:var(--mm-ink-soft)]', tov_pct: 'text-[color:var(--mm-negative)]',
+  a1_total: 'text-[color:var(--mm-ink-soft)]', a1_rate: 'text-[color:var(--mm-ink-soft)]',
+  orb_pct: 'text-[color:var(--mm-or)]', drb_pct: 'text-[color:var(--mm-dr)]', trb_pct: 'text-[color:var(--mm-ink-soft)]',
 }
 const SHOOT_COLOR: Partial<Record<ShootingKey, string>> = {
-  fg_pct: 'text-[color:var(--mm-ink-soft)]', fg2_pct: 'text-orange-700 dark:text-orange-300', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
-  efg_pct: 'text-teal-700 dark:text-teal-300', ft_pct: 'text-cyan-700 dark:text-cyan-300', ts_pct: 'text-teal-700 dark:text-teal-300',
-  ft_rate: 'text-cyan-700 dark:text-cyan-300',
-  ds_pct: 'text-red-700 dark:text-red-300', lu_pct: 'text-orange-700 dark:text-orange-300', md_pct: 'text-[color:var(--mm-yellow-strong)]', three_share: 'text-blue-700 dark:text-blue-300',
+  fg_pct: 'text-[color:var(--mm-ink-soft)]', fg2_pct: 'text-[color:var(--mm-ink-soft)]', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
+  efg_pct: 'text-[color:var(--mm-ink-soft)]', ft_pct: 'text-[color:var(--mm-ink-soft)]', ts_pct: 'text-[color:var(--mm-ink-soft)]',
+  ft_rate: 'text-[color:var(--mm-ink-soft)]',
+  ds_pct: 'text-[color:var(--mm-ink-soft)]', lu_pct: 'text-[color:var(--mm-ink-soft)]', md_pct: 'text-[color:var(--mm-yellow-strong)]', three_share: 'text-[color:var(--mm-yellow-strong)]',
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
@@ -749,8 +751,8 @@ function TeamDetailPanel({
                   {[
                     { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: '누적', color: ptsDiff >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
                     { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: 'var(--mm-positive)' },
-                    { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: '#0F766E' },
-                    { label: 'STL+BLK', value: computed.defPg.toFixed(1), sub: '평균 수비 이벤트', color: '#7C3AED' },
+                    { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: 'var(--mm-ink)' },
+                    { label: 'STL+BLK', value: computed.defPg.toFixed(1), sub: '평균 수비 이벤트', color: 'var(--mm-ink)' },
                   ].map(card => (
                     <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '28px' }}>{card.value}</div>
@@ -812,7 +814,7 @@ function TeamDetailPanel({
                       ratio: (computed.threePct / 100) as number | null,
                       value: `${computed.threePct.toFixed(0)}%`,
                       desc: '3점 시도 비율',
-                      color: computed.threePct > 35 ? 'var(--mm-neutral-strong)' : '#2563EB',
+                      color: computed.threePct > 35 ? 'var(--mm-neutral-strong)' : 'var(--mm-yellow-strong)',
                     },
                     {
                       title: '수비 강도',

@@ -111,7 +111,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
             <div className="flex items-center gap-2 min-w-0">
               <HeartCrack
                 size={24}
-                style={{ color: '#ef4444' }}
+                style={{ color: 'var(--mm-live)' }}
                 aria-hidden
                 className="shrink-0"
               />
@@ -132,7 +132,8 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                 <span
                   className="text-xs font-semibold px-1.5 py-0.5 ml-1"
                   style={{
-                    background: '#ef4444',
+                    // --mm-live-bg 는 흰 글씨 전용 배경(라이트·다크 동일값, 4.5:1↑) — 흰색은 테마 무관이라 리터럴
+                    background: 'var(--mm-live-bg)',
                     color: '#fff',
                     borderRadius: '3px',
                   }}
@@ -179,7 +180,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   key={c.event_id}
                   type="button"
                   onClick={() => setOpenIdx(i)}
-                  className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
+                  className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
                   style={{
                     background: 'var(--mm-panel)',
                     border: isWinning ? '2px solid var(--clutch-5-fg)' : '1px solid var(--mm-rule)',
@@ -350,7 +351,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
           clips={data.clips}
           startIdx={openIdx}
           title={`${dateLabel} 클러치샷`}
-          icon={<HeartCrack size={16} style={{ color: '#ef4444' }} aria-hidden />}
+          icon={<HeartCrack size={16} style={{ color: 'var(--mm-live)' }} aria-hidden />}
           onClose={() => setOpenIdx(null)}
           ariaLabel="클러치샷 재생"
         />

@@ -70,12 +70,21 @@ const CORNER_X_R = 470
 const CORNER_Y = 370.33         // 3점 코너 직선-아크 교점
 
 // ── 효율 → 컬러 ─────────────────────────────────
-const TIER_COLORS: Record<'high' | 'mid' | 'low' | 'none', { fill: string; text: string; label: string }> = {
-  high: { fill: '#16a34a', text: 'text-emerald-100', label: '핫'    },
-  mid:  { fill: '#f59e0b', text: 'text-yellow-100',  label: '중간'  },
-  low:  { fill: '#B91C1C', text: 'text-red-100',     label: '콜드'  },
-  none: { fill: '#57534E', text: 'text-[color:var(--mm-ink)]',    label: '표본 부족' },
+// fill = 코트 위 존 채움(SVG) · fg = 패널 위 호버 상세의 % 글자. 둘 다 --mm-* 의미색이라 라이트/다크가 따라 바뀐다.
+// (종전 text-emerald-100 류는 SVG 라벨 박스용 밝은 색이었는데 호버 상세 = 밝은 패널에도 그대로 써서
+//  라이트 모드에서 글자가 거의 안 보였다 — 리뉴얼 1단계에서 둘을 분리했다.)
+// SVG 라벨 박스 안의 글자는 늘 어두운 스크림 위라 테마와 무관하게 흰색이다(LABEL_* 참조).
+const TIER_COLORS: Record<'high' | 'mid' | 'low' | 'none', { fill: string; fg: string; label: string }> = {
+  high: { fill: 'var(--mm-positive)',        fg: 'text-[color:var(--mm-positive-fg)]',  label: '핫'    },
+  mid:  { fill: 'var(--mm-yellow)',          fg: 'text-[color:var(--mm-yellow-strong)]', label: '중간'  },
+  low:  { fill: 'var(--mm-negative)',        fg: 'text-[color:var(--mm-negative-fg)]',  label: '콜드'  },
+  none: { fill: 'var(--mm-neutral-strong)',  fg: 'text-[color:var(--mm-ink)]',          label: '표본 부족' },
 }
+
+// 존 라벨 박스 — 코트 그림(하드우드) 위에 얹는 어두운 스크림. 코트 그림 자체가 테마와 무관한
+// 일러스트라 영상 위 스크림과 같은 취급으로 검정/흰색 리터럴을 쓴다.
+const LABEL_SCRIM = '#000'
+const LABEL_TEXT = '#fff'
 
 export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGUE_BASELINE }: Props) {
   const [hover, setHover] = useState<'post' | 'layup' | 'mid' | 'three' | null>(null)
@@ -106,7 +115,8 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
         aria-label="하프코트 슛 차트"
       >
         <defs>
-          {/* 하드우드 바닥 (밝은 원목톤) */}
+          {/* 하드우드 바닥 (밝은 원목톤) — 코트 일러스트(원목·나뭇결·흰 라인·주황 림)는 실물 코트를 그린 그림이라
+              테마와 무관하게 고정색을 쓴다(리뉴얼 1단계에서 의도적으로 토큰화하지 않음). */}
           <linearGradient id="hardwood" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#c4a173" />
             <stop offset="60%" stopColor="#a68352" />
@@ -265,32 +275,31 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
             return (
               <g key={zone} pointerEvents="none" filter="url(#labelShadow)">
                 <rect x={x} y={y} width={w} height={h} rx={6}
-                      fill="#0f172a" fillOpacity={active ? 0.95 : 0.85}
+                      fill={LABEL_SCRIM} fillOpacity={active ? 0.9 : 0.78}
                       stroke={c.fill} strokeWidth={active ? 2 : 1.4} strokeOpacity="0.95" />
                 {/* 존 코드 */}
                 <text x={x + w / 2} y={y + (small ? 10 : 14)} textAnchor="middle"
                       style={{ fontSize: small ? 9 : 10, fontWeight: 800, letterSpacing: 0.7 }}
-                      fill="#e2e8f0">
+                      fill={LABEL_TEXT} fillOpacity={0.88}>
                   {codes[zone]}
                 </text>
                 {/* FG% */}
                 <text x={x + w / 2} y={y + (small ? 20 : 32)} textAnchor="middle"
                       style={{ fontSize: small ? 11 : 18, fontWeight: 700 }}
-                      className={c.text}
-                      fill="currentColor">
+                      fill={LABEL_TEXT}>
                   {z.a > 0 ? `${z.fg_pct.toFixed(0)}%` : '—'}
                 </text>
                 {!small && (
                   <>
                     <text x={x + w / 2} y={y + 46} textAnchor="middle"
                           style={{ fontSize: 9.5, fontWeight: 700 }}
-                          fill="#cbd5e1">
+                          fill={LABEL_TEXT} fillOpacity={0.8}>
                       {z.m}/{z.a}
                     </text>
                     {totalAttempts > 0 && (
                       <text x={x + w / 2} y={y + 58} textAnchor="middle"
                             style={{ fontSize: 8.5, fontWeight: 700 }}
-                            fill="#94a3b8">
+                            fill={LABEL_TEXT} fillOpacity={0.62}>
                         비중 {volumePct(z)}%
                       </text>
                     )}
@@ -307,19 +316,19 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
       <div className="mt-2.5 space-y-1.5">
         <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
           <div className="inline-flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ background: '#16a34a', opacity: 0.85 }} />
+            <div className="w-3 h-3 rounded" style={{ background: TIER_COLORS.high.fill, opacity: 0.85 }} />
             <span className="font-semibold text-[color:var(--mm-ink-soft)]">핫 (평균 이상)</span>
           </div>
           <div className="inline-flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ background: '#f59e0b', opacity: 0.85 }} />
+            <div className="w-3 h-3 rounded" style={{ background: TIER_COLORS.mid.fill, opacity: 0.85 }} />
             <span className="font-semibold text-[color:var(--mm-ink-soft)]">중간 (평균권)</span>
           </div>
           <div className="inline-flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ background: '#B91C1C', opacity: 0.85 }} />
+            <div className="w-3 h-3 rounded" style={{ background: TIER_COLORS.low.fill, opacity: 0.85 }} />
             <span className="font-semibold text-[color:var(--mm-ink-soft)]">콜드 (평균 이하)</span>
           </div>
           <div className="inline-flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ background: '#57534E', opacity: 0.65 }} />
+            <div className="w-3 h-3 rounded" style={{ background: TIER_COLORS.none.fill, opacity: 0.65 }} />
             <span className="font-semibold text-[color:var(--mm-ink-soft)]">시도&lt;3</span>
           </div>
         </div>
@@ -336,7 +345,7 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[color:var(--mm-panel)]/90 border border-[color:var(--mm-rule)]/60 flex-wrap">
                 <span className="font-bold text-[color:var(--mm-ink)]">{label}</span>
                 <span className="text-[color:var(--mm-ink-soft)]">{z.m}/{z.a}</span>
-                <span className={`font-black ${c.text}`}>{z.a > 0 ? `${z.fg_pct}%` : '—'}</span>
+                <span className={`font-black ${c.fg}`}>{z.a > 0 ? `${z.fg_pct}%` : '—'}</span>
                 <span className="text-[color:var(--mm-muted)]">· {c.label}</span>
                 {totalAttempts > 0 && (
                   <span className="text-[color:var(--mm-muted)]">· 비중 <span className="font-bold text-[color:var(--mm-ink)]">{volumePct(z)}%</span></span>

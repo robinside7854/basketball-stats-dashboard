@@ -29,12 +29,14 @@ export type PlayerMilestoneData = {
 
 // 각 지표: 기본 임계값 사다리 + 확장 스텝
 //   · 리그 1위 값에 따라 TOP 을 근사치로 스냅 → 선수 분포가 촘촘히 몰리지 않음
+//   · 색은 globals.css 의 다계열 팔레트(--mm-series-1..5) — 라벨 글자로도 쓰여 라이트/다크 모두 4.5:1↑.
+//     var() 라 hex 뒤에 알파를 붙일 수 없다 → 반투명은 color-mix 로 만든다.
 const METRICS = [
-  { key: 'pts', label: 'PTS', color: '#F59E0B', base: [100, 250, 500, 1000, 2000], step: 500 },
-  { key: 'reb', label: 'REB', color: '#F97316', base: [50,  100, 250, 500,  1000], step: 100 },
-  { key: 'ast', label: 'AST', color: '#06B6D4', base: [25,  50,  100, 250,  500 ], step: 100 },
-  { key: 'stl', label: 'STL', color: '#10B981', base: [25,  50,  100, 250,  500 ], step: 100 },
-  { key: 'blk', label: 'BLK', color: '#EF4444', base: [10,  25,  50,  100,  250 ], step: 50  },
+  { key: 'pts', label: 'PTS', color: 'var(--mm-series-1)', base: [100, 250, 500, 1000, 2000], step: 500 },
+  { key: 'reb', label: 'REB', color: 'var(--mm-series-2)', base: [50,  100, 250, 500,  1000], step: 100 },
+  { key: 'ast', label: 'AST', color: 'var(--mm-series-3)', base: [25,  50,  100, 250,  500 ], step: 100 },
+  { key: 'stl', label: 'STL', color: 'var(--mm-series-4)', base: [25,  50,  100, 250,  500 ], step: 100 },
+  { key: 'blk', label: 'BLK', color: 'var(--mm-series-5)', base: [10,  25,  50,  100,  250 ], step: 50  },
 ] as const
 
 type MetricKey = typeof METRICS[number]['key']
@@ -147,7 +149,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
             id="milestone-player-select"
             value={pinnedPid ?? ''}
             onChange={e => setPinnedPid(e.target.value || null)}
-            className="w-full appearance-none cursor-pointer text-sm font-bold min-h-[36px] px-3 pr-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            className="w-full appearance-none cursor-pointer text-sm font-bold min-h-[36px] px-3 pr-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
             style={{
               background: pinnedPid ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
               color: pinnedPid ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
@@ -176,7 +178,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
           <button
             type="button"
             onClick={() => setPinnedPid(null)}
-            className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
             style={{
               background: 'var(--mm-panel-alt)',
               color: 'var(--mm-ink-soft)',
@@ -373,7 +375,7 @@ function MetricTree({
           style={{
             left: 30,
             width: 2,
-            background: `linear-gradient(180deg, ${color}55 0%, ${color}22 60%, var(--mm-rule) 100%)`,
+            background: `linear-gradient(180deg, color-mix(in srgb, ${color} 33%, transparent) 0%, color-mix(in srgb, ${color} 13%, transparent) 60%, var(--mm-rule) 100%)`,
             borderRadius: '1px',
           }}
           aria-hidden
@@ -510,7 +512,7 @@ function PlayerPin({
   return (
     <button
       type="button"
-      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={{
         bottom: y,
         left: 30 + AVATAR / 2 + xOffset,
@@ -523,7 +525,7 @@ function PlayerPin({
         boxShadow: pinned
           ? `0 0 0 3px var(--mm-yellow), 0 0 0 5px var(--mm-panel), 0 12px 32px -6px var(--mm-yellow), 0 4px 12px -2px rgba(0,0,0,0.35)`
           : hover
-            ? `0 0 0 3px var(--mm-panel), 0 12px 32px -6px ${color}88, 0 4px 12px -2px rgba(0,0,0,0.3)`
+            ? `0 0 0 3px var(--mm-panel), 0 12px 32px -6px color-mix(in srgb, ${color} 53%, transparent), 0 4px 12px -2px rgba(0,0,0,0.3)`
             : `0 1px 3px rgba(0,0,0,0.3)`,
         opacity: dimmed && !hover ? 0.28 : 1,
         filter: dimmed && !hover ? 'saturate(0.5)' : 'none',
@@ -702,7 +704,7 @@ function PlayerMilestonePopover({
         <button
           type="button"
           onClick={onOpenCard}
-          className="w-full flex items-center justify-center gap-2 px-4 min-h-[52px] font-bold text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+          className="w-full flex items-center justify-center gap-2 px-4 min-h-[52px] font-bold text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
           style={{
             background: 'var(--mm-yellow)',
             color: 'var(--mm-black)',

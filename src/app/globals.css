@@ -100,6 +100,19 @@
   --rank-2-bg: #ECEDEF; --rank-2-fg: #4E555E;
   --rank-3-bg: #F6EAE1; --rank-3-fg: #8A4B22;
   --rank-top-bg: #E7F1EA; --rank-top-fg: #25603D;
+
+  /* ===== 다계열 차트 팔레트 6색 (리뉴얼 1단계 디자인 시스템, 2026-10-12) =====
+     지표·부문을 나란히 구분해야 하는 차트·카드 전용 — 의미색(승/패·순위)이 아니다.
+     PlayerMilestoneChart(지표별 나무)·PlayerQuickViewModal(슛 존 도넛)·AwardsBoard(부문 accent)가 소비.
+     글자로도 쓰이므로 전부 흰 패널(#FFFFFF) 4.5:1 이상: 5.37 / 6.81 / 8.30 / 6.39 / 6.86 / 8.09
+     (panel-alt 에서도 4.68↑).
+     값은 기존 의미색과 같지만 참조하지 않고 복제한다 — 의미색을 고칠 때 차트가 따라 움직이지 않게. */
+  --mm-series-1: #8A6410;  /* 앰버 */
+  --mm-series-2: #98401A;  /* 주황 */
+  --mm-series-3: #125661;  /* 청록 */
+  --mm-series-4: #2E6B3D;  /* 초록 */
+  --mm-series-5: #A33328;  /* 빨강 */
+  --mm-series-6: #5B3F96;  /* 보라 */
 }
 .dark {
   --mm-ground: #191714;        /* near-black 웜톤 · 캐주얼 전환 (2026-08-06) */
@@ -151,6 +164,14 @@
   --rank-2-bg: rgba(255, 255, 255, 0.08); --rank-2-fg: #C6C9CE;
   --rank-3-bg: rgba(220, 130, 70, 0.15);  --rank-3-fg: #E2A277;
   --rank-top-bg: rgba(96, 196, 128, 0.16); --rank-top-fg: #82D89D;
+
+  /* 다계열 차트 팔레트 (다크) — 다크 패널(#221F1B) 기준 10.79 / 8.07 / 9.22 / 9.58 / 7.67 / 7.99 */
+  --mm-series-1: #F0CE78;
+  --mm-series-2: #EFA579;
+  --mm-series-3: #7ACFDD;
+  --mm-series-4: #82D89D;
+  --mm-series-5: #F5998C;
+  --mm-series-6: #C3A9EE;
 }
 
 /* ===== 파란날개 팀 컬러 테마 ===== */

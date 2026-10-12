@@ -139,7 +139,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                 {award.allCandidates.map((c, idx) => {
                   const rank = idx + 1
                   const isWinner = rank === 1
-                  const rankColor = rank === 1 ? 'text-[color:var(--mm-yellow-strong)]' : rank === 2 ? 'text-[color:var(--mm-muted)]' : rank === 3 ? 'text-orange-500' : 'text-[color:var(--mm-muted)]'
+                  const rankColor = rank === 1 ? 'text-[color:var(--mm-yellow-strong)]' : rank === 2 ? 'text-[color:var(--mm-muted)]' : rank === 3 ? 'text-[color:var(--rank-3-fg)]' : 'text-[color:var(--mm-muted)]'
                   return (
                     <li key={`${c.player_id}-${c.partner?.player_id ?? ''}-${idx}`}>
                     <button

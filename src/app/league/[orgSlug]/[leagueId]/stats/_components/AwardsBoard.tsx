@@ -48,49 +48,96 @@ interface AwardEntry {
   allCandidates: AwardCandidate[]
 }
 
-// AwardDetailModal 이 참조하므로 시그니처/필드 보존. 페이지 자체는 mm-brand 로 렌더.
-const CATEGORY_STYLE: Record<AwardCategory, {
-  Icon: typeof Trophy
-  bg: string
-  border: string
-  text: string
-  chipBg: string
-  ribbon: string
-}> = {
-  SCORING:    { Icon: Trophy,    bg: 'from-amber-950/40 to-orange-900/20',                    border: 'border-amber-500/50',  text: 'text-amber-200',    chipBg: 'bg-amber-500/20',  ribbon: 'from-amber-400 to-orange-500' },
-  REBOUND:    { Icon: Shield,    bg: 'from-orange-950/40 to-red-900/20',                      border: 'border-orange-500/50', text: 'text-orange-200',   chipBg: 'bg-orange-500/20', ribbon: 'from-orange-400 to-red-500' },
-  ASSIST:     { Icon: Sparkles,  bg: 'from-cyan-950/40 to-blue-900/20',                       border: 'border-cyan-500/50',   text: 'text-cyan-200',     chipBg: 'bg-cyan-500/20',   ribbon: 'from-cyan-400 to-blue-500' },
-  DPOY:       { Icon: Zap,       bg: 'from-emerald-950/40 to-green-900/20',                   border: 'border-emerald-500/50',text: 'text-emerald-200',  chipBg: 'bg-emerald-500/20',ribbon: 'from-emerald-400 to-green-500' },
-  THREE:      { Icon: Target,    bg: 'from-pink-950/40 to-purple-900/20',                     border: 'border-pink-500/50',   text: 'text-pink-200',     chipBg: 'bg-pink-500/20',   ribbon: 'from-pink-400 to-purple-500' },
-  EFFICIENCY: { Icon: Award,     bg: 'from-teal-950/40 to-cyan-900/20',                       border: 'border-teal-500/50',   text: 'text-teal-200',     chipBg: 'bg-teal-500/20',   ribbon: 'from-teal-400 to-cyan-500' },
-  CLUTCH:     { Icon: Flame,     bg: 'from-red-950/40 to-amber-900/20',                       border: 'border-red-500/50',    text: 'text-red-200',      chipBg: 'bg-red-500/20',    ribbon: 'from-red-400 to-amber-500' },
-  IRON_MAN:   { Icon: Heart,     bg: 'from-rose-950/40 to-pink-900/20',                       border: 'border-rose-500/50',   text: 'text-rose-200',     chipBg: 'bg-rose-500/20',   ribbon: 'from-rose-400 to-pink-500' },
-  // 더블더블 킹 — 다층 스탯 스토리라서 Layers 아이콘 + 인디고 톤 (기존 코어 8과 색 겹치지 않게)
-  DOUBLE_DOUBLE: { Icon: Layers, bg: 'from-indigo-950/40 to-violet-900/20',                   border: 'border-indigo-500/50', text: 'text-indigo-200',   chipBg: 'bg-indigo-500/20', ribbon: 'from-indigo-400 to-violet-500' },
-  // 특수 3부문
-  //   OREB_KING 은 REBOUND(orange)와 겹치지 않게 emerald · Hand 아이콘(리바운드 "잡는다" 은유)
-  OREB_KING:  { Icon: Hand,      bg: 'from-emerald-950/40 to-green-900/20',                   border: 'border-emerald-500/50',text: 'text-emerald-200',  chipBg: 'bg-emerald-500/20',ribbon: 'from-emerald-400 to-green-500' },
-  MID_RANGE:  { Icon: Crosshair, bg: 'from-sky-950/40 to-indigo-900/20',                      border: 'border-sky-500/50',    text: 'text-sky-200',      chipBg: 'bg-sky-500/20',    ribbon: 'from-sky-400 to-indigo-500' },
-  BEST_DUO:   { Icon: Users,     bg: 'from-violet-950/40 to-fuchsia-900/20',                  border: 'border-violet-500/50', text: 'text-violet-200',   chipBg: 'bg-violet-500/20', ribbon: 'from-violet-400 to-fuchsia-500' },
+// 부문 톤 — 리뉴얼 1단계(2026-10-12): 부문마다 따로 박혀 있던 Tailwind 팔레트(amber/cyan/pink…)와
+// hex 를 globals.css 의 다계열 팔레트(--mm-series-1..6)로 옮겼다. 원래 색 계열을 그대로 따랐다 —
+// 1 앰버(득점) · 2 주황(리바) · 3 청록(어시·효율·미들) · 4 초록(수비·공리) · 5 빨강(클러치·철인) · 6 보라(3점·더블더블·듀오).
+// ⚠ Tailwind 가 소스에서 클래스명을 그대로 찾아야 생성하므로 아래 문자열은 템플릿으로 조립하지 말 것.
+// (종전 text-amber-200 류는 라이트 모드 흰 패널에서 거의 안 보였다 — 토큰은 두 테마 모두 4.5:1↑)
+type SeriesN = 1 | 2 | 3 | 4 | 5 | 6
+const SERIES_TONE: Record<SeriesN, { bg: string; border: string; text: string; chipBg: string; ribbon: string }> = {
+  1: {
+    bg: 'from-[color:var(--mm-series-1)]/10 to-transparent',
+    border: 'border-[color:var(--mm-series-1)]/50',
+    text: 'text-[color:var(--mm-series-1)]',
+    chipBg: 'bg-[color:var(--mm-series-1)]/15',
+    ribbon: 'from-[color:var(--mm-series-1)] to-[color:var(--mm-series-1)]',
+  },
+  2: {
+    bg: 'from-[color:var(--mm-series-2)]/10 to-transparent',
+    border: 'border-[color:var(--mm-series-2)]/50',
+    text: 'text-[color:var(--mm-series-2)]',
+    chipBg: 'bg-[color:var(--mm-series-2)]/15',
+    ribbon: 'from-[color:var(--mm-series-2)] to-[color:var(--mm-series-2)]',
+  },
+  3: {
+    bg: 'from-[color:var(--mm-series-3)]/10 to-transparent',
+    border: 'border-[color:var(--mm-series-3)]/50',
+    text: 'text-[color:var(--mm-series-3)]',
+    chipBg: 'bg-[color:var(--mm-series-3)]/15',
+    ribbon: 'from-[color:var(--mm-series-3)] to-[color:var(--mm-series-3)]',
+  },
+  4: {
+    bg: 'from-[color:var(--mm-series-4)]/10 to-transparent',
+    border: 'border-[color:var(--mm-series-4)]/50',
+    text: 'text-[color:var(--mm-series-4)]',
+    chipBg: 'bg-[color:var(--mm-series-4)]/15',
+    ribbon: 'from-[color:var(--mm-series-4)] to-[color:var(--mm-series-4)]',
+  },
+  5: {
+    bg: 'from-[color:var(--mm-series-5)]/10 to-transparent',
+    border: 'border-[color:var(--mm-series-5)]/50',
+    text: 'text-[color:var(--mm-series-5)]',
+    chipBg: 'bg-[color:var(--mm-series-5)]/15',
+    ribbon: 'from-[color:var(--mm-series-5)] to-[color:var(--mm-series-5)]',
+  },
+  6: {
+    bg: 'from-[color:var(--mm-series-6)]/10 to-transparent',
+    border: 'border-[color:var(--mm-series-6)]/50',
+    text: 'text-[color:var(--mm-series-6)]',
+    chipBg: 'bg-[color:var(--mm-series-6)]/15',
+    ribbon: 'from-[color:var(--mm-series-6)] to-[color:var(--mm-series-6)]',
+  },
 }
+const CATEGORY_SERIES: Record<AwardCategory, SeriesN> = {
+  SCORING:       1,
+  REBOUND:       2,
+  ASSIST:        3,
+  DPOY:          4,
+  THREE:         6,
+  EFFICIENCY:    3,
+  CLUTCH:        5,
+  IRON_MAN:      5,
+  DOUBLE_DOUBLE: 6,
+  OREB_KING:     4,
+  MID_RANGE:     3,
+  BEST_DUO:      6,
+}
+
+// AwardDetailModal 이 참조하므로 시그니처/필드 보존. 페이지 자체는 mm-brand 로 렌더.
+const CATEGORY_ICON: Record<AwardCategory, typeof Trophy> = {
+  SCORING:       Trophy,
+  REBOUND:       Shield,
+  ASSIST:        Sparkles,
+  DPOY:          Zap,
+  THREE:         Target,
+  EFFICIENCY:    Award,
+  CLUTCH:        Flame,
+  IRON_MAN:      Heart,
+  DOUBLE_DOUBLE: Layers,
+  OREB_KING:     Hand,
+  MID_RANGE:     Crosshair,
+  BEST_DUO:      Users,
+}
+const CATEGORY_STYLE = Object.fromEntries(
+  (Object.keys(CATEGORY_SERIES) as AwardCategory[]).map(c => [c, { Icon: CATEGORY_ICON[c], ...SERIES_TONE[CATEGORY_SERIES[c]] }]),
+) as Record<AwardCategory, { Icon: typeof Trophy; bg: string; border: string; text: string; chipBg: string; ribbon: string }>
 
 // 부문별 accent — Option B: gradient 걷어내고 순색 accent 만.
 // 카드 상단 스트라이프 · 아이콘 · 러너 값 컬러에 사용. Winner 배경은 항상 mm-yellow.
-const CATEGORY_ACCENT: Record<AwardCategory, string> = {
-  SCORING:    '#F59E0B', // amber-500
-  REBOUND:    '#F97316', // orange-500
-  ASSIST:     '#06B6D4', // cyan-500
-  DPOY:       '#10B981', // emerald-500
-  THREE:      '#EC4899', // pink-500
-  EFFICIENCY: '#14B8A6', // teal-500
-  CLUTCH:     '#EF4444', // red-500
-  IRON_MAN:   '#F43F5E', // rose-500
-  DOUBLE_DOUBLE: '#6366F1', // indigo-500
-  // 특수 3부문 — REBOUND(orange)와 색상 겹치지 않게
-  OREB_KING:  '#059669', // emerald-600
-  MID_RANGE:  '#0EA5E9', // sky-500
-  BEST_DUO:   '#8B5CF6', // violet-500
-}
+// var() 문자열이라 accentOrInk() 는 늘 ink 를 돌려준다 — 종전 hex 도 대부분 AA 미달이라 ink 였다(동작 동일).
+const CATEGORY_ACCENT = Object.fromEntries(
+  (Object.keys(CATEGORY_SERIES) as AwardCategory[]).map(c => [c, `var(--mm-series-${CATEGORY_SERIES[c]})`]),
+) as Record<AwardCategory, string>
 
 interface AttendanceInfo {
   totalRounds: number
@@ -350,7 +397,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                 onToggle={e => toggleCat(a.category, (e.currentTarget as HTMLDetailsElement).open)}
               >
                 <summary
-                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={{ borderBottom: '1px solid var(--mm-rule)' }}
                 >
                   <div
@@ -425,7 +472,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                       className="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0"
                       style={{
                         background: 'var(--mm-black)',
-                        border: '3px solid rgba(0,0,0,0.15)',
+                        border: '3px solid color-mix(in srgb, var(--mm-black) 15%, transparent)',
                       }}
                     >
                       {isDuo ? (
@@ -437,7 +484,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                     <div className="flex-1 min-w-0">
                       <p
                         className="text-xs font-semibold"
-                        style={{ color: 'rgba(0,0,0,0.65)' }}
+                        style={{ color: 'color-mix(in srgb, var(--mm-black) 72%, transparent)' }}
                       >
                         {isDuo ? 'Winner Duo' : 'Winner'}
                       </p>
@@ -460,7 +507,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                         {a.winner.number != null && (
                           <span
                             className="font-sans font-black ml-2 align-baseline tabular-nums"
-                            style={{ color: 'rgba(0,0,0,0.55)', fontSize: '0.5em' }}
+                            style={{ color: 'color-mix(in srgb, var(--mm-black) 72%, transparent)', fontSize: '0.5em' }}
                           >
                             #{a.winner.number}
                           </span>
@@ -469,7 +516,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                           <>
                             <span
                               className="mx-2 align-middle"
-                              style={{ color: 'rgba(0,0,0,0.5)', fontSize: '0.75em', fontWeight: 700 }}
+                              style={{ color: 'color-mix(in srgb, var(--mm-black) 72%, transparent)', fontSize: '0.75em', fontWeight: 700 }}
                             >
                               ×
                             </span>
@@ -477,7 +524,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                             {a.winner.partner.number != null && (
                               <span
                                 className="font-sans font-black ml-2 align-baseline tabular-nums"
-                                style={{ color: 'rgba(0,0,0,0.55)', fontSize: '0.5em' }}
+                                style={{ color: 'color-mix(in srgb, var(--mm-black) 72%, transparent)', fontSize: '0.5em' }}
                               >
                                 #{a.winner.partner.number}
                               </span>
@@ -498,7 +545,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                       </p>
                       <p
                         className="text-xs font-bold mt-1.5 break-keep"
-                        style={{ color: 'rgba(0,0,0,0.6)', lineHeight: 1.3, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                        style={{ color: 'color-mix(in srgb, var(--mm-black) 72%, transparent)', lineHeight: 1.3, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                       >
                         {isDuo ? a.metric : `${a.winner.gp}게임 · ${a.metric}`}
                       </p>
@@ -581,16 +628,16 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                   {a.winner.supportingStats && (
                     <div
                       className="mt-3 pt-3 flex flex-wrap gap-1.5"
-                      style={{ borderTop: '1.5px solid rgba(0,0,0,0.18)' }}
+                      style={{ borderTop: '1.5px solid color-mix(in srgb, var(--mm-black) 18%, transparent)' }}
                     >
                       {/* 보조 지표 — 「키: 값」 글줄 대신 칩. 값이 먼저 눈에 들어오게 크게, 키는 작게 */}
                       {Object.entries(a.winner.supportingStats).map(([key, val]) => (
                         <span
                           key={key}
                           className="inline-flex items-baseline gap-1 px-2 py-1 min-w-0"
-                          style={{ background: 'rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.14)', borderRadius: 'var(--mm-radius-chip)' }}
+                          style={{ background: 'color-mix(in srgb, var(--mm-black) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--mm-black) 14%, transparent)', borderRadius: 'var(--mm-radius-chip)' }}
                         >
-                          <span className="text-[11px] font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>{key}</span>
+                          <span className="text-[11px] font-bold" style={{ color: 'color-mix(in srgb, var(--mm-black) 72%, transparent)' }}>{key}</span>
                           <span className="text-sm font-black tabular-nums leading-none" style={{ color: 'var(--mm-black)' }}>{val}</span>
                         </span>
                       ))}
@@ -696,7 +743,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                 <button
                   type="button"
                   onClick={() => setOpenAward(a)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-11 px-4 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-11 px-4 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                 >
                   전체 순위 {a.allCandidates.length}명 보기
