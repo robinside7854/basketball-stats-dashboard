@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { sessionMatchesLeague } from './teamMatch'
+import { requireCeoSession } from './ceo'
 
 // 승인 회원 세션 조회 — 서버 컴포넌트/라우트 공용. 미로그인·미승인 시 null.
 //   판정은 리그(lid) 가 아니라 팀(tid) 기준 — 같은 팀의 다른 경기묶음(리그↔대회)으로
@@ -75,5 +76,9 @@ export async function canViewLeague(req: Request, leagueId: string): Promise<boo
 export async function isLeaguePrivateGated(leagueId: string): Promise<boolean> {
   if (await isLeaguePublic(leagueId)) return false
   if (await getApprovedSession(leagueId)) return false
+  // CEO(온볼 운영자)는 회원 계정이 없어도 화면을 본다 (2026-10-12 회원 전용 전환).
+  //   API 쪽 canViewLeague 는 canEditLeague 로 이미 CEO 를 통과시키는데, 화면 게이트만
+  //   회원 세션을 봐서 비공개로 바꾸는 순간 CEO 가 자기 리그 화면에서 잠겼다.
+  if (await requireCeoSession()) return false
   return true
 }
