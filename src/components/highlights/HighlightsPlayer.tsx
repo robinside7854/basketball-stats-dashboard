@@ -11,8 +11,15 @@
 //   (2026-07-15) 자동재생(autoAdvance) 기능 제거 — 사용자 요구
 //     · 클립 종료 시 다음 클립으로 자동 이동하지 않음
 //     · 다음 이동은 SkipForward 버튼 or 플레이리스트 클릭
-import { useEffect, useRef, useCallback } from 'react'
+//   (2026-10-13) 「전체화면 연속 재생」(몰입 모드) — 리그 하이라이트 피드만 연다(ref 의 open()).
+//     · 같은 iframe 을 CSS 로 화면에 꽉 채운다 — 새 플레이어를 띄우거나 DOM 을 옮기면 iframe 이
+//       다시 로드돼 재생이 끊기고, iPhone 은 사용자 탭 없이 다시 재생을 못 한다.
+//     · 몰입 모드에서만 clip_end 도달 시 다음 클립으로 넘어간다(위 7/15 결정은 일반 화면에 그대로).
+//     · Fullscreen API(+ Android 가로 고정)는 되는 기기에서만 — iPhone 은 요소 전체화면이 없어
+//       오버레이가 화면을 채우고 「가로로 돌리면」 안내를 한 번 띄운다.
+import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
 import { Play, Pause, SkipBack, SkipForward, HeartCrack } from 'lucide-react'
+import ImmersiveControls from './ImmersiveControls'
 import { extractYouTubeId, formatTimestamp, seekBy } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
@@ -32,9 +39,38 @@ interface Props {
   captionOverride?: { primary: string; secondary?: string }
   // 스코어보드 숨김 (핀은 점수 맥락이 없음)
   hideScoreboard?: boolean
+  /** 몰입 모드(전체화면 연속 재생)를 여는 손잡이 — 리그 피드만 넘긴다. 안 넘기면 종전 그대로 */
+  ref?: Ref<HighlightsPlayerHandle>
+  /** 몰입 모드가 열리고 닫힐 때 — 부모가 고정(sticky) 칸의 z-index 를 올리는 데 쓴다 */
+  onImmersiveChange?: (open: boolean) => void
 }
 
-export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard }: Props) {
+export type HighlightsPlayerHandle = {
+  /** ⚠ 클릭 핸들러 안에서 동기로 부를 것 — Fullscreen API 는 사용자 제스처 안에서만 열린다 */
+  openImmersive: () => void
+}
+
+// ── 전체화면 API (webkit 접두 포함) ────────────────────────────────
+type FsDoc = Document & {
+  webkitFullscreenElement?: Element | null
+  webkitFullscreenEnabled?: boolean
+  webkitExitFullscreen?: () => Promise<void> | void
+}
+type FsEl = HTMLElement & { webkitRequestFullscreen?: (opts?: unknown) => Promise<void> | void }
+type LockableOrientation = ScreenOrientation & { lock?: (o: string) => Promise<void>; unlock?: () => void }
+
+function fullscreenElement(): Element | null {
+  const d = document as FsDoc
+  return d.fullscreenElement ?? d.webkitFullscreenElement ?? null
+}
+function canElementFullscreen(el: HTMLElement): boolean {
+  const d = document as FsDoc
+  const enabled = d.fullscreenEnabled || d.webkitFullscreenEnabled
+  return !!enabled && (typeof el.requestFullscreen === 'function' || typeof (el as FsEl).webkitRequestFullscreen === 'function')
+}
+const ROTATE_HINT_KEY = 'highlights:immersiveRotateHint'
+
+export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 키보드 모달 판정용 — containerRef 의 div 는 YT.Player 가 iframe 으로 갈아끼워 DOM 에서 떨어지므로 못 쓴다
   const rootRef = useRef<HTMLDivElement>(null)
@@ -52,6 +88,21 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   // seekTo 직후에도 currentTime 반영이 비동기 → 짧은 grace 동안 clip_end 판정 중지 (ms epoch)
   const seekGraceUntilRef = useRef(0)
 
+  // ── 몰입 모드 상태 ──
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [immersive, setImmersive] = useState(false)
+  const immersiveRef = useRef(false)
+  const enteredFullscreenRef = useRef(false)   // 우리가 Fullscreen API 로 들어갔는가 (나갈 때 되돌림)
+  const [playing, setPlaying] = useState(false)
+  const [controlsVisible, setControlsVisible] = useState(true)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [finished, setFinished] = useState(false)  // 마지막 클립 끝까지 봄
+  const [rotateHint, setRotateHint] = useState(false)
+  const onImmersiveChangeRef = useRef(onImmersiveChange)
+  useEffect(() => { onImmersiveChangeRef.current = onImmersiveChange }, [onImmersiveChange])
+  // 몰입 모드에서 클립 끝 → 다음 클립 (플레이어 콜백은 1회 생성이라 ref 로 최신 동작을 잡는다)
+  const advanceRef = useRef<() => void>(() => {})
+
   // pendingStartRef setter with auto-clear (프리즈 방지)
   const setPendingStart = useCallback((v: number | null) => {
     pendingStartRef.current = v
@@ -67,6 +118,20 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   useEffect(() => { clipsRef.current = clips }, [clips])
   useEffect(() => { currentIdxRef.current = currentIdx }, [currentIdx])
   useEffect(() => { onIndexChangeRef.current = onIndexChange }, [onIndexChange])
+
+  advanceRef.current = () => {
+    if (!immersiveRef.current) return
+    const list = clipsRef.current
+    let next = currentIdxRef.current + 1
+    while (next < list.length && !list[next].video_id) next++   // 영상 ID 없는 클립은 건너뛴다
+    if (next < list.length) {
+      seekGraceUntilRef.current = Date.now() + 1500   // 다음 클립 seek 가 반영되기 전 재판정 방지
+      onIndexChangeRef.current(next)
+    } else {
+      try { playerRef.current?.pauseVideo() } catch { /* ignore */ }
+      setFinished(true)
+    }
+  }
 
   const clip = clips[currentIdx] ?? null
 
@@ -87,6 +152,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
+          fs: 1,   // YouTube 자체 전체화면 버튼 (기본값과 같음 — iPhone 몰입 모드의 대안 경로라 명시)
         },
         events: {
           onReady: (e) => {
@@ -112,6 +178,10 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
             } catch { /* ignore */ }
           },
           onStateChange: (e) => {
+            if (e.data === 1) setPlaying(true)
+            else if (e.data === 2 || e.data === 0) setPlaying(false)
+            // 몰입 모드 — 영상 자체가 clip_end 전에 끝나면 다음 클립으로
+            if (e.data === 0 && immersiveRef.current) advanceRef.current()
             // ENDED (0) — 자동 다음 클립 이동 없음 (사용자 요구로 자동재생 제거)
             //   → 영상은 그 자리에서 정지 · 다음 클립은 SkipForward 또는 플레이리스트 클릭으로만
             // 영상 교체 로딩 완료 처리
@@ -138,6 +208,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           },
           onError: () => { /* 광고 · 삭제 · 지역제한 등 — 조용히 건너뛰기 */
             setPendingStart(null)  // 프리즈 방지
+            // 몰입 모드는 연속 재생이 목적이라 막힌 영상은 잠깐 뒤 건너뛴다
+            if (immersiveRef.current) setTimeout(() => advanceRef.current(), 800)
             // (자동재생 제거 이후) 에러 시에도 자동 다음 이동 없음 · 유저가 SkipForward 로 이동
           },
         },
@@ -198,6 +270,145 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   //   다음 클립은 SkipForward 버튼 or 플레이리스트 클릭으로만 이동.
   //   clip_end 는 여전히 참조용 (히스토리 · 하이라이트 릴 구간 표시) 이지만 재생 제어 로직 없음.
 
+  // ── 몰입 모드 ────────────────────────────────────────────────
+  // 클립이 바뀌면 「끝까지 봄」 해제
+  useEffect(() => { setFinished(false) }, [currentIdx])
+
+  const revealControls = useCallback(() => {
+    setControlsVisible(true)
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = setTimeout(() => setControlsVisible(false), 3000)
+  }, [])
+
+  // 멈춰 있으면 조작부를 띄워 둔다 · 재생이 시작되면 3초 뒤 숨김
+  useEffect(() => {
+    if (!immersive) return
+    if (!playing) {
+      if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null }
+      setControlsVisible(true)
+    } else {
+      revealControls()
+    }
+  }, [immersive, playing, revealControls])
+
+  const closeImmersive = useCallback(() => {
+    if (!immersiveRef.current) return
+    immersiveRef.current = false
+    setImmersive(false)
+    setRotateHint(false)
+    setFinished(false)
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null }
+    try { (screen.orientation as LockableOrientation | undefined)?.unlock?.() } catch { /* ignore */ }
+    if (enteredFullscreenRef.current) {
+      enteredFullscreenRef.current = false
+      if (fullscreenElement()) {
+        const d = document as FsDoc
+        try {
+          const r = d.exitFullscreen ? d.exitFullscreen() : d.webkitExitFullscreen?.()
+          if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => {})
+        } catch { /* ignore */ }
+      }
+    }
+    onImmersiveChangeRef.current?.(false)
+  }, [])
+
+  const openImmersive = useCallback(() => {
+    if (immersiveRef.current) return
+    const el = stageRef.current
+    const cur = clipsRef.current[currentIdxRef.current]
+    if (!el || !cur) return
+    immersiveRef.current = true
+    setImmersive(true)
+    setFinished(false)
+    setControlsVisible(true)
+    onImmersiveChangeRef.current?.(true)
+
+    // ① 요소 전체화면 — 제스처 안에서 동기로 요청해야 한다 (Android Chrome · PC · iPad)
+    if (canElementFullscreen(el)) {
+      try {
+        const fe = el as FsEl
+        const r = fe.requestFullscreen ? fe.requestFullscreen({ navigationUI: 'hide' }) : fe.webkitRequestFullscreen?.()
+        enteredFullscreenRef.current = true
+        Promise.resolve(r).then(() => {
+          // ② 가로 고정 — 전체화면 상태에서만 허용된다(Android Chrome). PC·iPad 는 거절 → 무시
+          const o = screen.orientation as LockableOrientation | undefined
+          o?.lock?.('landscape')?.catch?.(() => {})
+        }).catch(() => { enteredFullscreenRef.current = false })
+      } catch { enteredFullscreenRef.current = false }
+    } else {
+      // iPhone Safari — 요소 전체화면이 없다. 세로로 들고 있으면 한 번만 가로 안내
+      try {
+        const portrait = window.matchMedia?.('(orientation: portrait)').matches
+        if (portrait && !localStorage.getItem(ROTATE_HINT_KEY)) {
+          localStorage.setItem(ROTATE_HINT_KEY, '1')
+          setRotateHint(true)
+        }
+      } catch { /* 저장소 막힘 — 안내 생략 */ }
+    }
+
+    // ③ 지금 클립 처음부터 재생 (탭 제스처 안이라 iPhone 도 재생이 허용될 가능성이 가장 높다)
+    const player = playerRef.current
+    if (player && readyRef.current && pendingStartRef.current === null) {
+      try {
+        player.seekTo(Math.floor(cur.clip_start), true)
+        player.playVideo()
+        seekGraceUntilRef.current = Date.now() + 1200
+      } catch { /* ignore */ }
+    }
+  }, [])
+
+  useImperativeHandle(ref, () => ({ openImmersive }), [openImmersive])
+
+  // 몰입 모드 동안: 클립 끝 감시 · 페이지 스크롤 잠금 · 시스템 전체화면 해제(Esc·뒤로가기) 추적
+  useEffect(() => {
+    if (!immersive) return
+    const tick = setInterval(() => {
+      const p = playerRef.current
+      if (!p || !readyRef.current) return
+      if (pendingStartRef.current !== null) return
+      if (Date.now() < seekGraceUntilRef.current) return
+      const c = clipsRef.current[currentIdxRef.current]
+      if (!c) return
+      try {
+        if (p.getPlayerState() !== 1) return
+        if (p.getCurrentTime() >= c.clip_end) advanceRef.current()
+      } catch { /* ignore */ }
+    }, 400)
+
+    const html = document.documentElement
+    const prevOverflow = html.style.overflow
+    html.style.overflow = 'hidden'
+
+    // 전체화면을 사용자가 시스템으로 빠져나오면(PC Esc · Android 뒤로가기) 오버레이도 닫는다
+    const onFsChange = () => {
+      if (enteredFullscreenRef.current && !fullscreenElement()) {
+        enteredFullscreenRef.current = false
+        closeImmersive()
+      }
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    document.addEventListener('webkitfullscreenchange', onFsChange)
+    return () => {
+      clearInterval(tick)
+      html.style.overflow = prevOverflow
+      document.removeEventListener('fullscreenchange', onFsChange)
+      document.removeEventListener('webkitfullscreenchange', onFsChange)
+    }
+  }, [immersive, closeImmersive])
+
+  // 안내는 4초 뒤 스스로 걷힌다
+  useEffect(() => {
+    if (!rotateHint) return
+    const t = setTimeout(() => setRotateHint(false), 4000)
+    return () => clearTimeout(t)
+  }, [rotateHint])
+
+  // 언마운트(필터 칩으로 피드가 바뀜 등) 때 잠금·전체화면을 남기지 않는다
+  useEffect(() => () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    if (immersiveRef.current) closeImmersive()
+  }, [closeImmersive])
+
   const goPrev = () => { if (currentIdx > 0) onIndexChange(currentIdx - 1) }
   const goNext = () => { if (currentIdx + 1 < clips.length) onIndexChange(currentIdx + 1) }
   const togglePlay = () => {
@@ -226,8 +437,11 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     // 이 플레이어를 담지 않은 모달이 열려 있으면 뒤 페이지 영상이 움직이면 안 된다.
     // (모달 안의 HighlightsPlayer 는 자기 모달이 rootRef 를 포함하므로 계속 동작)
     const el = rootRef.current
+    if (immersiveRef.current && e.key === 'Escape') { e.preventDefault(); closeImmersive(); return }
+    // (몰입 모드의 오버레이는 이 플레이어 안쪽 dialog 라 제외)
     const dialogs = document.querySelectorAll('[aria-modal="true"], [role="dialog"]')
-    if (!el || Array.from(dialogs).some(d => !d.contains(el))) return
+    if (!el || Array.from(dialogs).some(d => !d.contains(el) && !el.contains(d))) return
+    if (immersiveRef.current) revealControls()
     if (e.code === 'Space') {
       // 포커스된 버튼·링크는 Space 로 스스로 눌리게 둔다 — 여기서 또 토글하면 두 번 눌림
       if (t && t.closest('button, a, [role="button"]')) return
@@ -280,8 +494,22 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
 
   return (
     <div ref={rootRef} className="space-y-2">
+      {/* 몰입 모드 무대 — 평소엔 아무 스타일 없는 껍데기. ⚠ 요소 구조를 모드마다 바꾸지 말 것:
+          iframe 이 다시 마운트되면 재생이 끊긴다(클래스만 바꾼다). */}
       <div
-        className="relative rounded-xl overflow-hidden aspect-video bg-black"
+        ref={stageRef}
+        className={immersive ? 'fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden' : undefined}
+        style={immersive ? { background: '#000', width: '100dvw', height: '100dvh' } : undefined}
+        role={immersive ? 'dialog' : undefined}
+        aria-modal={immersive ? true : undefined}
+        aria-label={immersive ? '하이라이트 전체화면 연속 재생' : undefined}
+        onPointerMove={immersive ? (e) => { if (e.pointerType === 'mouse') revealControls() } : undefined}
+      >
+      <div
+        className={immersive
+          ? 'relative aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full'
+          : 'relative rounded-xl overflow-hidden aspect-video bg-black'}
+        style={immersive ? { width: 'min(100dvw, calc(100dvh * 16 / 9))' } : undefined}
         aria-live="polite"
         aria-label={captionOverride
           ? `${captionOverride.primary}, ${currentIdx + 1}/${clips.length}`
@@ -289,7 +517,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       >
         <div ref={containerRef} className="w-full h-full" />
         {/* 스코어보드 오버레이 (option A — 상단 · 항상 표시 · pointer-events-none 로 클릭 통과) */}
-        {!hideScoreboard && hasScore && (clip.home_team_name || clip.away_team_name) && (
+        {!hideScoreboard && hasScore && (clip.home_team_name || clip.away_team_name) && !(immersive && controlsVisible) && (
           <div
             className="absolute top-0 left-0 right-0 pointer-events-none flex items-center justify-center px-2 py-1.5 sm:py-2 z-10"
             style={{
@@ -385,6 +613,31 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           </div>
         )}
       </div>
+      {immersive && (
+        <ImmersiveControls
+          visible={controlsVisible}
+          playing={playing}
+          finished={finished}
+          title={captionOverride
+            ? captionOverride.primary
+            : `${clip.player_number ? `#${clip.player_number} ` : ''}${clip.player_name} · ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}`}
+          subtitle={captionOverride?.secondary
+            ?? ([clip.home_team_name, clip.away_team_name].filter(Boolean).join(' vs ') || undefined)}
+          index={currentIdx}
+          total={clips.length}
+          showRotateHint={rotateHint}
+          onReveal={revealControls}
+          onClose={closeImmersive}
+          onPrev={() => { goPrev(); revealControls() }}
+          onNext={() => { goNext(); revealControls() }}
+          onTogglePlay={() => { togglePlay(); revealControls() }}
+          onRestart={() => { setFinished(false); if (currentIdx === 0) { try { playerRef.current?.seekTo(Math.floor(clip.clip_start), true); playerRef.current?.playVideo() } catch { /* ignore */ } } else onIndexChange(0) }}
+          onDismissHint={() => setRotateHint(false)}
+        />
+      )}
+      </div>
+      {/* 몰입 모드 동안 페이지 자리 유지 — 무대가 흐름에서 빠져 뒤 화면이 출렁이지 않게 */}
+      {immersive && <div className="rounded-xl aspect-video bg-black" aria-hidden />}
 
       {/* 컨트롤 바 */}
       <div

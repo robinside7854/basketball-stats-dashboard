@@ -4,11 +4,12 @@
 //   - URL 쿼리(?player=X&type=... &clip=N) → 필터 · 재생 인덱스 반영 (공유 URL)
 //   - 필터 적용 → HighlightsPlayer / HighlightsPlaylist 에 전달
 //   - 자동재생 토글 상태 소유
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Link2 } from 'lucide-react'
 import { toast } from 'sonner'
-import HighlightsPlayer from './HighlightsPlayer'
+import HighlightsPlayer, { type HighlightsPlayerHandle } from './HighlightsPlayer'
+import ImmersivePlayButton from './ImmersivePlayButton'
 import HighlightsPlaylist from './HighlightsPlaylist'
 import HighlightsFilterBar, { type FilterState, type FilterCounts } from './HighlightsFilterBar'
 import { categoryOfType, clipMatchesCategory, parseShotCategory, SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
@@ -118,6 +119,11 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
 
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
 
+  // 피드 전용 「전체화면 연속 재생」 — 열려 있는 동안 고정(sticky) 칸의 z-index 를 올려
+  // 무대(fixed)가 하단 탭바·상단 바 위로 올라오게 한다 (z-[5] 칸이 쌓임 맥락을 만든다)
+  const playerHandleRef = useRef<HighlightsPlayerHandle | null>(null)
+  const [immersiveOpen, setImmersiveOpen] = useState(false)
+
   // 공유 링크 — 현재 필터/클립 상태가 반영된 페이지 URL 을 shortener 로 축약해 클립보드에 복사.
   // 카카오톡·SNS 공유 시 URL 이 짧아져 붙여넣기 편의성 향상.
   const shareShort = useCallback(async () => {
@@ -175,13 +181,18 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
 
       {feed ? (
         <div className="grid gap-3 lg:grid-cols-12 lg:items-start">
-          <div className={FEED_PLAYER_COL} style={{ background: 'var(--mm-ground)' }}>
+          <div className={FEED_PLAYER_COL} style={{ background: 'var(--mm-ground)', zIndex: immersiveOpen ? 1000 : undefined }}>
             <HighlightsPlayer
+              ref={playerHandleRef}
               clips={filteredClips}
               currentIdx={currentIdx}
               onIndexChange={onSelectIdx}
+              onImmersiveChange={setImmersiveOpen}
             />
-            <YouTubeOpenLink clip={filteredClips[currentIdx]} className="w-full sm:w-auto" />
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex">
+              <ImmersivePlayButton playerRef={playerHandleRef} disabled={!filteredClips[currentIdx]?.video_id} />
+              <YouTubeOpenLink clip={filteredClips[currentIdx]} />
+            </div>
           </div>
           <div className={FEED_LIST_COL}>
             <HighlightsPlaylist

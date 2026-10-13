@@ -17,7 +17,7 @@ export default function YouTubeOpenLink({ clip, className = '' }: { clip: Highli
       href={youtubeWatchUrl(clip)}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-sm font-bold transition-colors hover:border-[color:var(--mm-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-sm font-bold whitespace-nowrap transition-colors hover:border-[color:var(--mm-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] ${className}`}
       style={{
         background: 'var(--mm-panel)',
         color: 'var(--mm-ink)',
@@ -27,7 +27,9 @@ export default function YouTubeOpenLink({ clip, className = '' }: { clip: Highli
       aria-label="지금 클립을 YouTube 앱으로 열기"
     >
       <ExternalLink size={16} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
-      YouTube 앱으로 열기
+      {/* 좁은 화면에선 「전체화면 연속 재생」과 한 줄에 놓이도록 짧게 */}
+      <span className="sm:hidden">YouTube 앱</span>
+      <span className="hidden sm:inline">YouTube 앱으로 열기</span>
     </a>
   )
 }

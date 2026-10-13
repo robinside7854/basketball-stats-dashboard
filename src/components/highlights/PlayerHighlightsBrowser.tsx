@@ -3,11 +3,12 @@
 // - URL 쿼리 (?type=X&quarter=Y&clip=N) ↔ 필터 · 재생 인덱스 동기화
 // - HighlightsPlayer 재사용 (자동 연속재생 그대로)
 // - 우측 플레이리스트는 날짜별 그룹핑 (PlayerHighlightsPlaylist)
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Link2, HeartCrack } from 'lucide-react'
 import { toast } from 'sonner'
-import HighlightsPlayer from './HighlightsPlayer'
+import HighlightsPlayer, { type HighlightsPlayerHandle } from './HighlightsPlayer'
+import ImmersivePlayButton from './ImmersivePlayButton'
 import PlayerHighlightsPlaylist from './PlayerHighlightsPlaylist'
 import PinBestShotToolbar from './PinBestShotToolbar'
 import {
@@ -140,6 +141,11 @@ export default function PlayerHighlightsBrowser({
   }, [category, quarterId, gameQuarter, currentIdx, pathname, router, feed])
 
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
+
+  // 피드 전용 「전체화면 연속 재생」 — 열려 있는 동안 고정(sticky) 칸의 z-index 를 올려
+  // 무대(fixed)가 하단 탭바·상단 바 위로 올라오게 한다 (z-[5] 칸이 쌓임 맥락을 만든다)
+  const playerHandleRef = useRef<HighlightsPlayerHandle | null>(null)
+  const [immersiveOpen, setImmersiveOpen] = useState(false)
 
   // 공유 링크 — 현재 필터/클립 상태 URL 을 shortener 로 축약해 클립보드에 복사
   const shareShort = useCallback(async () => {
@@ -373,11 +379,13 @@ export default function PlayerHighlightsBrowser({
 
       {/* 플레이어 + 플레이리스트 */}
       <div className={`grid gap-3 lg:grid-cols-12 ${feed ? 'lg:items-start' : ''}`}>
-        <div className={feed ? FEED_PLAYER_COL : 'lg:col-span-8 space-y-2'} style={feed ? { background: 'var(--mm-ground)' } : undefined}>
+        <div className={feed ? FEED_PLAYER_COL : 'lg:col-span-8 space-y-2'} style={feed ? { background: 'var(--mm-ground)', zIndex: immersiveOpen ? 1000 : undefined } : undefined}>
           <HighlightsPlayer
+            ref={feed ? playerHandleRef : undefined}
             clips={filteredClips}
             currentIdx={currentIdx}
             onIndexChange={onSelectIdx}
+            onImmersiveChange={feed ? setImmersiveOpen : undefined}
           />
           {pinsEnabled && leagueId && filteredClips[currentIdx] && (
             <PinBestShotToolbar
@@ -389,7 +397,12 @@ export default function PlayerHighlightsBrowser({
               onChange={setPinnedEventIds}
             />
           )}
-          {feed && <YouTubeOpenLink clip={filteredClips[currentIdx]} className="w-full sm:w-auto" />}
+          {feed && (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex">
+              <ImmersivePlayButton playerRef={playerHandleRef} disabled={!filteredClips[currentIdx]?.video_id} />
+              <YouTubeOpenLink clip={filteredClips[currentIdx]} />
+            </div>
+          )}
         </div>
         {/* 레이아웃(LeagueLayoutClient)이 이미 pb-[56px+safe-area] 처리 · 플레이리스트 자체 스크롤로 재생기 자연스럽게 상단 유지 */}
         <div className={feed ? FEED_LIST_COL : 'lg:col-span-4'}>
