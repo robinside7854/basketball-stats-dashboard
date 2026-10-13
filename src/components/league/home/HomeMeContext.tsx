@@ -29,6 +29,13 @@ export interface MePeriodBlock {
   eligible: boolean
   per_day: Record<Metric, number>
   ranks: Partial<Record<Metric, { rank: number; total: number }>>
+  /** 야투·3점 성공/시도/성공률(%) — 2026-10-13 추가(옛 응답엔 없다). 순위 없음 */
+  shooting?: MeShooting
+}
+
+export interface MeShooting {
+  fgm: number; fga: number; fg_pct: number
+  fg3m: number; fg3a: number; fg3_pct: number
 }
 
 export interface HomeDashboard {

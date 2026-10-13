@@ -58,7 +58,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
 
   return (
     <>
-      <SectionCard variant="stack" background="var(--mm-panel-alt)" pad="none">
+      <SectionCard variant="stack" pad="none">
         <header
           className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
@@ -83,9 +83,11 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
               <div
                 key={r.date}
                 className="snap-start shrink-0 basis-[85%] sm:basis-auto sm:shrink text-left flex flex-col h-full"
+                // 카드(panel) 안의 칸은 옅은 바탕(panel-alt) + 둥근 모서리 — 홈 전체 규칙(2026-10-13 가독성)
                 style={{
-                  background: 'var(--mm-panel)',
+                  background: 'var(--mm-panel-alt)',
                   border: '1px solid var(--mm-rule)',
+                  borderRadius: 'var(--mm-radius-ctl)',
                   padding: '14px 16px 14px',
                 }}
               >
@@ -167,7 +169,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                     href={`${base}/boxscore/${r.date}`}
                     className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-sm font-black whitespace-nowrap cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                     style={{
-                      background: 'var(--mm-panel-alt)',
+                      background: 'var(--mm-panel)',
                       color: 'var(--mm-ink)',
                       border: '1px solid var(--mm-rule)',
                       borderRadius: '4px',

@@ -31,26 +31,40 @@ function todayKst(): string {
   return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 }
 
-function StatCell({ label, value, sub, strong = false }: { label: string; value: string | number; sub?: string; strong?: boolean }) {
+// 숫자 한 칸 — 카드 바탕 위에 숫자가 그냥 떠 있지 않게 옅은 칸(panel-alt)에 담는다(2026-10-13 가독성).
+//   size: lg = 득점 같은 주 지표 · md = 기본 · sm = 4칸 줄(스틸·블락·야투율 — 360px 에서 칸당 ~68px)
+function StatCell({ label, value, sub, size = 'md' }: { label: string; value: string | number; sub?: string; size?: 'sm' | 'md' | 'lg' }) {
+  const fontSize = size === 'lg' ? 'clamp(24px, 6.5vw, 30px)' : size === 'md' ? 'clamp(20px, 5.5vw, 24px)' : 'clamp(17px, 4.6vw, 20px)'
   return (
-    <div className="min-w-0 flex flex-col items-center text-center">
-      <span className="t-label">{label}</span>
+    <div
+      className="min-w-0 flex flex-col items-center text-center px-1 py-2"
+      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+    >
+      <span className="text-[11px] sm:text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{label}</span>
       <span
-        className="font-jersey font-black tabular-nums leading-none mt-1"
-        style={{ color: 'var(--mm-ink)', fontSize: strong ? 'clamp(26px, 7vw, 32px)' : 'clamp(20px, 5.5vw, 24px)' }}
+        className="font-jersey font-black tabular-nums leading-none mt-1 whitespace-nowrap"
+        style={{ color: 'var(--mm-ink)', fontSize }}
       >
         {value}
       </span>
-      {sub && <span className="text-[11px] font-bold tabular-nums mt-1" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
+      <span className="text-[11px] font-bold tabular-nums mt-1 leading-none min-h-[11px] whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+        {sub ?? ''}
+      </span>
     </div>
   )
+}
+
+/** 성공률 칸 값 — 시도가 없으면 「–」(0% 로 보이면 「다 놓쳤다」로 읽힌다) */
+function pctValue(made: number, att: number, pct: number): { value: string; sub: string | undefined } {
+  if (att <= 0) return { value: '–', sub: '시도 없음' }
+  return { value: `${pct.toFixed(1)}%`, sub: `${made}/${att}` }
 }
 
 function Block({ title, meta, children }: { title: string; meta?: ReactNode; children: ReactNode }) {
   return (
     <div className="px-4 lg:px-5 py-3.5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-baseline justify-between gap-2 mb-2.5">
-        <h3 className="text-sm font-black break-keep" style={{ color: 'var(--mm-ink)' }}>{title}</h3>
+        <h3 className="text-base font-black break-keep" style={{ color: 'var(--mm-ink)' }}>{title}</h3>
         {meta && <span className="t-label break-keep text-right">{meta}</span>}
       </div>
       {children}
@@ -86,7 +100,7 @@ function PeriodBlock({ b, period, onPeriod }: {
   )
   const head = (
     <div className="flex items-center justify-between gap-2 mb-2.5">
-      <h3 className="text-sm font-black break-keep min-w-0" style={{ color: 'var(--mm-ink)' }}>
+      <h3 className="text-base font-black break-keep min-w-0" style={{ color: 'var(--mm-ink)' }}>
         하루 평균{period === 'quarter' && b?.label ? <span className="t-label ml-1.5">{b.label}</span> : null}
       </h3>
       {toggle}
@@ -115,15 +129,41 @@ function PeriodBlock({ b, period, onPeriod }: {
   return wrap(
     <>
       <p className="t-label break-keep -mt-1 mb-2.5 tabular-nums">{attendanceCopy(b)}</p>
-      <div className="grid grid-cols-3 gap-2">
+      {/* 1줄: 득점·리바·어시(크게) / 2줄: 스틸·블락·야투율·3점 야투율 (2026-10-13 사용자 요청).
+          성공률은 순위가 없다 — 홈 리그 리더에 야투율 자격(최소 시도) 규칙이 없어서 등수를 매기면 기준이 갈라진다. */}
+      <div className="grid grid-cols-3 gap-1.5">
         {(['pts', 'reb', 'ast'] as const).map(m => (
           <StatCell
             key={m}
             label={SHORT[m]}
             value={(b.per_day[m] ?? 0).toFixed(1)}
             sub={b.ranks[m] ? `${b.ranks[m]!.rank}위` : undefined}
+            size={m === 'pts' ? 'lg' : 'md'}
           />
         ))}
+      </div>
+      <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+        {(['stl', 'blk'] as const).map(m => (
+          <StatCell
+            key={m}
+            label={SHORT[m]}
+            value={(b.per_day[m] ?? 0).toFixed(1)}
+            sub={b.ranks[m] ? `${b.ranks[m]!.rank}위` : undefined}
+            size="sm"
+          />
+        ))}
+        {b.shooting ? (
+          <>
+            <StatCell label="야투율" size="sm" {...pctValue(b.shooting.fgm, b.shooting.fga, b.shooting.fg_pct)} />
+            <StatCell label="3점 야투율" size="sm" {...pctValue(b.shooting.fg3m, b.shooting.fg3a, b.shooting.fg3_pct)} />
+          </>
+        ) : (
+          // 옛 응답(배포 직후)에는 shooting 이 없다 — 칸만 비워 둔다
+          <>
+            <StatCell label="야투율" size="sm" value="–" />
+            <StatCell label="3점 야투율" size="sm" value="–" />
+          </>
+        )}
       </div>
       {b.eligible && best && topPct != null ? (
         <div className="mt-3">
@@ -261,12 +301,12 @@ export default function HomeMyCard({ orgSlug, leagueId, latestLabel }: {
             >
               {day?.line ? (
                 <>
-                  <div className="grid grid-cols-5 gap-1">
-                    <StatCell label="득점" value={day.line.pts} strong />
-                    <StatCell label="리바" value={day.line.reb} />
-                    <StatCell label="어시" value={day.line.ast} />
-                    <StatCell label="스틸" value={day.line.stl} />
-                    <StatCell label="블락" value={day.line.blk} />
+                  <div className="grid grid-cols-5 gap-1.5">
+                    <StatCell label="득점" value={day.line.pts} size="lg" />
+                    <StatCell label="리바" value={day.line.reb} size="sm" />
+                    <StatCell label="어시" value={day.line.ast} size="sm" />
+                    <StatCell label="스틸" value={day.line.stl} size="sm" />
+                    <StatCell label="블락" value={day.line.blk} size="sm" />
                   </div>
                   {day.results.length > 0 && (
                     <div className="mt-3 flex items-center justify-between gap-2">

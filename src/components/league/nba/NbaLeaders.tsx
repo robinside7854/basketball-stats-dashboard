@@ -1,5 +1,5 @@
 'use client'
-// 미라클모닝 브랜드 — 리그 리더 (4카테고리 top3)
+// 미라클모닝 브랜드 — 리그 리더 (7카테고리 top3 · 자유투는 2026-10-13 뺐다)
 // 팔레트: 노랑/검정/화이트 (mm-* 변수)
 // 각 카드: 카테고리 라벨 + Top3 (프로필 사진 + 이름 + 값 모두 크게)
 // 1위(top): 노랑 배경 + 검정 잉크 하이라이트
@@ -55,12 +55,7 @@ const CATEGORIES: CategoryDef[] = [
   { key: 'spg',    term: '스틸',     label: '스틸',       format: v => v.toFixed(1) },
   { key: 'bpg',    term: '블락',     label: '블락',       format: v => v.toFixed(1) },
   { key: 'orp',    term: '공격리바', label: '공격 리바운드', format: v => v.toFixed(1) },
-  {
-    key: 'ft_pct', term: '자유투',   label: '자유투 성공률',
-    format: v => `${v.toFixed(1)}%`,
-    subFormat: p => `${Math.round(p.ftm)}/${Math.round(p.fta)}`,
-    minAttempts: p => p.fta >= 5,   // 최소 시도 5개 이상
-  },
+  // 자유투 성공률 카드는 2026-10-13 사용자 요청으로 홈에서 뺐다(subFormat·minAttempts 는 백분율 카드용으로 남겨 둠).
 ]
 
 const valueOf = (cat: CategoryDef, p: PlayerStat): number => (cat.get ? cat.get(p) : (p[cat.key] as number))
@@ -160,10 +155,11 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
               return (
                 <div
                   key={String(cat.key)}
-                  className={mobileHidden}
+                  className={`${mobileHidden} overflow-hidden`}
                   style={{
                     background: 'var(--mm-panel-alt)',
                     border: '1px solid var(--mm-rule)',
+                    borderRadius: 'var(--mm-radius-ctl)',
                   }}
                 >
                   {/* 카테고리 헤더 */}
@@ -173,7 +169,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                   >
                     {/* "득점 · PPG" 처럼 한글이 섞인 라벨 — uppercase 는 한글에 효과가 없고
                         track-label(0.14em)은 자간만 벌렸다. t-label 로 통일. */}
-                    <h4 className="t-label font-black break-keep">
+                    <h4 className="text-sm font-black break-keep" style={{ color: 'var(--mm-ink)' }}>
                       {cat.label}
                     </h4>
                   </div>

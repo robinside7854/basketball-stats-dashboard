@@ -102,6 +102,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
+          borderRadius: 'var(--mm-radius-card)',
         }}
       >
         마일스톤 스캔 중...
@@ -151,6 +152,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                   style={{
                     background: 'var(--mm-panel-alt)',
                     border: '1px solid var(--mm-rule)',
+                    borderRadius: 'var(--mm-radius-ctl)',
                     padding: '6px 8px 6px 12px',
                   }}
                 >

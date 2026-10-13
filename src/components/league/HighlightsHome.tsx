@@ -101,7 +101,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
 
   return (
     <>
-      <SectionCard variant="stack" background="var(--mm-panel-alt)" pad="none">
+      <SectionCard variant="stack" pad="none">
         {/* 헤더 */}
         <header
           className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
@@ -182,7 +182,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   onClick={() => setOpenIdx(i)}
                   className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
                   style={{
-                    background: 'var(--mm-panel)',
+                    background: 'var(--mm-panel-alt)',
                     border: isWinning ? '2px solid var(--clutch-5-fg)' : '1px solid var(--mm-rule)',
                     borderRadius: 'var(--mm-radius-card)',
                     minHeight: 220,
@@ -218,7 +218,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       <div
                         className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex items-center justify-center"
                         style={{
-                          background: 'var(--mm-panel-alt)',
+                          background: 'var(--mm-panel)',
                           border: `2px solid ${c.team_color}`,
                           boxShadow: '0 4px 12px -4px rgba(0,0,0,0.25)',
                         }}
@@ -255,7 +255,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                         className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full transition-transform duration-200 group-hover:scale-110"
                         style={{
                           background: 'var(--mm-yellow)',
-                          border: '2px solid var(--mm-panel)',
+                          border: '2px solid var(--mm-panel-alt)',
                           boxShadow: '0 2px 6px -2px rgba(0,0,0,0.4)',
                         }}
                       >
@@ -293,7 +293,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                     <span
                       className="text-xs font-bold px-1.5 py-0.5"
                       style={{
-                        background: 'var(--mm-panel-alt)',
+                        background: 'var(--mm-panel)',
                         color: 'var(--mm-ink-soft)',
                         border: '1px solid var(--mm-rule)',
                         borderRadius: '3px',

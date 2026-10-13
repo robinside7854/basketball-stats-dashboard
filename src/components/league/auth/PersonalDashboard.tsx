@@ -35,7 +35,7 @@ import { Ring } from '@/components/league/ui/viz'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 import MeTrendChart from './MeTrendChart'
-import { useMePeriod, type MePeriod } from '../home/HomeMeContext'
+import { useMePeriod, type MePeriod, type MeShooting } from '../home/HomeMeContext'
 // 폭죽은 canvas + rAF 라 첫 화면 번들에 들어갈 이유가 없다. 실제로 터질 때만 받아온다.
 const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
 
@@ -65,6 +65,8 @@ interface QuarterSummaryData {
   eligible: boolean
   per_day: Record<Metric, number>
   ranks: Partial<Record<Metric, RankInfo>>
+  /** 야투·3점 성공/시도/성공률(%) — 2026-10-13 추가(옛 응답엔 없다). 순위 없음 */
+  shooting?: MeShooting
 }
 interface Season {
   attended_rounds: number
@@ -205,7 +207,10 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
   return (
     <>
       {/* 기간 선택 — 왼쪽 요약·오른쪽 출석·트렌드가 함께 바뀐다 */}
-      <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap mb-3 lg:mb-4">
+      <div
+        className="flex items-center gap-x-3 gap-y-1.5 flex-wrap mb-3 lg:mb-4 px-3 py-2.5"
+        style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}
+      >
         <SegmentedTabs
           ariaLabel="내 기록 기간"
           value={period}
@@ -346,7 +351,7 @@ function CardTitle({ icon: Icon, title, sub, right }: {
   return (
     <div className="flex items-center gap-1.5 flex-wrap mb-3">
       <Icon size={16} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
-      <h3 className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{title}</h3>
+      <h3 className="font-black text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{title}</h3>
       {sub && <span className="text-xs font-bold ml-1 break-keep" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
       {right && <span className="ml-auto">{right}</span>}
     </div>
@@ -436,7 +441,7 @@ function QuarterSummary({ quarter, season, period }: { quarter?: QuarterSummaryD
   return (
     <div className="px-4 sm:px-5 py-3 sm:py-4">
       <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1 mb-2.5">
-        <span className="font-bold text-sm md:text-base break-keep" style={{ color: 'var(--mm-ink)' }}>
+        <span className="font-black text-base break-keep" style={{ color: 'var(--mm-ink)' }}>
           {period === 'career' ? '전체 · 하루 평균' : q.label ? `이번 분기 · 하루 평균` : '하루 평균'}
         </span>
         {period === 'quarter' && q.label && (
@@ -453,6 +458,11 @@ function QuarterSummary({ quarter, season, period }: { quarter?: QuarterSummaryD
             rank={q.ranks[key]}
           />
         ))}
+      </div>
+      {/* 슈팅 — 야투율 · 3점 야투율 (2026-10-13). 순위 없음: 리그 리더에 야투율 자격(최소 시도) 규칙이 없다 */}
+      <div className="grid grid-cols-2 gap-1.5 md:gap-2 mt-1.5 md:mt-2">
+        <PctCard label="야투율" made={q.shooting?.fgm} att={q.shooting?.fga} pct={q.shooting?.fg_pct} />
+        <PctCard label="3점 야투율" made={q.shooting?.fg3m} att={q.shooting?.fg3a} pct={q.shooting?.fg3_pct} />
       </div>
       {/* 순위가 안 보이는 이유를 숫자로 알려준다 — 홈 리그 리더와 같은 최소 출전 */}
       {q.attended_rounds > 0 && !q.eligible && (
@@ -507,6 +517,30 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
           {rank.rank}위
         </div>
       ) : <div className="h-[18px]" aria-hidden />}
+    </div>
+  )
+}
+
+// 성공률 한 칸 — [라벨 · 성공/시도 …… 45.5%] 가로 한 줄(5칸 줄 아래 두 칸)
+function PctCard({ label, made, att, pct }: { label: string; made?: number; att?: number; pct?: number }) {
+  const has = att != null && att > 0 && pct != null
+  return (
+    <div
+      className="flex items-center justify-between gap-2 min-w-0 px-2.5 py-2"
+      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '6px' }}
+    >
+      <div className="min-w-0">
+        <div className="text-xs font-black break-keep" style={{ color: 'var(--mm-muted)' }}>{label}</div>
+        <div className="text-[11px] font-bold tabular-nums mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+          {att == null ? '—' : att > 0 ? `${made ?? 0}/${att}` : '시도 없음'}
+        </div>
+      </div>
+      <div
+        className="font-jersey font-black tabular-nums leading-none shrink-0 text-[20px] sm:text-[24px] lg:text-[22px]"
+        style={{ color: 'var(--mm-ink)', letterSpacing: '-0.015em' }}
+      >
+        {has ? `${pct!.toFixed(1)}%` : '–'}
+      </div>
     </div>
   )
 }
@@ -803,7 +837,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
         {/* 불꽃만 깜빡인다 — "진행 중"이라는 상태 자체를 나타내므로 무한 반복이 정당하다(LIVE 배지와 같은 근거).
             투명도만 흔들어 크기는 그대로 둔다. 크기를 흔들면 옆 글자가 밀린다. */}
         <Flame size={16} className="mm-flicker" style={{ color: 'var(--mm-yellow-strong)' }} />
-        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
+        <span className="font-black text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
         <span className="text-xs font-bold ml-1" style={{ color: 'var(--mm-muted)' }}>다음 경기에 이어가요</span>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -839,7 +873,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
       <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
         <Film size={20} className="shrink-0" />
         <div className="min-w-0">
-          <div className="font-bold text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
+          <div className="font-black text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
           <div className="text-xs md:text-sm font-bold mt-0.5">
@@ -891,7 +925,7 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
       <Confetti trigger={celebrate} />
       <div className="flex items-center gap-1.5 mb-3">
         <Trophy size={16} style={{ color: 'var(--mm-ink-soft)' }} />
-        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+        <span className="font-black text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
         <span className="text-xs font-bold ml-1" style={{ color: 'var(--mm-muted)' }}>

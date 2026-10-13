@@ -515,11 +515,16 @@ export default async function LeagueDetailPage({
       {/* ③ 이번 분기 — 팀 승률(요약) + 리그 리더(상세)를 한 묶음으로. 계산·데이터는 그대로, 배치만 바꿨다.
           2026-08-10 정책: 리그 리더는 전체 공개(NbaLeaders 는 initial 데이터가 있으면 /stats 를 재호출하지 않는다). */}
       <section aria-labelledby="home-quarter-title" className="space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
-          <h2 id="home-quarter-title" className="font-black break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5.5vw, 24px)', lineHeight: 1.15 }}>
+        {/* 묶음 제목 — 카드 밖에 있으므로 노란 세로 막대로 「제목」임을 분명히 한다(2026-10-13 가독성) */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+          <h2
+            id="home-quarter-title"
+            className="font-black break-keep pl-2.5"
+            style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 26px)', lineHeight: 1.15, borderLeft: '4px solid var(--mm-yellow-strong)' }}
+          >
             이번 분기
           </h2>
-          <span className="t-label break-keep">{quarterStandings.quarterLabel} · 순위와 하루 평균 리더</span>
+          <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{quarterStandings.quarterLabel} · 순위와 하루 평균 리더</span>
         </div>
         <div className={`grid gap-4 lg:gap-5 lg:items-start ${hasStandings ? 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}>
           {hasStandings && (

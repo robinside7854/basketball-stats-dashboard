@@ -12,6 +12,7 @@
 //     e. (2026-10-12 · 기간 선택) `career` — quarter 와 같은 모양의 「전체(이 리그 시즌 첫 경기일부터)」 블록.
 //        두 블록·attendance 에 내 「첫 기록일」(joined_on)과 그 이후 경기일 수(my_total_rounds · since_join) 추가 —
 //        중간 합류 회원의 출석률 분모를 첫 기록일부터 센다. 순위 자격은 리그 공통 규칙 그대로.
+//     f. (2026-10-13) 두 기간 블록에 `shooting`(야투·3점 성공/시도/성공률) 추가 — 순위 없음.
 //   친선전은 computeLeagueStats 가 제외한다. 게스트도 거기서 순위 모집단에서 빠진다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
@@ -132,6 +133,12 @@ export async function GET(
       min_rounds: minRounds,
       eligible: isEligible,
       per_day: Object.fromEntries(METRICS.map(k => [k, mine ? mine[PER_DAY_KEY[k]] : 0])) as Record<Metric, number>,
+      /** (추가 2026-10-13) 야투율·3점 야투율 — computeLeagueStats 선수 행의 값을 그대로(다시 계산하지 않는다).
+       *  순위는 없다: 홈 리그 리더에 야투율 자격 규칙(최소 시도)이 없어서 등수를 매기면 기준이 갈라진다. */
+      shooting: {
+        fgm: mine?.fgm ?? 0, fga: mine?.fga ?? 0, fg_pct: mine?.fg_pct ?? 0,
+        fg3m: mine?.fg3m ?? 0, fg3a: mine?.fg3a ?? 0, fg3_pct: mine?.fg3_pct ?? 0,
+      },
       ranks: (mine && isEligible
         ? Object.fromEntries(METRICS.map(k => [k, rankOf(mine, k)]))
         : {}) as Partial<Record<Metric, { rank: number; total: number }>>,
