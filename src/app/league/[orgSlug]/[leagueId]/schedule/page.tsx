@@ -452,12 +452,14 @@ function ScheduleContent() {
     <div className="mm-brand space-y-6">
       <LeagueSubTabs group="games" />
       <div
-        className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 md:px-8 py-5"
+        className="px-4 py-4 lg:px-6 lg:py-5 space-y-3"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
+          borderRadius: 'var(--mm-radius-card)',
         }}
       >
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2
             className="font-black"
@@ -466,7 +468,8 @@ function ScheduleContent() {
             경기 일정
           </h2>
           <p
-            className="t-label font-medium mt-1"
+            className="t-label font-medium mt-1 tabular-nums"
+            style={{ color: 'var(--mm-muted)' }}
           >
             총 {dates.length}개 날짜 등록됨
           </p>
@@ -485,15 +488,36 @@ function ScheduleContent() {
             영상으로 일정 맞추기
           </button>
         ) : null}
+        </div>
+        {/* 분기 필터 — 제목 카드 안으로 (배경 위에 칩만 떠 있지 않게, 2026-10-13) */}
+        {!loading && dates.length > 0 && quarters.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+            {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => {
+              return (
+                <Chip
+                  key={tab.id}
+                  as="button"
+                  size="md"
+                  selected={selectedQFilter === tab.id}
+                  onClick={() => setSelectedQFilter(tab.id)}
+                  className="min-w-[44px]"
+                >
+                  {tab.label}
+                </Chip>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* 날짜 추가 */}
       {isEditMode && (
         <div
-          className="p-4 sm:p-5 flex flex-wrap items-end gap-2 sm:gap-3"
+          className="px-4 py-4 lg:px-6 lg:py-5 flex flex-wrap items-end gap-2 sm:gap-3"
           style={{
             background: 'var(--mm-panel-alt)',
             border: '1px solid var(--mm-rule)',
+            borderRadius: 'var(--mm-radius-card)',
           }}
         >
           <div className="flex-1 min-w-[220px] space-y-1.5">
@@ -545,25 +569,6 @@ function ScheduleContent() {
         />
       ) : (
         <>
-        {/* 분기 필터 탭 */}
-        {quarters.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => {
-              return (
-                <Chip
-                  key={tab.id}
-                  as="button"
-                  size="md"
-                  selected={selectedQFilter === tab.id}
-                  onClick={() => setSelectedQFilter(tab.id)}
-                  className="min-w-[44px]"
-                >
-                  {tab.label}
-                </Chip>
-              )
-            })}
-          </div>
-        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {visibleDates.map(sd => {
             const isFuture = sd.date >= today
@@ -604,11 +609,11 @@ function ScheduleContent() {
             return (
             <div
               key={sd.id}
-              className="flex flex-col gap-2"
+              className="flex flex-col gap-2.5 px-4 py-4 lg:px-6"
               style={{
                 background: 'var(--mm-panel)',
                 border: '1px solid var(--mm-rule)',
-                padding: '16px 20px',
+                borderRadius: 'var(--mm-radius-card)',
               }}
             >
               {/* 날짜 바로 옆에 박스스코어를 붙인다 — PC 2열에서 justify-between 이면 날짜와 버튼 사이가
@@ -704,8 +709,8 @@ function ScheduleContent() {
               {/* 그날 결과 — 팀별 승패 (2026-10-11). 예전엔 「일정·결과」인데 결과가 하나도 없어서
                   누가 이겼는지 보려면 날짜마다 박스스코어를 열어야 했다. 승패는 색만이 아니라 숫자로 쓴다. */}
               {!upcoming && dayResults[sd.date] && (dayResults[sd.date].games > 0 || dayResults[sd.date].exhibition > 0) && (
-                <div className="pl-[30px] space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-x-2 text-xs" style={{ color: 'var(--mm-muted)' }}>
+                <div className="px-3 py-2.5 space-y-1.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
                     {dayResults[sd.date].games > 0 && <span className="font-bold">{dayResults[sd.date].games}경기</span>}
                     {dayResults[sd.date].exhibition > 0 && <span className="font-medium">친선 {dayResults[sd.date].exhibition}경기</span>}
                   </div>

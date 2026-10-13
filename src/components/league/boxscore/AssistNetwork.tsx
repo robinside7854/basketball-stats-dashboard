@@ -137,13 +137,13 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
         <>
           {/* 베스트 콤비 */}
           <section aria-labelledby="assist-best-title">
-            <p id="assist-best-title" className="t-label mb-2" style={{ color: 'var(--mm-yellow-strong)' }}>베스트 어시스트 콤비</p>
+            <p id="assist-best-title" className="text-sm font-black mb-2" style={{ color: 'var(--mm-ink)' }}>베스트 어시스트 콤비</p>
             <ol className="space-y-1.5">
               {best.map((e, i) => (
                 <li
                   key={`${e.team.key}-${e.from}-${e.to}`}
                   className="flex items-center gap-2 px-3 py-2 min-w-0"
-                  style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                  style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
                 >
                   <span className="t-num text-sm font-black w-5 shrink-0" style={{ color: 'var(--mm-muted)' }}>{i + 1}</span>
                   {/* 두 얼굴이 겹쳐 「패스 → 득점」 한 쌍으로 읽힌다. 팀 색은 테두리로(점 대신). */}
@@ -203,7 +203,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
   return (
     <section
       className="p-3"
-      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
       aria-label={`${team.name} 어시스트 네트워크`}
     >
       <div className="flex items-center gap-2 mb-1 min-w-0">

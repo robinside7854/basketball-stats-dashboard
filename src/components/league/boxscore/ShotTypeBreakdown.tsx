@@ -82,7 +82,7 @@ function TeamCard({ title, color, counts }: { title: string; color: string | nul
     <section
       aria-label={`${title} 공격 유형`}
       className="p-3 sm:p-4"
-      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
     >
       <div className="flex items-center gap-2 mb-2.5 pb-1.5 min-w-0" style={{ borderBottom: `3px solid ${color ?? 'var(--mm-rule)'}` }}>
         {color && <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
@@ -277,7 +277,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
               const meta = p.team_id ? teamMeta.get(p.team_id) : undefined
               const name = players.get(p.player_id)?.name ?? '?'
               return (
-                <li key={p.key} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                <li key={p.key} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   <div className="flex items-center gap-2 mb-2 min-w-0">
                     <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: meta?.color ?? 'var(--mm-muted)' }} />
                     <span className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{name}</span>

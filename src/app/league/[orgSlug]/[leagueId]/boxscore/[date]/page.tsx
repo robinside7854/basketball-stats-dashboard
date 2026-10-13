@@ -79,10 +79,11 @@ export default async function BoxscorePage({
       <LeagueSubTabs group="games" />
       {/* 페이지 헤더 — 뒤로가기 · 날짜 · 공유 링크 */}
       <div
-        className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 md:px-8 py-4 sm:py-5"
+        className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-6 lg:py-5"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
+          borderRadius: 'var(--mm-radius-card)',
         }}
       >
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">

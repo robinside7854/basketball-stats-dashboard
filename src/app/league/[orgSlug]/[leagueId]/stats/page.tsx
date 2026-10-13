@@ -708,8 +708,9 @@ function LeagueStatsPageInner() {
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
-      <div className="space-y-3">
-        <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
+      {/* 제목 · 분기 · 표 모드를 한 카드에 — 배경 위에 칩만 떠 있지 않게 (2026-10-13) */}
+      <SectionCard variant="standalone" className="space-y-3">
+        <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em', lineHeight: 1.15 }}>리그 스탯</h2>
         {/* 1줄: 분기 선택 */}
         <QuarterChips
           quarters={quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q`, isCurrent: q.is_current }))}
@@ -718,7 +719,7 @@ function LeagueStatsPageInner() {
         />
         {/* 2줄: 표 모드 — 표 카드 안에 두면 375px 에서 4번째 칩이 잘려서, 모든 모드 공통 위치로 뺐다 */}
         <div className="flex">{modeChips}</div>
-      </div>
+      </SectionCard>
 
       {/* 기록실 — 시즌 최고 8칸 보드. 메인 스탯(loading)과 독립적으로 항상 렌더하고
           자체 highsLoading 으로 스켈레톤을 보여준다 — 리더보드가 비어 있어도(경기 데이터 없음)
@@ -782,7 +783,7 @@ function LeagueStatsPageInner() {
 
           {/* 비교하기 버튼 */}
           {compareIds.size > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)' }}>
+            <div className="flex items-center gap-2 px-4 py-2 lg:px-6" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-card)' }}>
               <span className="text-xs font-black" style={{ color: 'var(--mm-ink)', letterSpacing: '0.08em' }}>선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
               <button
                 onClick={() => setCompareModalOpen(true)}
@@ -814,10 +815,10 @@ function LeagueStatsPageInner() {
           {/* 전체 스탯 테이블 */}
           <SectionCard variant="standalone" pad="none">
             {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
-            <div className="px-4 py-3 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+            <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex items-center gap-2 shrink-0">
-                <TrendingUp size={14} style={{ color: 'var(--mm-ink-soft)' }} />
-                <span className="font-bold text-base" style={{ color: 'var(--mm-ink)' }}>전체 스탯</span>
+                <TrendingUp size={18} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
+                <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>전체 스탯</h3>
               </div>
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
               <div className="flex flex-wrap items-center gap-2 pb-0.5 sm:ml-auto">
@@ -836,7 +837,7 @@ function LeagueStatsPageInner() {
                 </div>
                 {/* 자동 임계값 뱃지 · 정규 참여자 필터 (수동 컨트롤 제거) */}
                 <span
-                  className="shrink-0 text-xs font-bold"
+                  className="shrink-0 text-xs font-bold tabular-nums"
                   style={{ color: 'var(--mm-muted)' }}
                   title={`이 기간에 열린 ${roundBase}라운드의 30% 이상 참여 · 정규 참여자 자동 필터`}
                 >

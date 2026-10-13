@@ -280,10 +280,11 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
     <div className="space-y-4 lg:space-y-5" style={{ color: 'var(--mm-ink)' }}>
       {/* 요약 패널 — 페이지 제목은 stats 의 「리그 스탯」(h2)이 맡으므로 여기선 h3 · 글자도 그보다 작게 */}
       <div
-        className="relative px-5 py-5 lg:px-6 lg:py-6"
+        className="relative px-4 py-4 lg:px-6 lg:py-5"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
+          borderRadius: 'var(--mm-radius-card)',
         }}
       >
         <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -315,6 +316,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
               style={{
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
+                borderRadius: 'var(--mm-radius-ctl)',
               }}
             >
               <p
@@ -369,10 +371,11 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
             <div
               key={a.category}
               data-award-card
-              className="relative flex flex-col"
+              className="relative flex flex-col overflow-hidden"
               style={{
                 background: 'var(--mm-panel)',
                 border: '1px solid var(--mm-rule)',
+                borderRadius: 'var(--mm-radius-card)',
               }}
             >
               {/* 상단 카테고리 accent 스트라이프 */}
@@ -389,7 +392,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                 onToggle={e => toggleCat(a.category, (e.currentTarget as HTMLDetailsElement).open)}
               >
                 <summary
-                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset"
                   style={{ borderBottom: '1px solid var(--mm-rule)' }}
                 >
                   <div
@@ -658,12 +661,12 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
               {a.runners.length > 0 && (
                 <div className="px-4 py-3 md:px-5 md:py-3.5" style={{ background: 'var(--mm-panel)' }}>
                   <p
-                    className="text-xs font-bold mb-2"
-                    style={{ color: 'var(--mm-muted)' }}
+                    className="text-sm font-black mb-1"
+                    style={{ color: 'var(--mm-ink-soft)' }}
                   >
                     후보
                   </p>
-                  <div className="space-y-1">
+                  <div className="divide-y divide-[color:var(--mm-rule)]">
                     {a.runners.map((r, idx) => (
                       <button
                         key={`${r.player_id}-${idx}`}
@@ -736,7 +739,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                   type="button"
                   onClick={() => setOpenAward(a)}
                   className="w-full inline-flex items-center justify-center gap-1.5 min-h-11 px-4 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                  style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+                  style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
                 >
                   전체 순위 {a.allCandidates.length}명 보기
                   <span aria-hidden className="text-base leading-none" style={{ color: 'var(--mm-ink)' }}>→</span>
@@ -776,7 +779,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
               <>
                 <div className="flex items-center gap-3 pt-1">
                   <div aria-hidden style={{ flex: 1, height: '1px', background: 'var(--mm-rule)' }} />
-                  <p className="t-label whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>
+                  <p className="text-lg lg:text-xl font-black whitespace-nowrap" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                     특수 부문{' '}
                     <span style={{ color: 'var(--mm-yellow-strong)' }}>· Special</span>
                   </p>

@@ -9,6 +9,8 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import AssistNetwork, { type AssistLink, type AssistPlayer } from '@/components/league/boxscore/AssistNetwork'
 import ShotTypeBreakdown, { type ShotTypeRow, type ShotPlayer } from '@/components/league/boxscore/ShotTypeBreakdown'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
+import SectionCard from '@/components/league/ui/SectionCard'
+import SectionHeader from '@/components/league/ui/SectionHeader'
 
 type InsightTeam = { key: string; team_id: string; name: string; color: string }
 type InsightPlayer = { id: string; name: string; photo_url: string | null }
@@ -79,14 +81,12 @@ export default function TeamInsightsSection({ leagueId, quarterId, teamOrder = [
   const single = active !== ALL
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>시즌 어시스트 · 공격 유형</h3>
-        <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
-          {scopeText} 누적 · 마감된 정규전 기준 (친선전 제외) · 날짜별 박스스코어와 같은 판정
-        </p>
-      </div>
-      <div className="p-4 sm:p-5 space-y-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+    <SectionCard variant="standalone" pad="none" ariaLabel="시즌 어시스트 · 공격 유형">
+      <SectionHeader
+        title="시즌 어시스트 · 공격 유형"
+        description={`${scopeText} 누적 · 마감된 정규전 기준 (친선전 제외) · 날짜별 박스스코어와 같은 판정`}
+      />
+      <div className="px-4 py-4 lg:px-6 lg:py-5 space-y-4">
         {data === null ? (
           <div className="flex justify-center py-8"><BasketballLoader size={24} /></div>
         ) : teams.length === 0 ? (
@@ -125,7 +125,7 @@ export default function TeamInsightsSection({ leagueId, quarterId, teamOrder = [
             {/* 팀 하나면 PC 에서 두 그림을 나란히, 모든 팀이면 각 그림이 자체 2열을 쓰도록 위아래로 */}
             <div className={`grid grid-cols-1 gap-6 ${single ? 'lg:grid-cols-2 lg:gap-5' : ''}`}>
               <section aria-labelledby="team-insight-assist" className="min-w-0 space-y-2">
-                <p id="team-insight-assist" className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>시즌 어시스트</p>
+                <p id="team-insight-assist" className="text-base font-black" style={{ color: 'var(--mm-ink)' }}>시즌 어시스트</p>
                 <AssistNetwork
                   links={assistLinks}
                   games={[]}
@@ -134,7 +134,7 @@ export default function TeamInsightsSection({ leagueId, quarterId, teamOrder = [
                 />
               </section>
               <section aria-labelledby="team-insight-shots" className="min-w-0 space-y-2">
-                <p id="team-insight-shots" className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>공격 유형</p>
+                <p id="team-insight-shots" className="text-base font-black" style={{ color: 'var(--mm-ink)' }}>공격 유형</p>
                 <ShotTypeBreakdown
                   rows={shotRows}
                   games={[]}
@@ -148,6 +148,6 @@ export default function TeamInsightsSection({ leagueId, quarterId, teamOrder = [
           </>
         )}
       </div>
-    </div>
+    </SectionCard>
   )
 }

@@ -379,7 +379,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
       {sorted.map(r => {
         const rr = r as PlayerRow & DailyStat
         return (
-          <div key={rr.player_id} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+          <div key={rr.player_id} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Avatar src={rr.photo_url} name={rr.name} size={32} ringColor={ringOf(rr.team_color)} decorative />
@@ -399,7 +399,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
         )
       })}
       {total && (
-        <div className="p-3" style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-rule)' }}>
+        <div className="p-3" style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="flex items-baseline gap-2 min-w-0">
               <span className="text-base font-black truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</span>
@@ -467,13 +467,13 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
 
   return (
     <section aria-labelledby="daily-leaders-title">
-      <p id="daily-leaders-title" className="t-label mb-2" style={{ color: 'var(--mm-yellow-strong)' }}>당일 스탯 리더</p>
+      <h3 id="daily-leaders-title" className="text-base lg:text-lg font-black mb-2.5" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>당일 스탯 리더</h3>
       <div className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-4 lg:grid-cols-7 sm:overflow-visible">
         {leaders.map(({ Icon, label, p, val, sub }) => (
           <div
             key={label}
             className="shrink-0 w-[9.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
-            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             <div className="flex items-center gap-1.5">
               <Icon size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
@@ -672,15 +672,15 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
 
   return (
-    <div className="mm-brand" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+    <div className="mm-brand overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
       {/* 요약 서브헤더 — 경기 수 · 이미지 저장 버튼 */}
       <div
-        className="shrink-0 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2"
+        className="shrink-0 px-4 lg:px-6 py-2.5 flex items-center justify-between gap-2"
         style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
       >
         {/* 날짜는 페이지 제목에 이미 있다 — 여기선 경기 수만 (2026-10-12) */}
         <div className="min-w-0 flex-1">
-          <p id="daily-boxscore-title" className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
+          <p id="daily-boxscore-title" className="text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
             {/* 회원 화면이라 운영 용어(슬롯·미사용 슬롯)는 쓰지 않는다 (2026-10-11) */}
             <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{recordedCount}경기</span>
             {recordedCount - completedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · 기록 중 {recordedCount - completedCount}</span>}
@@ -713,7 +713,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
         const heroColor = hero.team_color
         return (
           <div
-            className="shrink-0 px-4 sm:px-6 py-2 flex items-center gap-2.5 min-h-11"
+            className="shrink-0 px-4 lg:px-6 py-2 flex items-center gap-2.5 min-h-11"
             style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}
           >
             <Avatar src={hero.photo_url} name={hero.name} size={32} ringColor={heroColor ? accentOrInk(heroColor) : null} decorative />
@@ -731,7 +731,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       {/* 탭 바 — 스코어보드 접이식 섹션 제거, 콘텐츠는 경기결과 탭으로 이관 */}
       {!loading && games.length > 0 && (
         // 공용 SegmentedTabs(리뉴얼 1단계) — 5탭은 360px 에 빠듯해 트랙이 가로로 밀리고, 고른 탭은 화면 안으로 당겨 온다
-        <div className="shrink-0 px-4 sm:px-6 py-2.5" style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}>
+        <div className="shrink-0 px-4 lg:px-6 py-2.5" style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}>
           <SegmentedTabs
             items={[
               { key: 'result',  label: '경기결과',  count: games.length },
@@ -762,15 +762,15 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               role="tabpanel"
               id="daily-boxscore-panel-result"
               aria-labelledby="daily-boxscore-tab-result"
-              className="p-4 sm:p-5 space-y-5"
+              className="px-4 py-4 lg:px-6 lg:py-5 space-y-6"
             >
               {/* 팀별 일일 전적 요약 */}
               {teamRecords.length > 0 && (
                 <div>
-                  <p
-                    className="text-xs uppercase tracking-widest font-black mb-2.5"
-                    style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.20em' }}
-                  >팀별 일일 전적</p>
+                  <h3
+                    className="text-base lg:text-lg font-black mb-2.5"
+                    style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                  >팀별 일일 전적</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {teamRecords.map(r => {
                       const diff = r.PF - r.PA
@@ -778,7 +778,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                         <div
                           key={r.id}
                           className="p-3"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
                         >
                           <div className="flex items-center gap-2 mb-2 min-w-0">
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color ?? 'var(--mm-muted)' }} />
@@ -814,16 +814,16 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
               {/* 경기별 스코어 카드 — 클릭 시 확장(하이라이트 + 경기별 박스스코어) */}
               <section className="space-y-3">
-                <p
-                  className="text-xs uppercase tracking-widest font-black mb-2.5"
-                  style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}
-                >경기별 스코어</p>
+                <h3
+                  className="text-base lg:text-lg font-black"
+                  style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                >경기별 스코어</h3>
 
                 {/* ⚠ "카드를 누르면 박스스코어가 열린다"는 안내가 rolledUp 일 때만 떴다.
                     정규전은 같은 대진이 연속될 수 없어(2연속 뛴 팀 강제 휴식) 롤업이 한 칸도
                     안 일어나므로, 이 안내가 **영영 안 떴다.** 접힌 카드에 셰브론 아이콘 하나뿐이라
                     맞대결 기록이 있는 줄도 몰랐다는 신고로 이어졌다(2026-09-18). 안내는 늘 띄운다. */}
-                <p className="text-xs mb-2.5" style={{ color: 'var(--mm-muted)' }}>
+                <p className="text-xs -mt-1.5 mb-2.5" style={{ color: 'var(--mm-muted)' }}>
                   {rolledUp && '쿼터별로 나눠 올린 경기는 한 경기로 묶어 보여줍니다. '}
                   카드를 누르면 그 경기의 박스스코어가 열립니다.
                 </p>
@@ -845,6 +845,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                       style={{
                         background: !g.is_complete && g.is_started ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                         border: '1px solid var(--mm-rule)',
+                        borderRadius: 'var(--mm-radius-ctl)',
                       }}
                     >
                       {/* 승자 팀 좌측 4px 컬러 바 */}
@@ -1038,7 +1039,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               role="tabpanel"
               id="daily-boxscore-panel-players"
               aria-labelledby="daily-boxscore-tab-players"
-              className="p-4 sm:p-5 space-y-4"
+              className="px-4 py-4 lg:px-6 lg:py-5 space-y-4"
             >
               {/* 팀 필터 chip */}
               {teamList.length > 0 && (
@@ -1071,7 +1072,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               {filteredStats.length > 0
                 ? (
                   <>
-                    <div className="hidden md:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+                    <div className="hidden md:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <StatTable rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
                     </div>
                     {/* 모바일 카드 뷰 */}
@@ -1093,7 +1094,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               role="tabpanel"
               id="daily-boxscore-panel-shots"
               aria-labelledby="daily-boxscore-tab-shots"
-              className="p-4 sm:p-5"
+              className="px-4 py-4 lg:px-6 lg:py-5"
             >
               <ShotTypeBreakdown
                 rows={shotTypes}
@@ -1121,7 +1122,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               role="tabpanel"
               id="daily-boxscore-panel-compare"
               aria-labelledby="daily-boxscore-tab-compare"
-              className="p-4 sm:p-5"
+              className="px-4 py-4 lg:px-6 lg:py-5"
             >
               <TeamComparePanel dailyStats={dailyStats} games={games} />
             </div>
@@ -1133,7 +1134,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               role="tabpanel"
               id="daily-boxscore-panel-assist"
               aria-labelledby="daily-boxscore-tab-assist"
-              className="p-4 sm:p-5"
+              className="px-4 py-4 lg:px-6 lg:py-5"
             >
               <AssistNetwork
                 links={assistLinks}
@@ -1267,7 +1268,7 @@ function GameVideos({ videos, label }: { videos: { slot_num: number; quarter?: n
           ))}
         </div>
       )}
-      <div className="aspect-video overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+      <div className="aspect-video overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
         <iframe
           key={active.url}
           src={embedUrl}
@@ -1337,7 +1338,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       {!allComplete && (
         <div
           className="text-xs px-3 py-2 font-bold"
-          style={{ color: 'var(--mm-ink)', background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)' }}
+          style={{ color: 'var(--mm-ink)', background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-ctl)' }}
         >
           ⚠ 이 날의 일부 경기가 아직 마감되지 않았습니다 — 최종 수치는 마감 후 확정됩니다.
         </div>
@@ -1345,9 +1346,9 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
       {/* 조합 버튼 — 팀 3개면 3쌍이 자연스럽게 grid-cols-3 */}
       <div>
-        <p className="text-xs font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--mm-muted)' }}>
+        <h3 className="text-base lg:text-lg font-black mb-2" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           이날 맞붙은 팀
-        </p>
+        </h3>
         <div
           className="grid gap-1.5"
           style={{ gridTemplateColumns: `repeat(auto-fit, minmax(180px, 1fr))` }}
@@ -1380,7 +1381,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       </div>
 
       {h2h.gameCount === 0 ? (
-        <div className="text-center py-10" style={{ color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)' }}>
+        <div className="text-center py-10 px-4" style={{ color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
           <p className="text-sm">
             <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{A.name}</span>
             {' vs '}

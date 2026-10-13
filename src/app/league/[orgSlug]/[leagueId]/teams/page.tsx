@@ -17,6 +17,7 @@ import { pickTeamLeader } from './_lib/teamLeaders'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
+import SectionHeader from '@/components/league/ui/SectionHeader'
 import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
@@ -351,7 +352,7 @@ function StatsTable({
           )}
         </div>
       </div>
-      <div className="overflow-hidden" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+      <div className="overflow-hidden" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
         {statMode === 'basic' ? (
           basicSorted.map((p, i) => {
             const isLeader = leaderId && p.player_id === leaderId
@@ -719,13 +720,13 @@ function TeamDetailPanel({
       {/* 팀 컬러 좌측 accent bar */}
       <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: team.color }} aria-hidden />
       {/* Header */}
-      <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+      <div className="pl-5 pr-16 py-4 lg:pl-6 flex flex-wrap items-center gap-x-3 gap-y-1" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
         <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '24px', letterSpacing: '-0.005em' }}>{team.name}</span>
-        <span className="text-sm font-bold" style={{ color: 'var(--mm-muted)' }}>{standing.w}승 {standing.d > 0 ? `${standing.d}무 ` : ''}{standing.l}패</span>
+        <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{standing.w}승 {standing.d > 0 ? `${standing.d}무 ` : ''}{standing.l}패</span>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="px-4 py-4 pl-5 lg:px-6 lg:py-5 space-y-6">
         {players.length === 0 ? (
           <p className="text-sm text-center py-6" style={{ color: 'var(--mm-muted)' }}>팀 없음 — 스탯이 없습니다</p>
         ) : (
@@ -733,8 +734,8 @@ function TeamDetailPanel({
             {/* B. 팀 스탯 — 득점·실점은 한 막대로 맞대고, 나머지는 타일 (2026-10-12) */}
             {computed && (
               <div>
-                <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 스탯</p>
-                <div className="p-3 mb-2.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 스탯</p>
+                <div className="p-3 mb-2.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   <div className="flex items-end justify-between gap-3 mb-2">
                     <div>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-positive)', fontSize: '28px' }}>{avgPf.toFixed(1)}</div>
@@ -754,7 +755,7 @@ function TeamDetailPanel({
                     { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: 'var(--mm-ink)' },
                     { label: 'STL+BLK', value: computed.defPg.toFixed(1), sub: '평균 수비 이벤트', color: 'var(--mm-ink)' },
                   ].map(card => (
-                    <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                    <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '28px' }}>{card.value}</div>
                       <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{card.label}</div>
                       <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{card.sub}</div>
@@ -768,7 +769,7 @@ function TeamDetailPanel({
             {/* byPpg 가 없으면 정규 후보가 0명 — 나머지 1위도 전부 없으니 제목째 숨긴다 */}
             {computed?.byPpg && (
               <div>
-                <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 내 1위</p>
+                <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 내 1위</p>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
                   {[
                     { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)}점` : null },
@@ -781,7 +782,7 @@ function TeamDetailPanel({
                       key={item.label}
                       onClick={() => item.player && setQuickView({ id: item.player.player_id, name: item.player.name })}
                       className="shrink-0 px-3 py-2.5 flex items-center gap-2.5 text-left transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)] min-w-0"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
                     >
                       {item.player && <LeaderAvatar name={item.player.name} photoUrl={item.player.photo_url} color={team.color} />}
                       <div className="min-w-0">
@@ -798,7 +799,7 @@ function TeamDetailPanel({
             {/* D. 팀 특성 — 비율은 고리 게이지, 숫자는 고리 안 (2026-10-12) */}
             {computed && (
               <div>
-                <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 특성</p>
+                <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 특성</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
                     // 에이스(정규 득점 1위)가 없으면 0% 가 초록으로 '좋음'처럼 보인다 — 카드째 뺀다
@@ -832,7 +833,7 @@ function TeamDetailPanel({
                       color: computed.ftPct > 75 ? 'var(--mm-positive)' : computed.ftPct > 60 ? 'var(--mm-neutral-strong)' : 'var(--mm-negative)',
                     },
                   ].map(tile => (
-                    <div key={tile.title} className="p-3 flex flex-col items-center text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                    <div key={tile.title} className="p-3 flex flex-col items-center text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       {tile.ratio != null ? (
                         <Ring ratio={tile.ratio} size={72} stroke={7} color={tile.color} label={`${tile.title} ${tile.value}`}>
                           <span className="text-base font-black tabular-nums" style={{ color: tile.color }}>{tile.value}</span>
@@ -865,7 +866,7 @@ function TeamDetailPanel({
 
             {/* E. Player Stats Table */}
             <div>
-              <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>선수 스탯</p>
+              <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>선수 스탯</p>
               <StatsTable players={tablePlayers} leagueId={leagueId} color={team.color} viewMode="avg" statMode="basic" />
             </div>
           </>
@@ -1278,10 +1279,12 @@ function LeagueTeamsPageInner() {
   // 분기가 하나도 없으면 순위를 그릴 수 없다. 분기 추가는 명단 편집의 「분기 관리」에서 한다(옛 /roster 링크 대체).
   if (quarters.length === 0) return (
     <div className="mm-brand space-y-4">
-      <div className="text-center py-16" style={{ color: 'var(--mm-muted)' }}>
-        <p className="text-sm">등록된 분기가 없습니다</p>
-        {editToggle && <div className="mt-3 flex justify-center">{editToggle}</div>}
-      </div>
+      <SectionCard variant="standalone">
+        <div className="text-center py-12">
+          <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>등록된 분기가 없습니다</p>
+          {editToggle && <div className="mt-3 flex justify-center">{editToggle}</div>}
+        </div>
+      </SectionCard>
       {editing && <RosterEditor leagueId={leagueId} quarterId={selectedQId} teams={teams} quarters={quarters} />}
     </div>
   )
@@ -1293,9 +1296,9 @@ function LeagueTeamsPageInner() {
       {/* 스탯 우산 서브탭 — 리더보드 · 팀 (2026-09-28 4→2, 어워즈·명단 흡수) */}
       <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
       {/* ── 분기 버튼 탭 ── */}
-      <div>
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀</h2>
+      <SectionCard variant="standalone">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em', lineHeight: 1.15 }}>팀</h2>
           {editToggle}
         </div>
         <QuarterChips
@@ -1303,7 +1306,7 @@ function LeagueTeamsPageInner() {
           value={selectedQId}
           onChange={setSelectedQId}
         />
-      </div>
+      </SectionCard>
 
       {dataLoading ? (
         <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
@@ -1327,6 +1330,7 @@ function LeagueTeamsPageInner() {
                   style={{
                     background: isFirst ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     border: isSelected ? '2px solid var(--mm-ink)' : '1px solid var(--mm-rule)',
+                    borderRadius: 'var(--mm-radius-card)',
                   }}
                 >
                   {/* 팀 컬러 좌측 accent bar */}
@@ -1364,7 +1368,7 @@ function LeagueTeamsPageInner() {
                   )}
                   {/* 상대 전적 — 정체성 기준 (같은 정체성 그룹 안의 다른 정체성들과 대전) */}
                   <div className="px-4 py-3 pl-5">
-                    <p className="t-label mb-2" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>상대 전적</p>
+                    <p className="text-xs font-bold mb-2" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 72%, transparent)' : 'var(--mm-ink-soft)' }}>상대 전적</p>
                     {/* 상대별 미니 전적 막대 — 이름 칸 폭을 고정해 막대 시작점을 맞춘다 */}
                     <div className="space-y-1.5">
                       {standings.filter(op => op.identityKey !== s.identityKey).map(op => {
@@ -1408,7 +1412,7 @@ function LeagueTeamsPageInner() {
               <div className="relative">
                 <button
                   className="absolute top-4 right-4 z-10 w-11 h-11 flex items-center justify-center transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)]"
-                  style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
+                  style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
                   onClick={() => setSelectedTeamId(null)}
                   aria-label="패널 닫기"
                 >
@@ -1441,12 +1445,14 @@ function LeagueTeamsPageInner() {
         <TeamInsightsSection leagueId={leagueId} quarterId={selectedQId} teamOrder={standings.map(s => s.identityKey)} />
 
         {/* ── 섹션 2: 팀별 선수 ── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
-            </div>
+        <div className="space-y-3">
+          {/* 제목 · 보기 토글 · 읽는 법 · 팀 탭 — 한 카드로 묶는다(배경 위에 글자만 떠 있지 않게, 2026-10-13) */}
+          <SectionCard variant="standalone" pad="none" ariaLabel="팀별 선수">
+          <SectionHeader
+            title="팀별 선수"
+            description="이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시"
+          />
+          <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-3">
             {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
                 묶음 단위로 줄바꿈하게 두고 버튼은 44px 터치 높이·줄바꿈 금지. */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1501,7 +1507,6 @@ function LeagueTeamsPageInner() {
                 비정규 선수 보기
               </label>
             </div>
-          </div>
 
           {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
           <StatsReadingGuide items={[
@@ -1571,6 +1576,8 @@ function LeagueTeamsPageInner() {
               )
             })}
           </div>
+          </div>
+          </SectionCard>
 
           {standings.filter(s => s.identityKey === activeStatsTeamKey).map(s => {
             const players = visibleTeamPlayers(s.identityKey)
@@ -1585,7 +1592,7 @@ function LeagueTeamsPageInner() {
               <SectionCard variant="standalone" pad="none" className="relative">
                 {/* 팀 컬러 좌측 accent bar */}
                 <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
-                <div className="px-4 py-3 pl-5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <div className="px-4 py-3 pl-5 lg:px-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
                   <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}>{s.displayName}</span>
                   {s.quarterLabels.length > 0 && selectedQId === 'all' && (
@@ -1593,7 +1600,7 @@ function LeagueTeamsPageInner() {
                   )}
                   <span className="text-xs font-bold tracking-wider ml-auto" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
                 </div>
-                <div className="px-4 py-3 pl-5">
+                <div className="px-4 py-3 pl-5 lg:px-6 lg:py-4">
                   {/* 2026-08-10: "팀 순위 화면 사진 0건" 피드백 대응 — 로스터의 4:5 사진 + 팀컬러
                       스트립 패턴을 그대로 재사용(새 패턴 만들지 않음). 표 위에 얹되 기본 접힘
                       (<details>, 로 세로 증가 0 — 스탯 읽는 법 안내와 동일한 검증된 패턴 재사용).
@@ -1663,15 +1670,17 @@ function LeagueTeamsPageInner() {
 
         {/* ── 섹션 3: 비정규 선수 스탯 ── */}
         {showIrregular && irregularStats.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수{scopeSuffix}</h3>
-            <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
-            <SectionCard variant="standalone" pad="none">
-              <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+          <div>
+            <SectionCard variant="standalone" pad="none" ariaLabel="비정규 선수">
+              <SectionHeader
+                title={`비정규 선수${scopeSuffix}`}
+                description="팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)"
+              />
+              <div className="px-4 py-3 lg:px-6 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>
-                <span className="text-xs font-bold tracking-wider" style={{ color: 'var(--mm-muted)' }}>{irregularStats.length}명</span>
+                <span className="text-xs font-bold tracking-wider tabular-nums" style={{ color: 'var(--mm-muted)' }}>{irregularStats.length}명</span>
               </div>
-              <div className="px-4 py-3">
+              <div className="px-4 py-3 lg:px-6 lg:py-4">
                 <StatsTable
                   players={irregularStats}
                   leagueId={leagueId}
