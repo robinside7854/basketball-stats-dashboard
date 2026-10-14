@@ -13,6 +13,8 @@
 //        두 블록·attendance 에 내 「첫 기록일」(joined_on)과 그 이후 경기일 수(my_total_rounds · since_join) 추가 —
 //        중간 합류 회원의 출석률 분모를 첫 기록일부터 센다. 순위 자격은 리그 공통 규칙 그대로.
 //     f. (2026-10-13) 두 기간 블록에 `shooting`(야투·3점 성공/시도/성공률) 추가 — 순위 없음.
+//     g. (2026-10-14) `last_played: { date, missed_game_days } | null` — 마지막 출전일 + 그 뒤 결장 경기일.
+//        ⚠ 이 값만 친선일을 포함한다(출석 지표) — computeLastPlayed 머리 주석.
 //   친선전은 computeLeagueStats 가 제외한다. 게스트도 거기서 순위 모집단에서 빠진다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
@@ -24,6 +26,7 @@ import { leaderMinRounds } from '@/lib/stats/eligibility'
 import { computePerDayStats } from '@/lib/stats/perDayStats'
 import { loadClipsByEventIds } from '@/lib/highlights/loader'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { computeLastPlayed } from '@/lib/stats/lastPlayed'
 import type { HighlightClip } from '@/lib/highlights/types'
 import type { PlayerStat } from '@/types/league'
 
@@ -69,7 +72,7 @@ export async function GET(
   // 1) 이번 분기(홈 리더와 같은 판정) · 시즌 누적 · 스트릭 — 독립 → 병렬
   const q = await loadCurrentQuarter(sb, leagueId)
   const range = q ? gameDateRange(q) : null
-  const [quarterStats, seasonStats, streaksResult, perDay, quarterDates, pinnedClips] = await Promise.all([
+  const [quarterStats, seasonStats, streaksResult, perDay, quarterDates, pinnedClips, lastPlayed] = await Promise.all([
     computeLeagueStats(sb, leagueId, {
       unit: 'round',
       ...(range ? { from: range.from, to: range.to } : q ? { quarterId: q.id } : {}),
@@ -81,6 +84,8 @@ export async function GET(
     // 분기에 기간이 없을 때만 quarter_id 로 그 분기 경기일을 따로 읽는다(기간이 있으면 날짜로 거른다)
     q && !range ? loadQuarterDates(sb, leagueId, q.id) : Promise.resolve(null),
     loadPinnedClips(sb, leagueId, pid),
+    // 마지막 출전일(친선 포함) — 실패해도 null
+    computeLastPlayed(sb, leagueId, pid),
   ])
   const me = seasonStats.players.find(p => p.player_id === pid)
 
@@ -190,6 +195,7 @@ export async function GET(
       attendance,
       trend,
       pinned_clips: pinnedClips,
+      last_played: lastPlayed,
       season: { attended_rounds: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 },
       weekly: { available: false },
       milestoneChasers: [],
@@ -279,6 +285,7 @@ export async function GET(
     attendance,
     trend,
     pinned_clips: pinnedClips,
+    last_played: lastPlayed,
     season,
     weekly,
     milestoneChasers: chasers,

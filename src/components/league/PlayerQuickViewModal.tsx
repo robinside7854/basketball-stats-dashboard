@@ -15,6 +15,8 @@ import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { LEAGUE_BASELINE, tierAgainst, type ShootingBaseline } from '@/lib/stats/shootingBaseline'
 import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
+import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
+import type { LastPlayedData } from '@/lib/format/lastPlayed'
 
 // 차트 4종 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿨다(수 KB).
 //   더 이상 따로 쪼개 늦게 받을 이유가 없어 바로 import 한다(모달 자체가 호출부에서 lazy 로드된다).
@@ -46,6 +48,8 @@ type Detail = {
   active_streaks?: { ten: number; twenty: number; three: number; win: number }
   dynamic_duo?: DuoEntry[]
   pinned_event_ids?: string[]
+  /** (2026-10-14) 마지막 출전(친선일 포함) — 분기 없는 요청에만 실린다 */
+  last_played?: LastPlayedData | null
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   // record = 그 라운드(하루)의 전 경기 합산 전적. result 는 그 합산의 종합 판정(W/L/D).
@@ -572,6 +576,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               </div>
             </div>
           </div>
+          {/* 마지막 출전일 + 그 뒤 결장 경기일 (2026-10-14) — 아바타 옆 칸은 360px 에서 좁아 히어로 아래 전체 폭에 둔다.
+              detail 이 없으면(비회원 게이트·로딩) 그리지 않는다 — 「출전 기록 없음」으로 오해된다. */}
+          {detail && detail.last_played !== undefined && (
+            <LastPlayedLine lastPlayed={detail.last_played} className="relative mt-3" />
+          )}
         </div>
 
         {showEditPanel && isEditMode && (() => {

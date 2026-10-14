@@ -4,6 +4,7 @@
 // 배치 (모바일 한 줄 · PC ≥lg 두 칸)
 //   왼쪽(요약 · PC 에서 sticky)
 //     · 프로필 머리 + 선수카드
+//     · 마지막 출전 「10.11 (토) · 3일 전」 + 「이후 경기일 N번 결장」(2026-10-14 · 친선일 포함)
 //     · 상단 3칸 「출전 N일 · 하루 평균(득점) · 다음 목표까지」 — 숫자 셋만 크게
 //     · 이번 분기 · 하루 평균 5지표 + 순위(홈 「리그 리더」와 같은 기준 · 같은 최소 출전) · 시즌 누적 보조 줄
 //     · 계정(비밀번호 변경)
@@ -31,6 +32,8 @@ import Avatar from '@/components/league/ui/Avatar'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
+import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
+import type { LastPlayedData } from '@/lib/format/lastPlayed'
 import { Ring } from '@/components/league/ui/viz'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
@@ -111,6 +114,8 @@ interface DashboardData {
   attendance?: AttendanceData
   trend?: { quarter: TrendRow[]; season: TrendRow[] }
   pinned_clips?: HighlightClip[]
+  /** (2026-10-14) 마지막 출전(친선일 포함) — null = 출전 기록 없음 · undefined = 옛 응답 */
+  last_played?: LastPlayedData | null
 }
 
 interface Props {
@@ -260,6 +265,11 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
               </div>
             ) : (
               <>
+                {/* 마지막 출전 + 그 뒤 결장 경기일 (2026-10-14) — 기간 토글과 무관(친선일 포함 · 출석 지표).
+                    옛 응답(필드 없음)에서는 그리지 않는다 — 「출전 기록 없음」으로 오해된다. */}
+                {data.last_played !== undefined && (
+                  <LastPlayedLine lastPlayed={data.last_played} className="px-4 sm:px-5 pt-3" />
+                )}
                 {/* 상단 3칸 — 출전 · 하루 평균 득점 · 다음 목표까지 */}
                 <TopTiles quarter={block ?? EMPTY_QUARTER} chaser={data.milestoneChasers[0] ?? null} />
                 {/* 기간 하루 평균 5지표 + 순위 · 시즌 누적은 보조 줄 */}

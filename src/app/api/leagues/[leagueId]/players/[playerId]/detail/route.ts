@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { canViewStats } from '@/lib/auth/guard'
 import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { computeLastPlayed } from '@/lib/stats/lastPlayed'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
@@ -24,6 +25,11 @@ export async function GET(
 
   // 이 파일에는 득점 계산이 5곳 있었다. 전부 이 룰 하나를 공유한다.
   const scoringRules: ScoringRules = await fetchScoringRules(supabase, leagueId)
+
+  // (2026-10-14) 마지막 출전일 + 그 뒤 결장 경기일 — 분기와 무관한 값이라 분기 없는 요청에서만 계산한다
+  //   (선수 카드는 분기 없는 첫 응답에서 읽는다). ⚠ 이 값만 친선일 포함 — computeLastPlayed 머리 주석.
+  //   아래 집계와 독립이라 먼저 띄워 두고 응답 직전에 받는다. 실패하면 null.
+  const lastPlayedP = quarterId ? Promise.resolve(undefined) : computeLastPlayed(supabase, leagueId, playerId)
 
   const [
     { data: leaguePlayers },
@@ -109,7 +115,7 @@ export async function GET(
   }
 
   if (gameIds.length === 0) {
-    return NextResponse.json({ rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [], player_stats: null })
+    return NextResponse.json({ rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [], player_stats: null, last_played: await lastPlayedP })
   }
 
   // 서버측 db-max-rows(=1000) 우회 위해 페이지네이션 청크 조회.
@@ -771,5 +777,6 @@ export async function GET(
     active_streaks,
     dynamic_duo,
     pinned_event_ids,
+    last_played: await lastPlayedP,
   })
 }
