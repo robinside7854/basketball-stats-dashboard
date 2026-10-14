@@ -20,6 +20,8 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
 import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import TeamFormLine from '@/components/league/nba/TeamFormLine'
+import type { TeamForm } from '@/lib/stats/standings'
 
 // 명단 로드 전 기본값 — 렌더마다 새 Set 을 만들면 TeamDetailPanel useMemo 가 매번 다시 돈다
 const EMPTY_IDS: ReadonlySet<string> = new Set()
@@ -947,6 +949,9 @@ function LeagueTeamsPageInner() {
     goals_for: number
     goals_against: number
     h2h: Record<string, { w: number; d: number; l: number }>
+    // 특정 분기일 때만 온다(team-identities 4-1) — 최근 5경기 · 연승/연패 · 최근 경기일 · 승차
+    form?: TeamForm | null
+    games_behind?: number | null
   }
   const [identities, setIdentities] = useState<TeamIdentity[]>([])
   const [statMode, setStatMode] = useState<StatMode>('basic')
@@ -1128,6 +1133,8 @@ function LeagueTeamsPageInner() {
       l: id.losses,
       gf: id.goals_for,
       ga: id.goals_against,
+      form: id.form ?? null,
+      gamesBehind: id.games_behind ?? null,
     }))
   }, [identities])
 
@@ -1364,6 +1371,11 @@ function LeagueTeamsPageInner() {
                       <OnPanel>
                         <RecordBar wins={s.w} losses={s.l} draws={s.d} height={26} />
                       </OnPanel>
+                      {s.form && (
+                        <div className="mt-2">
+                          <TeamFormLine form={s.form} gamesBehind={s.gamesBehind} onDark={isFirst} />
+                        </div>
+                      )}
                     </div>
                   )}
                   {/* 상대 전적 — 정체성 기준 (같은 정체성 그룹 안의 다른 정체성들과 대전) */}

@@ -28,6 +28,7 @@ import { resolveTeamId } from '@/lib/league/teamScope'
 import { pickRecentRounds, RECENT_ROUNDS } from '@/lib/league/recentRounds'
 import type { League } from '@/types/league'
 import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
+import { computeTeamForm, computeGamesBehind, type FormGame } from '@/lib/stats/standings'
 
 // 기록이 있는 최근 RECENT_ROUNDS 라운드 요약 — NbaRoundsSummary 용.
 // 미라클모닝은 하루 = 1라운드 (여러 경기 진행). 각 라운드마다 팀별 W-L-득실차 요약.
@@ -143,7 +144,7 @@ async function computeCurrentQuarterStandings(
   let quarterLabel = '시즌 전체'
   let gameQuery = supabase
     .from('league_games')
-    .select('id, home_team_id, away_team_id, home_score, away_score, quarter_id')
+    .select('id, date, slot_num, home_team_id, away_team_id, home_score, away_score, quarter_id')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
     .eq('is_exhibition', false)
@@ -199,10 +200,19 @@ async function computeCurrentQuarterStandings(
   // 팀명은 **이 분기 이름**으로 — 경기의 quarter_id 가 옛 분기로 박혀 있어도 순위표에 지난 분기
   //   팀명(락다운 등)이 섞이지 않게 한다. 이 표는 정의상 한 분기짜리다.
   const qidFor = (g: { quarter_id: unknown }) => currentQ?.id ?? (g.quarter_id as string | null)
+  // 흐름(최근 5 · 연승/연패 · 최근 경기일) 입력 — 같은 루프에서 모은다(추가 쿼리 없음).
+  //   이 조회는 한 분기 · 마감 · 정규전뿐이라 연승이 분기를 넘지 않는다(lib/stats/standings.ts).
+  const formGames: FormGame[] = []
   for (const g of games) {
     const h = ensureTeam(g.home_team_id as string | null, qidFor(g))
     const a = ensureTeam(g.away_team_id as string | null, qidFor(g))
     if (!h || !a) continue
+    formGames.push({
+      date: g.date as string,
+      slot: (g.slot_num as number | null) ?? null,
+      homeKey: h.key, awayKey: a.key,
+      homeScore: (g.home_score as number) ?? 0, awayScore: (g.away_score as number) ?? 0,
+    })
     // 같은 팀끼리 잡힌 경기(데이터 이상 · 팀 통합 후 옛 경기 등)는 상대전적에서 뺀다.
     // 안 그러면 "자기 자신에게 1승 1패" 같은 항목이 생긴다.
     const isSelfMatch = h.key === a.key
@@ -222,7 +232,8 @@ async function computeCurrentQuarterStandings(
     }
   }
 
-  const standings = [...teamAgg.values()]
+  const form = computeTeamForm(formGames)
+  const standings: StandingRow[] = [...teamAgg.values()]
     .filter(t => t.wins + t.losses + t.draws > 0)
     .map(t => {
       const total = t.wins + t.losses + t.draws
@@ -235,12 +246,14 @@ async function computeCurrentQuarterStandings(
         }))
         // 많이 이긴 상대부터 — 아무 순서나 두면 카드마다 상대 순서가 달라져 비교가 어렵다.
         .sort((x, y) => (y.wins - y.losses) - (x.wins - x.losses) || x.name.localeCompare(y.name, 'ko'))
-      return { ...t, h2h, winRate: total > 0 ? +((t.wins / total) * 100).toFixed(1) : 0 }
+      return { ...t, h2h, winRate: total > 0 ? +((t.wins / total) * 100).toFixed(1) : 0, form: form.get(t.key) ?? null }
     })
     .sort((a, b) => {
       if (b.winRate !== a.winRate) return b.winRate - a.winRate
       return (b.ptsFor - b.ptsAgainst) - (a.ptsFor - a.ptsAgainst)
     })
+  const gb = computeGamesBehind(standings)
+  for (const t of standings) t.gamesBehind = gb.get(t.key) ?? null
 
   return { standings, quarterLabel, gamesCount: games.length }
 }
@@ -268,7 +281,7 @@ const getCachedQuarterStandings = (leagueId: string) =>
       const resolverPromise = loadIdentityResolver(sb, leagueId)
       return computeCurrentQuarterStandings(sb, leagueId, resolverPromise)
     },
-    ['home-quarter-standings', leagueId],
+    ['home-quarter-standings', leagueId, 'v2-form'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
   )
 

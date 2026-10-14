@@ -19,10 +19,14 @@
 //   - quarter_labels: 표시용 (예: ["26.1Q", "26.2Q"])
 //   - gp/wins/draws/losses/gf/ga
 //   - h2h: 상대 정체성 key → {w, d, l}
+//   - form / games_behind (2026-10-14, 특정 분기일 때만): 최근 5경기 · 연승/연패 · 최근 경기일 성적 · 승차
+//     (lib/stats/standings.ts). 마감된 정규전만 · 그 분기 기간(날짜)으로 고른다 — 연승이 분기를 넘지 않게.
+//     「전체」에서는 정체성이 여러 분기에 걸치고 서로 공존하지 않은 팀도 섞이므로 주지 않는다.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewLeague } from '@/lib/auth/guard'
+import { computeTeamForm, computeGamesBehind, type FormGame, type TeamForm } from '@/lib/stats/standings'
 
 export interface TeamIdentity {
   key: string
@@ -38,6 +42,9 @@ export interface TeamIdentity {
   goals_for: number
   goals_against: number
   h2h: Record<string, { w: number; d: number; l: number }>
+  /** 특정 분기 조회일 때만 — 그 분기에 마감 경기가 없으면 null */
+  form?: TeamForm | null
+  games_behind?: number | null
 }
 
 export async function GET(
@@ -62,19 +69,19 @@ export async function GET(
     { data: quartersRaw },
   ] = await Promise.all([
     supabase.from('league_games')
-      .select('id, quarter_id, home_team_id, away_team_id, home_score, away_score, is_exhibition, is_started, is_complete')
+      .select('id, date, slot_num, quarter_id, home_team_id, away_team_id, home_score, away_score, is_exhibition, is_started, is_complete')
       .eq('league_id', leagueId)
       .eq('is_started', true),
     // 임시팀은 정체성(프랜차이즈) 후보가 아니다 — 넣으면 분기 × 임시팀 조합만큼 유령 정체성이 생긴다
     supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId).is('exhibition_date', null),
     supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
-    supabase.from('league_quarters').select('id, year, quarter').eq('league_id', leagueId).order('year').order('quarter'),
+    supabase.from('league_quarters').select('id, year, quarter, start_date, end_date').eq('league_id', leagueId).order('year').order('quarter'),
   ])
 
-  type Game = { id: string; quarter_id: string | null; home_team_id: string | null; away_team_id: string | null; home_score: number; away_score: number; is_exhibition: boolean | null; is_complete: boolean | null }
+  type Game = { id: string; date: string; slot_num: number | null; quarter_id: string | null; home_team_id: string | null; away_team_id: string | null; home_score: number; away_score: number; is_exhibition: boolean | null; is_complete: boolean | null }
   type TeamRow = { id: string; name: string; color: string | null }
   type OverrideRow = { quarter_id: string; team_id: string; name: string | null; color: string | null }
-  type QuarterRow = { id: string; year: number; quarter: number }
+  type QuarterRow = { id: string; year: number; quarter: number; start_date: string | null; end_date: string | null }
 
   const games = (gamesRaw ?? []) as Game[]
   const teams = (teamsRaw ?? []) as TeamRow[]
@@ -185,6 +192,28 @@ export async function GET(
   } else {
     // 전체 — 하나 이상의 분기에서 활성인 모든 정체성 (quarter_ids 는 전체 범위)
     identities = [...identityGroups.values()]
+  }
+
+  // 4-1) 흐름 지표 — 특정 분기만. 기간이 있으면 날짜로(lib/league/currentQuarter.ts 와 같은 원칙),
+  //      팀명은 그 분기 이름으로 푼다(옛 quarter_id 로 박힌 경기도 이 분기 정체성으로).
+  if (quarterId && quarterId !== 'all') {
+    const q = quarters.find(qq => qq.id === quarterId)
+    const inQuarter = (g: Game) => q?.start_date && q?.end_date
+      ? g.date >= q.start_date && g.date <= q.end_date
+      : g.quarter_id === quarterId
+    const formGames: FormGame[] = []
+    for (const g of games) {
+      if (!g.is_complete || g.is_exhibition || !inQuarter(g)) continue
+      if (!g.home_team_id || !g.away_team_id) continue
+      const h = resolveIdentity(g.home_team_id, quarterId)
+      const a = resolveIdentity(g.away_team_id, quarterId)
+      if (!h || !a) continue
+      formGames.push({ date: g.date, slot: g.slot_num, homeKey: h.key, awayKey: a.key, homeScore: g.home_score ?? 0, awayScore: g.away_score ?? 0 })
+    }
+    const form = computeTeamForm(formGames)
+    // 승차는 카드에 보이는 승·패(위 3)와 같은 숫자로 — 경기를 한 번이라도 한 팀끼리만 비교
+    const gb = computeGamesBehind(identities.filter(id => id.wins + id.losses + id.draws > 0).map(id => ({ key: id.key, wins: id.wins, losses: id.losses })))
+    identities = identities.map(id => ({ ...id, form: form.get(id.key) ?? null, games_behind: gb.get(id.key) ?? null }))
   }
 
   // 5) 정렬: 승점(3W+1D) desc → 득실차 desc → 득점 desc

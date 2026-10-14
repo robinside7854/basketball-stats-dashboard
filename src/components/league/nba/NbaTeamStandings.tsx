@@ -9,6 +9,8 @@ import { HeadToHead } from './RecordDisplay'
 import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
+import type { TeamForm } from '@/lib/stats/standings'
+import TeamFormLine from './TeamFormLine'
 
 export type StandingRow = {
   key: string
@@ -27,6 +29,10 @@ export type StandingRow = {
   //   h2h 필드가 없던 시절의 캐시가 그대로 돌아올 수 있고, 필수로 두면 그동안 홈 화면이
   //   TypeError 로 죽는다. 캐시가 만료될 때까지의 몇십 초를 위해 optional 로 둔다.
   h2h?: Array<{ key: string; name: string; wins: number; losses: number; draws: number }>
+  // 흐름(2026-10-14, lib/stats/standings.ts) — 최근 5경기 · 연승/연패 · 최근 경기일 성적 · 승차.
+  //   h2h 와 같은 이유(캐시)로 optional.
+  form?: TeamForm | null
+  gamesBehind?: number | null
 }
 
 type Props = {
@@ -145,6 +151,12 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   </span>
                 </div>
               </div>
+
+              {t.form && (
+                <div className={`mt-2 pl-8 sm:pl-11 ${wide('lg:pl-[242px]')}`}>
+                  <TeamFormLine form={t.form} gamesBehind={t.gamesBehind} />
+                </div>
+              )}
 
               {/* 상대전적 — 전체 전적 아래 한 줄. 위 칩(전체)과 같은 줄에 두면 어디까지가
                   전체이고 어디부터가 상대별인지 구분이 안 된다. 줄을 나누고 라벨을 붙인다.
