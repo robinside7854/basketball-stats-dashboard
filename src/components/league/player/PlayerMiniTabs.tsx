@@ -1,7 +1,7 @@
 'use client'
 
 // 선수 카드 미니 탭 — 세로 스크롤이 과도하게 길어지는 문제 해결용 (2026-08-03)
-// 모바일에서 가로 스크롤 칩, 데스크탑에서는 한 줄에 정렬.
+// 모바일은 3열 격자(잘림 없이 전부 보임), 640px 이상은 한 줄.
 // sticky 로 붙여 스크롤 중에도 탭 전환이 가능하도록 한다.
 
 export type PlayerTabKey = 'season' | 'quarters' | 'duo' | 'shot' | 'career' | 'trend'
@@ -33,7 +33,7 @@ export default function PlayerMiniTabs({
 
   return (
     <div
-      className="sticky z-10 px-3 py-2 overflow-x-auto scrollbar-hide"
+      className="sticky z-10 px-3 py-2"
       style={{
         top: topOffset,
         background: 'var(--mm-panel)',
@@ -42,7 +42,7 @@ export default function PlayerMiniTabs({
       role="tablist"
       aria-label="선수 카드 섹션"
     >
-      <div className="flex gap-1.5 whitespace-nowrap">
+      <div className={`grid gap-1.5 ${tabs.length <= 3 ? 'grid-cols-3' : tabs.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : tabs.length === 5 ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-6'}`}>
         {tabs.map(t => {
           const isActive = t.key === active
           return (
@@ -51,10 +51,10 @@ export default function PlayerMiniTabs({
               role="tab"
               aria-selected={isActive}
               onClick={() => onChange(t.key)}
-              className="shrink-0 px-3 min-h-[36px] text-xs font-black cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="min-w-0 px-1.5 min-h-[44px] text-xs font-black leading-tight break-keep text-center cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={isActive
-                ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
-                : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
+                ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.01em' }
+                : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.01em' }
               }
             >
               {t.label}

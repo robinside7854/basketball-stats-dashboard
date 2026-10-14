@@ -81,8 +81,11 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
             <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
               박스스코어
             </p>
-            <p className="font-bold text-base truncate" style={{ color: 'var(--mm-ink)' }}>
-              {game.homeName} {game.homeScore} : {game.awayScore} {game.awayName}
+            {/* 점수는 절대 잘리지 않게 — 팀명만 말줄임 */}
+            <p className="font-bold text-base flex items-baseline gap-1 min-w-0" style={{ color: 'var(--mm-ink)' }}>
+              <span className="truncate min-w-0" title={game.homeName}>{game.homeName}</span>
+              <span className="shrink-0 tabular-nums whitespace-nowrap">{game.homeScore} : {game.awayScore}</span>
+              <span className="truncate min-w-0" title={game.awayName}>{game.awayName}</span>
             </p>
           </div>
           <button
@@ -114,7 +117,7 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
               <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
                 이 경기의 주인공 · {hero.role}
               </p>
-              <PlayerName id={hero.playerId} name={hero.name} hitArea={false} className="block max-w-full font-bold text-[17px] truncate" style={{ color: 'var(--mm-ink)' }} />
+              <PlayerName id={hero.playerId} name={hero.name} hitArea={false} className="block max-w-full font-bold text-[17px] truncate" title={hero.name} style={{ color: 'var(--mm-ink)' }} />
               <p className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>{hero.line}</p>
             </div>
           </div>
@@ -142,7 +145,7 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
               <tbody>
                 {rows.map(r => (
                   <tr key={r.player_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                    <td className="px-4 py-2.5 font-semibold truncate max-w-[140px]" style={{ color: 'var(--mm-ink)' }}><PlayerName id={r.player_id} name={r.name} hitArea={false} className="max-w-full truncate align-bottom" /></td>
+                    <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--mm-ink)' }}><span className="block max-w-[140px] truncate"><PlayerName id={r.player_id} name={r.name} title={r.name ?? undefined} hitArea={false} className="max-w-full truncate align-bottom" /></span></td>
                     {([r.pts, r.reb, r.ast, r.stl, r.blk]).map((v, i) => (
                       <td
                         key={i}

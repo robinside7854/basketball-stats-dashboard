@@ -104,7 +104,7 @@ export default function AwardDetailModal({ award, style, onClose }: Props) {
               </div>
               <div className="min-w-0">
                 <h2 id="award-detail-title" className={`font-jersey text-xl lg:text-2xl font-black ${style.text}`}>{award.label}</h2>
-                <p className="text-xs text-[color:var(--mm-muted)] truncate">{award.description}</p>
+                <p className="text-xs text-[color:var(--mm-muted)] break-keep leading-snug">{award.description}</p>
               </div>
             </div>
             <button onClick={onClose}

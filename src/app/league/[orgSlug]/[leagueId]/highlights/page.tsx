@@ -426,7 +426,7 @@ function ModeLine({ title, sub, avatar }: { title: React.ReactNode; sub?: string
     <div className="flex items-center gap-3 min-w-0">
       {avatar && <Avatar src={avatar.src} name={avatar.name} size={40} decorative />}
       <div className="min-w-0">
-        <h2 className="font-black text-lg lg:text-xl truncate" style={{ color: 'var(--mm-ink)' }}>{title}</h2>
+        <h2 className="font-black text-lg lg:text-xl break-keep leading-snug" style={{ color: 'var(--mm-ink)' }}>{title}</h2>
         {sub && <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sub}</p>}
       </div>
     </div>
@@ -562,7 +562,7 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
                           }}
                           aria-label={`${t.name} ${rec}`}
                         >
-                          <span className="max-w-[6em] truncate">{t.name}</span>
+                          <span className="max-w-[6em] truncate" title={t.name}>{t.name}</span>
                           <span className="tabular-nums font-bold">{rec}</span>
                         </span>
                       )
@@ -572,7 +572,7 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
                     )}
                   </div>
                 ) : r.team_names.length > 0 ? (
-                  <div className="text-xs truncate" style={{ color: 'var(--mm-muted)' }}>
+                  <div className="text-xs truncate" title={r.team_names.join(' · ')} style={{ color: 'var(--mm-muted)' }}>
                     {r.team_names.slice(0, 4).join(' · ')}
                     {r.team_names.length > 4 ? ` +${r.team_names.length - 4}` : ''}
                   </div>

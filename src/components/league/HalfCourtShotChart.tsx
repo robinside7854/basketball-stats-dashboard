@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // 하프코트 슛 차트 — FIBA 실측 비례 기반
 //
@@ -88,6 +88,19 @@ const LABEL_TEXT = '#fff'
 
 export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGUE_BASELINE }: Props) {
   const [hover, setHover] = useState<'post' | 'layup' | 'mid' | 'three' | null>(null)
+  // 실제로 그려진 폭이 좁으면(폰) 라벨의 「비중」 줄을 숨긴다 — 글자가 8px 아래로 줄어 읽히지 않는다.
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width ?? 0
+      setNarrow(w > 0 && w < 380)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const totalAttempts = zones.post.a + zones.layup.a + zones.mid.a + zones.three.a
   const volumePct = (z: Zone) => totalAttempts === 0 ? 0 : Math.round(z.a / totalAttempts * 100)
@@ -104,7 +117,7 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
 
   return (
     <div className="relative w-full" style={{ maxWidth: size }}>
-      <div style={{ width: '100%', aspectRatio: `${VBW} / ${VBH}` }}>
+      <div ref={boxRef} style={{ width: '100%', aspectRatio: `${VBW} / ${VBH}` }}>
       <svg
         viewBox={`0 0 ${VBW} ${VBH}`}
         width="100%"
@@ -260,10 +273,10 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
         {/* ═══════════════════════════════════════════ */}
         {(() => {
           const labels: { x: number; y: number; w: number; h: number; zone: 'post' | 'layup' | 'mid' | 'three'; small?: boolean }[] = [
-            { x: RIM_X - 24, y: 442,   w: 48, h: 22, zone: 'post', small: true },
-            { x: RIM_X - 34, y: 355,   w: 68, h: 44, zone: 'layup' },
-            { x: RIM_X - 40, y: 210,   w: 80, h: 60, zone: 'mid'   },
-            { x: RIM_X - 40, y: 110,   w: 80, h: 60, zone: 'three' },
+            { x: RIM_X - 26, y: 438,   w: 52, h: 28, zone: 'post', small: true },
+            { x: RIM_X - 38, y: 336,   w: 76, h: narrow ? 54 : 66, zone: 'layup' },
+            { x: RIM_X - 40, y: 210,   w: 80, h: narrow ? 54 : 66, zone: 'mid'   },
+            { x: RIM_X - 40, y: 110,   w: 80, h: narrow ? 54 : 66, zone: 'three' },
           ]
           const values = { post: zones.post, layup: zones.layup, mid: zones.mid, three: zones.three }
           const colors = { post: dsC, layup: luC, mid: mdC, three: thC }
@@ -278,27 +291,27 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
                       fill={LABEL_SCRIM} fillOpacity={active ? 0.9 : 0.78}
                       stroke={c.fill} strokeWidth={active ? 2 : 1.4} strokeOpacity="0.95" />
                 {/* 존 코드 */}
-                <text x={x + w / 2} y={y + (small ? 10 : 14)} textAnchor="middle"
-                      style={{ fontSize: small ? 9 : 10, fontWeight: 800, letterSpacing: 0.7 }}
+                <text x={x + w / 2} y={y + (small ? 11 : 15)} textAnchor="middle"
+                      style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.7 }}
                       fill={LABEL_TEXT} fillOpacity={0.88}>
                   {codes[zone]}
                 </text>
                 {/* FG% */}
-                <text x={x + w / 2} y={y + (small ? 20 : 32)} textAnchor="middle"
+                <text x={x + w / 2} y={y + (small ? 24 : 34)} textAnchor="middle"
                       style={{ fontSize: small ? 11 : 18, fontWeight: 700 }}
                       fill={LABEL_TEXT}>
                   {z.a > 0 ? `${z.fg_pct.toFixed(0)}%` : '—'}
                 </text>
                 {!small && (
                   <>
-                    <text x={x + w / 2} y={y + 46} textAnchor="middle"
-                          style={{ fontSize: 9.5, fontWeight: 700 }}
+                    <text x={x + w / 2} y={y + 48} textAnchor="middle"
+                          style={{ fontSize: 11, fontWeight: 700 }}
                           fill={LABEL_TEXT} fillOpacity={0.8}>
                       {z.m}/{z.a}
                     </text>
-                    {totalAttempts > 0 && (
-                      <text x={x + w / 2} y={y + 58} textAnchor="middle"
-                            style={{ fontSize: 8.5, fontWeight: 700 }}
+                    {totalAttempts > 0 && !narrow && (
+                      <text x={x + w / 2} y={y + 61} textAnchor="middle"
+                            style={{ fontSize: 11, fontWeight: 700 }}
                             fill={LABEL_TEXT} fillOpacity={0.62}>
                         비중 {volumePct(z)}%
                       </text>

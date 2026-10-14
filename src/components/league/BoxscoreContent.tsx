@@ -134,7 +134,7 @@ interface Props {
 function PlayerName({ row, onPlayerPick, className = 'whitespace-nowrap' }: { row: PlayerRow | DailyStat; onPlayerPick?: PlayerPick; className?: string }) {
   const base = `font-semibold text-base ${className}`
   if (!onPlayerPick || !row.player_id) {
-    return <span className={base} style={{ color: 'var(--mm-ink)' }}>{row.name}</span>
+    return <span className={base} title={row.name} style={{ color: 'var(--mm-ink)' }}>{row.name}</span>
   }
   return (
     <button
@@ -472,14 +472,14 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
         {leaders.map(({ Icon, label, p, val, sub }) => (
           <div
             key={label}
-            className="shrink-0 w-[9.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
+            className="shrink-0 w-[10.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             <div className="flex items-center gap-1.5">
               <Icon size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
               <span className="t-label">{label}</span>
             </div>
-            {/* 얼굴(40) 옆에 이름·기록 두 줄. 카드 폭 9.5rem 에서 이름 칸이 ~80px — 세 글자 이름이 안 잘린다.
+            {/* 얼굴(40) 옆에 이름·기록 두 줄. 카드 폭 10.5rem 에서 이름 칸이 ~80px — 세 글자 이름이 안 잘린다.
                 칩이 이름에 밀려 잘리지 않게 이름 쪽만 줄어든다(min-w-0 + shrink-0). */}
             <div className="flex items-center gap-2 min-w-0 mt-0.5">
               {p && <Avatar src={p.photo_url} name={p.name} size={40} ringColor={ringOf(p.team_color)} decorative />}
@@ -492,7 +492,7 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
                 </div>
                 <p className="t-num text-base font-black leading-tight" style={{ color: 'var(--mm-yellow-strong)' }}>
                   {val ?? ''}
-                  {sub && <span className="block text-xs font-semibold truncate" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
+                  {sub && <span className="block text-xs font-semibold truncate" title={sub} style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
                 </p>
               </div>
             </div>
@@ -542,7 +542,7 @@ function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: P
               style={{ borderBottom: `3px solid ${side.color ?? 'var(--mm-rule)'}` }}
             >
               <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: side.color ?? 'var(--mm-muted)' }} />
-              <span className="font-jersey font-bold text-base truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{side.name}</span>
+              <span className="font-jersey font-bold text-base truncate min-w-0" title={side.name ?? undefined} style={{ color: 'var(--mm-ink)' }}>{side.name}</span>
               <span className="ml-auto text-sm font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>{total.pts}점</span>
             </div>
             <div className="hidden md:block">
@@ -718,12 +718,15 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}
           >
             <Avatar src={hero.photo_url} name={hero.name} size={32} ringColor={heroColor ? accentOrInk(heroColor) : null} decorative />
-            <p className="text-xs sm:text-sm min-w-0 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
-              <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-              이날의 주인공 · <PlayerCardName id={hero.player_id} name={hero.name} className="font-black" hitArea={false} style={{ color: 'var(--mm-ink)' }} />
-              {ddKinds.get(hero.player_id) && <> <DdChip kind={ddKinds.get(hero.player_id)!} /></>}
-              {hero.team_name && <span style={{ color: 'var(--mm-muted)' }}> ({hero.team_name})</span>}
-              {' '}<span className="font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
+            {/* 점수는 절대 잘리지 않게 shrink-0 — 좁으면 팀명만 말줄임 */}
+            <p className="text-xs sm:text-sm min-w-0 flex-1 flex items-center gap-1" style={{ color: 'var(--mm-ink-soft)' }}>
+              <span className="shrink-0 whitespace-nowrap">
+                <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+                이날의 주인공 · <PlayerCardName id={hero.player_id} name={hero.name} className="font-black" hitArea={false} style={{ color: 'var(--mm-ink)' }} />
+              </span>
+              {ddKinds.get(hero.player_id) && <span className="shrink-0"><DdChip kind={ddKinds.get(hero.player_id)!} /></span>}
+              {hero.team_name && <span className="min-w-0 truncate" title={hero.team_name} style={{ color: 'var(--mm-muted)' }}>({hero.team_name})</span>}
+              <span className="shrink-0 font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
             </p>
           </div>
         )
@@ -785,6 +788,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color ?? 'var(--mm-muted)' }} />
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
+                              title={r.name ?? undefined}
                               style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                             >{r.name}</span>
                           </div>
@@ -909,6 +913,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                             {homeWin && <Trophy size={14} className="shrink-0 mm-stamp-in" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
+                              title={g.home_team?.name ?? '미정'}
                               style={{
                                 color: homeWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
                                 letterSpacing: '-0.005em',
@@ -932,6 +937,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                             {g.away_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.away_team.color }} />}
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
+                              title={g.away_team?.name ?? '미정'}
                               style={{
                                 color: awayWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
                                 letterSpacing: '-0.005em',
@@ -972,7 +978,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                                   <th scope="row" className="text-left py-1.5 pr-2 text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
                                     <span className="inline-flex items-center gap-1.5 min-w-0 max-w-[6rem]">
                                       {row.team && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: row.team.color }} />}
-                                      <span className="truncate">{row.team?.name ?? '미정'}</span>
+                                      <span className="truncate" title={row.team?.name ?? '미정'}>{row.team?.name ?? '미정'}</span>
                                     </span>
                                   </th>
                                   {g.quarter_scores!.map(q => (
@@ -1363,9 +1369,9 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
                   : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
               >
                 <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colA }} />
-                <span className="truncate min-w-0">{nameA}</span>
+                <span className="truncate min-w-0" title={nameA}>{nameA}</span>
                 <span className="opacity-70 shrink-0">vs</span>
-                <span className="truncate min-w-0">{nameB}</span>
+                <span className="truncate min-w-0" title={nameB}>{nameB}</span>
                 <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colB }} />
               </button>
             )

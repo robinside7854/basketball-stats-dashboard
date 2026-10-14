@@ -153,7 +153,7 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
                     <Avatar src={players.get(e.from)?.photo_url} name={nameOf(e.from)} size={32} ringColor={e.team.color ? accentOrInk(e.team.color) : null} decorative />
                     <Avatar src={players.get(e.to)?.photo_url} name={nameOf(e.to)} size={32} ringColor={e.team.color ? accentOrInk(e.team.color) : null} decorative className="-ml-2" />
                   </span>
-                  <span className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>
+                  <span className="text-base font-semibold truncate min-w-0" title={`${nameOf(e.from)} → ${nameOf(e.to)}`} style={{ color: 'var(--mm-ink)' }}>
                     <PlayerName id={e.from} name={nameOf(e.from)} hitArea={false} /> <span aria-label="에서" style={{ color: 'var(--mm-muted)' }}>→</span> <PlayerName id={e.to} name={nameOf(e.to)} hitArea={false} />
                   </span>
                   <span className="ml-auto t-num text-base font-black shrink-0" style={{ color: 'var(--mm-yellow-strong)' }}>×{e.count}</span>
@@ -211,7 +211,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
     >
       <div className="flex items-center gap-2 mb-1 min-w-0">
         <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color ?? 'var(--mm-muted)' }} />
-        <span className="font-jersey font-bold text-sm truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{team.name}</span>
+        <span className="font-jersey font-bold text-sm truncate min-w-0" title={team.name ?? undefined} style={{ color: 'var(--mm-ink)' }}>{team.name}</span>
         <span className="ml-auto text-xs font-bold tabular-nums shrink-0" style={{ color: 'var(--mm-muted)' }}>어시스트 {team.total}개</span>
       </div>
 
@@ -315,7 +315,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
         <ul className="mt-1 space-y-1">
           {team.edges.map(e => (
             <li key={`${e.from}>${e.to}`} className="flex items-center gap-2 text-sm" style={{ color: 'var(--mm-ink)' }}>
-              <span className="truncate min-w-0"><PlayerName id={e.from} name={nameOf(e.from)} hitArea={false} /> <span style={{ color: 'var(--mm-muted)' }}>→</span> <PlayerName id={e.to} name={nameOf(e.to)} hitArea={false} /></span>
+              <span className="truncate min-w-0" title={`${nameOf(e.from)} → ${nameOf(e.to)}`}><PlayerName id={e.from} name={nameOf(e.from)} hitArea={false} /> <span style={{ color: 'var(--mm-muted)' }}>→</span> <PlayerName id={e.to} name={nameOf(e.to)} hitArea={false} /></span>
               <span className="ml-auto t-num font-black shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>×{e.count}</span>
             </li>
           ))}

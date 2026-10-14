@@ -69,7 +69,7 @@ export default function CareerLeadersBoard({ players, loading, onPlayerClick }: 
                     {careerRankLabel(r.rank)}
                   </span>
                   <Avatar src={r.photo_url} name={r.name} size={24} decorative />
-                  <span className="flex-1 min-w-0 truncate font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{r.name}</span>
+                  <span className="flex-1 min-w-0 truncate font-bold text-sm" title={r.name} style={{ color: 'var(--mm-ink)' }}>{r.name}</span>
                   <span className="t-num font-black shrink-0" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>
                     {r.value.toLocaleString('ko-KR')}
                     <span className="ml-0.5 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{def.unit}</span>

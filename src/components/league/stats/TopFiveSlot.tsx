@@ -74,7 +74,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
   return (
     <SectionCard variant="standalone" ariaLabel="TOP 5 리더 슬롯" pad="base">
       {/* 헤더 */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-3">
         <Trophy size={18} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
         <h3
           className="font-black text-lg lg:text-xl whitespace-nowrap"
@@ -84,11 +84,11 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
         </h3>
         {active && (
           <span
-            className="ml-auto min-w-0 font-bold truncate text-base"
+            className="basis-full sm:basis-auto sm:ml-auto min-w-0 font-bold text-base break-keep"
             style={{ color: 'var(--mm-ink)', letterSpacing: '0.02em' }}
           >
             {metricFullLabel ?? metricLabel}
-            <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)', fontWeight: 700 }}>
+            <span className="ml-1.5 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', fontWeight: 700 }}>
               ({metricLabel})
             </span>
           </span>
@@ -161,6 +161,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                 <div className="flex flex-col gap-1 px-2 py-1.5 sm:px-2.5 sm:py-2">
                   <div
                     className="font-bold break-keep truncate"
+                    title={p.name}
                     style={{
                       color: 'var(--mm-ink)',
                       fontSize: 'clamp(14px, 3.2vw, 17px)',

@@ -162,7 +162,7 @@ export default function PlayerCompareModal({ candidates, initialIds, onClose }: 
           )}
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-[var(--mm-muted)]">#{p.number}{p.position ? ` · ${p.position}` : ''}</p>
-            <p className="font-bold text-[var(--mm-ink)] text-sm truncate">{p.name}</p>
+            <p className="font-bold text-[var(--mm-ink)] text-sm truncate" title={p.name}>{p.name}</p>
           </div>
         </div>
         <div className="p-3 grid grid-cols-3 gap-1 text-center">

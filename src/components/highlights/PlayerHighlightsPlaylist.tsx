@@ -208,7 +208,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
                       </div>
                     )}
                     <div className="flex items-center justify-between gap-1.5">
-                      <span className="text-[11px] truncate" style={{ color: 'var(--mm-muted)' }}>
+                      <span className="text-[11px] truncate" title={opponent ? `vs ${opponent}` : undefined} style={{ color: 'var(--mm-muted)' }}>
                         {opponent ? <>vs <span style={{ color: 'var(--mm-ink-soft)' }}>{opponent}</span></> : ''}
                       </span>
                       <div className="flex items-center gap-0.5">

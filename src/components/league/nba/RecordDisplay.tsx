@@ -54,7 +54,7 @@ export function HeadToHead({ records }: HeadToHeadProps) {
           >
             {/* 상한을 9ch → 7.5rem 로. ch 는 영문 '0' 폭 기준이라 한글은 9ch 에 4~5자만
                 들어갔고, 팀명이 거의 항상 잘렸다(CLAUDE.md 의 ch 단위 함정). */}
-            <span className="truncate text-xs font-medium max-w-[7.5rem]">
+            <span className="truncate text-xs font-medium max-w-[7.5rem]" title={r.name}>
               {r.name}
             </span>
             <span className="text-sm font-black t-num">

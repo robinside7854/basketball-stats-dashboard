@@ -267,6 +267,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   {/* 이름 (중앙 · Bold) */}
                   <div
                     className="text-sm sm:text-base font-black text-center px-3 truncate"
+                    title={`${c.player_number ? `#${c.player_number} ` : ''}${c.player_name ?? ''}`}
                     style={{ color: 'var(--mm-ink)' }}
                   >
                     {c.player_number ? `#${c.player_number} ` : ''}{c.player_name}
@@ -281,6 +282,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       <span className="font-bold" style={{ color: 'var(--mm-muted)' }}>vs</span>
                       <span
                         className="font-black truncate"
+                        title={c.opponent_name}
                         style={{ color: 'var(--mm-ink-soft)' }}
                       >
                         {c.opponent_name}

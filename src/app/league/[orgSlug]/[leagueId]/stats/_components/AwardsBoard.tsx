@@ -409,6 +409,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                   <div className="min-w-0 flex-1">
                     <h3
                       className="font-black truncate"
+                      title={a.label}
                       style={{
                         color: 'var(--mm-ink)',
                         fontSize: '16px',
@@ -421,6 +422,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
                     {/* 접힌 상태에서 남는 정보 — 수상자 이름 · 기록값 */}
                     <p
                       className="text-xs truncate mt-0.5"
+                      title={winnerLine}
                       style={{ color: a.winner ? 'var(--mm-ink-soft)' : 'var(--mm-muted)', lineHeight: 1.3 }}
                     >
                       {winnerLine}

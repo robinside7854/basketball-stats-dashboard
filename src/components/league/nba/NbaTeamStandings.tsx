@@ -119,6 +119,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   />
                   <span
                     className="font-black min-w-0 break-keep truncate"
+                    title={t.name}
                     style={{
                       fontSize: isTop ? 'clamp(18px, 4.6vw, 22px)' : 'clamp(16px, 3.8vw, 18px)',
                       letterSpacing: '-0.005em',

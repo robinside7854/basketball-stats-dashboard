@@ -250,6 +250,7 @@ export default function PlayerPickerGrid({ endpoint, hrefBase }: Props) {
                 </div>
                 <span
                   className="block mt-1.5 text-[13px] font-bold text-center leading-tight truncate"
+                  title={p.name}
                   style={{ color: 'var(--mm-ink)' }}
                 >
                   {p.name}

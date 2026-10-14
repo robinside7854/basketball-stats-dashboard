@@ -701,7 +701,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                         {/* 카드의 주인공. 유니폼체(좁고 자간 좁음) 대신 본문체 — 1280px 에서
                             「강경호」가 「강경/호」로 꺾이던 원인 중 하나였다. break-keep 만으로는
                             overflowWrap:'anywhere' 를 못 이기므로 이름은 nowrap 으로 둔다. */}
-                        <span className="text-[20px] lg:text-[26px] font-black text-[var(--mm-ink)] whitespace-nowrap min-w-0 truncate tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" style={{ lineHeight: 1.15 }}>{p.name}</span>
+                        <span className="text-[20px] lg:text-[26px] font-black text-[var(--mm-ink)] whitespace-nowrap min-w-0 truncate tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" title={p.name} style={{ lineHeight: 1.15 }}>{p.name}</span>
                       </div>
                       {p.number !== null && (
                         <span className="t-num text-sm text-[var(--mm-muted)] font-medium">#{p.number}</span>

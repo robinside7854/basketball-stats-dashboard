@@ -153,7 +153,7 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
                     className="font-jersey font-black leading-none"
                     style={{ color: isHighlight ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.01em' }}
                   />
-                  <span className="text-xs font-bold truncate w-full" style={{ color: 'var(--mm-ink-soft)' }}>
+                  <span className="text-xs font-bold truncate w-full" title={high.player.name ?? undefined} style={{ color: 'var(--mm-ink-soft)' }}>
                     {high.player.name}
                   </span>
                   <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>

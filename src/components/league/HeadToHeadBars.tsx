@@ -44,7 +44,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
       style={{ borderBottom: '1px solid var(--mm-rule)' }}
     >
       <div className="text-right min-w-0">
-        <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorA), letterSpacing: '-0.005em' }}>{a.name}</div>
+        <div className="text-base sm:text-lg font-bold truncate" title={a.name} style={{ color: accentOrInk(colorA), letterSpacing: '-0.005em' }}>{a.name}</div>
         {a.sub && <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{a.sub}</div>}
       </div>
       <div className="flex flex-col items-center shrink-0">
@@ -52,7 +52,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
         <span className="text-xs mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{centerSub}</span>
       </div>
       <div className="text-left min-w-0">
-        <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorB), letterSpacing: '-0.005em' }}>{b.name}</div>
+        <div className="text-base sm:text-lg font-bold truncate" title={b.name} style={{ color: accentOrInk(colorB), letterSpacing: '-0.005em' }}>{b.name}</div>
         {b.sub && <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{b.sub}</div>}
       </div>
     </div>

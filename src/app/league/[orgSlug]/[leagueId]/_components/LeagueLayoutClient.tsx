@@ -303,7 +303,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                     <UserIcon size={16} aria-hidden />
                   )}
                 </span>
-                <span className="truncate max-w-[120px] text-sm font-bold">{meLabel}</span>
+                <span className="truncate max-w-[120px] text-sm font-bold" title={meLabel}>{meLabel}</span>
               </Link>
             )}
           </div>

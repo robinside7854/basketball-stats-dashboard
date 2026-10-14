@@ -215,7 +215,7 @@ function MobileStatCard({
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-1">
             {p.team_name && (
               <Chip size="sm" icon={<span className="inline-block rounded-full" style={{ width: 8, height: 8, background: p.team_color ?? 'var(--mm-rule)', border: '1px solid var(--mm-rule)' }} />}>
-                <span className="truncate max-w-[7rem]">{p.team_name}</span>
+                <span className="truncate max-w-[7rem]" title={p.team_name}>{p.team_name}</span>
               </Chip>
             )}
             <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{p.gp}일 출전{ineligible && <IneligibleTag />}{lowAttempts && <LowAttemptTag />}</span>
