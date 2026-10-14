@@ -53,12 +53,14 @@ export function buildQuarterRow(
   players: readonly PlayerStat[],
   totalRounds: number,
   playerId: string,
+  /** 게스트 줄 — 순위 모집단(players)에는 없지만 본인 줄은 같은 정의로 보여야 한다 */
+  guests: readonly PlayerStat[] = [],
 ): QuarterTableRow | null {
-  const me = players.find(p => p.player_id === playerId)
+  const me = players.find(p => p.player_id === playerId) ?? guests.find(p => p.player_id === playerId)
   if (!me || me.gp <= 0) return null
   const minGp = quarterMinRounds(totalRounds, players)
   const qualified = players.filter(p => p.gp >= minGp)
-  const meQualified = me.gp >= minGp
+  const meQualified = me.gp >= minGp && players.includes(me)  // 게스트는 「리그 최고」 비교에서 빠진다
 
   const values = {} as Record<QuarterTableKey, number | null>
   const best: QuarterTableKey[] = []

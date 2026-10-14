@@ -27,6 +27,7 @@ import { computePerDayStats } from '@/lib/stats/perDayStats'
 import { loadClipsByEventIds } from '@/lib/highlights/loader'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { computeLastPlayed } from '@/lib/stats/lastPlayed'
+import { pickPlayerRow } from '@/lib/stats/playerTotals'
 import type { HighlightClip } from '@/lib/highlights/types'
 import type { PlayerStat } from '@/types/league'
 
@@ -87,7 +88,8 @@ export async function GET(
     // 마지막 출전일(친선 포함) — 실패해도 null
     computeLastPlayed(sb, leagueId, pid),
   ])
-  const me = seasonStats.players.find(p => p.player_id === pid)
+  // 게스트도 자기 줄은 있다(순위 모집단에서만 빠진다) — 선수 카드와 같은 「선수 숫자는 한 벌」
+  const me = pickPlayerRow(seasonStats, pid)
 
   // 진행 중 스트릭 (이 선수) — 연속 참석 먼저, 이후 지표 스트릭 count 내림차순
   const myAtt = streaksResult.attendance.find(a => a.player_id === pid)
@@ -116,12 +118,13 @@ export async function GET(
   const quarterDays = seasonDays.filter(inQuarter)
 
   // 기간 블록(이번 분기 · 전체) — 같은 모양. 순위 모집단 = 홈 리더와 같은 「최소 출전」 충족자
-  const buildPeriod = (stats: { players: PlayerStat[]; total_rounds?: number }, label: string | null, days: string[]) => {
+  const buildPeriod = (stats: { players: PlayerStat[]; guests?: PlayerStat[]; total_rounds?: number }, label: string | null, days: string[]) => {
     const players = stats.players
     const minRounds = leaderMinRounds(players)
     const eligible = players.filter(p => p.gp >= minRounds)
-    const mine = players.find(p => p.player_id === pid)
-    const isEligible = !!mine && mine.gp >= minRounds
+    const mine = pickPlayerRow(stats, pid)
+    // 순위는 모집단(게스트 제외) 안에 있을 때만
+    const isEligible = !!mine && players.includes(mine) && mine.gp >= minRounds
     const rankOf = (m: PlayerStat, key: Metric): { rank: number; total: number } => {
       const f = PER_DAY_KEY[key]
       return { rank: eligible.filter(p => p[f] > m[f]).length + 1, total: eligible.length }

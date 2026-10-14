@@ -30,8 +30,8 @@ import { canViewStats } from '@/lib/auth/guard'
 import { scorePoints, fetchScoringRules, isPlusOneFor } from '@/lib/stats/scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { isAssistEvent } from '@/lib/stats/boxLine'
 
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
 type CategoryKey = 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m' | 'fga' | 'fgm'
 
@@ -216,7 +216,7 @@ export async function GET(
       case 'block': s.blk++; break
     }
     // 어시스트 (related_player_id)
-    if (made && e.related_player_id && (SHOT_TYPES as readonly string[]).includes(e.type)) {
+    if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
       const asDay = ensure(e.related_player_id, date)
       asDay.ast++
     }

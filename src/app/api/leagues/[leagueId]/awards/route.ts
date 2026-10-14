@@ -33,6 +33,7 @@ import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 import { canViewStats } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { isAssistEvent } from '@/lib/stats/boxLine'
 
 export type AwardCategory =
   | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
@@ -433,7 +434,6 @@ export async function GET(
           const pid = e.league_player_id
           const date = gameToDate.get(e.league_game_id)
           if (!date) continue  // scope 밖 게임 (실질적으로 안 걸림 · gameIds 로 이미 필터)
-          const made = e.result === 'made'
           if (pid) {
             const s = ensurePR(pid, date)
             // 득점은 시즌 rules 로 계산한다.
@@ -446,7 +446,7 @@ export async function GET(
             else if (e.type === 'block') s.blk++
           }
           // 어시스트는 shot made 의 related_player_id 로만
-          if (made && DD_SHOT_TYPES.includes(e.type) && e.related_player_id) {
+          if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
             ensurePR(e.related_player_id, date).ast++
           }
         }
@@ -539,7 +539,7 @@ export async function GET(
 
   // ── BEST_DUO (최고의 듀오) ────────
   //   정의: 두 선수 (A, B) 의 상호 어시스트로 만든 합작 득점
-  //         duo_pts = SUM(points)  WHERE (scorer, assister) ∈ {(A,B), (B,A)}
+  //         duo_pts = SUM(scorePoints)  WHERE (scorer, assister) ∈ {(A,B), (B,A)}
   //         pair 는 순서 무관 — LEAST/GREATEST 로 정규화
   //   요건: 두 선수 모두 attendance 자격 충족 (게스트 제외)
   //   범위: 시즌·해당 분기의 real 게임 (친선 제외) · FIELD SHOT 만 (자유투/and_one 제외)
@@ -558,31 +558,35 @@ export async function GET(
       for (let p = 0; ; p++) {
         const { data: chunk, error: chunkErr } = await supabase
           .from('league_game_events')
-          .select('league_player_id, related_player_id, points')
+          .select('league_player_id, related_player_id, league_game_id, type, result, quarter')
           .in('league_game_id', gameIds)
           .in('type', DUO_SHOT_TYPES)
           .eq('result', 'made')
           .not('league_player_id', 'is', null)
           .not('related_player_id', 'is', null)
-          .gt('points', 0)
           .order('id', { ascending: true })
           .range(p * PAGE, (p + 1) * PAGE - 1)
         // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 BEST_DUO 후보가 일부만 집계된다.
         if (chunkErr) throw new Error(`awards(BEST_DUO): leagueId=${leagueId} 페이지네이션(p=${p}) 실패 — ${chunkErr.message}`)
         if (!chunk || chunk.length === 0) break
-        for (const e of chunk as Array<{ league_player_id: string; related_player_id: string; points: number }>) {
+        for (const e of chunk as Array<{ league_player_id: string; related_player_id: string; league_game_id: string; type: string; result: string | null; quarter: number | null }>) {
           const scorer = e.league_player_id
           const assister = e.related_player_id
           if (!scorer || !assister || scorer === assister) continue
+          if (!isAssistEvent(e.type, e.result, assister)) continue
+          // 득점은 저장된 points 가 아니라 scorePoints + isPlusOneFor(득점자·그 쿼터) 로 다시 센다 —
+          //   points 는 기록 시점 값으로 굳어 +1 지정을 나중에 바꾸면 어긋난다(CLAUDE.md). 선수 카드 듀오와 같은 계산.
+          const pts = scorePoints(e.type, e.result, isPlusOneFor(scorer, gamePlusOne.get(e.league_game_id), plusOneSet, e.quarter ?? null), scoringRules)
+          if (pts <= 0) continue
           const key = scorer < assister ? `${scorer}|${assister}` : `${assister}|${scorer}`
           let acc = pairMap.get(key)
           if (!acc) {
             acc = { pts: 0, count: 0, byScorer: new Map() }
             pairMap.set(key, acc)
           }
-          acc.pts += e.points
+          acc.pts += pts
           acc.count += 1
-          acc.byScorer.set(scorer, (acc.byScorer.get(scorer) ?? 0) + e.points)
+          acc.byScorer.set(scorer, (acc.byScorer.get(scorer) ?? 0) + pts)
         }
         if (chunk.length < PAGE) break
       }

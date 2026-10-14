@@ -20,6 +20,7 @@ import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinutes'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadIdentityResolver } from './teamIdentity'
+import { isAssistEvent } from './boxLine'
 
 export type LeagueStatsUnit = 'round'
 
@@ -28,6 +29,11 @@ export interface LeagueStatsOpts {
   /** 정체성 그룹 스탯 집계용 다중 분기 필터 */
   quarterIds?: string[] | null
   teamId?: string | null
+  /**
+   * 결과 행을 이 선수 하나로 줄인다. ⚠ 집계 자체는 리그 전체 그대로 돈다 —
+   *   예전엔 이벤트 조회를 `league_player_id = playerId` 로 걸러, 어시스트(related_player_id 쪽에 붙는다)가
+   *   통째로 0 이 되고 PIE 분모도 틀렸다(2026-10-14). 한 선수만 필요해도 숫자는 스탯 탭과 같아야 한다.
+   */
   playerId?: string | null
   from?: string | null
   to?: string | null
@@ -35,7 +41,13 @@ export interface LeagueStatsOpts {
 }
 
 export interface LeagueStatsResult {
+  /** 개인 순위표에 오르는 선수(게스트 제외) — 스탯 탭·홈 리더·선수 카드 순위의 모집단 */
   players: PlayerStat[]
+  /**
+   * 게스트 선수 행 — 순위 모집단에서는 빠지지만 **본인 카드에는 같은 정의의 숫자**가 있어야 한다.
+   *   (2026-10-14 「선수 숫자는 한 벌」) 순위·리더보드 코드는 이 배열을 보지 않는다.
+   */
+  guests?: PlayerStat[]
   games_count?: number
   /** 해당 기간(필터 적용 후)에 실제로 열린 라운드(경기일) 수 — 최소 출전 자격 계산의 분모 */
   total_rounds?: number
@@ -116,7 +128,7 @@ export async function computeLeagueStats(
   if (gErr) throw new Error(gErr.message)
 
   const gameIds = (games ?? []).map(g => g.id)
-  if (gameIds.length === 0) return { players: [], total_rounds: 0 }
+  if (gameIds.length === 0) return { players: [], guests: [], total_rounds: 0 }
 
   const gamePlusOneMap: Record<string, GamePlusOne> = {}
   const gameToDate: Record<string, string> = {}
@@ -159,7 +171,6 @@ export async function computeLeagueStats(
       .order('id', { ascending: true })
       .range(page * PAGE, (page + 1) * PAGE - 1)
     if (teamId)   q = q.eq('team_id', teamId)
-    if (playerId) q = q.eq('league_player_id', playerId)
     const { data: chunk, error: eErr } = await q
     if (eErr) throw new Error(eErr.message)
     if (chunk && chunk.length > 0) events.push(...(chunk as EventRow[]))
@@ -361,9 +372,8 @@ export async function computeLeagueStats(
       else if (e.type === 'turnover') tp.tov++
     }
 
-    if (made &&
-        ['shot_3p','shot_2p_mid','shot_layup','shot_post'].includes(e.type) &&
-        e.related_player_id) {
+    // 어시스트 판정 정본은 boxLine.ts 의 isAssistEvent 하나 — 박스스코어·맞대결과 같은 정의
+    if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
       const as = ensure(e.related_player_id)
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
@@ -479,7 +489,7 @@ export async function computeLeagueStats(
   }
 
   // 5) 평균/퍼센트
-  if (Object.keys(statsMap).length === 0) return { players: [], total_rounds: totalRounds }
+  if (Object.keys(statsMap).length === 0) return { players: [], guests: [], total_rounds: totalRounds }
 
   // 표시용 소속 팀 = 기간 안 마지막 출전일 경기에서 가장 많이 기록된 팀 (분기 정체성으로 이름 결정)
   const resolveIdentity = await identityP
@@ -497,10 +507,8 @@ export async function computeLeagueStats(
       teamOf[pid] = ident ? { name: ident.display_name, color: ident.color } : null
     }
   }
-  const result: PlayerStat[] = Object.values(statsMap)
-    // 게스트는 개인 순위표에서 뺀다 — 위 guestIds 주석 참조. gp>0 필터와 같은 자리에서
-    // 걸러야 games_count(경기 수)는 그대로 유지되면서 '사람 목록'만 줄어든다.
-    .filter(s => s.gp > 0 && !guestIds.has(s.player_id))
+  const rows: PlayerStat[] = Object.values(statsMap)
+    .filter(s => s.gp > 0 && (!playerId || s.player_id === playerId))
     .map(s => {
       const meta = metaMap[s.player_id] ?? {}
       return {
@@ -530,5 +538,9 @@ export async function computeLeagueStats(
     })
     .sort((a, b) => b.pts - a.pts)
 
-  return { players: result, games_count: gameIds.length, total_rounds: totalRounds, unit }
+  // 게스트는 개인 순위표에서 뺀다 — 위 guestIds 주석 참조. 걸러도 games_count(경기 수)는 그대로다.
+  //   빠진 행은 `guests` 로 따로 돌려준다 — 게스트 본인 카드도 같은 정의의 숫자를 보여야 하므로.
+  const players = rows.filter(r => !guestIds.has(r.player_id))
+  const guests = rows.filter(r => guestIds.has(r.player_id))
+  return { players, guests, games_count: gameIds.length, total_rounds: totalRounds, unit }
 }

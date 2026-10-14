@@ -35,13 +35,6 @@ type PlayerInfo = {
   has_account?: boolean  // 로그인 계정 등록·승인(인증) 회원 여부
 }
 
-type SeasonStats = {
-  gp: number; pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
-  fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
-  ppg: number; rpg: number; apg: number; spg: number; bpg: number; topg: number
-  fg_pct: number; fg3_pct: number; ft_pct: number; efg_pct: number
-}
-
 type RankTotal = { rank: number; total: number }
 type Detail = {
   rankings: {
@@ -86,16 +79,17 @@ type Detail = {
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
-// 팀 전체 통산(리그+대회 묶음 합산) — /career 라우트 응답.
-// 묶음이 1개뿐이면(지금의 미라클) competitions 가 항상 1건이라 통산=시즌 스탯과 같아지므로
-// 화면에서는 length>=2 일 때만 렌더한다(중복 표시 방지, task-4-brief 요구사항).
-type CareerCompetition = {
+// /career 라우트 응답 — 「선수 숫자는 한 벌」(2026-10-14).
+//   묶음마다 숫자는 그 묶음 스탯 탭의 그 선수 행과 같다(playerPeriodLine). 리그 통산은 리그 시즌끼리만 더하고,
+//   대회는 따로(통산 미포함). 리그 시즌이 하나뿐이면 통산 = 위쪽 누적이라 화면에 안 보인다.
+type CareerLine = {
   leagueId: string; slug: string; name: string; mode: 'league' | 'tournament'; seasonYear: number
-  gp: number; pts: number; reb: number; ast: number
+  gp: number; pts: number; reb: number; ast: number; stl: number; blk: number
 }
 type CareerSummary = {
-  competitions: CareerCompetition[]
-  career: { gp: number; pts: number; reb: number; ast: number }
+  leagues: CareerLine[]
+  league_career: { gp: number; pts: number; reb: number; ast: number; stl: number; blk: number }
+  tournaments: CareerLine[]
 }
 
 // mm-brand: 포지션 뱃지도 통일 톤 (뮤트 배경 + 잉크 라벨)
@@ -189,7 +183,6 @@ export default function PlayerQuickViewModal(props: Props) {
 function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted, onOpenPlayer }: Props & { onOpenPlayer?: (id: string, name: string) => void }) {
 
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
-  const [stats, setStats] = useState<SeasonStats | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(true)
   const [gated, setGated] = useState(false)  // 401 — 상세 스탯은 승인 회원 전용 (2026-07-28)
@@ -259,22 +252,17 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [playersRes, statsRes, detailRes, quartersRes, careerRes] = await Promise.all([
+      const [playersRes, detailRes, quartersRes, careerRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
-        fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
         fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`),
         fetch(`/api/leagues/${leagueId}/quarters`),
-        // 팀 전체 통산 — 묶음이 1개뿐이면 어차피 length<2 라 안 보인다. 401(미승인 회원)은
+        // 리그 통산·대회 기록 — 리그 시즌이 1개뿐이면 통산은 안 보인다. 401(미승인 회원)은
         // gated 상태(detailRes 401)로 이미 처리되므로 여기선 실패를 조용히 무시.
         fetch(`/api/leagues/${leagueId}/players/${playerId}/career`),
       ])
       if (playersRes.ok) {
         const all: PlayerInfo[] = await playersRes.json()
         setPlayer(all.find(p => p.id === playerId) ?? null)
-      }
-      if (statsRes.ok) {
-        const d = await statsRes.json()
-        setStats(d.players?.[0] ?? null)
       }
       if (detailRes.status === 401) setGated(true)
       if (detailRes.ok) setDetail(await detailRes.json())
@@ -890,9 +878,9 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       {[
                         // #5a: 슛 정확도 랭킹 (시도>0 필요, gp>=1 자격)
-                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0, rt: detail?.rankings.fg_pct },
-                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0, rt: detail?.rankings.fg3_pct },
-                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0, rt: detail?.rankings.ft_pct },
+                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0, rt: (activeDetail ?? detail)?.rankings.fg_pct },
+                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0, rt: (activeDetail ?? detail)?.rankings.fg3_pct },
+                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0, rt: (activeDetail ?? detail)?.rankings.ft_pct },
                       ].map(({ label, pct, m, a, rt }) => {
                         const rank = rt?.rank ?? 0
                         const total = rt?.total ?? 0
@@ -930,17 +918,19 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     </div>
 
                     {/* 능력치 레이더 — 리그 백분위 (rankings 기반) */}
-                    {activeDetail?.player_stats && detail?.rankings && (() => {
-                      const total = detail.rankings.total ?? 1
+                    {activeDetail?.player_stats && activeDetail?.rankings && (() => {
+                      // 같은 기간의 순위로 그린다 — 위 숫자(activeDetail)와 기간이 갈리면 안 된다
+                      const rk = activeDetail.rankings
+                      const total = rk.total ?? 1
                       const pctile = (rank: number) => rank > 0 && total > 0
                         ? Math.round((total - rank + 1) / total * 100)
                         : 50
                       const radarData = [
-                        { stat: '득점',     value: pctile(detail.rankings.ppg ?? 0) },
-                        { stat: '리바운드', value: pctile(detail.rankings.rpg ?? 0) },
-                        { stat: '어시스트', value: pctile(detail.rankings.apg ?? 0) },
-                        { stat: '스틸',     value: pctile(detail.rankings.spg ?? 0) },
-                        { stat: '블록',     value: pctile(detail.rankings.bpg ?? 0) },
+                        { stat: '득점',     value: pctile(rk.ppg ?? 0) },
+                        { stat: '리바운드', value: pctile(rk.rpg ?? 0) },
+                        { stat: '어시스트', value: pctile(rk.apg ?? 0) },
+                        { stat: '스틸',     value: pctile(rk.spg ?? 0) },
+                        { stat: '블록',     value: pctile(rk.bpg ?? 0) },
                       ]
                       return (
                         <div className="mt-2">
@@ -959,7 +949,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
                       const wl = activeDetail.win_loss!
-                      const total = ranked_total(detail)
+                      const total = ranked_total(activeDetail)
                       // 최근 승패 닷은 제거(2026-08-09, 사용자 판단) — 한 라운드에 여러 경기를
                       //   하는 리그라 하루를 W/L 하나로 압축하면 "2승 4패" 같은 실제 전적이
                       //   사라져 오히려 오해를 만든다. 시즌 통산 전적과 승률만 남긴다.
@@ -1076,59 +1066,23 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       )
                     })()}
 
-                    {/* ── 팀 전체 통산 — 리그+대회 묶음 합산 ──────────────────────
-                        위 "시즌 스탯"은 지금 보고 있는 묶음(리그 시즌 또는 대회) 기준 그대로 둔다.
-                        통산은 그 옆에 별도 블록으로 추가한다 — 기존 표시를 바꾸지 않는다.
-                        묶음이 2개 미만이면 통산=시즌이라 안 보여준다(중복 표시 방지). */}
-                    {career && career.competitions.length >= 2 && (
-                      <div
-                        className="rounded-sm p-3 mt-2"
-                        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                      >
-                        <p className="text-xs uppercase tracking-[0.20em] font-black mb-2" style={{ color: 'var(--mm-yellow-strong)' }}>
-                          팀 통산 (리그+대회 합산)
-                        </p>
-                        <div className="grid grid-cols-4 gap-1.5 mb-2.5">
-                          {([
-                            ['G', career.career.gp],
-                            ['PTS', career.career.pts],
-                            ['REB', career.career.reb],
-                            ['AST', career.career.ast],
-                          ] as const).map(([l, v]) => (
-                            <div
-                              key={l}
-                              className="rounded-sm p-2 text-center"
-                              style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
-                            >
-                              <p className="text-xs mb-0.5 uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>{l}</p>
-                              <p className="font-jersey text-base font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                                <CountUp value={v} decimals={0} />
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="space-y-1">
-                          {career.competitions.map(c => (
-                            <div
-                              key={c.leagueId}
-                              className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-sm min-h-[36px]"
-                              style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
-                            >
-                              <span className="flex items-center gap-1.5 min-w-0">
-                                <span
-                                  className="shrink-0 px-1.5 py-0.5 rounded-sm text-xs font-black uppercase"
-                                  style={c.mode === 'tournament'
-                                    ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
-                                    : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }
-                                  }
-                                >{c.mode === 'tournament' ? '대회' : '리그'}</span>
-                                <span className="truncate" style={{ color: 'var(--mm-ink-soft)' }}>{c.name}</span>
-                              </span>
-                              <span className="shrink-0 tabular-nums font-bold" style={{ color: 'var(--mm-ink)' }}>{c.gp}G · {c.pts}점</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                    {/* ── 리그 통산 · 대회 기록 (2026-10-14 「선수 숫자는 한 벌」) ──────────────
+                        위 누적은 지금 보고 있는 묶음 기준. 아래는 같은 정의(그 묶음 스탯 탭의 그 선수 행)로
+                        ① 리그 시즌이 둘 이상이면 리그 시즌끼리만 더한 「리그 통산」,
+                        ② 대회는 일시적인 이벤트라 통산에 **더하지 않고** 따로 「대회 기록 (통산 미포함)」. */}
+                    {career && career.leagues.length >= 2 && (
+                      <CareerBlock
+                        title="리그 통산"
+                        total={career.league_career}
+                        rows={career.leagues}
+                      />
+                    )}
+                    {career && career.tournaments.length > 0 && (
+                      <CareerBlock
+                        title="대회 기록 (통산 미포함)"
+                        total={null}
+                        rows={career.tournaments}
+                      />
                     )}
                   </>
                 )}
@@ -1503,4 +1457,67 @@ function ranked_total(detail: Detail | null): number {
 
 function computeWinRateRank(detail: Detail | null): number {
   return detail?.rankings?.win_rate_rank ?? 0
+}
+
+// 리그 통산 · 대회 기록 블록 — 숫자는 묶음별 스탯 탭과 같은 정의(/career 라우트 머리 주석).
+//   total 이 null 이면 합계 칸을 그리지 않는다(대회는 서로도 더하지 않는다 — 대회마다 따로 본다).
+function CareerBlock({ title, total, rows }: {
+  title: string
+  total: { gp: number; pts: number; reb: number; ast: number } | null
+  rows: CareerLine[]
+}) {
+  return (
+    <div
+      className="rounded-sm p-3 mt-2"
+      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+    >
+      <p className="text-xs uppercase tracking-[0.20em] font-black mb-2" style={{ color: 'var(--mm-yellow-strong)' }}>
+        {title}
+      </p>
+      {total && (
+        <div className="grid grid-cols-4 gap-1.5 mb-2.5">
+          {([
+            ['출전일', total.gp],
+            ['PTS', total.pts],
+            ['REB', total.reb],
+            ['AST', total.ast],
+          ] as const).map(([l, v]) => (
+            <div
+              key={l}
+              className="rounded-sm p-2 text-center"
+              style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+            >
+              <p className="text-xs mb-0.5 uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>{l}</p>
+              <p className="font-jersey text-base font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                <CountUp value={v} decimals={0} />
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="space-y-1">
+        {rows.map(c => (
+          <div
+            key={c.leagueId}
+            className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-sm min-h-[36px]"
+            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span
+                className="shrink-0 px-1.5 py-0.5 rounded-sm text-xs font-black uppercase"
+                style={c.mode === 'tournament'
+                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }
+                }
+              >{c.mode === 'tournament' ? '대회' : '리그'}</span>
+              <span className="truncate" style={{ color: 'var(--mm-ink-soft)' }}>{c.name}</span>
+            </span>
+            <span className="shrink-0 tabular-nums font-bold" style={{ color: 'var(--mm-ink)' }}>
+              {c.gp}일 · {c.pts}점 · 리바 {c.reb} · 어시 {c.ast}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }

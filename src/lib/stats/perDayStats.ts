@@ -13,6 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { isAssistEvent } from './boxLine'
 
 export interface PerDayStats {
   pts: number
@@ -45,7 +46,6 @@ const emptyStats = (): PerDayStats => ({
   ftm: 0, fta: 0, and_one: 0,
 })
 
-const FIELD_SHOTS = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 
 /**
  * 리그 전체 경기의 선수별 경기일 스탯을 집계.
@@ -193,7 +193,7 @@ export async function computePerDayStats(
       }
 
       // 어시스트 (assister 는 related_player_id)
-      if (made && FIELD_SHOTS.includes(e.type) && e.related_player_id) {
+      if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
         const as = ensurePlayerDay(e.related_player_id, date)
         as.ast++
         if (e.team_id) bumpTeamCount(e.related_player_id, date, e.team_id)

@@ -1,113 +1,23 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewStats } from '@/lib/auth/guard'
 import { fetchTeamCompetitions } from '@/lib/league/competitions'
 import { resolveTeamId } from '@/lib/league/teamScope'
-import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
+import { playerPeriodLine, sumLines, type CountingLine } from '@/lib/stats/playerTotals'
 
 // GET /api/leagues/[leagueId]/players/[playerId]/career
 //
-// "기본 분리 + 커리어 합산" 중 합산 쪽. 스탯 자체는 이미 league_id 로 스코프돼
-// 리그 시즌과 대회 묶음이 자동으로 갈린다(공짜) — 이 라우트가 새로 하는 일은
-// 같은 팀의 형제 묶음들을 돌며 "이 사람"의 기록을 찾아 더하는 것뿐이다.
+// 선수 카드 아래쪽 「리그 통산」·「대회 기록」 — 「선수 숫자는 한 벌」(2026-10-14).
 //
-// 예전엔 여기서 (이름, 등번호) 로 "같은 사람"을 추정했다 — league_players 가 묶음마다
-// 별도 행이라 사람을 잇는 컬럼이 없었기 때문이다(person_id 류 없음). 이번 작업(3/3)이
-// 명단을 팀 소유로 바꾸면서 그 전제가 사라졌다: 이제 league_players.id 자체가 팀 전체에서
-// 같은 사람을 가리키는 단일 행이다 — league_game_events.league_player_id 는 어느 경기묶음의
-// 이벤트든 항상 이 하나의 id 를 참조한다. 그래서 이름·등번호 매칭 대신 playerId 로 직접
-// 이벤트를 찾는다 — 동명이인·등번호 변경에 흔들리지 않고 더 정확하다.
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
+//   · 묶음마다 숫자는 **playerPeriodLine(그 묶음, 'all')** 하나에서 나온다 = 그 묶음 스탯 탭의 그 선수 행.
+//     (친선 제외 · 하루 단위 gp · 출전시간만 있는 날 포함 · 외부 팀 이벤트 제외 · scorePoints/isPlusOneFor)
+//     예전 자체 루프(summarizeInCompetition)는 친선을 포함하고 gp 를 경기 슬롯으로 세어 위쪽 누적과 숫자가 갈렸다.
+//   · 리그 통산 = mode='league' 묶음만 더한다. **대회는 절대 더하지 않는다** — 대회는 일시적인 이벤트이고
+//     리그 기록을 희석하면 안 된다(운영진 결정). 대회는 `tournaments[]` 로 따로 돌려주고 화면이 「통산 미포함」으로 보인다.
+//   · 명단은 팀 소유라 league_players.id 하나가 팀 전체에서 같은 사람이다 — 묶음을 건너도 playerId 로 찾는다.
 
-type CompetitionSummary = { gp: number; pts: number; reb: number; ast: number }
-
-// 한 묶음(competitionLeagueId) 안에서 이 선수(playerId)의 gp(경기수)·pts·reb·ast 를 집계한다.
-// 이 묶음에 이 선수의 이벤트가 하나도 없으면 { gp: 0, ... } (통산에서 빠짐 — 호출부가 gp===0 을 거른다).
-//
-// 이 집계는 선수카드 시즌 스탯(detail 라우트)만큼 정교하지 않다 — 분기 필터·순위·배지 등은
-// 필요 없고 "통산 합계 4개 숫자"만 있으면 되므로 의도적으로 단순화했다. 득점만은 시즌 스탯과
-// 동일하게 scorePoints() 단일 진실을 그대로 쓴다(용 리그마다 rules 가 다를 수 있어 하드코딩 금지).
-async function summarizeInCompetition(
-  sb: SupabaseClient,
-  competitionLeagueId: string,
-  playerId: string,
-  defaultPlusOne: boolean,
-): Promise<CompetitionSummary> {
-  const { data: games, error: gamesErr } = await sb
-    .from('league_games')
-    .select('id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
-    .eq('league_id', competitionLeagueId)
-    .eq('is_started', true)
-  if (gamesErr) {
-    throw new Error(`league_games: leagueId=${competitionLeagueId} 조회 실패 — ${gamesErr.message}`)
-  }
-  const gameIds = (games ?? []).map(g => g.id as string)
-  if (gameIds.length === 0) return { gp: 0, pts: 0, reb: 0, ast: 0 }
-
-  const plusOneByGame: Record<string, GamePlusOne> = {}
-  for (const g of games ?? []) plusOneByGame[g.id as string] = g as GamePlusOne
-
-  const scoringRules = await fetchScoringRules(sb, competitionLeagueId)
-
-  // 서버측 1000행 상한 우회 — detail 라우트와 동일한 페이지네이션 패턴.
-  const CHUNK = 1000
-  type EvRow = { league_game_id: string; type: string; result: string | null }
-  const fetchPaged = async (
-    build: (from: number, to: number) => PromiseLike<{ data: EvRow[] | null; error: { message: string } | null }>,
-    label: string,
-  ): Promise<EvRow[]> => {
-    const out: EvRow[] = []
-    for (let pg = 0; ; pg++) {
-      const { data: chunk, error } = await build(pg * CHUNK, (pg + 1) * CHUNK - 1)
-      if (error) throw new Error(`league_game_events: ${label} 조회 실패(leagueId=${competitionLeagueId}) — ${error.message}`)
-      if (!chunk || chunk.length === 0) break
-      out.push(...chunk)
-      if (chunk.length < CHUNK) break
-    }
-    return out
-  }
-
-  const [ownEvents, assistEvents] = await Promise.all([
-    fetchPaged((from, to) =>
-      sb.from('league_game_events')
-        .select('league_game_id, type, result, quarter')
-        .in('league_game_id', gameIds)
-        .eq('league_player_id', playerId)
-        .order('id', { ascending: true })
-        .range(from, to),
-      '본인 이벤트',
-    ),
-    fetchPaged((from, to) =>
-      sb.from('league_game_events')
-        .select('league_game_id, type, result, quarter')
-        .in('league_game_id', gameIds)
-        .eq('related_player_id', playerId)
-        .eq('result', 'made')
-        .in('type', SHOT_TYPES)
-        .order('id', { ascending: true })
-        .range(from, to),
-      '어시스트 이벤트',
-    ),
-  ])
-
-  const gpSet = new Set<string>()
-  let pts = 0
-  let reb = 0
-  for (const e of ownEvents) {
-    if (e.type === 'sub_in' || e.type === 'sub_out') continue
-    gpSet.add(e.league_game_id)
-    const isPlusOne = isPlusOneFor(
-      playerId,
-      plusOneByGame[e.league_game_id],
-      defaultPlusOne ? new Set([playerId]) : new Set<string>(),
-      (e as { quarter?: number | null }).quarter ?? null,
-    )
-    pts += scorePoints(e.type, e.result, isPlusOne, scoringRules)
-    if (e.type === 'oreb' || e.type === 'dreb') reb++
-  }
-
-  return { gp: gpSet.size, pts, reb, ast: assistEvents.length }
+type CompetitionLine = CountingLine & {
+  leagueId: string; slug: string; name: string; mode: 'league' | 'tournament'; seasonYear: number
 }
 
 export async function GET(
@@ -127,37 +37,34 @@ export async function GET(
   const teamId = await resolveTeamId(leagueId)
   const { data: self, error: selfErr } = await sb
     .from('league_players')
-    .select('name, number, plus_one')
+    .select('id')
     .eq('id', playerId)
     .eq('team_id', teamId)
     .maybeSingle()
   if (selfErr) throw new Error(`league_players: playerId=${playerId} 조회 실패 — ${selfErr.message}`)
   if (!self) return NextResponse.json({ error: 'player_not_found' }, { status: 404 })
 
-  // 이 묶음이 속한 팀의 모든 묶음(자기 자신 포함) — Task 1 헬퍼 재사용.
+  // 이 팀의 묶음 목록(리그 시즌·대회). ⚠ 스탯을 묶음끼리 더하는 데 쓰지 말 것 — 리그끼리만 더한다(아래).
   const competitions = await fetchTeamCompetitions(leagueId)
-  const defaultPlusOne = self.plus_one === true
 
-  const perCompetition = await Promise.all(
-    competitions.map(async c => {
-      const summary = await summarizeInCompetition(sb, c.id, playerId, defaultPlusOne)
-      if (summary.gp === 0) return null // 이 묶음엔 기록이 없다 — 통산에서 뺀다
+  const lines = await Promise.all(
+    competitions.map(async (c): Promise<CompetitionLine | null> => {
+      const { line } = await playerPeriodLine(sb, c.id, playerId, 'all')
+      if (!line || line.gp === 0) return null // 이 묶음엔 기록이 없다
       return {
-        leagueId: c.id,
-        slug: c.slug,
-        name: c.name,
-        mode: c.mode,
-        seasonYear: c.season_year,
-        ...summary,
+        leagueId: c.id, slug: c.slug, name: c.name, mode: c.mode, seasonYear: c.season_year,
+        gp: line.gp, pts: line.pts, reb: line.reb, ast: line.ast, stl: line.stl, blk: line.blk,
       }
-    })
+    }),
   )
-  const byCompetition = perCompetition.filter((c): c is NonNullable<typeof c> => c !== null)
+  const present = lines.filter((c): c is CompetitionLine => c !== null)
+  const leagues = present.filter(c => c.mode === 'league')
+  const tournaments = present.filter(c => c.mode === 'tournament')
 
-  const career = byCompetition.reduce(
-    (acc, c) => ({ gp: acc.gp + c.gp, pts: acc.pts + c.pts, reb: acc.reb + c.reb, ast: acc.ast + c.ast }),
-    { gp: 0, pts: 0, reb: 0, ast: 0 },
-  )
-
-  return NextResponse.json({ competitions: byCompetition, career })
+  return NextResponse.json({
+    leagues,
+    // 리그 시즌이 둘 이상일 때만 의미가 있다(하나면 위쪽 누적과 같은 숫자) — 화면이 그 조건으로 보인다.
+    league_career: sumLines(leagues),
+    tournaments,
+  })
 }

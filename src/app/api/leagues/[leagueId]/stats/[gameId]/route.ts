@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { isAssistEvent } from '@/lib/stats/boxLine'
 
 type EventRow = {
   league_player_id: string | null
@@ -86,7 +87,7 @@ export async function GET(
     else if (e.type === 'foul') s.pf++
 
     // assist on made shots
-    if (e.related_player_id && made && ['shot_3p','shot_2p_mid','shot_layup','shot_post'].includes(e.type)) {
+    if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
       getOrCreate(e.related_player_id).ast++
     }
   }

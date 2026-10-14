@@ -4,12 +4,12 @@ import { NextResponse } from 'next/server'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { isAssistEvent } from '@/lib/stats/boxLine'
 
 // GET /api/leagues/[leagueId]/teams/[teamId]/insights?quarterId=xxx
 // 팀의 단일 일자 기록 + Four Factors + Advanced Metrics (자기 팀 + 상대 비교)
 // 친선전(is_exhibition=true)은 제외
 
-const FIELD_SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'])
 
 type Agg = {
   pts: number
@@ -49,7 +49,7 @@ function addToAgg(agg: Agg, e: { type: string; result: string | null; related_pl
     case 'foul': agg.pf++; break
   }
   // 어시스트는 별도 이벤트가 아니라 슛 이벤트의 related_player_id 필드 — 슛 성공 + 어시스터 지정 시 +1
-  if (made && e.related_player_id && FIELD_SHOT_TYPES.has(e.type)) {
+  if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
     agg.ast++
   }
 }

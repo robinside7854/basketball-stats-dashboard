@@ -23,6 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { isAssistEvent } from './boxLine'
 
 const CLUTCH_TIME_WINDOW_SECONDS = 120
 const CLUTCH_MARGIN_BEFORE_MAX = 6    // 슛 직전 (2포제션)
@@ -68,7 +69,6 @@ const emptyBlock = (): StatBlock => ({
   gp: 0,
 })
 
-const FIELD_SHOTS = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 const SCORING_EVENTS = ['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid', 'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw']
 
 export async function computeClutchStats(
@@ -278,7 +278,7 @@ export async function computeClutchStats(
         }
       }
       // 어시스트 (assister 는 related_player_id)
-      if (made && FIELD_SHOTS.includes(e.type) && e.related_player_id) {
+      if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
         const assisterId = e.related_player_id
         ensure(playerRegular, assisterId).ast++
         ensureSet(playerRegularGames, assisterId).add(gid)
