@@ -63,6 +63,13 @@ export function LeagueAuthProvider({ leagueId, children }: { leagueId: string; c
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
+/** 프로바이더 밖에서도 쓸 수 있는 버전 — 없으면 null.
+ *  비공개 리그 게이트(PrivateLeagueGate)는 LeagueLayoutClient 바깥이라 프로바이더가 없다.
+ *  LoginModal 이 useCurrentUser 를 부르면 그 화면에서 예외 → 「잠시 문제가 발생했어요」(2026-10-14 발견). */
+export function useOptionalCurrentUser(): AuthState | null {
+  return useContext(Ctx)
+}
+
 export function useCurrentUser(): AuthState {
   const v = useContext(Ctx)
   if (!v) throw new Error('useCurrentUser must be used within LeagueAuthProvider')

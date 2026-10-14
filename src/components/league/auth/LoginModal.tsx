@@ -7,18 +7,21 @@
 import { useState, useEffect } from 'react'
 import { X, LogIn, UserPlus, ArrowRight, Info } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCurrentUser } from '@/contexts/LeagueAuthContext'
+import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 
 interface Props {
   leagueId: string
   onClose: () => void
+  /** 처음 열 단계 — 비공개 게이트의 「가입 요청」은 바로 'signup' 으로 연다 */
+  initialStep?: Step
 }
 
 type Step = 'intro' | 'login' | 'signup'
 
-export default function LoginModal({ leagueId, onClose }: Props) {
-  const [step, setStep] = useState<Step>('intro')
-  const { refresh } = useCurrentUser()
+export default function LoginModal({ leagueId, onClose, initialStep = 'intro' }: Props) {
+  const [step, setStep] = useState<Step>(initialStep)
+  // 비공개 게이트에서는 프로바이더가 없다 — 그때는 로그인 성공 후 페이지를 새로 받아 게이트를 통과시킨다.
+  const auth = useOptionalCurrentUser()
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -60,7 +63,10 @@ export default function LoginModal({ leagueId, onClose }: Props) {
           {step === 'login' && (
             <LoginForm
               leagueId={leagueId}
-              onSuccess={async () => { await refresh(); onClose(); toast.success('로그인 성공') }}
+              onSuccess={async () => {
+                if (!auth) { toast.success('로그인 성공'); window.location.reload(); return }
+                await auth.refresh(); onClose(); toast.success('로그인 성공')
+              }}
               onSwitchSignup={() => setStep('signup')}
             />
           )}
