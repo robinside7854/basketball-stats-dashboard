@@ -33,10 +33,10 @@ export default function PercentileBars({ data }: { data: PercentileBarsResult })
               {g.rows.map(r => (
                 <li
                   key={r.key}
-                  className="grid grid-cols-[minmax(0,1fr)_3.25rem_minmax(3rem,5.5rem)_1.75rem] items-center gap-2 text-xs"
+                  className="grid grid-cols-[5.5rem_3rem_minmax(1.5rem,1fr)_1.75rem] items-center gap-x-2 text-xs"
                   aria-label={`${r.label} ${r.valueText}, ${r.pct === null ? '백분위 없음(시도 부족 또는 출전일 부족)' : `백분위 ${r.pct}`}${r.lowerIsBetter ? ' — 낮을수록 좋음' : ''}`}
                 >
-                  <span className="truncate font-bold" style={{ color: 'var(--mm-ink-soft)' }} aria-hidden>
+                  <span className="whitespace-nowrap font-bold" style={{ color: 'var(--mm-ink-soft)' }} aria-hidden>
                     {r.label}{r.lowerIsBetter && <span style={{ color: 'var(--mm-muted)' }}> ↓</span>}
                   </span>
                   <span className="text-right" style={{ color: 'var(--mm-ink)' }} aria-hidden>{r.valueText}</span>
