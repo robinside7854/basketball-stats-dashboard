@@ -17,6 +17,9 @@
 //     · 몰입 모드에서만 clip_end 도달 시 다음 클립으로 넘어간다(위 7/15 결정은 일반 화면에 그대로).
 //     · Fullscreen API(+ Android 가로 고정)는 되는 기기에서만 — iPhone 은 요소 전체화면이 없어
 //       오버레이가 화면을 채우고 「가로로 돌리면」 안내를 한 번 띄운다.
+//   (2026-10-14) `immersiveOnly` — 박스스코어 「하이라이트 보기」처럼 화면에 재생기를 두지 않고
+//     버튼 한 번으로 바로 몰입 모드를 여는 곳 전용. 평소엔 화면 밖에 숨어(inert) 영상만 미리 준비하고,
+//     열리기 전에는 재생·키보드 조작을 하지 않는다. 안 넘기면 종전 그대로(파란날개 포함).
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
 import { Play, Pause, SkipBack, SkipForward, HeartCrack } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
@@ -44,6 +47,9 @@ interface Props {
   ref?: Ref<HighlightsPlayerHandle>
   /** 몰입 모드가 열리고 닫힐 때 — 부모가 고정(sticky) 칸의 z-index 를 올리는 데 쓴다 */
   onImmersiveChange?: (open: boolean) => void
+  /** 몰입 모드 전용 재생기 — 평소엔 화면 밖에 숨고(준비만), 열리기 전엔 재생·키보드 조작을 하지 않는다.
+   *  ⚠ 숨은 위치가 fixed 라 조상에 transform 이 있으면 어긋난다 — 부르는 쪽이 body 포털로 띄울 것 */
+  immersiveOnly?: boolean
 }
 
 export type HighlightsPlayerHandle = {
@@ -71,7 +77,10 @@ function canElementFullscreen(el: HTMLElement): boolean {
 }
 const ROTATE_HINT_KEY = 'highlights:immersiveRotateHint'
 
-export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange }: Props) {
+export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange, immersiveOnly = false }: Props) {
+  // 플레이어 콜백은 1회 생성이라 ref 로 읽는다 (마운트 동안 바뀌지 않는 값이지만 규칙을 맞춘다)
+  const immersiveOnlyRef = useRef(immersiveOnly)
+  useEffect(() => { immersiveOnlyRef.current = immersiveOnly }, [immersiveOnly])
   const containerRef = useRef<HTMLDivElement>(null)
   // 키보드 모달 판정용 — containerRef 의 div 는 YT.Player 가 iframe 으로 갈아끼워 DOM 에서 떨어지므로 못 쓴다
   const rootRef = useRef<HTMLDivElement>(null)
@@ -164,6 +173,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
             //    이전엔 firstVideoId 로 seekTo/play 만 해서 이후 clip 변경이 반영 안 됨 (검은 화면)
             const cur = clipsRef.current[currentIdxRef.current]
             if (!cur) return
+            // 몰입 전용 재생기는 열리기 전엔 준비만 한다 — 화면 밖에서 소리가 나면 안 된다.
+            //   (열린 뒤에 준비가 끝났으면 아래로 내려가 바로 재생한다)
+            if (immersiveOnlyRef.current && !immersiveRef.current) return
             const targetVid = extractYouTubeId(cur.video_url)
             const targetStart = Math.floor(cur.clip_start)
             try {
@@ -247,6 +259,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     if (!clip) return
     const player = playerRef.current
     if (!player || !readyRef.current) return  // 미준비 → onReady 가 대신 처리 (Race fix)
+    // 몰입 전용 재생기가 닫혀 있으면 재생하지 않는다 — 여는 순간 openImmersive 가 지금 클립을 튼다
+    if (immersiveOnlyRef.current && !immersiveRef.current) return
     const start = Math.floor(clip.clip_start)
     try {
       if (currentVideoIdRef.current !== clip.video_id) {
@@ -438,6 +452,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     // 이 플레이어를 담지 않은 모달이 열려 있으면 뒤 페이지 영상이 움직이면 안 된다.
     // (모달 안의 HighlightsPlayer 는 자기 모달이 rootRef 를 포함하므로 계속 동작)
     const el = rootRef.current
+    // 몰입 전용 재생기는 닫혀 있는 동안 키를 받지 않는다(숨은 영상이 Space 로 재생되면 안 된다)
+    if (immersiveOnlyRef.current && !immersiveRef.current) return
     if (immersiveRef.current && e.key === 'Escape') { e.preventDefault(); closeImmersive(); return }
     // (몰입 모드의 오버레이는 이 플레이어 안쪽 dialog 라 제외)
     const dialogs = document.querySelectorAll('[aria-modal="true"], [role="dialog"]')
@@ -494,7 +510,15 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const awayScored = clip.team_name === clip.away_team_name
 
   return (
-    <div ref={rootRef} className="space-y-2">
+    <div
+      ref={rootRef}
+      className="space-y-2"
+      // 몰입 전용: 닫혀 있는 동안 화면 밖(포커스·보조기기에서도 빠짐). 크기는 남겨야 YouTube 가 영상을 준비한다.
+      //   열리면 무대가 fixed inset-0 으로 뷰포트를 채우므로 이 자리는 그대로 둬도 된다.
+      style={immersiveOnly ? { position: 'fixed', left: '-10000px', top: 0, width: '480px' } : undefined}
+      inert={immersiveOnly && !immersive ? true : undefined}
+      aria-hidden={immersiveOnly && !immersive ? true : undefined}
+    >
       {/* 몰입 모드 무대 — 평소엔 아무 스타일 없는 껍데기. ⚠ 요소 구조를 모드마다 바꾸지 말 것:
           iframe 이 다시 마운트되면 재생이 끊긴다(클래스만 바꾼다). */}
       <div

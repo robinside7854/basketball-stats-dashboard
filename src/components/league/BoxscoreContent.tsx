@@ -23,6 +23,7 @@ import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
 import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
 import ShotTypeBreakdown, { type ShotTypeRow } from '@/components/league/boxscore/ShotTypeBreakdown'
+import DayHighlightsLauncher from '@/components/league/boxscore/DayHighlightsLauncher'
 
 // 큰 모달(선수 카드) — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
 
@@ -731,6 +732,11 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
           </div>
         )
       })()}
+
+      {/* 하이라이트 보기 — 전체 · 우리 팀 · 내 기록 → 전체화면 연속 재생 (2026-10-14). 클립은 펼칠 때 받는다 */}
+      {!loading && games.length > 0 && (
+        <DayHighlightsLauncher leagueId={leagueId} date={date} games={games} />
+      )}
 
       {/* 탭 바 — 스코어보드 접이식 섹션 제거, 콘텐츠는 경기결과 탭으로 이관 */}
       {!loading && games.length > 0 && (
