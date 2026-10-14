@@ -65,7 +65,7 @@ type BasicKey =
   | 'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'
   | 'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'
   | 'fgm'|'fg3m'|'ftm'
-type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
+type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'a1_total'|'orb_pct'|'drb_pct'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'
 
@@ -106,7 +106,6 @@ const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
   { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
   { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
   { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
-  { key: 'a1_rate',   label: 'A1%',   desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
   { key: 'orb_pct',   label: 'ORB%',  desc: '본인 리바운드 중 공격 리바운드 비중 · OREB/REB' },
   { key: 'drb_pct',   label: 'DRB%',  desc: '본인 리바운드 중 수비 리바운드 비중 · DREB/REB' },
   { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
@@ -151,7 +150,7 @@ const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
 const ADV_COLOR: Partial<Record<AdvKey, string>> = {
   at_ratio: 'text-[color:var(--mm-ink-soft)]',
   ast_pct: 'text-[color:var(--mm-ink-soft)]', tov_pct: 'text-[color:var(--mm-negative)]',
-  a1_total: 'text-[color:var(--mm-ink-soft)]', a1_rate: 'text-[color:var(--mm-ink-soft)]',
+  a1_total: 'text-[color:var(--mm-ink-soft)]',
   orb_pct: 'text-[color:var(--mm-or)]', drb_pct: 'text-[color:var(--mm-dr)]', trb_pct: 'text-[color:var(--mm-ink-soft)]',
 }
 const SHOOT_COLOR: Partial<Record<ShootingKey, string>> = {
@@ -177,7 +176,6 @@ function calcAdv(p: PlayerStat): Record<AdvKey, number> {
     ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
     tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
     a1_total:  a1,
-    a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
     orb_pct:   p.reb > 0 ? +(p.oreb / p.reb * 100).toFixed(1) : 0,
     drb_pct:   p.reb > 0 ? +(p.dreb / p.reb * 100).toFixed(1) : 0,
     trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,

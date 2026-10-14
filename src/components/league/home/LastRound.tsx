@@ -3,7 +3,8 @@
 //   (2026-10-14 홈 통합 개편) 종전엔 「그날 팀 성적」(승패 막대) 카드와 「경기 목록」 카드가 따로 있었고,
 //   아래 「최근 라운드」 첫 카드가 같은 날 팀 성적을 한 번 더 보였다 → 카드 하나로 합쳤다.
 //   · 팀 성적은 한 팀 한 줄(승·패·무 글자 + 득실) — 큰 막대 3줄이 세로를 가장 많이 먹었다.
-//   · 경기 타일은 모바일에서 앞 4경기만 펴고 「N경기 모두 보기」로 연다(내 경기가 뒤에 있으면 처음부터 편다).
+//   · 경기 타일은 처음엔 **모두 접어 둔다**(2026-10-14 사용자 요청 — 9경기면 타일만 두 화면이었다).
+//     「N경기 보기」로 펴고 「접기」로 다시 접는다. 팀 성적 한 줄씩은 늘 보인다.
 // 데이터는 홈 「최근 라운드」와 같은 서버 캐시(computeRecentRounds)의 첫 라운드다 — 새 요청이 없다.
 // 로그인 회원이면 내가 뛴 경기를 노랑으로 표시한다(HomeMeContext — 브라우저에서 받은 개인 데이터).
 import Link from 'next/link'
@@ -61,9 +62,6 @@ function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
   )
 }
 
-/** 모바일에서 처음 펴 두는 경기 수 — 2열이라 두 줄 */
-const MOBILE_FOLD = 4
-
 // 한 팀 한 줄 — [색 막대][팀명 …… 점수]. 타일이 좁아(360px 2열 ≈ 140px) 글자를 한 단계 줄였다.
 function TeamLine({ team, score, won }: { team: RoundGame['home']; score: number; won: boolean }) {
   const name = team?.name ?? '미정'
@@ -94,10 +92,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
   // 개인 데이터가 같은 날짜일 때만 표시 — 다른 날 기록으로 엉뚱한 칸을 칠하지 않는다
   const mine = day && day.date === round.date ? day.gameIds : null
   const myCount = mine ? games.filter(g => mine.has(g.id)).length : 0
-  // 내 경기가 접히는 자리(5번째~)에 있으면 처음부터 편다 — 내 경기를 찾으러 버튼을 누르게 하지 않는다
-  const myLate = mine ? games.slice(MOBILE_FOLD).some(g => mine.has(g.id)) : false
-  const [openAll, setOpenAll] = useState(false)
-  const folded = !openAll && !myLate && games.length > MOBILE_FOLD + 1
+  const [open, setOpen] = useState(false)
 
   return (
     <SectionCard variant="stack" pad="none" ariaLabel={`${round.weekLabel} 경기 목록`}>
@@ -140,7 +135,20 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
         //   모바일 2열 · sm+ 3열. 타일 하나 ≈ 76px 이라 9경기 = 5줄 ≈ 410px(머리 포함 한 화면 안).
         //   타일 전체가 박스스코어 링크(::after 로 덮는 stretched link) · 영상은 타일 머리의 작은 아이콘(별도 링크).
         <>
-        <ol className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 lg:p-4" aria-label="경기 순서">
+        <div className={`px-3 pt-3 lg:px-4 lg:pt-4 ${open ? '' : 'pb-3 lg:pb-4'}`}>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            aria-expanded={open}
+            aria-controls={`day-games-${round.date}`}
+            className="w-full inline-flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-95"
+            style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+          >
+            {open ? '경기별 결과 접기' : `경기별 결과 ${games.length}경기 보기${myCount > 0 ? ` · 내 경기 ${myCount}` : ''}`}
+            <ChevronDown size={16} aria-hidden style={{ transform: open ? 'rotate(180deg)' : undefined }} />
+          </button>
+        </div>
+        <ol id={`day-games-${round.date}`} className={`${open ? 'grid' : 'hidden'} grid-cols-2 sm:grid-cols-3 gap-2 p-3 lg:p-4`} aria-label="경기 순서">
           {games.map((g, i) => {
             const homeWon = g.home_score > g.away_score
             const awayWon = g.away_score > g.home_score
@@ -150,7 +158,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             return (
               <li
                 key={g.id}
-                className={`relative min-w-0 flex-col px-2.5 pt-1.5 pb-2 hover:brightness-95 ${folded && i >= MOBILE_FOLD ? 'hidden sm:flex' : 'flex'}`}
+                className="relative min-w-0 flex flex-col px-2.5 pt-1.5 pb-2 hover:brightness-95"
                 style={{
                   background: isMine ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: `1px solid ${isMine ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
@@ -200,19 +208,6 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             )
           })}
         </ol>
-        {folded && (
-          <div className="sm:hidden px-3 pb-3 -mt-1">
-            <button
-              type="button"
-              onClick={() => setOpenAll(true)}
-              className="w-full inline-flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-95"
-              style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
-            >
-              {games.length}경기 모두 보기
-              <ChevronDown size={16} aria-hidden />
-            </button>
-          </div>
-        )}
         </>
       )}
     </SectionCard>

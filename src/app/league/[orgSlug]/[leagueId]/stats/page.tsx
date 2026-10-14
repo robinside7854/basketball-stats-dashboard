@@ -44,9 +44,9 @@ const MIN_ROUND_RATIO = STATS_MIN_ROUND_RATIO
 const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
-type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'|'usg_pct'
+type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
-type StatMode = 'basic'|'shooting'|'advanced'|'awards'
+type StatMode = 'basic'|'shooting'|'advanced'|'awards'|'records'
 
 // 시즌 최고(옛 '시즌하이' 탭 → 2026-08-08 리더보드 흡수 한 줄 표시 → 2026-08-09 기록실 8칸 보드)
 // 카테고리 타입은 RecordRoomBoard 가 소유 — GET /api/leagues/[leagueId]/season-highs 의
@@ -268,12 +268,16 @@ function LeagueStatsPageInner() {
   const pathname = usePathname()
   // 어워즈 모드는 URL(?mode=awards)이 단일 진실 — 새로고침·뒤로가기·공유 링크·같은 페이지 내 링크가 모두 맞게 보인다.
   // 표 모드(basic/shooting/advanced)는 기존처럼 로컬 상태로 둔다.
-  const [tableMode, setTableMode] = useState<Exclude<StatMode, 'awards'>>('basic')
-  const statMode: StatMode = searchParams.get('mode') === 'awards' ? 'awards' : tableMode
+  // (2026-10-14) 「기록실」(시즌 하이 8칸 · 통산 누적 순위)도 같은 방식(?mode=records) — 종전엔 표 모드 화면에서
+  //   필터 칩과 표 사이에 끼어 있어, 칩을 눌러도 바로 아래가 안 바뀌는 것처럼 보였다(사용자 지적).
+  const [tableMode, setTableMode] = useState<Exclude<StatMode, 'awards' | 'records'>>('basic')
+  const modeParam = searchParams.get('mode')
+  const statMode: StatMode = modeParam === 'awards' ? 'awards' : modeParam === 'records' ? 'records' : tableMode
   const isAwards = statMode === 'awards'
+  const isRecords = statMode === 'records'
   function setStatMode(k: StatMode) {
     const qs = new URLSearchParams(searchParams.toString())
-    if (k === 'awards') qs.set('mode', 'awards')
+    if (k === 'awards' || k === 'records') qs.set('mode', k)
     else { qs.delete('mode'); setTableMode(k) }
     const q = qs.toString()
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
@@ -356,7 +360,7 @@ function LeagueStatsPageInner() {
   // highsLoading 은 메인 스탯(loading)과 별개 — 기록실 보드는 표 로딩 게이트 바깥에서 항상
   // 렌더되므로(8칸 자리를 미리 잡아 레이아웃이 튀지 않게), 자체 로딩 상태로 스켈레톤을 보여준다.
   useEffect(() => {
-    if (isAwards) return  // 어워즈 모드엔 기록실이 없다 — 표 모드로 돌아올 때 조회
+    if (!isRecords) return  // 기록실 서브탭에서만 보인다 — 열 때 조회
     if (!quarterReady) return  // 선택 분기 확정 전 이중 조회 방지 (위 스탯 조회와 같은 이유)
     setHighsLoading(true)
     const qs = selectedQuarterId !== 'all' ? `?quarterId=${selectedQuarterId}` : ''
@@ -364,17 +368,17 @@ function LeagueStatsPageInner() {
       .then(r => r.ok ? r.json() : { categoryHighs: [] })
       .then(d => { setCategoryHighs(d.categoryHighs ?? []); setHighsLoading(false) })
       .catch(() => { setCategoryHighs([]); setHighsLoading(false) })
-  }, [leagueId, selectedQuarterId, isAwards, quarterReady])
+  }, [leagueId, selectedQuarterId, isRecords, quarterReady])
 
   useEffect(() => {
-    if (isAwards || !quarterReady || selectedQuarterId === 'all') return
+    if (!isRecords || !quarterReady || selectedQuarterId === 'all') return
     if (careerPlayers.length > 0) return  // 전체 기간 값은 분기를 바꿔도 같다
     setCareerLoading(true)
     fetch(`/api/leagues/${leagueId}/stats`)
       .then(r => (r.ok ? r.json() : null))
       .then(d => { setCareerPlayers(d?.players ?? []); setCareerLoading(false) })
       .catch(() => setCareerLoading(false))
-  }, [leagueId, selectedQuarterId, isAwards, quarterReady, careerPlayers.length])
+  }, [leagueId, selectedQuarterId, isRecords, quarterReady, careerPlayers.length])
   const careerSource = selectedQuarterId === 'all' ? players : careerPlayers
   const careerBoardLoading = selectedQuarterId === 'all' ? loading : careerLoading
 
@@ -503,7 +507,6 @@ function LeagueStatsPageInner() {
   const ADV_COLS: { key: AdvKey; label: string; term: string; desc: string }[] = [
     { key: 'at_ratio',  label: '어시/턴오버', term: 'A/T',  desc: '어시스트/턴오버 비율' },
     { key: 'a1_total',  label: '앤드원',      term: 'A1',   desc: '성공한 앤드원(And-One) 횟수 (누적)' },
-    { key: 'a1_rate',   label: '앤드원율',    term: 'A1%',  desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
     { key: 'trb_pct',   label: '리바 비중',   term: 'TRB%', desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
     { key: 'usg_pct',   label: '공격 점유',   term: 'USG%', desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
   ]
@@ -515,7 +518,6 @@ function LeagueStatsPageInner() {
     return {
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
       a1_total:  a1,
-      a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
       trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
       usg_pct:   calcUsg(p, p.team_poss_in_games ?? 0),
     }
@@ -719,6 +721,7 @@ function LeagueStatsPageInner() {
         { key: 'shooting', label: '슈팅' },
         { key: 'advanced', label: '고급' },
         { key: 'awards',   label: '어워즈' },
+        { key: 'records',  label: '기록실' },
       ]}
       value={statMode}
       onChange={setStatMode}
@@ -753,31 +756,26 @@ function LeagueStatsPageInner() {
         <div className="flex">{modeChips}</div>
       </SectionCard>
 
-      {/* 기록실 — 시즌 최고 8칸 보드. 메인 스탯(loading)과 독립적으로 항상 렌더하고
-          자체 highsLoading 으로 스켈레톤을 보여준다 — 리더보드가 비어 있어도(경기 데이터 없음)
-          이 보드는 8칸 자리를 그대로 유지한다(사용자 지시: "8칸이 가장 안정적"). */}
-      {statMode !== 'awards' && (
-        <RecordRoomBoard
-          categoryHighs={categoryHighs}
-          highlightCategory={highlightCategory}
-          orgSlug={orgSlug}
-          leagueId={leagueId}
-          loading={highsLoading}
-        />
-      )}
-
-      {/* 통산 누적 — 역대 N위 (전체 기간 · 친선 제외). 분기를 보고 있어도 늘 전체 기간 값이다 */}
-      {statMode !== 'awards' && (
-        <CareerLeadersBoard
-          players={careerSource}
-          loading={careerBoardLoading}
-          onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
-        />
-      )}
-
       {/* 어워즈 모드 — 표·TOP5·읽는 법·기록실 없이 어워즈 보드만. 스탯 로딩과 무관하게 바로 렌더 */}
       {statMode === 'awards' ? (
         <AwardsBoard leagueId={leagueId} quarterId={selectedQuarterId} />
+      ) : statMode === 'records' ? (
+        // 기록실 — 시즌 최고 8칸(고른 분기 기준) + 통산 누적 순위(늘 전체 기간 · 친선 제외).
+        //   표 모드에서 떼어 냈다 — 필터 칩 → TOP 5 → 표가 끊김 없이 이어지게(2026-10-14).
+        <div className="space-y-5">
+          <RecordRoomBoard
+            categoryHighs={categoryHighs}
+            highlightCategory={null}
+            orgSlug={orgSlug}
+            leagueId={leagueId}
+            loading={highsLoading}
+          />
+          <CareerLeadersBoard
+            players={careerSource}
+            loading={careerBoardLoading}
+            onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
+          />
+        </div>
       ) : loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
       ) : players.length === 0 ? (
