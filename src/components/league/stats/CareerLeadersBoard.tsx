@@ -3,7 +3,8 @@
 // 참고: kbl-stats 의 역대 통산 순위(Career Leaders) 화면 · 순위 규칙은 lib/stats/careerRanks.ts(withRanks).
 //
 // 재료: 스탯 API 를 분기 없이 부른 결과 = 그 리그의 모든 정규 경기(친선전 제외). 새 집계 없음.
-// 부문 칩 한 줄 + 상위 5명 목록 — 360px 에서 7부문을 다 펼치면 화면이 끝없이 길어져 하나씩 고른다.
+// 부문 칩 + 상위 10명 목록 (2026-10-14 — 스탯 탭 「기록실」 전용 화면이 되면서 5명 → 10명, 부문 13개).
+//   칩은 줄바꿈으로 모두 보인다(가로 스크롤 안에 숨기면 뒤쪽 부문이 있는 줄 모른다).
 // 출전 자격은 따지지 않는다: 통산 누적은 「얼마나 쌓았나」라 오래 뛴 사람이 위에 오는 게 맞다.
 import { useMemo, useState } from 'react'
 import { Landmark } from 'lucide-react'
@@ -11,6 +12,8 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import Chip from '@/components/league/ui/Chip'
 import Avatar from '@/components/league/ui/Avatar'
 import { CAREER_STATS, careerTop, careerRankLabel, type CareerStatKey } from '@/lib/stats/careerRanks'
+
+const BOARD_TOP = 10
 import type { PlayerStat } from '@/types/league'
 
 interface Props {
@@ -23,18 +26,18 @@ interface Props {
 export default function CareerLeadersBoard({ players, loading, onPlayerClick }: Props) {
   const [key, setKey] = useState<CareerStatKey>('pts')
   const def = CAREER_STATS.find(s => s.key === key) ?? CAREER_STATS[0]
-  const rows = useMemo(() => careerTop(players, p => Number(p[key]) || 0), [players, key])
+  const rows = useMemo(() => careerTop(players, p => Number(p[key]) || 0, BOARD_TOP), [players, key])
 
   return (
     <SectionCard variant="standalone" ariaLabel="통산 누적 — 역대 순위" pad="none">
       <div className="flex items-center gap-2 px-4 py-3 lg:px-6 lg:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <Landmark size={18} style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
-        <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>통산 누적</h3>
+        <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>통산 누적 순위</h3>
         <span className="ml-auto text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 친선전 제외</span>
       </div>
 
-      <div className="px-4 pt-3 lg:px-6 -mx-0 overflow-x-auto" role="group" aria-label="통산 부문">
-        <div className="flex gap-1.5 whitespace-nowrap pb-1">
+      <div className="px-4 pt-3 lg:px-6" role="group" aria-label="통산 부문">
+        <div className="flex flex-wrap gap-1.5">
           {CAREER_STATS.map(s => (
             <Chip key={s.key} as="button" size="sm" selected={s.key === key} onClick={() => setKey(s.key)}>{s.label}</Chip>
           ))}
@@ -44,7 +47,7 @@ export default function CareerLeadersBoard({ players, loading, onPlayerClick }: 
       <div className="px-4 py-3 lg:px-6 lg:py-4">
         {loading ? (
           <div className="space-y-2" aria-hidden>
-            {Array.from({ length: 5 }, (_, i) => (
+            {Array.from({ length: BOARD_TOP }, (_, i) => (
               <div key={i} className="h-11 rounded-md animate-pulse" style={{ background: 'var(--mm-panel-alt)' }} />
             ))}
           </div>

@@ -6,7 +6,6 @@ import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigat
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowLeftRight } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
-import RecordRoomBoard, { type SeasonHighCategory, type SeasonHigh } from '@/components/league/stats/RecordRoomBoard'
 
 // 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
 const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompareModal'), { ssr: false })
@@ -25,7 +24,6 @@ import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import type { PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
-import AwardsBoard from './_components/AwardsBoard'
 import { calcUsg } from '@/lib/stats/advanced'
 import { splitEligible, STATS_MIN_ROUND_RATIO, isPctStatKey, meetsAttemptMin, attemptRuleLabel, type PctStatKey } from '@/lib/stats/eligibility'
 
@@ -46,26 +44,7 @@ const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
 type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
-type StatMode = 'basic'|'shooting'|'advanced'|'awards'|'records'
-
-// 시즌 최고(옛 '시즌하이' 탭 → 2026-08-08 리더보드 흡수 한 줄 표시 → 2026-08-09 기록실 8칸 보드)
-// 카테고리 타입은 RecordRoomBoard 가 소유 — GET /api/leagues/[leagueId]/season-highs 의
-// categoryHighs 그대로.
-
-// 현재 정렬된 지표(SortKey) → 시즌 최고 카테고리. 리더보드는 basic 모드 정렬만 이 8개
-// 카테고리와 개념이 겹친다(득점/리바운드/어시스트/스틸/블락/3점 성공/야투 성공/야투 시도).
-// Shooting·Advanced 모드의 정렬 지표(%, 비율)는 대응하는 카테고리가 없어 매핑에서 뺐다 —
-// 억지로 값을 끌어오면 "야투율 시즌 최고"처럼 의미가 안 맞는 강조가 생긴다. 지시대로 그 경우엔
-// 기록실 보드에서 강조 칸 없이(모든 칸 중립) 렌더된다.
-const SORTKEY_TO_SEASON_HIGH_CATEGORY: Partial<Record<SortKey, SeasonHighCategory>> = {
-  ppg: 'PTS', pts: 'PTS',
-  rpg: 'REB', reb: 'REB',
-  apg: 'AST', ast: 'AST',
-  spg: 'STL', stl: 'STL',
-  bpg: 'BLK', blk: 'BLK',
-  fg3m: 'FG3M',
-  fgm: 'FGM',
-}
+type StatMode = 'basic'|'shooting'|'advanced'|'records'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
 const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
@@ -252,7 +231,7 @@ function LeagueStatsPageInner() {
   const { orgSlug, leagueId } = params
   // ?tab=seasonHigh 옛 링크(흡수 전 시즌하이 서브탭) 는 리더보드로 그대로 폴백된다 — 이 페이지는
   // ?tab 쿼리를 읽지 않으므로(자체 상태만으로 basic 진입) 자연히 폴백된다.
-  // ?mode=awards 는 옛 /awards 페이지가 리다이렉트로 보내는 진입점 — 초기 모드로만 읽는다.
+  // ?mode=awards(옛 어워즈 · 2026-10-14 삭제)는 이제 기본 표로 열린다.
   const searchParams = useSearchParams()
 
   // 페이지 간 분기 선택 공유 + 분기 목록의 단일 출처 (LeagueQuarterContext).
@@ -266,18 +245,16 @@ function LeagueStatsPageInner() {
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   const router = useRouter()
   const pathname = usePathname()
-  // 어워즈 모드는 URL(?mode=awards)이 단일 진실 — 새로고침·뒤로가기·공유 링크·같은 페이지 내 링크가 모두 맞게 보인다.
+  // 기록실 모드는 URL(?mode=records)이 단일 진실 — 새로고침·뒤로가기·공유 링크가 모두 맞게 보인다.
   // 표 모드(basic/shooting/advanced)는 기존처럼 로컬 상태로 둔다.
   // (2026-10-14) 「기록실」(시즌 하이 8칸 · 통산 누적 순위)도 같은 방식(?mode=records) — 종전엔 표 모드 화면에서
   //   필터 칩과 표 사이에 끼어 있어, 칩을 눌러도 바로 아래가 안 바뀌는 것처럼 보였다(사용자 지적).
-  const [tableMode, setTableMode] = useState<Exclude<StatMode, 'awards' | 'records'>>('basic')
-  const modeParam = searchParams.get('mode')
-  const statMode: StatMode = modeParam === 'awards' ? 'awards' : modeParam === 'records' ? 'records' : tableMode
-  const isAwards = statMode === 'awards'
+  const [tableMode, setTableMode] = useState<Exclude<StatMode, 'records'>>('basic')
+  const statMode: StatMode = searchParams.get('mode') === 'records' ? 'records' : tableMode
   const isRecords = statMode === 'records'
   function setStatMode(k: StatMode) {
     const qs = new URLSearchParams(searchParams.toString())
-    if (k === 'awards' || k === 'records') qs.set('mode', k)
+    if (k === 'records') qs.set('mode', k)
     else { qs.delete('mode'); setTableMode(k) }
     const q = qs.toString()
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
@@ -297,10 +274,6 @@ function LeagueStatsPageInner() {
   // TopFiveSlot 활성화 플래그 — 기본 true 로 두어 진입 즉시 기본 정렬(득점 PPG) TOP 5 를 노출.
   // 이후 컬럼 헤더 클릭으로 지표 전환 (2026-07-27: 기본 안내 화면 → 득점 TOP5 기본 표시로 변경)
   const [topFiveActive, setTopFiveActive] = useState(true)
-  // 기록실 8칸 보드(옛 시즌하이 탭 흡수 → 한 줄 표시 → 8칸 보드) — 카테고리별 라운드 최고 기록.
-  // 리더보드와 같은 데이터 소스, 새 API 없음(GET /api/leagues/[leagueId]/season-highs).
-  const [categoryHighs, setCategoryHighs] = useState<SeasonHigh[]>([])
-  const [highsLoading, setHighsLoading] = useState(true)
   // 통산 누적 보드(역대 N위) — 전체 기간 스탯. 「전체」를 보고 있으면 표 데이터를 그대로 쓰고,
   //   분기를 보고 있을 때만 분기 없이 한 번 더 받는다(서버 캐시라 가볍다).
   const [careerPlayers, setCareerPlayers] = useState<PlayerStat[]>([])
@@ -308,7 +281,7 @@ function LeagueStatsPageInner() {
   // "더 보기" 노출 상한 — 모바일 카드뷰와 데스크탑 표뷰가 **한 상태를 공유**한다.
   // 뷰마다 따로 두면 화면 폭이 바뀔 때(회전·창 크기) 보이는 인원이 튄다.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
-  // 「전체 명단 보기」 — 자격 미달 선수도 표에 올린다. TOP5·기록실·1위 굵게·어워즈는 계속 자격자만.
+  // 「전체 명단 보기」 — 자격 미달 선수도 표에 올린다. TOP5·1위 굵게는 계속 자격자만.
   // SSR 과 첫 렌더를 맞추려고 false 로 시작하고 저장값은 effect 에서 읽는다.
   const showAllKey = `league:${leagueId}:stats:showAll`
   const [showAll, setShowAll] = useState(false)
@@ -354,21 +327,6 @@ function LeagueStatsPageInner() {
       .then(d => { if (d) { setPlayers(d.players ?? []); setTotalRounds(d.total_rounds ?? 0); setLoading(false) } })
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId, quarterReady])
-
-  // 기록실 8칸 보드용 시즌 최고 — 분기 변경 시 함께 다시 조회. 8개 카테고리뿐이라 페이로드가 작아
-  // statMode 와 무관하게 항상 가져온다(Basic 모드로 돌아왔을 때 재요청 없이 바로 보이도록).
-  // highsLoading 은 메인 스탯(loading)과 별개 — 기록실 보드는 표 로딩 게이트 바깥에서 항상
-  // 렌더되므로(8칸 자리를 미리 잡아 레이아웃이 튀지 않게), 자체 로딩 상태로 스켈레톤을 보여준다.
-  useEffect(() => {
-    if (!isRecords) return  // 기록실 서브탭에서만 보인다 — 열 때 조회
-    if (!quarterReady) return  // 선택 분기 확정 전 이중 조회 방지 (위 스탯 조회와 같은 이유)
-    setHighsLoading(true)
-    const qs = selectedQuarterId !== 'all' ? `?quarterId=${selectedQuarterId}` : ''
-    fetch(`/api/leagues/${leagueId}/season-highs${qs}`)
-      .then(r => r.ok ? r.json() : { categoryHighs: [] })
-      .then(d => { setCategoryHighs(d.categoryHighs ?? []); setHighsLoading(false) })
-      .catch(() => { setCategoryHighs([]); setHighsLoading(false) })
-  }, [leagueId, selectedQuarterId, isRecords, quarterReady])
 
   useEffect(() => {
     if (!isRecords || !quarterReady || selectedQuarterId === 'all') return
@@ -698,29 +656,20 @@ function LeagueStatsPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode])
 
-  // 현재 정렬 지표(리더보드 = basic 모드일 때만) → 시즌 최고 카테고리 매핑.
-  // shooting/advanced 모드거나 매핑 없는 지표(각종 %, TOPG 등)면 null → 기록실 보드에서
-  // 어떤 칸도 강조하지 않는다(8칸은 그대로 유지, 강조만 꺼짐).
-  const highlightCategory = useMemo<SeasonHighCategory | null>(() => {
-    if (statMode !== 'basic') return null
-    return SORTKEY_TO_SEASON_HIGH_CATEGORY[sortKey] ?? null
-  }, [statMode, sortKey])
-
   const base = `/league/${orgSlug}/${leagueId}`
-  // 리더보드·팀 2개 서브탭 (2026-09-28 — 어워즈는 ?mode=awards 표 모드로, 명단은 팀 화면으로 흡수).
+  // 리더보드·팀 2개 서브탭 (2026-09-28 — 명단은 팀 화면으로 흡수 · 어워즈는 2026-10-14 삭제).
   // 배열은 공유 헬퍼(statsTabs.ts)에서 가져온다 — 페이지마다 배열이
   // 복제되면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다.
   const groupTabs = getStatsGroupTabs(base, 'leaderboard')
 
-  // Basic / Shooting / Advanced / 어워즈 토글 — 헤더(분기 칩 아래)에 한 번만 둔다. 어워즈 모드는 표·로딩
-  // 게이트 바깥에서 렌더되므로 표 카드 안에 두면 어워즈에서 표로 돌아갈 칩이 사라진다.
+  // 기본 / 슈팅 / 고급 / 기록실 토글 — 헤더(분기 칩 아래)에 한 번만 둔다. 기록실은 표·로딩
+  // 게이트 바깥에서 렌더되므로 표 카드 안에 두면 기록실에서 표로 돌아갈 칩이 사라진다.
   const modeChips = (
     <SegmentedTabs<StatMode>
       items={[
         { key: 'basic',    label: '기본' },
         { key: 'shooting', label: '슈팅' },
         { key: 'advanced', label: '고급' },
-        { key: 'awards',   label: '어워즈' },
         { key: 'records',  label: '기록실' },
       ]}
       value={statMode}
@@ -730,12 +679,12 @@ function LeagueStatsPageInner() {
   )
 
   if (gated) {
-    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·어워즈는 가입 승인된 회원만 볼 수 있어요." />
+    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·기록실은 가입 승인된 회원만 볼 수 있어요." />
   }
 
   return (
     <div className="mm-brand space-y-5">
-      {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 팀 */}
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
@@ -756,26 +705,15 @@ function LeagueStatsPageInner() {
         <div className="flex">{modeChips}</div>
       </SectionCard>
 
-      {/* 어워즈 모드 — 표·TOP5·읽는 법·기록실 없이 어워즈 보드만. 스탯 로딩과 무관하게 바로 렌더 */}
-      {statMode === 'awards' ? (
-        <AwardsBoard leagueId={leagueId} quarterId={selectedQuarterId} />
-      ) : statMode === 'records' ? (
-        // 기록실 — 시즌 최고 8칸(고른 분기 기준) + 통산 누적 순위(늘 전체 기간 · 친선 제외).
-        //   표 모드에서 떼어 냈다 — 필터 칩 → TOP 5 → 표가 끊김 없이 이어지게(2026-10-14).
-        <div className="space-y-5">
-          <RecordRoomBoard
-            categoryHighs={categoryHighs}
-            highlightCategory={null}
-            orgSlug={orgSlug}
-            leagueId={leagueId}
-            loading={highsLoading}
-          />
-          <CareerLeadersBoard
-            players={careerSource}
-            loading={careerBoardLoading}
-            onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
-          />
-        </div>
+      {/* 기록실 모드 — 표·TOP5 없이 통산 누적 보드만. 스탯 로딩과 무관하게 바로 렌더 */}
+      {statMode === 'records' ? (
+        // 기록실 = 통산 누적 순위만(늘 전체 기간 · 친선 제외) — 지표는 보드 안 칩으로 고른다.
+        //   (2026-10-14) 시즌 하이 8칸 · 어워즈는 사용자 결정으로 삭제.
+        <CareerLeadersBoard
+          players={careerSource}
+          loading={careerBoardLoading}
+          onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
+        />
       ) : loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
       ) : players.length === 0 ? (

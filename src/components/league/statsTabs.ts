@@ -9,7 +9,7 @@
 // 시즌하이는 별도 탭이었으나 2026-08-09 리더보드에 흡수됐다(정렬 지표를 따라가는 "시즌 최고"
 // 줄로 대체 — stats/page.tsx 참고). `?tab=seasonHigh` 옛 링크는 stats 페이지 쪽에서 리더보드로
 // 폴백 처리한다(이 파일은 더 이상 그 값을 만들지 않는다).
-// 2026-09-28 어워즈는 리더보드 표 모드(/stats?mode=awards)로, 선수 명단은 팀 화면(/teams, 편집은
+// 2026-09-28 선수 명단은 팀 화면(/teams, 편집은
 // ?edit=1)으로 흡수했다. 옛 /awards·/roster 는 리다이렉트만 남아 있다.
 import type { LeagueGroupTab } from './LeagueGroupTabs'
 
