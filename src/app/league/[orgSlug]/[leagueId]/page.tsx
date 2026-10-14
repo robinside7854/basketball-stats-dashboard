@@ -18,8 +18,7 @@ import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary, type RoundG
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import HomeSectionTabs from '@/components/league/HomeSectionTabs'
 import { HomeMeProvider } from '@/components/league/home/HomeMeContext'
-import HomeMyCard from '@/components/league/home/HomeMyCard'
-import { LastRoundTeams, LastRoundTimeline } from '@/components/league/home/LastRound'
+import { LastRoundTimeline } from '@/components/league/home/LastRound'
 import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { fetchLeagueMode } from '@/lib/league/competitions'
@@ -482,16 +481,11 @@ export default async function LeagueDetailPage({
           목동 미라클모닝농구단
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
+          {/* 분기 경기 수는 아래 「이번 분기」 순위표 머리에 있어 여기서 뺐다(2026-10-14 중복 정리) */}
           <span>멤버 {memberCount}명</span>
-          {quarterStandings.gamesCount > 0 && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{quarterStandings.quarterLabel} {quarterStandings.gamesCount}경기</span>
-            </>
-          )}
         </div>
         </div>
-        {/* 「내 기록」 진입은 2026-10-12 리뉴얼 2단계부터 아래 「내 카드」의 「내 기록 자세히」가 맡는다. */}
+        {/* 「내 기록」 진입은 하단 네비의 내 프로필 탭(/me)이 맡는다 — 홈 「내 카드」는 2026-10-14 뺐다. */}
         <div className="flex items-center gap-2 shrink-0">
           <ShareLeagueButton leagueName={l.name} />
         </div>
@@ -505,25 +499,19 @@ export default async function LeagueDetailPage({
           '나만 처리할 수 있는 일'이기 때문이다. */}
       <PendingSignupsAlert leagueId={leagueId} />
 
-      {/* ── 리뉴얼 2단계 (2026-10-12) — "토요일 아침 농구 한 번 = 하루 1라운드" ──────────────
-          순서: ① 내 카드 → ② 지난 토요일 → ③ 이번 분기(리그 전체) → 최근 라운드·하이라이트 → 마일스톤.
-          모바일 = 한 줄. PC(lg) = 행마다 두 칸 — 왼쪽 요약 · 오른쪽 상세 (한 줄을 늘리지 않는다).
-          개인 데이터(내 카드·내 경기 표시)는 HomeMeProvider 가 **브라우저에서** 받는다 —
+      {/* ── 홈 통합 개편 (2026-10-14) ────────────────────────────────────────────────
+          순서: ① 지난 경기일(팀 성적 + 경기 타일 한 카드) → ② 이번 분기(순위 · 리더) → ③ 탭(그 전 경기일 · 하이라이트 · 마일스톤).
+          · 「내 카드」를 뺐다(사용자 결정) — 로딩이 느렸고 내 기록은 하단 네비 「내 프로필」(/me)에 같은 것이 있다.
+          · 「그날 팀 성적」 카드를 경기 목록 카드에 합쳤다 — 아래 「최근 라운드」 첫 장도 같은 날이라 세 번 보였다.
+            탭의 경기일 목록은 그 날을 빼고 그 앞 날짜들만 보인다.
+          · 마일스톤은 맨 아래 따로 있던 것을 탭으로 넣었다.
+          개인 데이터(내 경기 노랑 표시)는 HomeMeProvider 가 **브라우저에서** 받는다 —
           이 페이지의 나머지는 unstable_cache(사용자 공용)라 개인 값이 거기 섞이면 안 된다. */}
-      <HomeMeProvider leagueId={leagueId} latestDate={latestRound?.date ?? null} serverMember={isMember}>
-        <section
-          aria-label="내 카드와 지난 경기일"
-          className={`grid gap-4 lg:gap-5 lg:items-start ${latestRound ? 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}
-        >
-          {/* 왼쪽(요약): 내 카드 · 그날 팀 성적. sticky 는 두지 않는다 — 내 카드가 길어 노트북 높이를 넘긴다. */}
-          <div className="space-y-4 lg:space-y-5 min-w-0">
-            <HomeMyCard orgSlug={orgSlug} leagueId={leagueId} latestLabel={latestRound?.weekLabel ?? null} />
-            {latestRound && <LastRoundTeams round={latestRound} />}
-          </div>
-          {/* 오른쪽(상세): 그날 경기 타임라인 1→N */}
-          {latestRound && <LastRoundTimeline round={latestRound} orgSlug={orgSlug} leagueId={leagueId} />}
-        </section>
-      </HomeMeProvider>
+      {latestRound && (
+        <HomeMeProvider leagueId={leagueId} latestDate={latestRound.date} serverMember={isMember}>
+          <LastRoundTimeline round={latestRound} orgSlug={orgSlug} leagueId={leagueId} />
+        </HomeMeProvider>
+      )}
 
       {/* ③ 이번 분기 — 팀 승률(요약) + 리그 리더(상세)를 한 묶음으로. 계산·데이터는 그대로, 배치만 바꿨다.
           2026-08-10 정책: 리그 리더는 전체 공개(NbaLeaders 는 initial 데이터가 있으면 /stats 를 재호출하지 않는다). */}
@@ -566,9 +554,17 @@ export default async function LeagueDetailPage({
         </div>
       </section>
 
-      {/* 최근 라운드(기록 있는 최근 4일 · 「전체 일정 보기」) · 이번 주 클러치샷 — 탭 2개 */}
+      {/* 그 전 경기일 · 하이라이트 · 마일스톤 — 탭 3개 (맨 위 경기일은 빼서 중복을 없앴다) */}
       <HomeSectionTabs
-        rounds={<NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} orgSlug={orgSlug} />}
+        rounds={recentRounds.length > 1 ? (
+          <NbaRoundsSummary
+            rounds={recentRounds.slice(1)}
+            leagueId={leagueId}
+            orgSlug={orgSlug}
+            title="지난 경기일"
+            caption={`${latestRound?.weekLabel ?? ''} 이전 · 하루 = 1라운드`}
+          />
+        ) : null}
         highlights={
           isMember ? (
             <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
@@ -576,16 +572,16 @@ export default async function LeagueDetailPage({
             <StatGate title="하이라이트는 회원 전용" description="클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요." />
           )
         }
-        // 비회원에게는 하이라이트가 잠금 카드라 첫 화면을 잠금으로 열지 않게 기본 탭을 최근 라운드로 둔다.
+        milestones={
+          isMember ? (
+            <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
+          ) : (
+            <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
+          )
+        }
+        // 비회원에게는 하이라이트가 잠금 카드라 첫 화면을 잠금으로 열지 않게 기본 탭을 경기일로 둔다.
         highlightsAvailable={isMember && highlightsAvailable}
       />
-
-      {/* 마일스톤 — 2026-09-28 홈 맨 아래로 내렸다(요약 탭이 먼저). */}
-      {isMember ? (
-        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
-      ) : (
-        <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
-      )}
     </div>
   )
 }

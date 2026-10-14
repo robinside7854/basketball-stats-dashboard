@@ -49,9 +49,12 @@ type Props = {
   leagueId: string
   /** 명시적 orgSlug — 없으면 useParams 로 조회 */
   orgSlug?: string
+  /** 머리 제목·설명 — 홈은 맨 위 「지난 토요일」과 겹치지 않게 그 앞 날짜들만 넘긴다(2026-10-14) */
+  title?: string
+  caption?: string
 }
 
-export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
+export default function NbaRoundsSummary({ rounds, leagueId, orgSlug, title = '최근 라운드', caption }: Props) {
   const params = useParams<{ orgSlug?: string; org?: string }>()
   const resolvedOrgSlug = orgSlug ?? params?.orgSlug ?? params?.org ?? ''
   if (rounds.length === 0) return null
@@ -67,10 +70,10 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
             className="font-black break-keep"
             style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
           >
-            최근 라운드
+            {title}
           </h3>
           <span className="t-label break-keep">
-            기록이 있는 최근 {RECENT_ROUNDS}라운드 · 하루 = 1라운드
+            {caption ?? `기록이 있는 최근 ${RECENT_ROUNDS}라운드 · 하루 = 1라운드`}
           </span>
         </header>
 

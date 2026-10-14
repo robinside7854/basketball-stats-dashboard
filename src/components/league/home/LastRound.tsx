@@ -1,13 +1,15 @@
 'use client'
 // 홈 「지난 토요일」 (리뉴얼 2단계, 2026-10-12) — 기록이 있는 최근 경기일 하루.
-//   · LastRoundTeams    : 그날 팀 성적 요약(승패 막대 · 마진) — PC 왼쪽(요약) 칸
-//   · LastRoundTimeline : 그날 경기를 슬롯 1→N 타일 격자로(모바일 2열 · sm+ 3열, 2026-10-13) — PC 오른쪽(상세) 칸
+//   (2026-10-14 홈 통합 개편) 종전엔 「그날 팀 성적」(승패 막대) 카드와 「경기 목록」 카드가 따로 있었고,
+//   아래 「최근 라운드」 첫 카드가 같은 날 팀 성적을 한 번 더 보였다 → 카드 하나로 합쳤다.
+//   · 팀 성적은 한 팀 한 줄(승·패·무 글자 + 득실) — 큰 막대 3줄이 세로를 가장 많이 먹었다.
+//   · 경기 타일은 모바일에서 앞 4경기만 펴고 「N경기 모두 보기」로 연다(내 경기가 뒤에 있으면 처음부터 편다).
 // 데이터는 홈 「최근 라운드」와 같은 서버 캐시(computeRecentRounds)의 첫 라운드다 — 새 요청이 없다.
 // 로그인 회원이면 내가 뛴 경기를 노랑으로 표시한다(HomeMeContext — 브라우저에서 받은 개인 데이터).
 import Link from 'next/link'
-import { ClipboardList, PlayCircle, Trophy } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ClipboardList, PlayCircle, Trophy } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
-import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
 import { accentOrInk } from '@/lib/util/contrastColor'
 import type { RoundSummary, RoundGame } from '@/components/league/nba/NbaRoundsSummary'
 import { useHomeMe } from './HomeMeContext'
@@ -26,38 +28,41 @@ function videoHref(g: RoundGame): string | null {
   return `${g.youtube_url}${g.youtube_url.includes('?') ? '&' : '?'}t=${Math.floor(g.youtube_start_offset)}s`
 }
 
-export function LastRoundTeams({ round }: { round: RoundSummary }) {
-  if (round.teams.length === 0) return null
+/** 그날 팀 성적 — 한 팀 한 줄: [색][🏆 팀명] …… [4승 2패 1무] [+15] */
+function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
+  if (teams.length === 0) return null
   return (
-    <SectionCard variant="stack" pad="none" ariaLabel="그날 팀 성적">
-      <header className="flex items-baseline justify-between gap-2 px-4 lg:px-5 pt-3.5 pb-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-        <h3 className="text-base font-black break-keep" style={{ color: 'var(--mm-ink)' }}>{round.weekLabel} 팀 성적</h3>
-        <span className="t-label">{round.gamesCount}경기</span>
-      </header>
-      <ul>
-        {round.teams.map((t, i) => (
-          <li
-            key={t.key}
-            className="px-4 lg:px-5 py-2.5"
-            style={{ borderBottom: i < round.teams.length - 1 ? '1px dashed var(--mm-rule)' : 'none' }}
-          >
-            <div className="flex items-center gap-2">
-              <span aria-hidden className="block h-4 w-1.5 rounded-sm shrink-0" style={{ background: t.color, border: '1px solid var(--mm-rule)' }} />
-              <span className="min-w-0 flex-1 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
-                {i === 0 && <Trophy size={13} aria-label="그날 1위" className="inline -mt-0.5 mr-1" style={{ color: 'var(--mm-yellow-strong)' }} />}
-                {t.name}
-              </span>
-              <MarginFigure ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} size="sm" />
-            </div>
-            <div className="mt-1.5 pl-3.5">
-              <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} height={20} />
-            </div>
+    <ul aria-label="그날 팀 성적" className="px-4 lg:px-5 py-1.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+      {teams.map((t, i) => {
+        const diff = t.ptsFor - t.ptsAgainst
+        return (
+          <li key={t.key} className="flex items-center gap-2 min-h-[36px]" style={{ borderTop: i > 0 ? '1px dashed var(--mm-rule)' : 'none' }}>
+            <span aria-hidden className="block h-4 w-1.5 rounded-sm shrink-0" style={{ background: t.color, border: '1px solid var(--mm-rule)' }} />
+            <span className="min-w-0 flex-1 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
+              {i === 0 && <Trophy size={13} aria-label="그날 1위" className="inline -mt-0.5 mr-1" style={{ color: 'var(--mm-yellow-strong)' }} />}
+              {t.name}
+            </span>
+            <span className="shrink-0 text-sm font-black tabular-nums whitespace-nowrap">
+              <span style={{ color: 'var(--mm-positive)' }}>{t.wins}승</span>{' '}
+              <span style={{ color: 'var(--mm-negative)' }}>{t.losses}패</span>
+              {t.draws > 0 && <span style={{ color: 'var(--mm-ink-soft)' }}> {t.draws}무</span>}
+            </span>
+            <span
+              className="shrink-0 w-10 text-right text-sm font-black tabular-nums"
+              style={{ color: diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-ink-soft)' }}
+              title={`득점 ${t.ptsFor} · 실점 ${t.ptsAgainst}`}
+            >
+              {diff > 0 ? `+${diff}` : diff}
+            </span>
           </li>
-        ))}
-      </ul>
-    </SectionCard>
+        )
+      })}
+    </ul>
   )
 }
+
+/** 모바일에서 처음 펴 두는 경기 수 — 2열이라 두 줄 */
+const MOBILE_FOLD = 4
 
 // 한 팀 한 줄 — [색 막대][팀명 …… 점수]. 타일이 좁아(360px 2열 ≈ 140px) 글자를 한 단계 줄였다.
 function TeamLine({ team, score, won }: { team: RoundGame['home']; score: number; won: boolean }) {
@@ -89,6 +94,10 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
   // 개인 데이터가 같은 날짜일 때만 표시 — 다른 날 기록으로 엉뚱한 칸을 칠하지 않는다
   const mine = day && day.date === round.date ? day.gameIds : null
   const myCount = mine ? games.filter(g => mine.has(g.id)).length : 0
+  // 내 경기가 접히는 자리(5번째~)에 있으면 처음부터 편다 — 내 경기를 찾으러 버튼을 누르게 하지 않는다
+  const myLate = mine ? games.slice(MOBILE_FOLD).some(g => mine.has(g.id)) : false
+  const [openAll, setOpenAll] = useState(false)
+  const folded = !openAll && !myLate && games.length > MOBILE_FOLD + 1
 
   return (
     <SectionCard variant="stack" pad="none" ariaLabel={`${round.weekLabel} 경기 목록`}>
@@ -122,12 +131,15 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
         </div>
       </header>
 
+      <DayTeams teams={round.teams} />
+
       {games.length === 0 ? (
         <p className="px-4 lg:px-5 py-6 text-sm text-center" style={{ color: 'var(--mm-muted)' }}>경기별 기록은 박스스코어에서 볼 수 있어요.</p>
       ) : (
         // 경기 타일 격자 (2026-10-13 사용자 요청) — 종전 세로 타임라인은 9경기면 모바일에서 두 화면을 넘겼다.
         //   모바일 2열 · sm+ 3열. 타일 하나 ≈ 76px 이라 9경기 = 5줄 ≈ 410px(머리 포함 한 화면 안).
         //   타일 전체가 박스스코어 링크(::after 로 덮는 stretched link) · 영상은 타일 머리의 작은 아이콘(별도 링크).
+        <>
         <ol className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 lg:p-4" aria-label="경기 순서">
           {games.map((g, i) => {
             const homeWon = g.home_score > g.away_score
@@ -138,7 +150,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             return (
               <li
                 key={g.id}
-                className="relative min-w-0 flex flex-col px-2.5 pt-1.5 pb-2 hover:brightness-95"
+                className={`relative min-w-0 flex-col px-2.5 pt-1.5 pb-2 hover:brightness-95 ${folded && i >= MOBILE_FOLD ? 'hidden sm:flex' : 'flex'}`}
                 style={{
                   background: isMine ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: `1px solid ${isMine ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
@@ -188,6 +200,20 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             )
           })}
         </ol>
+        {folded && (
+          <div className="sm:hidden px-3 pb-3 -mt-1">
+            <button
+              type="button"
+              onClick={() => setOpenAll(true)}
+              className="w-full inline-flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-95"
+              style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+            >
+              {games.length}경기 모두 보기
+              <ChevronDown size={16} aria-hidden />
+            </button>
+          </div>
+        )}
+        </>
       )}
     </SectionCard>
   )

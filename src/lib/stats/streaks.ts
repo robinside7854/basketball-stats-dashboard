@@ -4,7 +4,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
-import { computePerDayStats, isDoubleDouble, fetchPlayerMeta } from './perDayStats'
+import { computePerDayStats, isDoubleDouble, fetchPlayerMeta, type PerDayResult } from './perDayStats'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
@@ -50,13 +50,14 @@ export interface StreaksResult {
 export async function computeStreaks(
   supabase: SupabaseClient | null,
   leagueId: string,
-  opts: { minStreak?: number } = {},
+  /** perDay — 이미 계산한 하루 집계가 있으면 넘긴다(같은 리그 이벤트를 두 번 훑지 않게) */
+  opts: { minStreak?: number; perDay?: PerDayResult } = {},
 ): Promise<StreaksResult> {
   const sb = supabase ?? createClient()
   const minStreak = Math.max(2, opts.minStreak ?? 2)
 
   const [{ dayStats, dayWL }, playerMeta] = await Promise.all([
-    computePerDayStats(sb, leagueId),
+    opts.perDay ? Promise.resolve(opts.perDay) : computePerDayStats(sb, leagueId),
     fetchPlayerMeta(sb, leagueId),
   ])
 

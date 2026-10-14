@@ -6,21 +6,25 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import SegmentedTabs, { tabPanelProps } from '@/components/league/ui/SegmentedTabs'
 
-type TabKey = 'rounds' | 'highlights'
+type TabKey = 'rounds' | 'highlights' | 'milestones'
 const HOME_TAB_SEEN = 'mm_home_tab_seen'
 
 export default function HomeSectionTabs({
-  rounds, highlights, highlightsAvailable = false,
+  rounds, highlights, milestones, highlightsAvailable = false,
 }: {
-  rounds: ReactNode
+  /** 없으면(기록이 하루뿐) 탭에서 뺀다 */
+  rounds: ReactNode | null
   highlights: ReactNode
+  /** (2026-10-14 홈 통합 개편) 홈 맨 아래 따로 있던 마일스톤을 탭으로 넣어 세로를 줄였다 */
+  milestones: ReactNode
   highlightsAvailable?: boolean
 }) {
   const tabs: { key: TabKey; label: string; node: ReactNode }[] = [
-    { key: 'rounds', label: '최근 라운드', node: rounds },
+    ...(rounds ? [{ key: 'rounds' as const, label: '지난 경기일', node: rounds }] : []),
     { key: 'highlights', label: '하이라이트', node: highlights },
+    { key: 'milestones', label: '마일스톤', node: milestones },
   ]
-  const [active, setActive] = useState<TabKey>('rounds')
+  const [active, setActive] = useState<TabKey>(rounds ? 'rounds' : 'highlights')
 
   // #9 첫 방문 + 하이라이트 있으면 기본 탭을 하이라이트로(인스타 유입 팬의 첫 화면에 영상). 최초 1회만.
   useEffect(() => {
@@ -37,7 +41,7 @@ export default function HomeSectionTabs({
   useEffect(() => {
     const onTab = (e: Event) => {
       const key = (e as CustomEvent).detail as TabKey
-      if (key && ['rounds', 'highlights'].includes(key)) setActive(key)
+      if (key && ['rounds', 'highlights', 'milestones'].includes(key)) setActive(key)
     }
     window.addEventListener('mm-home-tab', onTab)
     return () => window.removeEventListener('mm-home-tab', onTab)

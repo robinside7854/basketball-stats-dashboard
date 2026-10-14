@@ -7,9 +7,9 @@
 //   · 개인 데이터는 **반드시 브라우저에서** 받는다. 홈의 나머지는 unstable_cache(사용자 공용)를
 //     타므로, 여기 값이 서버 캐시에 들어가면 다른 사람에게 내 기록이 보인다.
 //
-// 요청은 승인 회원일 때만 2개:
-//   · GET /auth/dashboard            — 이번 분기 하루 평균·순위·마일스톤 (/me 와 같은 응답)
-//   · GET /daily-boxscore?date=      — 홈이 이미 아는 최근 경기일 하루
+// 요청은 승인 회원일 때만 1개:
+//   · GET /daily-boxscore?date=      — 홈이 이미 아는 최근 경기일 하루(내가 뛴 경기 표시용)
+//   (2026-10-14) 홈 「내 카드」를 뺐다 — 그 카드가 쓰던 /auth/dashboard 는 이제 「내 기록」(/me)에서만 부른다.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
@@ -77,11 +77,10 @@ interface HomeMeState {
   /** 서버가 쿠키로 판정한 승인 회원 여부 — 로그인 상태를 아직 확인 중일 때 자리(스켈레톤)를 잡는 데 쓴다 */
   serverMember: boolean
   status: Status
-  dashboard: HomeDashboard | null
   day: MyDay | null
 }
 
-const Ctx = createContext<HomeMeState>({ isMember: false, serverMember: false, status: 'idle', dashboard: null, day: null })
+const Ctx = createContext<HomeMeState>({ isMember: false, serverMember: false, status: 'idle', day: null })
 
 export function useHomeMe() { return useContext(Ctx) }
 
@@ -166,7 +165,6 @@ export function HomeMeProvider({
   const { user } = useCurrentUser()
   const pid = serverMember ? user?.player_id ?? null : null
   const [status, setStatus] = useState<Status>('idle')
-  const [dashboard, setDashboard] = useState<HomeDashboard | null>(null)
   const [day, setDay] = useState<MyDay | null>(null)
 
   useEffect(() => {
@@ -175,23 +173,23 @@ export function HomeMeProvider({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그인 확인 직후 1회 조회 시작 표시
     setStatus('loading')
     const getJson = (url: string) => fetch(url, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null)
-    Promise.all([
-      getJson(`/api/leagues/${leagueId}/auth/dashboard`),
-      latestDate ? getJson(`/api/leagues/${leagueId}/daily-boxscore?date=${latestDate}`) : Promise.resolve(null),
-    ]).then(([dash, box]) => {
+    if (!latestDate) {
+      setStatus('ready')
+      return
+    }
+    getJson(`/api/leagues/${leagueId}/daily-boxscore?date=${latestDate}`).then(box => {
       if (!alive) return
-      setDashboard((dash as HomeDashboard | null) ?? null)
-      setDay(latestDate && box
+      setDay(box
         ? buildDay(latestDate, pid, (box.games ?? []) as BoxGame[], (box.daily_stats ?? []) as BoxDaily[])
         : null)
-      setStatus(dash ? 'ready' : 'error')
+      setStatus(box ? 'ready' : 'error')
     })
     return () => { alive = false }
   }, [leagueId, latestDate, pid])
 
   const value = useMemo<HomeMeState>(
-    () => ({ isMember: !!pid, serverMember, status: pid ? status : 'idle', dashboard, day }),
-    [pid, serverMember, status, dashboard, day],
+    () => ({ isMember: !!pid, serverMember, status: pid ? status : 'idle', day }),
+    [pid, serverMember, status, day],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
