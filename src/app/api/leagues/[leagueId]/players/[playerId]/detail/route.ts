@@ -4,6 +4,11 @@ import { canViewStats } from '@/lib/auth/guard'
 import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { computeLastPlayed } from '@/lib/stats/lastPlayed'
+import { computeLeagueStats } from '@/lib/stats/leagueStats'
+import { gameDateRange } from '@/lib/league/currentQuarter'
+import { buildPercentileBars, type PercentileInput } from '@/lib/stats/percentileBars'
+import { buildQuarterRow, type QuarterTableRow } from '@/lib/stats/quarterTable'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
@@ -22,6 +27,13 @@ export async function GET(
   // 쿼리파라미터를 그대로 읽으면 옛 화면의 unit=game 요청이 여기서만 되살아난다.
   const unit = 'round'
   const supabase = createClient()
+
+  // (2026-10-14) 분기별 기록표만 따로 — `?quarterRows=only`. 분기마다 computeLeagueStats 를 병렬로 돌려
+  //   무겁다(분기 수는 한 자릿수). 선수 카드가 첫 화면을 그린 뒤 따로 받는다 — 본 응답을 늦추지 않으려고.
+  if (searchParams.get('quarterRows') === 'only') {
+    const quarter_rows = await loadQuarterRows(supabase, leagueId, playerId).catch(() => [] as QuarterTableRow[])
+    return NextResponse.json({ quarter_rows })
+  }
 
   // 이 파일에는 득점 계산이 5곳 있었다. 전부 이 룰 하나를 공유한다.
   const scoringRules: ScoringRules = await fetchScoringRules(supabase, leagueId)
@@ -507,6 +519,21 @@ export async function GET(
     return idx >= 0 ? idx + 1 : 0
   }
 
+  // ── 세부 능력치 백분위 (2026-10-14) ── 레이더와 같은 자격 집단(eligibleForRank)·같은 하루 평균.
+  //   성공률·비율은 PCT_MIN_ATTEMPTS 미달이면 「–」 — 규칙은 lib/stats/percentileBars.ts 머리 주석.
+  const toPctInput = (pid: string): PercentileInput | null => {
+    const s = allMap[pid]
+    if (!s || s.gp <= 0) return null
+    return {
+      pid, gp: s.gp, pts: s.pts, reb: s.reb, oreb: s.oreb, dreb: s.dreb, ast: s.ast, stl: s.stl, blk: s.blk,
+      tov: s.tov, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a, ftm: s.ftm, fta: s.fta,
+    }
+  }
+  const percentile_bars = buildPercentileBars(
+    eligibleForRank.map(m => toPctInput(m.pid)).filter((x): x is PercentileInput => x !== null),
+    toPctInput(playerId),
+  )
+
   // 승률 순위 계산 (gp >= 3 인 선수만)
   const winRateMap: Record<string, { wins: number; losses: number; rate: number; gp: number }> = {}
   for (const pid of Object.keys(allMap)) {
@@ -778,5 +805,25 @@ export async function GET(
     dynamic_duo,
     pinned_event_ids,
     last_played: await lastPlayedP,
+    percentile_bars,
   })
+}
+
+// 분기별 기록표 — 정규 분기마다 그 분기 전원 스탯(computeLeagueStats)을 받아 이 선수 한 줄을 만든다.
+//   분기 경기는 **날짜 범위**로 고른다(gameDateRange). 기간이 없는 분기만 quarter_id 로 폴백.
+async function loadQuarterRows(supabase: SupabaseClient, leagueId: string, playerId: string): Promise<QuarterTableRow[]> {
+  const { data } = await supabase
+    .from('league_quarters')
+    .select('id, year, quarter, start_date, end_date, kind')
+    .eq('league_id', leagueId)
+  type QRow = { id: string; year: number; quarter: number; start_date: string | null; end_date: string | null; kind: string | null }
+  const quarters = ((data ?? []) as QRow[])
+    .filter(q => q.kind !== 'tournament')
+    .sort((a, b) => a.year - b.year || a.quarter - b.quarter)
+  const rows = await Promise.all(quarters.map(async q => {
+    const range = gameDateRange({ ...q, label: '' })
+    const res = await computeLeagueStats(supabase, leagueId, range ? { from: range.from, to: range.to } : { quarterId: q.id })
+    return buildQuarterRow(q, res.players, res.total_rounds ?? 0, playerId)
+  }))
+  return rows.filter((r): r is QuarterTableRow => r !== null)
 }

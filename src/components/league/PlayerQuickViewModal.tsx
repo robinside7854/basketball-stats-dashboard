@@ -17,6 +17,10 @@ import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/Pl
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import type { LastPlayedData } from '@/lib/format/lastPlayed'
+import PercentileBars from '@/components/league/player/PercentileBars'
+import QuarterTable from '@/components/league/player/QuarterTable'
+import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
+import type { QuarterTableRow } from '@/lib/stats/quarterTable'
 
 // 차트 4종 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿨다(수 KB).
 //   더 이상 따로 쪼개 늦게 받을 이유가 없어 바로 import 한다(모달 자체가 호출부에서 lazy 로드된다).
@@ -50,6 +54,8 @@ type Detail = {
   pinned_event_ids?: string[]
   /** (2026-10-14) 마지막 출전(친선일 포함) — 분기 없는 요청에만 실린다 */
   last_played?: LastPlayedData | null
+  /** (2026-10-14) 세부 능력치 백분위 막대 — 레이더와 같은 자격 집단·하루 평균 */
+  percentile_bars?: PercentileBarsResult
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   // record = 그 라운드(하루)의 전 경기 합산 전적. result 는 그 합산의 종합 판정(W/L/D).
@@ -166,6 +172,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
   const [quarterDetail, setQuarterDetail] = useState<Detail | null>(null)
   const [quarterLoading, setQuarterLoading] = useState(false)
+  // 분기별 기록표 — 무거워서 본 응답과 따로 받는다(`detail?quarterRows=only`)
+  const [quarterRows, setQuarterRows] = useState<QuarterTableRow[] | null>(null)
   const [showEditPanel, setShowEditPanel] = useState(false)
   const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -254,6 +262,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterRows=only`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { quarter_rows?: QuarterTableRow[] } | null) => { if (!cancelled) setQuarterRows(d?.quarter_rows ?? []) })
+      .catch(() => { if (!cancelled) setQuarterRows([]) })
+    return () => { cancelled = true }
+  }, [leagueId, playerId])
+  useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       // 라이트박스가 열려있으면 먼저 라이트박스만 닫고 모달은 유지
@@ -294,6 +310,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   // 데이터가 있는 탭만 노출 — 빈 탭 클릭 후 아무것도 안 나오는 상황 방지
   const availableTabs = useMemo(() => {
     const s = new Set<PlayerTabKey>(['season'])
+    if ((quarterRows?.length ?? 0) > 0) s.add('quarters')
     if ((detail?.dynamic_duo?.length ?? 0) > 0) s.add('duo')
     if ((activeDetail?.shot_breakdown?.total_fga ?? 0) > 0) s.add('shot')
     if (detail?.career_high && Object.keys(detail.career_high).length > 0) s.add('career')
@@ -301,7 +318,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       || (activeDetail?.game_log?.length ?? 0) >= 3
       || (detail?.recent_games?.length ?? 0) > 0) s.add('trend')
     return s
-  }, [detail, activeDetail])
+  }, [detail, activeDetail, quarterRows])
 
   // 선택된 탭이 사라지면(분기 전환 등) 시즌 스탯으로 복귀
   useEffect(() => {
@@ -907,6 +924,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       )
                     })()}
 
+                    {/* 세부 능력치 — 묶음별 백분위 막대 (선택한 기간 기준) */}
+                    {activeDetail?.percentile_bars && <PercentileBars data={activeDetail.percentile_bars} />}
+
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
                       const wl = activeDetail.win_loss!
@@ -1280,6 +1300,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   )
                 })()}
               </div>
+            )}
+
+            {/* ── 분기별 기록 (분기 선택과 무관 — 전 분기를 한 표로) ── */}
+            {activeTab === 'quarters' && quarterRows && quarterRows.length > 0 && (
+              <QuarterTable rows={quarterRows} />
             )}
 
             {/* ── 커리어 하이 ───────────────────────────── */}

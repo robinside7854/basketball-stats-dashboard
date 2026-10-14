@@ -7,6 +7,8 @@
 //   · 숫자 계산은 종전 그대로다 — `players/[id]/detail` 의 player_stats·rankings, 레이더 = 리그 백분위.
 //   · 두 선수의 색은 --mm-series-1(A) · --mm-series-3(B). 색만으로 승패를 전하지 않는다 — 앞선 쪽 숫자를 굵게.
 //   · 라벨은 한국어, 약어(FG% 등)는 StatHeader 툴팁 안에만.
+//   · (2026-10-14) 「맞대결」 — 두 선수가 상대편으로 만난 경기의 전적과 그 경기들의 하루 평균,
+//     같은 팀으로 뛴 경기의 전적. `players/head-to-head` (lib/stats/playerHeadToHead.ts).
 
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Plus, Search, ArrowLeftRight } from 'lucide-react'
@@ -17,6 +19,7 @@ import StatHeader from '@/components/league/StatHeader'
 
 // 레이더 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿔 바로 import 한다.
 import PlayerCompareRadarChart from '@/components/league/charts/PlayerCompareCharts'
+import type { PlayerHeadToHead } from '@/lib/stats/playerHeadToHead'
 
 type Detail = {
   player_stats: {
@@ -66,6 +69,7 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
 
   const [d1, setD1] = useState<Detail | null>(null)
   const [d2, setD2] = useState<Detail | null>(null)
+  const [h2h, setH2h] = useState<(PlayerHeadToHead & { a: string; b: string }) | null>(null)
   // 받아 둔 쌍 — 지금 고른 쌍과 다르면 로딩 중(effect 안에서 setLoading 을 부르지 않는다)
   const [loadedPair, setLoadedPair] = useState<string | null>(null)
 
@@ -78,9 +82,10 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
     Promise.all([
       fetch(`/api/leagues/${leagueId}/players/${id1}/detail`).then(r => r.ok ? r.json() : null),
       fetch(`/api/leagues/${leagueId}/players/${id2}/detail`).then(r => r.ok ? r.json() : null),
-    ]).then(([a, b]) => {
+      fetch(`/api/leagues/${leagueId}/players/head-to-head?a=${id1}&b=${id2}`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([a, b, h]) => {
       if (cancelled) return
-      setD1(a); setD2(b)
+      setD1(a); setD2(b); setH2h(h)
     }).catch(() => { /* 빈 값으로 보여 준다 */ })
       .finally(() => { if (!cancelled) setLoadedPair(`${id1}:${id2}`) })
     return () => { cancelled = true }
@@ -282,6 +287,11 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
             })}
           </div>
 
+          {/* 맞대결 — 상대편으로 만난 경기만 */}
+          {h2h && h2h.a === id1 && h2h.b === id2 && (
+            <HeadToHeadCard data={h2h} name1={name1} name2={name2} />
+          )}
+
           {/* 레이더 — 리그 백분위 */}
           <div className="rounded-[var(--mm-radius-card)] p-3" style={{ border: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
             <PlayerCompareRadarChart
@@ -308,5 +318,71 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
         </div>
       )}
     </Sheet>
+  )
+}
+
+// 선수 vs 선수 맞대결 카드 — 전적 + 그 경기들의 하루 평균 + 같은 팀 전적 한 줄
+function HeadToHeadCard({ data, name1, name2 }: { data: PlayerHeadToHead; name1: string; name2: string }) {
+  const o = data.opposite
+  const t = data.teammates
+  const days = Math.max(o.days, 1)
+  const avg = (n: number) => (n / days).toFixed(1)
+  const pct = (m: number, a: number) => (a > 0 ? `${(m / a * 100).toFixed(1)}%` : '–')
+  const rows: { label: string; v1: string; v2: string; n1: number; n2: number }[] = [
+    { label: '득점', v1: avg(o.a.pts), v2: avg(o.b.pts), n1: o.a.pts, n2: o.b.pts },
+    { label: '리바', v1: avg(o.a.reb), v2: avg(o.b.reb), n1: o.a.reb, n2: o.b.reb },
+    { label: '어시', v1: avg(o.a.ast), v2: avg(o.b.ast), n1: o.a.ast, n2: o.b.ast },
+    { label: '스틸', v1: avg(o.a.stl), v2: avg(o.b.stl), n1: o.a.stl, n2: o.b.stl },
+    { label: '블락', v1: avg(o.a.blk), v2: avg(o.b.blk), n1: o.a.blk, n2: o.b.blk },
+    {
+      label: '야투율', v1: pct(o.a.fgm, o.a.fga), v2: pct(o.b.fgm, o.b.fga),
+      n1: o.a.fga > 0 ? o.a.fgm / o.a.fga : -1, n2: o.b.fga > 0 ? o.b.fgm / o.b.fga : -1,
+    },
+  ]
+  return (
+    <section
+      aria-labelledby="h2h-title"
+      className="rounded-[var(--mm-radius-card)] px-4 py-3"
+      style={{ border: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
+    >
+      <h3 id="h2h-title" className="text-sm font-black" style={{ color: 'var(--mm-ink)' }}>맞대결</h3>
+      {o.games === 0 ? (
+        <p className="mt-1 text-sm" style={{ color: 'var(--mm-muted)' }}>상대편으로 만난 경기가 아직 없어요.</p>
+      ) : (
+        <>
+          <p className="mt-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>상대편으로 {o.games}경기 · 마감된 정규전</p>
+          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <p className="min-w-0 text-left">
+              <span className="block truncate text-xs font-bold" style={{ color: COLOR1 }}>{name1}</span>
+              <span className={`t-num text-2xl ${o.a_wins > o.b_wins ? 'font-black' : 'font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{o.a_wins}승</span>
+            </p>
+            <p className="text-xs font-bold text-center" style={{ color: 'var(--mm-muted)' }}>
+              {o.draws > 0 ? `무 ${o.draws}` : 'VS'}
+            </p>
+            <p className="min-w-0 text-right">
+              <span className="block truncate text-xs font-bold" style={{ color: COLOR2 }}>{name2}</span>
+              <span className={`t-num text-2xl ${o.b_wins > o.a_wins ? 'font-black' : 'font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{o.b_wins}승</span>
+            </p>
+          </div>
+          <div className="mt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+            {rows.map(r => (
+              <div key={r.label} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <span className={`t-num text-sm text-left ${r.n1 > r.n2 ? 'font-black' : 'font-semibold'}`} style={{ color: r.n1 > r.n2 ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{r.v1}</span>
+                <span className="text-xs font-bold text-center" style={{ color: 'var(--mm-ink-soft)' }}>{r.label}</span>
+                <span className={`t-num text-sm text-right ${r.n2 > r.n1 ? 'font-black' : 'font-semibold'}`} style={{ color: r.n2 > r.n1 ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{r.v2}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs" style={{ color: 'var(--mm-muted)' }}>
+            맞대결한 {o.days}일 하루 평균 — 그날의 맞대결 경기 기록만
+          </p>
+        </>
+      )}
+      {t.games > 0 && (
+        <p className="mt-2 text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
+          같은 팀으로 {t.games}경기 {t.wins}승 {t.losses}패{t.draws > 0 ? ` ${t.draws}무` : ''}
+        </p>
+      )}
+    </section>
   )
 }

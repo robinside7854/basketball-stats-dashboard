@@ -3,6 +3,14 @@
 최종 갱신 2026-10-10. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-10-14, KBL 레퍼런스 사이트 이식):**
+- 레퍼런스: `robinside7854/kbl-stats`(사용자 개인 KBL 팬 사이트). 가져온 순수 함수는 파일 머리에 출처를 적었다.
+- 순위표: 승차·최근 5경기·연승/연패·최근 경기일 성적(`lib/stats/standings.ts`, `nba/TeamFormLine.tsx`) — **분기를 넘어 이어 세지 않는다.**
+- 스탯 탭: 성공률 최소 시도(`eligibility.ts` `MIN_ATTEMPTS_PER_DAY` = 하루 평균 × 출전일) · 통산 누적 「역대 N위」(`careerRanks.ts`, `CareerLeadersBoard`) · 「숫자 읽는 법」 시트(`glossary.ts READING_GUIDE`, TS% 는 +1·ft_2pt 로 부풀려짐 명시).
+- 선수 카드: 세부 능력치 백분위 막대(`percentileBars.ts` — 높음 초록·낮음 빨강, 최소 시도 `PCT_MIN_ATTEMPTS` 는 기간 합계 기준) · 「분기별 기록」 탭(`detail?quarterRows=only`) · 비교 시트 「맞대결」(`players/head-to-head`, `playerHeadToHead.ts`).
+- ⚠ 최소 시도 기준이 두 벌이다(스탯 탭=하루 평균 기준, 선수 카드 막대=기간 합계 기준). 운영진이 숫자를 정하면 한 벌로 합칠 것.
+- 보류(운영진 확인 필요): 비슷한 스타일 선수·역할 라벨(배지처럼 보일 위험) · 경기 카드 「눈에 띈 선수」(경기 MVP 와 같음) · 내 소식함.
+
 **최근 결정 (2026-10-14, 마지막 출전일):**
 - /me·선수 카드에 「마지막 출전 10.10 (토) · 3일 전」 + 「이후 경기일 N번 결장」(3번↑ 노랑). 계산 `lib/stats/lastPlayed.ts`, 표기 `lib/format/lastPlayed.ts`, 화면 `ui/LastPlayedLine.tsx`.
 - 이 지표만 **친선전 날도 출전으로 센다**(나왔는지가 관심사) — 스탯·출석률·연속 출석은 여전히 친선 제외.
