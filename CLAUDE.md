@@ -290,6 +290,20 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 다른 기간·다른 기준을 쓰는 화면은 **라벨로 드러낸다**: /me·홈 「리그 리더」 순위는 `leaderMinRounds`(홈 리더 기준),
   선수 맞대결·팀 누적 맞대결은 「마감된 정규전」만.
 
+### 역할 라벨 = 「플레이 스타일」 (2026-10-14) — 배지가 아니다
+
+- 선수 카드 머리에 칩 **최대 2개**. 규칙·설명 문구 정본은 `src/lib/stats/roleLabels.ts`(테스트 `roleLabels.test.ts`).
+  ⚠ 배지 제도(2026-10-11 폐지)를 되살리는 것이 아니다 — 모으기·도감·트로피 아이콘 금지, 문구는 「플레이 스타일」.
+- 모집단 = 선수 카드 순위와 같다(`loadPeriodStats` 결과 `players`, 게스트 제외, `rankMinRounds` 자격). 카드에서 고른 기간을 따른다.
+- 「상위 10%」 = 자리 ≤ **ceil(N×0.10)**(올림, 동률은 같은 자리 1·2·2·4, 값 0 은 제외). 올라운더만 득점·리바·어시 모두 **상위 20%**.
+  슛 비중 라벨(3점 슈터·골밑 해결사·미드레인지 장인)은 야투 최소 시도(`eligibility.ts`) 충족자끼리. 3점 슈터·플레이메이커의
+  「리그 평균」은 모집단 합계 기준. 여럿이면 자리 백분율이 작은 2개, 올라운더는 들면 항상 포함, 없으면 「팀플레이어」.
+- **공개 스위치** `leagues.rules.role_labels_public`(JSON 키 하나 — 마이그레이션 없음). CEO 만
+  `/admin/leagues/[leagueId]/role-labels`(전원 미리보기 + 공개 버튼, `PATCH /api/admin/leagues/[id]/role-labels`)에서 바꾼다.
+  꺼져 있으면 detail 응답 `role_labels` 가 CEO 에게만 `preview:true` 로 실린다. rules 를 통째로 덮어쓰지 말 것(채점 룰이 같이 있다).
+- 캐시: `loadPeriodStats` 는 `lib/stats/cachedLeagueStats.ts`(unstable_cache, `league-{id}-games` 태그, 60초) 경유 —
+  스탯 탭 `/stats` 라우트와 **같은 캐시 항목**을 쓴다. 키에 콜백 소스가 들어가므로 캐시 함수를 다른 곳에 또 만들지 말 것.
+
 ### 박스스코어의 "이 선수는 어느 팀" 판정 (`daily-boxscore`)
 
 후보를 모아 **이 경기의 두 팀 중 하나**를 먼저 고른다. 순서대로 첫 값을 그냥 쓰면 안 된다.

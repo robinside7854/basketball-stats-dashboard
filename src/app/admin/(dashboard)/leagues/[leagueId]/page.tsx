@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, ExternalLink, KeyRound } from 'lucide-react'
+import { ArrowLeft, Loader2, ExternalLink, KeyRound, Tags } from 'lucide-react'
 import Link from 'next/link'
 import LeagueAdminRolePanel from '@/components/admin/LeagueAdminRolePanel'
 import type { League } from '@/types/league'
@@ -101,6 +101,18 @@ export default function LeagueAdminSettingsPage() {
           className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer min-h-11"
         >
           <KeyRound size={14} /> 드래프트 관리 열기
+        </Link>
+      </div>
+
+      {/* 플레이 스타일 라벨 — CEO 미리보기 + 회원 공개 스위치 (2026-10-14) */}
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">플레이 스타일 라벨</h2>
+        <p className="text-xs text-[var(--mm-muted)] break-keep">선수 카드의 역할 라벨(스코어러·3점 슈터 등)을 전원 미리 보고, 회원 공개를 켜고 끕니다.</p>
+        <Link
+          href={`/admin/leagues/${leagueId}/role-labels`}
+          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] hover:border-[var(--mm-muted)] text-sm font-medium transition-colors cursor-pointer min-h-11"
+        >
+          <Tags size={14} /> 라벨 미리보기 열기
         </Link>
       </div>
 

@@ -12,6 +12,8 @@ import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import {
   loadPeriodStats, quarterPeriod, gameInPeriod, pickPlayerRow, rankMinRounds, rankOf, type StatsPeriod,
 } from '@/lib/stats/playerTotals'
+import { computeRoleLabels, roleLabelsPublic } from '@/lib/stats/roleLabels'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import type { PlayerStat } from '@/types/league'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -59,8 +61,14 @@ export async function GET(
     period = qRow ? quarterPeriod(qRow as { id: string; start_date: string | null; end_date: string | null }) : { quarterId }
   }
   // 스탯 탭과 같은 전원 집계 — 아래 이벤트 조회와 겹쳐 돌린다. (조기 반환 시 미처리 거부 방지용 catch)
-  const statsP = loadPeriodStats(supabase, leagueId, period)
+  const statsP = loadPeriodStats(leagueId, period)
   statsP.catch(() => {})
+  // 역할 라벨 공개 여부(leagues.rules.role_labels_public) — 꺼져 있으면 CEO 에게만 「미리보기」로 싣는다.
+  const roleVisibilityP: Promise<'public' | 'preview' | 'hidden'> = (async () => {
+    const { data } = await supabase.from('leagues').select('rules').eq('id', leagueId).maybeSingle()
+    if (roleLabelsPublic((data as { rules?: unknown } | null)?.rules)) return 'public'
+    return (await requireCeoSession()) ? 'preview' : 'hidden'
+  })().catch(() => 'hidden' as const)
   const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
 
   // (2026-10-14) 마지막 출전일 + 그 뒤 결장 경기일 — 분기와 무관한 값이라 분기 없는 요청에서만 계산한다
@@ -469,6 +477,14 @@ export async function GET(
 
   const getRank = (stat: 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg') => rankOf(eligibleForRank, playerId, p => p[stat])
 
+  // ── 역할 라벨 (플레이 스타일, 2026-10-14) ── 순위와 같은 모집단·같은 기간. 배지가 아니다 — lib/stats/roleLabels.ts.
+  //   모집단 밖(자격 미달·게스트)이면 라벨 없음(null). 공개 스위치가 꺼져 있으면 CEO 에게만 preview 로.
+  const roleVisibility = await roleVisibilityP
+  const myRole = roleVisibility === 'hidden' ? undefined : computeRoleLabels(eligibleForRank).byPlayer.get(playerId)
+  const role_labels = myRole
+    ? { labels: myRole.labels, preview: roleVisibility === 'preview' }
+    : null
+
   // ── 세부 능력치 백분위 (2026-10-14) ── 레이더와 같은 자격 집단·같은 하루 평균.
   //   성공률·비율은 PCT_MIN_ATTEMPTS 미달이면 「–」 — 규칙은 lib/stats/percentileBars.ts 머리 주석.
   const toPctInput = (p: PlayerStat): PercentileInput => ({
@@ -760,6 +776,7 @@ export async function GET(
     last_played: await lastPlayedP,
     percentile_bars,
     similar_players,
+    role_labels,
   })
 }
 
@@ -775,7 +792,7 @@ async function loadQuarterRows(supabase: SupabaseClient, leagueId: string, playe
     .filter(q => q.kind !== 'tournament')
     .sort((a, b) => a.year - b.year || a.quarter - b.quarter)
   const rows = await Promise.all(quarters.map(async q => {
-    const res = await loadPeriodStats(supabase, leagueId, quarterPeriod(q))
+    const res = await loadPeriodStats(leagueId, quarterPeriod(q))
     return buildQuarterRow(q, res.players, res.total_rounds ?? 0, playerId, res.guests)
   }))
   return rows.filter((r): r is QuarterTableRow => r !== null)

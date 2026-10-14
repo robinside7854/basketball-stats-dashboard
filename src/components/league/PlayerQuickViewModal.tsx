@@ -20,6 +20,7 @@ import type { LastPlayedData } from '@/lib/format/lastPlayed'
 import PercentileBars from '@/components/league/player/PercentileBars'
 import QuarterTable from '@/components/league/player/QuarterTable'
 import SimilarPlayers, { type SimilarPlayersData } from '@/components/league/player/SimilarPlayers'
+import RoleLabelChips, { type RoleLabelsData } from '@/components/league/player/RoleLabelChips'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { QuarterTableRow } from '@/lib/stats/quarterTable'
 
@@ -52,6 +53,8 @@ type Detail = {
   percentile_bars?: PercentileBarsResult
   /** (2026-10-14) 비슷한 스타일 선수 — 같은 자격 집단·같은 기간 */
   similar_players?: SimilarPlayersData
+  /** (2026-10-14) 역할 라벨(플레이 스타일) 최대 2개 — 순위와 같은 모집단·기간. 공개 꺼짐이면 CEO 에게만(preview) */
+  role_labels?: RoleLabelsData
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   // record = 그 라운드(하루)의 전 경기 합산 전적. result 는 그 합산의 종합 판정(W/L/D).
@@ -612,6 +615,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
           {detail && detail.last_played !== undefined && (
             <LastPlayedLine lastPlayed={detail.last_played} className="relative mt-3" />
           )}
+          {/* 플레이 스타일 칩 (2026-10-14) — 카드에서 고른 기간을 따른다(activeDetail). 배지 아님 */}
+          <RoleLabelChips data={activeDetail?.role_labels} className="relative mt-2" />
         </div>
 
         {showEditPanel && isEditMode && (() => {

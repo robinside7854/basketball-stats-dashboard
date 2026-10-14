@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { unstable_cache } from 'next/cache'
-import { computeLeagueStats, type LeagueStatsUnit } from '@/lib/stats/leagueStats'
+import { type LeagueStatsUnit } from '@/lib/stats/leagueStats'
+import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
 import { canViewStats } from '@/lib/auth/guard'
 
 // GET /api/leagues/[leagueId]/stats
@@ -10,26 +10,7 @@ import { canViewStats } from '@/lib/auth/guard'
 // 성능(2026-07-27): 스탯 탭 진입/분기·단위 토글마다 이벤트 전량 집계를 반복하던 것을
 //   unstable_cache 로 감쌈. 홈 SSR(getCachedLeaderStats)과 동일한 `league-{id}-games` 태그를
 //   달아, 경기/이벤트 mutation API 들의 기존 revalidateTag 호출로 자동 무효화된다(배선 공짜).
-type StatOpts = {
-  quarterId: string | null
-  quarterIds: string[] | null
-  teamId: string | null
-  playerId: string | null
-  from: string | null
-  to: string | null
-  unit: LeagueStatsUnit
-}
-
-const getCachedStats = (leagueId: string, opts: StatOpts) =>
-  unstable_cache(
-    async () => computeLeagueStats(null, leagueId, opts),
-    [
-      'api-league-stats', leagueId,
-      opts.quarterId ?? '', (opts.quarterIds ?? []).join(','),
-      opts.teamId ?? '', opts.playerId ?? '', opts.from ?? '', opts.to ?? '', opts.unit,
-    ],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
-  )()
+// 캐시는 lib/stats/cachedLeagueStats.ts 한 곳 — 선수 카드(detail·career)도 같은 항목을 재사용한다(2026-10-14).
 
 export async function GET(
   req: Request,
@@ -48,7 +29,7 @@ export async function GET(
   const unit: LeagueStatsUnit = 'round'
 
   try {
-    const result = await getCachedStats(leagueId, {
+    const result = await getCachedLeagueStats(leagueId, {
       quarterId: sp.get('quarterId'),
       quarterIds,
       teamId: sp.get('teamId'),

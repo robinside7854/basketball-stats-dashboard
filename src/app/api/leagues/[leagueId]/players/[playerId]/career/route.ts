@@ -49,7 +49,7 @@ export async function GET(
 
   const lines = await Promise.all(
     competitions.map(async (c): Promise<CompetitionLine | null> => {
-      const { line } = await playerPeriodLine(sb, c.id, playerId, 'all')
+      const { line } = await playerPeriodLine(c.id, playerId, 'all')
       if (!line || line.gp === 0) return null // 이 묶음엔 기록이 없다
       return {
         leagueId: c.id, slug: c.slug, name: c.name, mode: c.mode, seasonYear: c.season_year,

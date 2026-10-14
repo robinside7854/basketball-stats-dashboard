@@ -11,25 +11,28 @@
 //   · 게스트는 순위 모집단(`players`)에서 빠지지만 본인 줄은 `guests` 에 있다 → pickPlayerRow 가 둘 다 본다.
 //   · 대회(mode='tournament')는 별개 묶음이다. 리그 통산에 **절대 더하지 않는다** — 대회 기록은 따로 「통산 미포함」으로 보인다.
 
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PlayerStat } from '@/types/league'
-import { computeLeagueStats, type LeagueStatsResult } from './leagueStats'
+import type { LeagueStatsResult } from './leagueStats'
+import { getCachedLeagueStats } from './cachedLeagueStats'
 import { periodOpts, pickPlayerRow, type StatsPeriod } from './playerPeriod'
 
 export * from './playerPeriod'
 
-/** 그 기간 전원 스탯(순위 모집단 포함) */
-export function loadPeriodStats(sb: SupabaseClient | null, leagueId: string, period: StatsPeriod): Promise<LeagueStatsResult> {
-  return computeLeagueStats(sb, leagueId, periodOpts(period))
+/**
+ * 그 기간 전원 스탯(순위 모집단 포함).
+ *   (2026-10-14) unstable_cache 경유 — 스탯 탭과 같은 캐시 항목(cachedLeagueStats.ts). 선수 카드를 열 때마다
+ *   리그 전체 집계를 새로 돌리지 않는다. 경기·이벤트가 바뀌면 `league-{id}-games` 태그로 풀린다.
+ */
+export function loadPeriodStats(leagueId: string, period: StatsPeriod): Promise<LeagueStatsResult> {
+  return getCachedLeagueStats(leagueId, periodOpts(period))
 }
 
 /** 선수 한 명의 기간 줄 — 스탯 탭 그 선수 행과 같은 숫자. 안 뛰었으면 null */
 export async function playerPeriodLine(
-  sb: SupabaseClient | null,
   leagueId: string,
   playerId: string,
   period: StatsPeriod,
 ): Promise<{ line: PlayerStat | null; total_rounds: number }> {
-  const res = await loadPeriodStats(sb, leagueId, period)
+  const res = await loadPeriodStats(leagueId, period)
   return { line: pickPlayerRow(res, playerId), total_rounds: res.total_rounds ?? 0 }
 }
