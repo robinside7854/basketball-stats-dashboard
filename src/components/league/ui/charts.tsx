@@ -75,6 +75,7 @@ export interface RadarSeries {
  */
 export function RadarChart({
   axes, series, max = 100, height = 160, label, rings = 4, legend,
+  activeAxis, onActiveAxisChange, tooltip = true, formatValue,
 }: {
   axes: string[]
   series: RadarSeries[]
@@ -85,18 +86,34 @@ export function RadarChart({
   rings?: number
   /** 기본: 계열 2개 이상이면 표시 */
   legend?: boolean
+  /** 고른 축을 바깥에서 쥘 때(6축 레이더 — 아래 구성 요소 패널과 같이 움직인다). 주면 내부 상태 대신 이 값 */
+  activeAxis?: number | null
+  onActiveAxisChange?: (i: number | null) => void
+  /** false 면 값 툴팁을 그리지 않는다(바깥 패널이 대신 보여 줄 때) */
+  tooltip?: boolean
+  /** 접근성 요약·툴팁의 값 표기 (기본 정수/소수 한 자리) */
+  formatValue?: (v: number, seriesIndex: number, axisIndex: number) => string
 }) {
   const [ref, width] = useMeasuredWidth<HTMLDivElement>()
   const gid = useId().replace(/:/g, '')
-  const [active, setActive] = useState<number | null>(null)
+  const [innerActive, setInnerActive] = useState<number | null>(null)
+  const controlled = activeAxis !== undefined
+  const active = controlled ? activeAxis : innerActive
+  const setActive = (i: number | null) => {
+    if (!controlled) setInnerActive(i)
+    onActiveAxisChange?.(i)
+  }
+  const fv = (v: number, si: number, ai: number) => (formatValue ? formatValue(v, si, ai) : fmt(v))
   const showLegend = legend ?? series.length > 1
   const legendH = showLegend ? 26 : 0
   const plotH = height - legendH
   const n = axes.length
   const cx = width / 2
   const cy = plotH / 2
-  // 축 이름 자리를 남긴다(좌우 글자 폭 · 위아래 줄 높이)
-  const r = Math.max(10, Math.min(cx - 44, cy - 18))
+  // 축 이름 자리를 남긴다(좌우 글자 폭 · 위아래 줄 높이).
+  //   좌우 60px — 「리바운드」(13px 네 글자 ≈ 52px)가 옆 꼭짓점에서 잘리던 것(종전 44px).
+  //   그래도 남는 경계 사례는 svg overflow visible 로 보인다.
+  const r = Math.max(10, Math.min(cx - 60, cy - 18))
   const ang = (i: number) => -Math.PI / 2 + (i / n) * Math.PI * 2
   const pt = (i: number, v: number) => {
     const rr = (Math.max(0, Math.min(max, v)) / max) * r
@@ -105,14 +122,14 @@ export function RadarChart({
   const poly = (vals: number[]) => vals.map((v, i) => pt(i, v).map(c => c.toFixed(1)).join(',')).join(' ')
 
   const summary = `${label ? `${label} · ` : ''}` + series
-    .map(s => `${s.name}: ${axes.map((a, i) => `${a} ${fmt(s.values[i] ?? 0)}`).join(', ')}`)
+    .map((s, si) => `${s.name}: ${axes.map((a, i) => `${a} ${fv(s.values[i] ?? 0, si, i)}`).join(', ')}`)
     .join(' / ')
 
   return (
     <div ref={ref} className="relative w-full select-none" style={{ height }}>
       {width > 0 && n >= 3 && (
-        <svg width={width} height={plotH} role="img" aria-label={summary} className="block"
-          onPointerLeave={e => { if (e.pointerType === 'mouse') setActive(null) }}>
+        <svg width={width} height={plotH} role="img" aria-label={summary} className="block" style={{ overflow: 'visible' }}
+          onPointerLeave={e => { if (e.pointerType === 'mouse' && !controlled) setActive(null) }}>
           <defs>
             {series.map((s, si) => s.gradient && (
               <radialGradient key={si} id={`${gid}-g${si}`} cx="50%" cy="50%" r="50%">
@@ -163,13 +180,13 @@ export function RadarChart({
           })}
         </svg>
       )}
-      {active != null && width > 0 && (
+      {tooltip && active != null && width > 0 && (
         <Tooltip x={cx} width={width}>
           <p className="font-black" style={{ color: 'var(--mm-ink)' }}>{axes[active]}</p>
           {series.map(s => (
             <p key={s.name} className="flex items-center gap-1.5" style={{ color: 'var(--mm-ink-soft)' }}>
               <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: s.stroke }} />
-              {series.length > 1 ? `${s.name} ` : ''}<b>{fmt(s.values[active] ?? 0)}</b>
+              {series.length > 1 ? `${s.name} ` : ''}<b>{fv(s.values[active] ?? 0, series.indexOf(s), active)}</b>
             </p>
           ))}
         </Tooltip>
@@ -189,7 +206,7 @@ export function RadarChart({
         <thead><tr><th scope="col">항목</th>{series.map(s => <th key={s.name} scope="col">{s.name}</th>)}</tr></thead>
         <tbody>
           {axes.map((a, i) => (
-            <tr key={a}><th scope="row">{a}</th>{series.map(s => <td key={s.name}>{fmt(s.values[i] ?? 0)}</td>)}</tr>
+            <tr key={a}><th scope="row">{a}</th>{series.map((s, si) => <td key={s.name}>{fv(s.values[i] ?? 0, si, i)}</td>)}</tr>
           ))}
         </tbody>
       </table>

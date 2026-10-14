@@ -20,7 +20,7 @@ import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinutes'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadIdentityResolver } from './teamIdentity'
-import { isAssistEvent } from './boxLine'
+import { isAssistEvent, FIELD_SHOT_TYPES } from './boxLine'
 
 export type LeagueStatsUnit = 'round'
 
@@ -195,6 +195,8 @@ export async function computeLeagueStats(
     md_a: number; md_m: number
     team_reb_in_games: number
     team_poss_in_games: number
+    /** 본인 출전 경기의 본인 팀 야투 성공 합(본인 포함) — 6축 레이더 어시 점유율 분모 재료(hexRadar.ts) */
+    team_fgm_in_games: number
     minutes_played: number
     /** 교체 기록이 없는 경기까지 이벤트 시각으로 메운 출전 시간(분) */
     minutes_est: number
@@ -210,6 +212,7 @@ export async function computeLeagueStats(
   const gpMap: Record<string, Set<string>> = {}
   const teamRebByGame: Record<string, Record<string, number>> = {}
   const teamPossByGame: Record<string, Record<string, { fga: number; fta: number; tov: number }>> = {}
+  const teamFgmByGame: Record<string, Record<string, number>> = {}
   const playerTeamGameCount: Record<string, Record<string, Record<string, number>>> = {}
   // 게임별 리그 전체 이벤트 합계 (PIE 분모 재료) · 양팀 통합
   type GameTot = {
@@ -235,6 +238,7 @@ export async function computeLeagueStats(
         ds_a: 0, ds_m: 0, lu_a: 0, lu_m: 0, md_a: 0, md_m: 0,
         team_reb_in_games: 0,
         team_poss_in_games: 0,
+        team_fgm_in_games: 0,
         minutes_played: 0,
         minutes_est: 0,
         minutes_est_used: false,
@@ -370,6 +374,10 @@ export async function computeLeagueStats(
       if (['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid'].includes(e.type)) tp.fga++
       else if (['ft_2pt', 'ft_3pt_1', 'free_throw', 'ft_3pt_2'].includes(e.type)) tp.fta++
       else if (e.type === 'turnover') tp.tov++
+      if (made && FIELD_SHOT_TYPES.includes(e.type)) {
+        if (!teamFgmByGame[e.team_id]) teamFgmByGame[e.team_id] = {}
+        teamFgmByGame[e.team_id][gId] = (teamFgmByGame[e.team_id][gId] ?? 0) + 1
+      }
     }
 
     // 어시스트 판정 정본은 boxLine.ts 의 isAssistEvent 하나 — 박스스코어·맞대결과 같은 정의
@@ -451,6 +459,7 @@ export async function computeLeagueStats(
 
     let teamRebSum = 0
     let teamPossSum = 0
+    let teamFgmSum = 0
     const gameTeams = playerTeamGameCount[pid] ?? {}
     for (const gid of Object.keys(gameTeams)) {
       const teams = gameTeams[gid]
@@ -460,10 +469,12 @@ export async function computeLeagueStats(
         teamRebSum += teamRebByGame[teamIdKey]?.[gid] ?? 0
         const tp = teamPossByGame[teamIdKey]?.[gid]
         if (tp) teamPossSum += tp.fga + 0.44 * tp.fta + tp.tov
+        teamFgmSum += teamFgmByGame[teamIdKey]?.[gid] ?? 0
       }
     }
     statsMap[pid].team_reb_in_games = teamRebSum
     statsMap[pid].team_poss_in_games = Math.round(teamPossSum)
+    statsMap[pid].team_fgm_in_games = teamFgmSum
 
     // PIE 재료 · 본인 numerator 와 본인 출전 게임의 총합 denom
     // 공식: PTS + FGM + FTM − FGA − FTA + DREB + ORB/2 + AST + STL + BLK/2 − PF − TO

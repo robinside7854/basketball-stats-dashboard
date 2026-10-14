@@ -1,12 +1,12 @@
 'use client'
-// 선수 비교 모달(PlayerCompareModal)의 레이더 — 리그 백분위 두 계열.
-// 2026-10-12 리뉴얼 5단계: recharts → 자체 인라인 SVG(`components/league/ui/charts.tsx`). 범례·색·축은 그대로.
-import { RadarChart } from '@/components/league/ui/charts'
-
-type RadarDataPoint = { stat: string } & Record<string, number | string>
+// 선수 비교 모달(PlayerCompareModal)의 레이더 — 6축(공격·수비·리바운드·슈팅·리딩·효율) 두 계열 (2026-10-14).
+//   선수 카드와 같은 HexRadar · 같은 정의(lib/stats/hexRadar.ts). 두 선수 모두 detail 기본 기간(전체)이라 모집단이 같다.
+import HexRadar from '@/components/league/charts/HexRadar'
+import type { HexRadarResult } from '@/lib/stats/hexRadar'
 
 interface PlayerCompareRadarChartProps {
-  data: RadarDataPoint[]
+  data1: HexRadarResult
+  data2: HexRadarResult
   player1Name: string
   player2Name: string
   color1: string
@@ -14,19 +14,16 @@ interface PlayerCompareRadarChartProps {
 }
 
 export default function PlayerCompareRadarChart({
-  data, player1Name, player2Name, color1, color2,
+  data1, data2, player1Name, player2Name, color1, color2,
 }: PlayerCompareRadarChartProps) {
-  const vals = (key: string) => data.map(d => Number(d[key]) || 0)
   return (
-    <RadarChart
-      axes={data.map(d => d.stat)}
-      series={[
-        { name: player1Name, values: vals(player1Name), stroke: color1, fill: color1, fillOpacity: 0.25 },
-        { name: player2Name, values: vals(player2Name), stroke: color2, fill: color2, fillOpacity: 0.25 },
+    <HexRadar
+      title="능력치 비교"
+      height={250}
+      entries={[
+        { name: player1Name, color: color1, data: data1 },
+        { name: player2Name, color: color2, data: data2 },
       ]}
-      max={100}
-      height={240}
-      label="리그 백분위 비교"
     />
   )
 }

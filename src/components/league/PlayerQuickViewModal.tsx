@@ -22,11 +22,12 @@ import QuarterTable from '@/components/league/player/QuarterTable'
 import SimilarPlayers, { type SimilarPlayersData } from '@/components/league/player/SimilarPlayers'
 import RoleLabelChips, { type RoleLabelsData } from '@/components/league/player/RoleLabelChips'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
+import type { HexRadarResult } from '@/lib/stats/hexRadar'
 import type { QuarterTableRow } from '@/lib/stats/quarterTable'
 
 // 차트 4종 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿨다(수 KB).
 //   더 이상 따로 쪼개 늦게 받을 이유가 없어 바로 import 한다(모달 자체가 호출부에서 lazy 로드된다).
-import { MonthlyStatsChart, GameTrendChart, PlayerRadarChart, PlayerShotDonut } from '@/components/league/charts/PlayerQuickViewCharts'
+import { MonthlyStatsChart, GameTrendChart, PlayerHexRadar, PlayerShotDonut } from '@/components/league/charts/PlayerQuickViewCharts'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -51,6 +52,8 @@ type Detail = {
   last_played?: LastPlayedData | null
   /** (2026-10-14) 세부 능력치 백분위 막대 — 레이더와 같은 자격 집단·하루 평균 */
   percentile_bars?: PercentileBarsResult
+  /** (2026-10-14) 6축 레이더 — 막대와 같은 모집단·하루 평균. 정의 lib/stats/hexRadar.ts */
+  hex_radar?: HexRadarResult
   /** (2026-10-14) 비슷한 스타일 선수 — 같은 자격 집단·같은 기간 */
   similar_players?: SimilarPlayersData
   /** (2026-10-14) 역할 라벨(플레이 스타일) 최대 2개 — 순위와 같은 모집단·기간. 공개 꺼짐이면 CEO 에게만(preview) */
@@ -922,28 +925,12 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       })}
                     </div>
 
-                    {/* 능력치 레이더 — 리그 백분위 (rankings 기반) */}
-                    {activeDetail?.player_stats && activeDetail?.rankings && (() => {
-                      // 같은 기간의 순위로 그린다 — 위 숫자(activeDetail)와 기간이 갈리면 안 된다
-                      const rk = activeDetail.rankings
-                      const total = rk.total ?? 1
-                      const pctile = (rank: number) => rank > 0 && total > 0
-                        ? Math.round((total - rank + 1) / total * 100)
-                        : 50
-                      const radarData = [
-                        { stat: '득점',     value: pctile(rk.ppg ?? 0) },
-                        { stat: '리바운드', value: pctile(rk.rpg ?? 0) },
-                        { stat: '어시스트', value: pctile(rk.apg ?? 0) },
-                        { stat: '스틸',     value: pctile(rk.spg ?? 0) },
-                        { stat: '블록',     value: pctile(rk.bpg ?? 0) },
-                      ]
-                      return (
-                        <div className="mt-2">
-                          <PlayerRadarChart data={radarData} accent={{ stroke: accent.stroke, fillA: accent.fillA, fillB: accent.fillB }} />
-                          <p className="text-xs text-center mt-0.5 uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>리그 백분위 (100 = 1위)</p>
-                        </div>
-                      )
-                    })()}
+                    {/* 능력치 6축 레이더 — 공격·수비·리바운드·슈팅·리딩·효율 (리그 백분위, 선택한 기간 · 막대와 같은 모집단) */}
+                    {activeDetail?.hex_radar && (
+                      <div className="mt-2">
+                        <PlayerHexRadar data={activeDetail.hex_radar} accent={{ stroke: accent.stroke, fillA: accent.fillA, fillB: accent.fillB }} />
+                      </div>
+                    )}
 
                     {/* 세부 능력치 — 묶음별 백분위 막대 (선택한 기간 기준) */}
                     {activeDetail?.percentile_bars && <PercentileBars data={activeDetail.percentile_bars} />}

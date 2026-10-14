@@ -1,9 +1,11 @@
 'use client'
-// 선수 카드(PlayerQuickViewModal) 차트 4종 — 월별 막대 · 경기별 추이 · 능력치 레이더 · 슛 비중 도넛.
+// 선수 카드(PlayerQuickViewModal) 차트 4종 — 월별 막대 · 경기별 추이 · 능력치 6축 레이더 · 슛 비중 도넛.
 // 2026-10-12 리뉴얼 5단계: recharts(~90KB gz) → 자체 인라인 SVG(`components/league/ui/charts.tsx`).
 //   그림의 뜻(축·기준선·색·툴팁 내용)은 그대로다. 리그 화면은 recharts 를 import 하지 않는다.
 import { useState } from 'react'
-import { RadarChart, MiniBarChart, MiniLineChart, DonutChart } from '@/components/league/ui/charts'
+import { MiniBarChart, MiniLineChart, DonutChart } from '@/components/league/ui/charts'
+import HexRadar from '@/components/league/charts/HexRadar'
+import type { HexRadarResult } from '@/lib/stats/hexRadar'
 
 // ---------------------------------------------------------------------------
 // Monthly Stats Bar Chart
@@ -113,25 +115,20 @@ export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Player Radar Chart (accent-colored, league percentile)
+// Player Hex Radar — 6축(공격·수비·리바운드·슈팅·리딩·효율, 2026-10-14). 정의는 lib/stats/hexRadar.ts.
 // ---------------------------------------------------------------------------
-export type RadarStat = { stat: string; value: number }
 export type RadarAccent = { stroke: string; fillA: string; fillB: string }
 
-export function PlayerRadarChart({ data, accent }: { data: RadarStat[]; accent: RadarAccent }) {
+export function PlayerHexRadar({ data, accent }: { data: HexRadarResult; accent: RadarAccent }) {
   return (
-    <RadarChart
-      axes={data.map(d => d.stat)}
-      series={[{
+    <HexRadar
+      entries={[{
         name: '리그 백분위',
-        values: data.map(d => d.value),
-        stroke: accent.stroke,
-        strokeWidth: 2.25,
+        color: accent.stroke,
+        data,
         gradient: { inner: accent.fillB, innerOpacity: 0.55, outer: accent.fillA, outerOpacity: 0.15 },
       }]}
-      max={100}
-      height={160}
-      label="능력치 · 리그 백분위"
+      height={210}
     />
   )
 }

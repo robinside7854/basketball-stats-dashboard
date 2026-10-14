@@ -157,6 +157,8 @@ export type PlayerStat = {
   team_reb_in_games: number    // 본인 출전 경기의 본인 팀 총 리바운드
   // USG% 계산용
   team_poss_in_games: number   // 본인 출전 경기의 본인 팀 총 소유권 (FGA + 0.44×FTA + TOV)
+  // 6축 레이더 어시 점유율용 (2026-10-14 추가 · 옛 캐시 항목엔 없을 수 있다)
+  team_fgm_in_games?: number   // 본인 출전 경기의 본인 팀 야투 성공 합 (본인 포함)
   // Per-40 계산용
   minutes_played: number       // 본인 총 출전 시간 (분) — 교체(in/out)가 둘 다 찍힌 경기만
   // 교체 기록이 없는 경기를 이벤트 시각으로 메운 출전 시간(분).

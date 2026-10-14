@@ -4,7 +4,7 @@
 // 배경: 종전엔 PC 표의 체크박스 두 개로만 열 수 있어 휴대폰에서는 비교 자체가 불가능했다.
 //   이제 시트 안에서 빈 칸 두 개를 눌러 선수를 고른다 — 표 체크로 이미 골랐으면 그 둘로 바로 열린다.
 // 규칙
-//   · 숫자 계산은 종전 그대로다 — `players/[id]/detail` 의 player_stats·rankings, 레이더 = 리그 백분위.
+//   · 숫자 계산은 종전 그대로다 — `players/[id]/detail` 의 player_stats·rankings, 레이더 = 6축 리그 백분위(hex_radar).
 //   · 두 선수의 색은 --mm-series-1(A) · --mm-series-3(B). 색만으로 승패를 전하지 않는다 — 앞선 쪽 숫자를 굵게.
 //   · 라벨은 한국어, 약어(FG% 등)는 StatHeader 툴팁 안에만.
 //   · (2026-10-14) 「맞대결」 — 두 선수가 상대편으로 만난 경기의 전적과 그 경기들의 하루 평균,
@@ -21,6 +21,7 @@ import StatHeader from '@/components/league/StatHeader'
 // 레이더 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿔 바로 import 한다.
 import PlayerCompareRadarChart from '@/components/league/charts/PlayerCompareCharts'
 import type { PlayerHeadToHead } from '@/lib/stats/playerHeadToHead'
+import type { HexRadarResult } from '@/lib/stats/hexRadar'
 
 type Detail = {
   player_stats: {
@@ -31,6 +32,8 @@ type Detail = {
     ppg?: number; rpg?: number; apg?: number; spg?: number; bpg?: number
     total?: number
   }
+  /** 6축 레이더 (2026-10-14) — 정의 lib/stats/hexRadar.ts */
+  hex_radar?: HexRadarResult
 }
 
 export interface CompareCandidate {
@@ -117,35 +120,10 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
   const name1 = p1?.name ?? 'A'
   const name2 = p2?.name ?? 'B'
 
-  // 레이더 축 = 리그 백분위 (100 = 1위). 2026-08-15 수정.
-  //   전에는 축마다 임의 배율(PPG×10 · RPG×15 · APG×20 · SPG×40 · BPG×50)을 곱해 100 에서
-  //   잘랐다. 근거가 없는 배율이라 블록 0.8개와 득점 4점이 같은 반경으로 찍혔고, 레이더는
-  //   "어느 축이 더 튀어나왔나"로 읽히므로 그 자체가 잘못된 비교를 만들었다.
-  //   같은 리그 안의 '몇 등인가' 로 바꾸면 다섯 축이 전부 같은 뜻의 값이 된다 —
-  //   선수 퀵뷰 모달의 레이더가 원래 쓰던 방식과 동일하게 맞춘 것이다.
-  //   rank 0(최소 경기 수 미달로 순위 없음)은 퀵뷰와 같이 50 으로 둔다.
-  const pctile = (rank: number | undefined, total: number | undefined) => {
-    const t = total ?? 0
-    const r = rank ?? 0
-    return r > 0 && t > 0 ? Math.round((t - r + 1) / t * 100) : 50
-  }
-  const rk1 = d1?.rankings
-  const rk2 = d2?.rankings
-  // 같은 이름 두 명이면 레이더 dataKey 가 겹친다 — 뒤에 표식을 붙여 갈라 둔다
+  // 레이더 = 6축(공격·수비·리바운드·슈팅·리딩·효율) 리그 백분위 (2026-10-14, 선수 카드와 같은 HexRadar).
+  //   두 선수 다 detail 기본 기간이라 모집단이 같다. 같은 이름 두 명이면 범례가 겹치므로 뒤에 표식을 붙인다.
   const key1 = name1
   const key2 = name2 === name1 ? `${name2} (B)` : name2
-  const axis = (label: string, key: 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg') => ({
-    stat: label,
-    [key1]: pctile(rk1?.[key], rk1?.total),
-    [key2]: pctile(rk2?.[key], rk2?.total),
-  })
-  const radarData = [
-    axis('득점', 'ppg'),
-    axis('리바운드', 'rpg'),
-    axis('어시스트', 'apg'),
-    axis('스틸', 'spg'),
-    axis('블락', 'bpg'),
-  ]
 
   type StatKey = 'gp' | 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'fg_pct' | 'fg3_pct'
   // term = 툴팁(용어 사전) 키, label = 화면 글자
@@ -181,8 +159,8 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
           <>
             <Avatar src={p.photo_url} name={p.name} size={40} ringColor={color} decorative />
             <span className="min-w-0">
-              <span className="block font-black text-sm truncate" style={{ color: 'var(--mm-ink)' }}>{p.name}</span>
-              <span className="block text-xs font-bold truncate" style={{ color: 'var(--mm-muted)' }}>{p.team_name ?? '바꾸려면 누르기'}</span>
+              <span className="block font-black text-sm truncate" title={p.name} style={{ color: 'var(--mm-ink)' }}>{p.name}</span>
+              <span className="block text-xs font-bold truncate" title={p.team_name ?? undefined} style={{ color: 'var(--mm-muted)' }}>{p.team_name ?? '바꾸려면 누르기'}</span>
             </span>
           </>
         ) : (
@@ -237,9 +215,9 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
                   >
                     <Avatar src={c.photo_url} name={c.name} size={32} decorative />
                     <span className="flex-1 min-w-0">
-                      <span className="block font-bold text-sm truncate" style={{ color: 'var(--mm-ink)' }}>{c.name}</span>
+                      <span className="block font-bold text-sm truncate" title={c.name} style={{ color: 'var(--mm-ink)' }}>{c.name}</span>
                       {c.team_name && (
-                        <span className="flex items-center gap-1 text-xs font-bold truncate" style={{ color: 'var(--mm-muted)' }}>
+                        <span className="flex items-center gap-1 text-xs font-bold truncate" title={c.team_name} style={{ color: 'var(--mm-muted)' }}>
                           <span aria-hidden className="inline-block rounded-full shrink-0" style={{ width: 8, height: 8, background: c.team_color ?? 'var(--mm-rule)', border: '1px solid var(--mm-rule)' }} />
                           {c.team_name}
                         </span>
@@ -293,20 +271,19 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
             <HeadToHeadCard data={h2h} name1={name1} name2={name2} id1={id1} id2={id2} />
           )}
 
-          {/* 레이더 — 리그 백분위 */}
-          <div className="rounded-[var(--mm-radius-card)] p-3" style={{ border: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
-            <PlayerCompareRadarChart
-              data={radarData}
-              player1Name={key1}
-              player2Name={key2}
-              color1={COLOR1}
-              color2={COLOR2}
-            />
-            {/* 축이 무슨 값인지 밝힌다 — 안 밝히면 '득점 80' 을 80점으로 읽는다. */}
-            <p className="text-xs text-center mt-0.5 font-bold" style={{ color: 'var(--mm-muted)' }}>
-              리그 백분위 (100 = 1위)
-            </p>
-          </div>
+          {/* 레이더 — 6축 리그 백분위 */}
+          {d1?.hex_radar && d2?.hex_radar && (
+            <div className="rounded-[var(--mm-radius-card)] p-3" style={{ border: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
+              <PlayerCompareRadarChart
+                data1={d1.hex_radar}
+                data2={d2.hex_radar}
+                player1Name={key1}
+                player2Name={key2}
+                color1={COLOR1}
+                color2={COLOR2}
+              />
+            </div>
+          )}
 
           <button
             type="button"
@@ -354,14 +331,14 @@ function HeadToHeadCard({ data, name1, name2, id1, id2 }: { data: PlayerHeadToHe
           <p className="mt-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>상대편으로 {o.games}경기 · 마감된 정규전</p>
           <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <p className="min-w-0 text-left">
-              <PlayerName id={id1} name={name1} hitArea={false} className="block w-full truncate text-xs font-bold" style={{ color: COLOR1 }} />
+              <PlayerName id={id1} name={name1} title={name1 ?? undefined} hitArea={false} className="block w-full truncate text-xs font-bold" style={{ color: COLOR1 }} />
               <span className={`t-num text-2xl ${o.a_wins > o.b_wins ? 'font-black' : 'font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{o.a_wins}승</span>
             </p>
             <p className="text-xs font-bold text-center" style={{ color: 'var(--mm-muted)' }}>
               {o.draws > 0 ? `무 ${o.draws}` : 'VS'}
             </p>
             <p className="min-w-0 text-right">
-              <PlayerName id={id2} name={name2} hitArea={false} className="block w-full truncate text-xs font-bold text-right" style={{ color: COLOR2 }} />
+              <PlayerName id={id2} name={name2} title={name2 ?? undefined} hitArea={false} className="block w-full truncate text-xs font-bold text-right" style={{ color: COLOR2 }} />
               <span className={`t-num text-2xl ${o.b_wins > o.a_wins ? 'font-black' : 'font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{o.b_wins}승</span>
             </p>
           </div>

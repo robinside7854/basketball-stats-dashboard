@@ -5,6 +5,7 @@ import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type G
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { computeLastPlayed } from '@/lib/stats/lastPlayed'
 import { buildPercentileBars, type PercentileInput } from '@/lib/stats/percentileBars'
+import { buildHexRadar, type HexInput } from '@/lib/stats/hexRadar'
 import { buildQuarterRow, type QuarterTableRow } from '@/lib/stats/quarterTable'
 import { findSimilarStyle, similarReasonText, type StyleInput } from '@/lib/stats/similarStyle'
 import { isAssistEvent, FIELD_SHOT_TYPES } from '@/lib/stats/boxLine'
@@ -493,6 +494,16 @@ export async function GET(
   })
   const percentile_bars = buildPercentileBars(eligibleForRank.map(toPctInput), myRow ? toPctInput(myRow) : null)
 
+  // ── 6축 레이더 (2026-10-14) ── 공격·수비·리바운드·슈팅·리딩·효율. 막대와 같은 모집단·같은 기간·같은 최소 시도.
+  //   정의·식의 정본은 lib/stats/hexRadar.ts — 여기서 축을 다시 만들지 말 것.
+  //   team_fgm_in_games 는 옛 캐시 항목에 없을 수 있다(60초) → null 이면 어시 점유율만 빠진다.
+  const toHexInput = (p: PlayerStat): HexInput => ({
+    pid: p.player_id, gp: p.gp, pts: p.pts, fgm: p.fgm, fga: p.fga, fg3m: p.fg3m, fg3a: p.fg3a, ftm: p.ftm, fta: p.fta,
+    md_m: p.md_m, md_a: p.md_a, oreb: p.oreb, dreb: p.dreb, reb: p.reb, ast: p.ast, stl: p.stl, blk: p.blk, tov: p.tov,
+    team_poss: p.team_poss_in_games ?? null, team_reb: p.team_reb_in_games ?? null, team_fgm: p.team_fgm_in_games ?? null,
+  })
+  const hex_radar = buildHexRadar(eligibleForRank.map(toHexInput), myRow ? toHexInput(myRow) : null)
+
   // ── 비슷한 스타일 선수 (2026-10-14) ── 막대와 같은 자격 집단·같은 기간.
   //   팀 칩 = computeLeagueStats 의 표시용 소속 팀(기간 안 마지막 출전일 팀, (team_id, quarter_id) 정체성).
   const similar_players = (() => {
@@ -775,6 +786,7 @@ export async function GET(
     pinned_event_ids,
     last_played: await lastPlayedP,
     percentile_bars,
+    hex_radar,
     similar_players,
     role_labels,
   })
