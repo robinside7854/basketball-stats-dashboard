@@ -56,7 +56,8 @@ export interface ClassicGame {
   topScorer: { name: string; pts: number } | null
   /** 이 경기의 주인공 — 위닝샷 선수가 있으면 그 사람, 없으면 최다 득점자.
    *  경기를 한 줄로 기억하게 하는 얼굴이다. role 은 왜 주인공인지 설명한다. */
-  hero: { name: string; photoUrl: string | null; role: string; line: string } | null
+  /** playerId — 화면에서 이름을 누르면 선수 카드를 연다(2026-10-14) */
+  hero: { playerId?: string; name: string; photoUrl: string | null; role: string; line: string } | null
   hits: number
   score: number
   /** 선정 사유 태그 — 화면에 그대로 칩으로 뿌린다 */
@@ -207,6 +208,7 @@ export async function computeClassicGames(
       hero: (() => {
         if (wsPlayerId) {
           return {
+            playerId: wsPlayerId,
             name: playerName.get(wsPlayerId) ?? '알 수 없음',
             photoUrl: playerPhoto.get(wsPlayerId) ?? null,
             role: '위닝샷',
@@ -215,6 +217,7 @@ export async function computeClassicGames(
         }
         if (topScorerId && topScorer) {
           return {
+            playerId: topScorerId,
             name: topScorer.name,
             photoUrl: playerPhoto.get(topScorerId) ?? null,
             role: '최다 득점',

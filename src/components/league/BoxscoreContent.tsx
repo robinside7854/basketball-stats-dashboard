@@ -1,4 +1,6 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
+import PlayerCardName from '@/components/league/ui/PlayerName'
 // 일별 박스스코어 콘텐츠 — 페이지에서 사용
 //
 // 기존 DailyBoxscoreModal 의 콘텐츠 로직을 그대로 이식한 재사용 뷰.
@@ -8,7 +10,6 @@
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
 //   · 공격 유형(슛 유형별 비중·야투율) · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import dynamic from 'next/dynamic'
 import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
@@ -24,7 +25,6 @@ import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/Ass
 import ShotTypeBreakdown, { type ShotTypeRow } from '@/components/league/boxscore/ShotTypeBreakdown'
 
 // 큰 모달(선수 카드) — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
-const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
 /** 선수 id → DD/TD. 넘겨받은 줄 기준이다 — 하루 합산표엔 하루 합산, 경기별 표엔 그 경기 한 줄.
  *  (종전엔 경기별 표에도 하루 합산 판정이 붙어, 그 경기 기록으로는 DD 가 아닌 선수에게 DD 가 떴다.) */
@@ -582,8 +582,9 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   // 공유 렌더링 표시 flag — true 일 때만 off-screen 렌더
   const [renderingShare, setRenderingShare] = useState(false)
   // 이름을 눌러 연 선수 카드. 탭·필터·스크롤 state 와 독립이라 닫으면 보던 화면 그대로다.
-  const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
-  const pickPlayer: PlayerPick = useCallback((id, name) => setQuickView({ id, name }), [])
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const pickPlayer: PlayerPick = useCallback((id, name) => openPlayerCard?.({ playerId: id, playerName: name }), [openPlayerCard])
 
   // 하루 합산 판정 — 선수 기록 탭(하루 합산표)·스탯 리더·이날의 주인공에만 붙인다.
   //   경기별 표는 GameBoxscore 가 그 경기 한 줄로 따로 판정한다.
@@ -719,7 +720,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             <Avatar src={hero.photo_url} name={hero.name} size={32} ringColor={heroColor ? accentOrInk(heroColor) : null} decorative />
             <p className="text-xs sm:text-sm min-w-0 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
               <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-              이날의 주인공 · <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{hero.name}</span>
+              이날의 주인공 · <PlayerCardName id={hero.player_id} name={hero.name} className="font-black" hitArea={false} style={{ color: 'var(--mm-ink)' }} />
               {ddKinds.get(hero.player_id) && <> <DdChip kind={ddKinds.get(hero.player_id)!} /></>}
               {hero.team_name && <span style={{ color: 'var(--mm-muted)' }}> ({hero.team_name})</span>}
               {' '}<span className="font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
@@ -1151,14 +1152,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
         </div>
       )}
 
-      {quickView && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={quickView.id}
-          playerName={quickView.name}
-          onClose={() => setQuickView(null)}
-        />
-      )}
 
       {/* Hidden 공유용 캡처 대상 — 저장 클릭 시에만 렌더 (off-screen) */}
       {renderingShare && (

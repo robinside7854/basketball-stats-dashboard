@@ -1,4 +1,5 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -8,7 +9,6 @@ import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFi
 import RecordRoomBoard, { type SeasonHighCategory, type SeasonHigh } from '@/components/league/stats/RecordRoomBoard'
 
 // 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
-const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompareModal'), { ssr: false })
 import StatHeader from '@/components/league/StatHeader'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
@@ -283,7 +283,9 @@ function LeagueStatsPageInner() {
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
   const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
-  const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setQuickViewPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
   // 최소 출전 임계값 — 자동으로 리그 최다 출전의 2/3 로 고정 (사용자 수동 조작 제거 · 2026-07-15)
   // 이전엔 수동 입력 + '전체 선수' 토글이 있어 "왜 내 값이 안 먹지" 혼란 유발 → 자동 임계값 하나만 유지
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
@@ -1330,14 +1332,6 @@ function LeagueStatsPageInner() {
         </>
       )}
 
-      {quickViewPlayer && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={quickViewPlayer.id}
-          playerName={quickViewPlayer.name}
-          onClose={() => setQuickViewPlayer(null)}
-        />
-      )}
 
       {compareModalOpen && (
         <PlayerCompareModal

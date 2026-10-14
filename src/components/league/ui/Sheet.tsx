@@ -10,6 +10,7 @@
 //   · 닫히면 열기 전 포커스 위치로 돌려준다.
 //   · aria-labelledby 는 title 을 주면 자동, 직접 제목을 그리면 labelledBy 로 그 id 를 넘긴다.
 
+import { usePlayerCardOpen } from '@/contexts/PlayerCardContext'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 
@@ -43,6 +44,10 @@ export default function Sheet({
   // onClose 가 매 렌더 새 함수여도 리스너를 다시 달지 않도록 최신값만 참조한다
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  // 이 시트 위에 전역 선수 카드가 떠 있으면 Esc·Tab 은 카드 몫이다(2026-10-14) — 둘이 같이 닫히거나 Tab 을 빼앗지 않게
+  const cardOpen = usePlayerCardOpen()
+  const cardOpenRef = useRef(cardOpen)
+  useEffect(() => { cardOpenRef.current = cardOpen }, [cardOpen])
 
   useEffect(() => {
     if (!open) return
@@ -54,6 +59,7 @@ export default function Sheet({
     if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
 
     function onKey(e: KeyboardEvent) {
+      if (cardOpenRef.current) return
       if (e.key === 'Escape') { onCloseRef.current(); return }
       if (e.key !== 'Tab' || !panel) return
       // 가벼운 포커스 가두기 — Tab 이 배경으로 새어 나가지 않게 처음/끝에서 순환

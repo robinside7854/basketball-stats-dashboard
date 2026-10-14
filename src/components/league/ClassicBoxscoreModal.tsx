@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react'
 import { X, Loader2, User } from 'lucide-react'
 import type { ClassicGame } from '@/lib/stats/classicGames'
+import PlayerName from '@/components/league/ui/PlayerName'
+import { usePlayerCardOpen } from '@/contexts/PlayerCardContext'
 
 interface BoxRow {
   player_id: string
@@ -27,12 +29,14 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
   const [rows, setRows] = useState<BoxRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // ESC 로 닫기 — 팝업은 키보드로도 빠져나갈 수 있어야 한다.
+  // ESC 로 닫기 — 팝업은 키보드로도 빠져나갈 수 있어야 한다. 이름을 눌러 선수 카드가 위에 떠 있으면 카드만 닫는다.
+  const cardOpen = usePlayerCardOpen()
   useEffect(() => {
+    if (cardOpen) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, cardOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -110,7 +114,7 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
               <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
                 이 경기의 주인공 · {hero.role}
               </p>
-              <p className="font-bold text-[17px] truncate" style={{ color: 'var(--mm-ink)' }}>{hero.name}</p>
+              <PlayerName id={hero.playerId} name={hero.name} hitArea={false} className="block max-w-full font-bold text-[17px] truncate" style={{ color: 'var(--mm-ink)' }} />
               <p className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>{hero.line}</p>
             </div>
           </div>
@@ -138,7 +142,7 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
               <tbody>
                 {rows.map(r => (
                   <tr key={r.player_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                    <td className="px-4 py-2.5 font-semibold truncate max-w-[140px]" style={{ color: 'var(--mm-ink)' }}>{r.name}</td>
+                    <td className="px-4 py-2.5 font-semibold truncate max-w-[140px]" style={{ color: 'var(--mm-ink)' }}><PlayerName id={r.player_id} name={r.name} hitArea={false} className="max-w-full truncate align-bottom" /></td>
                     {([r.pts, r.reb, r.ast, r.stl, r.blk]).map((v, i) => (
                       <td
                         key={i}

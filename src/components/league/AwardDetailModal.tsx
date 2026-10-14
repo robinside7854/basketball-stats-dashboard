@@ -1,11 +1,7 @@
 'use client'
 import { useEffect, useMemo } from 'react'
 import { X, Crown, ChevronRight } from 'lucide-react'
-import dynamic from 'next/dynamic'
-import { useState } from 'react'
-
-// 후보 클릭 시에만 열리는 모달 — 초기 번들에서 분리
-const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
+import { useOpenPlayerCard, usePlayerCardOpen } from '@/contexts/PlayerCardContext'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 // 순위 지표(award.metric)가 용어집에 등록된 약어(예: 3P%, eFG%)면 설명 툴팁 표시.
 // 매치 안 되는 한국어 설명형 metric(예: "누적 PTS")은 null 반환 → 렌더 안 됨(안전).
@@ -53,10 +49,13 @@ interface Props {
   onClose: () => void
 }
 
-export default function AwardDetailModal({ leagueId, award, style, onClose }: Props) {
-  const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
-  // Focus trap — quickPlayer 열리면 그쪽으로 focus 위임, 그 외에는 이 모달 내부 순환
-  const trapRef = useFocusTrap(!quickPlayer)
+export default function AwardDetailModal({ award, style, onClose }: Props) {
+  // 후보를 누르면 레이아웃의 전역 선수 카드가 이 모달 위에 뜬다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const cardOpen = usePlayerCardOpen()
+  const setQuickPlayer = (p: { id: string; name: string }) => openPlayerCard?.({ playerId: p.id, playerName: p.name })
+  // Focus trap — 선수 카드가 열리면 그쪽으로 focus 위임, 그 외에는 이 모달 내부 순환
+  const trapRef = useFocusTrap(!cardOpen)
 
   // supportingStats 의 모든 고유 키 (표시 순서: 첫 후보 기준)
   const columns = useMemo(() => {
@@ -72,10 +71,12 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
   }, [award.allCandidates])
 
   useEffect(() => {
+    // 선수 카드가 위에 떠 있으면 Esc 는 카드만 닫는다
+    if (cardOpen) return
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, cardOpen])
 
   return (
     <>
@@ -213,14 +214,6 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
         </div>
       </div>
 
-      {quickPlayer && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={quickPlayer.id}
-          playerName={quickPlayer.name}
-          onClose={() => setQuickPlayer(null)}
-        />
-      )}
     </>
   )
 }

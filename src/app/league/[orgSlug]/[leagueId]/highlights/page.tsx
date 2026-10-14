@@ -21,6 +21,7 @@ import { Film, PlayCircle, ChevronRight, Clock, VideoOff, Pin, Trophy, UserX } f
 import { createClient } from '@/lib/supabase/admin'
 import { ProgressBar } from '@/components/league/ui/viz'
 import { Avatar } from '@/components/league/ui'
+import PlayerName from '@/components/league/ui/PlayerName'
 import SectionCard from '@/components/league/ui/SectionCard'
 import EmptyState from '@/components/league/EmptyState'
 import HighlightsBrowser from '@/components/highlights/HighlightsBrowser'
@@ -280,7 +281,7 @@ export default async function HighlightsFeedPage({
       body = (
         <>
           <ModeLine
-            title={pinner ? `${pinner.name} · 베스트샷` : '베스트샷'}
+            title={pinner ? <><PlayerName id={pinner.id} name={pinner.name} hitArea={false} /> · 베스트샷</> : '베스트샷'}
             sub={pinner ? `직접 핀한 시그니처 샷 ${pinner.count}개` : `선수들이 직접 핀한 시그니처 샷 · ${detail.players.length}명 · ${detail.clips.length}개 클립`}
             avatar={pinner ? { src: detail.photoMap[pinner.id] ?? null, name: pinner.name } : null}
           />
@@ -379,7 +380,7 @@ export default async function HighlightsFeedPage({
       body = (
         <>
           <ModeLine
-            title={`${p.number != null ? `#${p.number} ` : ''}${p.name}`}
+            title={<>{p.number != null ? `#${p.number} ` : ''}<PlayerName id={p.id} name={p.name} hitArea={false} /></>}
             sub={[
               `총 ${playerData.clips.length}개 클립`,
               playerData.quarters.length > 0 ? `${playerData.quarters.length}분기` : null,
@@ -420,7 +421,7 @@ export default async function HighlightsFeedPage({
 
 // ── 조각들 ─────────────────────────────────────────────────────────
 
-function ModeLine({ title, sub, avatar }: { title: string; sub?: string; avatar?: { src: string | null; name: string } | null }) {
+function ModeLine({ title, sub, avatar }: { title: React.ReactNode; sub?: string; avatar?: { src: string | null; name: string } | null }) {
   return (
     <div className="flex items-center gap-3 min-w-0">
       {avatar && <Avatar src={avatar.src} name={avatar.name} size={40} decorative />}

@@ -10,6 +10,8 @@ import dynamic from 'next/dynamic'
 import { X } from 'lucide-react'
 import { SHOT_TYPE_LABEL, shouldShowAssist } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
+import PlayerName from '@/components/league/ui/PlayerName'
+import { usePlayerCardOpen } from '@/contexts/PlayerCardContext'
 
 const HighlightsPlayer = dynamic(() => import('./HighlightsPlayer'), { ssr: false })
 
@@ -30,12 +32,14 @@ export default function HighlightsClipModal({
 }: Props) {
   const [currentIdx, setCurrentIdx] = useState(Math.max(0, Math.min(startIdx, clips.length - 1)))
 
-  // ESC 닫기
+  // ESC 닫기 — 이름을 눌러 선수 카드가 위에 떠 있으면 Esc 는 카드만 닫는다
+  const cardOpen = usePlayerCardOpen()
   useEffect(() => {
+    if (cardOpen) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, cardOpen])
 
   // 배경 스크롤 잠금
   useEffect(() => {
@@ -78,7 +82,7 @@ export default function HighlightsClipModal({
             {current && (
               // 잘라내지 않고 줄바꿈시킨다 — 모바일에서 이름이 길어도 끝까지 읽혀야 한다.
               <p className="text-[11px] mt-0.5 break-keep leading-snug" style={{ color: 'var(--mm-ink-soft)' }}>
-                <span className="font-bold">{current.player_name}</span>
+                <PlayerName id={current.player_id} name={current.player_name} hitArea={false} className="font-bold" />
                 {' · '}{SHOT_TYPE_LABEL[current.shot_type] ?? current.shot_type}
                 {/* 앤드원은 별도 클립이 아니라 이 슛에 흡수돼 있다 — 같은 장면이 두 번 재생되지 않게. */}
                 {current.has_and_one && (
@@ -90,7 +94,7 @@ export default function HighlightsClipModal({
                 {shouldShowAssist(current.shot_type) && current.assist_player_name && (
                   <span style={{ color: 'var(--mm-muted)' }}>
                     {' · 어시스트 '}
-                    <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{current.assist_player_name}</span>
+                    <PlayerName id={current.assist_player_id} name={current.assist_player_name} hitArea={false} className="font-bold" style={{ color: 'var(--mm-ink-soft)' }} />
                   </span>
                 )}
               </p>

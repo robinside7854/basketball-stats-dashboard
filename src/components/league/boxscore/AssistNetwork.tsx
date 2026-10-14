@@ -12,6 +12,8 @@ import { Handshake } from 'lucide-react'
 import { accentOrInk } from '@/lib/util/contrastColor'
 import EmptyState from '@/components/league/ui/EmptyState'
 import Avatar from '@/components/league/ui/Avatar'
+import PlayerName from '@/components/league/ui/PlayerName'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 
 export interface AssistLink {
   game_id: string
@@ -152,7 +154,7 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
                     <Avatar src={players.get(e.to)?.photo_url} name={nameOf(e.to)} size={32} ringColor={e.team.color ? accentOrInk(e.team.color) : null} decorative className="-ml-2" />
                   </span>
                   <span className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>
-                    {nameOf(e.from)} <span aria-label="에서" style={{ color: 'var(--mm-muted)' }}>→</span> {nameOf(e.to)}
+                    <PlayerName id={e.from} name={nameOf(e.from)} hitArea={false} /> <span aria-label="에서" style={{ color: 'var(--mm-muted)' }}>→</span> <PlayerName id={e.to} name={nameOf(e.to)} hitArea={false} />
                   </span>
                   <span className="ml-auto t-num text-base font-black shrink-0" style={{ color: 'var(--mm-yellow-strong)' }}>×{e.count}</span>
                 </li>
@@ -177,6 +179,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
   const uid = useId().replace(/:/g, '')
   const stroke = accentOrInk(team.color)
   const nameOf = (id: string) => players.get(id)?.name ?? '?'
+  const openPlayerCard = useOpenPlayerCard()
 
   // 노드 — 연결에 한 번이라도 나온 선수. 많으면 관여 횟수 상위 MAX_NODES 명만 그린다.
   const involvement = new Map<string, number>()
@@ -277,7 +280,12 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
           const anchor = Math.abs(cos) < 0.3 ? 'middle' : cos > 0 ? 'start' : 'end'
           const baseline = Math.abs(cos) < 0.3 ? (sin < 0 ? 'auto' : 'hanging') : 'central'
           return (
-            <g key={id}>
+            // 얼굴·이름을 누르면 선수 카드 — 그림은 role="img" 라 키보드·낭독기는 아래 「연결 목록」의 이름 버튼으로 연다
+            <g
+              key={id}
+              onClick={openPlayerCard && pl ? () => openPlayerCard({ playerId: id, playerName: name }) : undefined}
+              style={openPlayerCard && pl ? { cursor: 'pointer' } : undefined}
+            >
               <circle cx={p.x} cy={p.y} r={NR} style={{ fill: 'var(--mm-panel)', stroke, strokeWidth: 2 }} />
               {pl?.photo_url ? (
                 <image
@@ -307,7 +315,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
         <ul className="mt-1 space-y-1">
           {team.edges.map(e => (
             <li key={`${e.from}>${e.to}`} className="flex items-center gap-2 text-sm" style={{ color: 'var(--mm-ink)' }}>
-              <span className="truncate min-w-0">{nameOf(e.from)} <span style={{ color: 'var(--mm-muted)' }}>→</span> {nameOf(e.to)}</span>
+              <span className="truncate min-w-0"><PlayerName id={e.from} name={nameOf(e.from)} hitArea={false} /> <span style={{ color: 'var(--mm-muted)' }}>→</span> <PlayerName id={e.to} name={nameOf(e.to)} hitArea={false} /></span>
               <span className="ml-auto t-num font-black shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>×{e.count}</span>
             </li>
           ))}

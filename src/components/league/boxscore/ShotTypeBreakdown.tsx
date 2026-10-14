@@ -10,6 +10,7 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Target } from 'lucide-react'
 import EmptyState from '@/components/league/ui/EmptyState'
+import PlayerName from '@/components/league/ui/PlayerName'
 
 export interface ShotTypeRow {
   game_id: string
@@ -280,7 +281,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
                 <li key={p.key} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   <div className="flex items-center gap-2 mb-2 min-w-0">
                     <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: meta?.color ?? 'var(--mm-muted)' }} />
-                    <span className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{name}</span>
+                    <PlayerName id={p.player_id} name={name} hitArea={false} className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--mm-ink)' }} />
                     {meta && <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>{meta.name}</span>}
                     <span className="ml-auto t-num text-sm font-black shrink-0" style={{ color: 'var(--mm-ink)' }}>
                       {p.tot.fgm}/{p.tot.fga} <span className="font-semibold" style={{ color: 'var(--mm-muted)' }}>({pctText(p.tot.fgm, p.tot.fga)})</span>

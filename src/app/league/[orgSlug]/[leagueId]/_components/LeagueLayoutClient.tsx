@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
+import { PlayerCardProvider } from '@/contexts/PlayerCardContext'
 import { Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { Basketball } from '@/components/league/BasketballIcons'
@@ -497,6 +498,9 @@ function LeagueLayout({
     <LeagueAuthProvider leagueId={leagueId}>
     <LeagueEditModeProvider leagueId={leagueId}>
     <LeagueQuarterProvider leagueId={leagueId} initialQuarters={initialQuarters}>
+    {/* 선수 이름 → 선수 카드 (2026-10-14) — 카드 하나를 여기서만 띄운다(contexts/PlayerCardContext).
+        카드 안 「로그인」 버튼은 카드를 닫은 뒤 로그인 모달을 열므로 둘이 겹치지 않는다. */}
+    <PlayerCardProvider leagueId={leagueId}>
       <DraftProbe leagueId={leagueId} onChange={setShowDraft} />
       <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
         {/* 경기묶음 전환 — 탭 위 계층이라 탭 바(TabNav/BottomNav)보다 먼저 배치.
@@ -523,6 +527,7 @@ function LeagueLayout({
         <LoginModal leagueId={leagueId} onClose={() => setLoginOpen(false)} />
       )}
       <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} position="top-center" />
+    </PlayerCardProvider>
     </LeagueQuarterProvider>
     </LeagueEditModeProvider>
     </LeagueAuthProvider>

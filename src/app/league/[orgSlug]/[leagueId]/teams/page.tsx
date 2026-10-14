@@ -1,4 +1,6 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
+import PlayerName from '@/components/league/ui/PlayerName'
 import HeadToHeadSection from '@/components/league/HeadToHeadSection'
 import TeamInsightsSection from '@/components/league/TeamInsightsSection'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
@@ -6,7 +8,6 @@ import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { useState, useEffect, useMemo, useRef, Suspense, type ReactNode } from 'react'
-import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users, Pencil } from 'lucide-react'
@@ -44,7 +45,6 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
     </div>
   )
 }
-const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import StatHeader from '@/components/league/StatHeader'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import type { PlayerStat, Leader } from '@/types/league'
@@ -201,7 +201,7 @@ function calcShoot(p: PlayerStat): Record<ShootingKey, number> {
 }
 
 function StatsTable({
-  players, leagueId, leaderId, color, viewMode, statMode,
+  players, leaderId, color, viewMode, statMode,
 }: {
   players: PlayerStat[]
   leagueId: string
@@ -217,7 +217,9 @@ function StatsTable({
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('efg_pct')
   const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
-  const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
 
   // viewMode 변경 시 basicSortKey가 새 col 셋에 없으면 기본값으로
   useEffect(() => {
@@ -632,14 +634,6 @@ function StatsTable({
         </tbody>
       </table>
     </div>
-    {quickView && (
-      <PlayerQuickViewModal
-        leagueId={leagueId}
-        playerId={quickView.id}
-        playerName={quickView.name}
-        onClose={() => setQuickView(null)}
-      />
-    )}
     </>
   )
 }
@@ -665,7 +659,9 @@ function TeamDetailPanel({
   games: Game[]
   quarterId: string | 'all'
 }) {
-  const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
 
   const teamGames = useMemo(() => {
     return games.filter(g =>
@@ -875,14 +871,6 @@ function TeamDetailPanel({
         )}
       </div>
 
-      {quickView && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={quickView.id}
-          playerName={quickView.name}
-          onClose={() => setQuickView(null)}
-        />
-      )}
     </SectionCard>
   )
 }
@@ -1657,7 +1645,7 @@ function LeagueTeamsPageInner() {
                                 </div>
                               )}
                             </div>
-                            <p className="text-xs font-bold mt-1 truncate" style={{ color: 'var(--mm-ink-soft)' }}>{p.name}</p>
+                            <PlayerName id={p.player_id} name={p.name} hitArea={false} className="block w-full text-center text-xs font-bold mt-1 truncate min-h-6" style={{ color: 'var(--mm-ink-soft)' }} />
                           </div>
                         ))}
                       </div>

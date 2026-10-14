@@ -1,4 +1,5 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -10,7 +11,6 @@ import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 
 // gsap · PlayerQuickView · AwardDetail 은 카드 클릭 후 실행되는 인터랙션 — 초기 번들에서 분리
 // gsap 3.15 은 ~70KB, PlayerQuickView 는 1400줄 넘는 모달
-const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 const AwardDetailModal = dynamic(() => import('@/components/league/AwardDetailModal'), { ssr: false })
 
 type AwardCategory =
@@ -153,7 +153,9 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
   const [awards, setAwards] = useState<AwardEntry[]>([])
   const [attendance, setAttendance] = useState<AttendanceInfo | null>(null)
   const [loading, setLoading] = useState(true)
-  const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setQuickPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
   const [openAward, setOpenAward] = useState<AwardEntry | null>(null)
   // 자격 요건 박스의 분기 라벨(「26.3Q」)용 — 분기 목록은 LeagueQuarterContext 하나에서 받는다
   //   (2026-10-12 리뉴얼 5단계 — 종전엔 여기서 `/quarters` 를 또 불렀다).
@@ -794,14 +796,6 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
         )
       })()}
 
-      {quickPlayer && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={quickPlayer.id}
-          playerName={quickPlayer.name}
-          onClose={() => setQuickPlayer(null)}
-        />
-      )}
 
       {/* 부문 상세 모달 — 전체 후보 랭킹 */}
       {openAward && (

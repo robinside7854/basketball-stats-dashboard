@@ -1,4 +1,5 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -6,7 +7,6 @@ import dynamic from 'next/dynamic'
 import { Play, ChevronRight, Trophy } from 'lucide-react'
 
 // 카드 클릭 시에만 열리는 모달 — 초기 번들에서 분리
-const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 // ▶ 클릭 시에만 열리는 클립 모달 — YT iframe API 지연 로드
 const MilestoneClipModal = dynamic(() => import('./MilestoneClipModal'), { ssr: false })
 import SectionCard from '@/components/league/ui/SectionCard'
@@ -74,7 +74,9 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
   const hasInitial = !!initialData
   const [recent, setRecent] = useState<RecentEntry[]>(initialData?.recent ?? [])
   const [loading, setLoading] = useState(!hasInitial)
-  const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setQuickPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
   const [clip, setClip] = useState<RecentEntry | null>(null)
 
   const params = useParams<{ orgSlug?: string; org?: string }>()
@@ -266,14 +268,6 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
         )}
       </SectionCard>
 
-      {quickPlayer && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={quickPlayer.id}
-          playerName={quickPlayer.name}
-          onClose={() => setQuickPlayer(null)}
-        />
-      )}
 
       {clip && clip.event_id && clip.game_id && clip.video_url && clip.video_id
         && clip.video_timestamp != null && clip.clip_start != null && clip.clip_end != null

@@ -1,4 +1,5 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 // 커리어 마일스톤 · 나무(TREE) 뷰 (2026-07-19 재설계)
 //   · 5개 지표 = 5개 나무 (PTS/REB/AST/STL/BLK)
 //   · 각 나무 = 세로 축 · 임계값 눈금 · 선수 아바타 핀
@@ -8,11 +9,9 @@
 // 아바타 클릭 → 선수별 하이라이트로 이동
 
 import { useMemo, useState, useEffect } from 'react'
-import dynamic from 'next/dynamic'
 import { X, ChevronRight } from 'lucide-react'
 
 // 선수카드 모달 · 상호작용 트리거 후에만 필요 (recharts 등 포함)
-const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
 
 export type PlayerMilestoneData = {
   player_id: string
@@ -63,7 +62,7 @@ interface Props {
   leagueId: string
 }
 
-export default function PlayerMilestoneChart({ players, leagueId }: Props) {
+export default function PlayerMilestoneChart({ players }: Props) {
   // 활동 있는 선수만
   const activePlayers = useMemo(
     () => players.filter(p => p.pts + p.reb + p.ast + p.stl + p.blk > 0),
@@ -85,7 +84,12 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
 
   // 상태 · 모바일 팝오버 (하나만 노출) · 선수카드 모달 · 선수 지정(찾기)
   const [popoverPid, setPopoverPid] = useState<string | null>(null)
-  const [modalPid, setModalPid] = useState<string | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setModalPid = (pid: string) => {
+    const pl = activePlayers.find(p => p.player_id === pid)
+    openPlayerCard?.({ playerId: pid, playerName: pl?.name })
+  }
   const [pinnedPid, setPinnedPid] = useState<string | null>(null)  // 상시 강조할 선수 (내 이름 찾기)
 
   // 셀렉트 목록 · 이름순 정렬
@@ -96,7 +100,6 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
   const pinnedPlayer = pinnedPid ? activePlayers.find(p => p.player_id === pinnedPid) ?? null : null
 
   const popoverPlayer = popoverPid ? activePlayers.find(p => p.player_id === popoverPid) ?? null : null
-  const modalPlayer = modalPid ? activePlayers.find(p => p.player_id === modalPid) ?? null : null
 
   // 아바타 클릭 · 디바이스별 분기
   function handlePinClick(pid: string) {
@@ -234,15 +237,6 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
         />
       )}
 
-      {/* 선수카드 모달 (PC 직행 · 모바일 CTA) */}
-      {modalPlayer && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={modalPlayer.player_id}
-          playerName={modalPlayer.name}
-          onClose={() => setModalPid(null)}
-        />
-      )}
     </div>
   )
 }
@@ -662,7 +656,15 @@ function PlayerMilestonePopover({
             className="font-bold text-lg text-center"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
-            {player.number != null ? `#${player.number} ` : ''}{player.name}
+            {player.number != null ? `#${player.number} ` : ''}
+            {/* 이름도 아래 CTA 와 같은 동작(팝오버를 닫고 선수 카드) — 이름은 어디서나 선수 카드로 간다(2026-10-14) */}
+            <button
+              type="button"
+              onClick={onOpenCard}
+              className="cursor-pointer underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] rounded-[2px]"
+            >
+              {player.name}
+            </button>
           </div>
           {player.position && (
             <div className="text-xs font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>

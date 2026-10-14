@@ -1,4 +1,6 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
+import PlayerName from '@/components/league/ui/PlayerName'
 // 「나」(/me) 개인 대시보드 — 홈 「내 카드」의 확장판 (리뉴얼 2단계, 2026-10-12)
 //
 // 배치 (모바일 한 줄 · PC ≥lg 두 칸)
@@ -43,7 +45,6 @@ import { useMePeriod, type MePeriod, type MeShooting } from '../home/HomeMeConte
 const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
 
 // 선수카드 모달 · 클릭 후에만 로드
-const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
 // 비밀번호 변경 모달 · 클릭 시에만 로드
 const PasswordChangeModal = dynamic(() => import('./PasswordChangeModal'), { ssr: false })
 // 베스트샷 재생기 · 클릭 시에만 로드
@@ -162,7 +163,8 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
   const { user, loading: authLoading, refresh } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
+  // 내 선수 카드 — 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
   const [pwOpen, setPwOpen] = useState(false)
   // 「이번 분기 | 전체」 — 홈 내 카드와 같은 기억값
   const [period, setPeriod] = useMePeriod(leagueId)
@@ -238,9 +240,13 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
               <Avatar src={user.photo_url} name={user.name ?? user.login_id} size={56} decorative priority />
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-1.5 min-w-0">
-                  <span className="font-jersey font-black text-xl md:text-2xl truncate" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}>
-                    {user.name ?? user.login_id}
-                  </span>
+                  <PlayerName
+                    id={user.player_id}
+                    name={user.name ?? user.login_id}
+                    hitArea={false}
+                    className="font-jersey font-black text-xl md:text-2xl truncate"
+                    style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}
+                  />
                   <Sparkles size={16} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
                 </div>
                 <div className="text-xs md:text-sm font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
@@ -249,7 +255,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
               </div>
               <button
                 type="button"
-                onClick={() => setProfileOpen(true)}
+                onClick={() => user && openPlayerCard?.({ playerId: user.player_id, playerName: user.name ?? user.login_id })}
                 className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-chip)' }}
                 aria-label="선수카드 열기"
@@ -333,14 +339,6 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
         )}
       </div>
 
-      {profileOpen && user && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={user.player_id}
-          playerName={user.name ?? user.login_id}
-          onClose={() => setProfileOpen(false)}
-        />
-      )}
 
       {pwOpen && (
         <PasswordChangeModal

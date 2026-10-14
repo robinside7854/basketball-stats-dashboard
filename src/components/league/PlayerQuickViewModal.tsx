@@ -1104,6 +1104,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               <DynamicDuoPanel
                 duos={detail?.dynamic_duo ?? []}
                 playerName={player?.name ?? playerName}
+                // 짝꿍을 누르면 이 카드가 그 선수로 바뀐다 — 「비슷한 스타일 선수」와 같은 동작(2026-10-14)
+                onSelectPartner={onOpenPlayer}
               />
             )}
 

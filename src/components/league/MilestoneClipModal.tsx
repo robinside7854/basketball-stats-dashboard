@@ -4,11 +4,13 @@
 // - HighlightsPlayer 재사용 (자동 연속재생 → 다음 클립 없으니 사실상 무영향)
 // - ESC · 배경 클릭 · X 로 닫기
 // - dynamic import 로 초기 번들 분리 (YT iframe API + HighlightsPlayer 지연 로드)
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import HighlightsPlayer from '@/components/highlights/HighlightsPlayer'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
+import PlayerName from '@/components/league/ui/PlayerName'
+import { usePlayerCardOpen } from '@/contexts/PlayerCardContext'
 
 export interface MilestoneClipData {
   player_id: string
@@ -40,10 +42,14 @@ function formatKoreanDate(dateStr: string): string {
 }
 
 export default function MilestoneClipModal({ clip, onClose }: Props) {
+  // 이름을 눌러 선수 카드가 위에 떠 있으면 Esc 는 카드만 닫는다
+  const cardOpen = usePlayerCardOpen()
+  const cardOpenRef = useRef(cardOpen)
+  useEffect(() => { cardOpenRef.current = cardOpen }, [cardOpen])
   // ESC 닫기
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !cardOpenRef.current) onClose()
     }
     window.addEventListener('keydown', onKey)
     // 배경 스크롤 잠금
@@ -119,7 +125,7 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
                 letterSpacing: '-0.005em',
               }}
             >
-              {clip.player_name}
+              <PlayerName id={clip.player_id} name={clip.player_name} hitArea={false} />
               {clip.player_number != null && (
                 <span className="ml-1.5 text-sm" style={{ color: 'var(--mm-muted)' }}>
                   #{clip.player_number}

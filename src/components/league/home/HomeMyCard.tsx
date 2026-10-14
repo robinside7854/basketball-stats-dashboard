@@ -8,6 +8,7 @@
 // 비로그인: 얇은 로그인 안내 한 줄. 로그인했지만 미승인: 아무것도 그리지 않는다.
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import PlayerName from '@/components/league/ui/PlayerName'
 import { ChevronRight, LogIn } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -259,9 +260,13 @@ export default function HomeMyCard({ orgSlug, leagueId, latestLabel }: {
         <div className="flex items-center gap-2.5 min-w-0">
           <Avatar src={user.photo_url} name={user.name ?? user.login_id} size={40} decorative />
           <div className="min-w-0">
-            <p className="font-black truncate" style={{ color: 'var(--mm-ink)', fontSize: 18, lineHeight: 1.2 }}>
-              {user.name ?? user.login_id}
-            </p>
+            <PlayerName
+              id={user.player_id}
+              name={user.name ?? user.login_id}
+              hitArea={false}
+              className="block max-w-full font-black truncate"
+              style={{ color: 'var(--mm-ink)', fontSize: 18, lineHeight: 1.2 }}
+            />
             {showNotice && (
               <p className="text-[11px] font-medium break-keep mt-0.5" style={{ color: 'var(--mm-muted)' }}>
                 {period === 'quarter' ? '이번 분기' : '전체 기간'} · 하루 평균 기준으로 보여줘요

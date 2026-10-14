@@ -1,4 +1,5 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 // 미라클모닝 브랜드 — 리그 리더 (7카테고리 top3 · 자유투는 2026-10-13 뺐다)
 // 팔레트: 노랑/검정/화이트 (mm-* 변수)
 // 각 카드: 카테고리 라벨 + Top3 (프로필 사진 + 이름 + 값 모두 크게)
@@ -6,12 +7,10 @@
 // 사진 없으면 이니셜 fallback. 클릭 시 PlayerQuickView.
 
 import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { BarChart3 } from 'lucide-react'
 
 // 리더 카드 클릭 시에만 열리는 모달 — 초기 홈 번들에서 분리
-const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { ProgressBar } from '@/components/league/ui/viz'
@@ -72,7 +71,9 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
   const [photoMap, setPhotoMap] = useState<Record<string, string | null>>(initialPhotoMap ?? {})
   // initial 있으면 즉시 렌더 (SSR 프리페치로 waterfall 제거)
   const [loading, setLoading] = useState(!hasInitial)
-  const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setQuickPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
   // 모바일에서 카테고리 chip 으로 하나만 노출 · 데스크탑은 전체 그리드 (2026-07-16 세로 스크롤 축소)
   const [selectedCatKey, setSelectedCatKey] = useState<keyof PlayerStat>(CATEGORIES[0].key)
 
@@ -286,14 +287,6 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
         )}
       </SectionCard>
 
-      {quickPlayer && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={quickPlayer.id}
-          playerName={quickPlayer.name}
-          onClose={() => setQuickPlayer(null)}
-        />
-      )}
     </>
   )
 }

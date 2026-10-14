@@ -20,6 +20,7 @@
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
 import { Play, Pause, SkipBack, SkipForward, HeartCrack } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
+import PlayerName from '@/components/league/ui/PlayerName'
 import { extractYouTubeId, formatTimestamp, seekBy } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
@@ -712,7 +713,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
               </>
             ) : (
               <>
-                {clip.player_number ? `#${clip.player_number} ` : ''}{clip.player_name}
+                {clip.player_number ? `#${clip.player_number} ` : ''}
+                <PlayerName id={clip.player_id} name={clip.player_name} hitArea={false} />
                 <span className="mx-1.5" aria-hidden>·</span>
                 {SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}
               </>

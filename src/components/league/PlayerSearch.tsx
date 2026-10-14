@@ -1,10 +1,9 @@
 'use client'
+import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
 import { Search, X, User as UserIcon } from 'lucide-react'
 import type { LeaguePlayer } from '@/types/league'
 
-const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
 // 헤더 선수 검색 (2026-10-10) — 리그 화면 어디서든 이름으로 선수를 찾아 선수 카드를 연다.
 //
@@ -54,7 +53,9 @@ export default function PlayerSearch({ leagueId }: { leagueId: string }) {
   const [players, setPlayers] = useState<Candidate[] | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
-  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null)
+  // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
+  const openPlayerCard = useOpenPlayerCard()
+  const setSelected = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
   const inputRef = useRef<HTMLInputElement | null>(null)
   const listId = useId()
 
@@ -257,14 +258,6 @@ export default function PlayerSearch({ leagueId }: { leagueId: string }) {
         </div>
       )}
 
-      {selected && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={selected.id}
-          playerName={selected.name}
-          onClose={() => setSelected(null)}
-        />
-      )}
     </>
   )
 }

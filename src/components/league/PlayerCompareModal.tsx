@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Plus, Search, ArrowLeftRight } from 'lucide-react'
 import Sheet from '@/components/league/ui/Sheet'
 import Avatar from '@/components/league/ui/Avatar'
+import PlayerName from '@/components/league/ui/PlayerName'
 import { VersusBar } from '@/components/league/ui/viz'
 import StatHeader from '@/components/league/StatHeader'
 
@@ -289,7 +290,7 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
 
           {/* 맞대결 — 상대편으로 만난 경기만 */}
           {h2h && h2h.a === id1 && h2h.b === id2 && (
-            <HeadToHeadCard data={h2h} name1={name1} name2={name2} />
+            <HeadToHeadCard data={h2h} name1={name1} name2={name2} id1={id1} id2={id2} />
           )}
 
           {/* 레이더 — 리그 백분위 */}
@@ -322,7 +323,7 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
 }
 
 // 선수 vs 선수 맞대결 카드 — 전적 + 그 경기들의 하루 평균 + 같은 팀 전적 한 줄
-function HeadToHeadCard({ data, name1, name2 }: { data: PlayerHeadToHead; name1: string; name2: string }) {
+function HeadToHeadCard({ data, name1, name2, id1, id2 }: { data: PlayerHeadToHead; name1: string; name2: string; id1: string; id2: string }) {
   const o = data.opposite
   const t = data.teammates
   const days = Math.max(o.days, 1)
@@ -353,14 +354,14 @@ function HeadToHeadCard({ data, name1, name2 }: { data: PlayerHeadToHead; name1:
           <p className="mt-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>상대편으로 {o.games}경기 · 마감된 정규전</p>
           <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <p className="min-w-0 text-left">
-              <span className="block truncate text-xs font-bold" style={{ color: COLOR1 }}>{name1}</span>
+              <PlayerName id={id1} name={name1} hitArea={false} className="block w-full truncate text-xs font-bold" style={{ color: COLOR1 }} />
               <span className={`t-num text-2xl ${o.a_wins > o.b_wins ? 'font-black' : 'font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{o.a_wins}승</span>
             </p>
             <p className="text-xs font-bold text-center" style={{ color: 'var(--mm-muted)' }}>
               {o.draws > 0 ? `무 ${o.draws}` : 'VS'}
             </p>
             <p className="min-w-0 text-right">
-              <span className="block truncate text-xs font-bold" style={{ color: COLOR2 }}>{name2}</span>
+              <PlayerName id={id2} name={name2} hitArea={false} className="block w-full truncate text-xs font-bold text-right" style={{ color: COLOR2 }} />
               <span className={`t-num text-2xl ${o.b_wins > o.a_wins ? 'font-black' : 'font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{o.b_wins}승</span>
             </p>
           </div>
