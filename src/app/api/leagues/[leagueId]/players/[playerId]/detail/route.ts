@@ -8,6 +8,8 @@ import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { gameDateRange } from '@/lib/league/currentQuarter'
 import { buildPercentileBars, type PercentileInput } from '@/lib/stats/percentileBars'
 import { buildQuarterRow, type QuarterTableRow } from '@/lib/stats/quarterTable'
+import { findSimilarStyle, similarReasonText, type StyleInput } from '@/lib/stats/similarStyle'
+import { makeIdentityResolver, type QuarterOverride } from '@/lib/stats/teamIdentity'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
@@ -433,6 +435,8 @@ export async function GET(
   const allGp: Record<string, Set<string>> = {}
   // playerTeamInGame[pid][gId] = team_id (for win_rate computation)
   const playerTeamInGame: Record<string, Record<string, string>> = {}
+  // (2026-10-14) 「비슷한 스타일 선수」 팀 칩 — 기간 안 마지막 경기일에 뛴 팀(이벤트 team_id)
+  const lastSeen: Record<string, { date: string; teamId: string; quarterId: string | null }> = {}
 
   for (const e of allEvents ?? []) {
     const pid = e.league_player_id as string
@@ -451,6 +455,9 @@ export async function GET(
     if (evTeamId) {
       if (!playerTeamInGame[pid]) playerTeamInGame[pid] = {}
       if (!playerTeamInGame[pid][gId]) playerTeamInGame[pid][gId] = evTeamId
+      const g = gameMap[gId] as { date?: string; quarter_id?: string | null } | undefined
+      const d = g?.date ?? ''
+      if (!lastSeen[pid] || d > lastSeen[pid].date) lastSeen[pid] = { date: d, teamId: evTeamId, quarterId: g?.quarter_id ?? null }
     }
     const s = allMap[pid]
     if (made) {
@@ -533,6 +540,47 @@ export async function GET(
     eligibleForRank.map(m => toPctInput(m.pid)).filter((x): x is PercentileInput => x !== null),
     toPctInput(playerId),
   )
+
+  // ── 비슷한 스타일 선수 (2026-10-14) ── 막대와 같은 자격 집단·같은 기간(분기 선택 시 그 분기).
+  //   새 조회 없이 위에서 모은 allMap(타입별 야투 시도 포함)으로만 계산 — 규칙은 lib/stats/similarStyle.ts 머리 주석.
+  const similar_players = (() => {
+    const toStyleInput = (pid: string): StyleInput | null => {
+      const s = allMap[pid]
+      if (!s || s.gp <= 0) return null
+      return {
+        pid, gp: s.gp, pts: s.pts, oreb: s.oreb, dreb: s.dreb, ast: s.ast, stl: s.stl, blk: s.blk, tov: s.tov,
+        fga: s.fga, fta: s.fta,
+        shotAttempts: { shot_3p: s.fg3a, shot_2p_mid: s.midA, shot_layup: s.slashA, shot_post: s.postA },
+      }
+    }
+    const res = findSimilarStyle(
+      eligibleForRank.map(m => toStyleInput(m.pid)).filter((x): x is StyleInput => x !== null),
+      playerId,
+    )
+    // 팀 이름·색은 (team_id, quarter_id) 정체성으로 — 분기마다 팀명이 바뀐다(CLAUDE.md Critical)
+    const identity = makeIdentityResolver(
+      (teams ?? []).map(t => ({ id: t.id, name: t.name, color: t.color ?? null })),
+      ((allOverridesData as QuarterOverride[] | null) ?? []),
+    )
+    return {
+      qualified: res.qualified,
+      sample: res.sample,
+      players: res.matches.map(m => {
+        const meta = playerMetaMap[m.pid]
+        const ls = lastSeen[m.pid]
+        const team = ls ? identity(ls.teamId, ls.quarterId) : null
+        return {
+          player_id: m.pid,
+          name: meta?.name ?? '알 수 없음',
+          photo_url: meta?.photo_url ?? null,
+          team: team ? { name: team.display_name, color: team.color } : null,
+          score: m.score,
+          reasons: m.reasons,
+          reason_text: similarReasonText(m.reasons),
+        }
+      }),
+    }
+  })()
 
   // 승률 순위 계산 (gp >= 3 인 선수만)
   const winRateMap: Record<string, { wins: number; losses: number; rate: number; gp: number }> = {}
@@ -806,6 +854,7 @@ export async function GET(
     pinned_event_ids,
     last_played: await lastPlayedP,
     percentile_bars,
+    similar_players,
   })
 }
 

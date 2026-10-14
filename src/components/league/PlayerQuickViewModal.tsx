@@ -19,6 +19,7 @@ import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import type { LastPlayedData } from '@/lib/format/lastPlayed'
 import PercentileBars from '@/components/league/player/PercentileBars'
 import QuarterTable from '@/components/league/player/QuarterTable'
+import SimilarPlayers, { type SimilarPlayersData } from '@/components/league/player/SimilarPlayers'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { QuarterTableRow } from '@/lib/stats/quarterTable'
 
@@ -56,6 +57,8 @@ type Detail = {
   last_played?: LastPlayedData | null
   /** (2026-10-14) 세부 능력치 백분위 막대 — 레이더와 같은 자격 집단·하루 평균 */
   percentile_bars?: PercentileBarsResult
+  /** (2026-10-14) 비슷한 스타일 선수 — 같은 자격 집단·같은 기간 */
+  similar_players?: SimilarPlayersData
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   // record = 그 라운드(하루)의 전 경기 합산 전적. result 는 그 합산의 종합 판정(W/L/D).
@@ -160,7 +163,30 @@ interface Props {
   onDeleted?: () => void
 }
 
-export default function PlayerQuickViewModal({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted }: Props) {
+/**
+ * 카드 안에서 다른 선수(「비슷한 스타일 선수」 줄)로 갈아탈 수 있게 감싼다.
+ * 내부 상태(분기·탭·편집 패널 등)를 깨끗이 비우려고 key 로 통째로 다시 만든다.
+ */
+export default function PlayerQuickViewModal(props: Props) {
+  const [current, setCurrent] = useState({ id: props.playerId, name: props.playerName })
+  // 호출부가 다른 선수를 열면 그쪽을 따른다(렌더 중 동기화 — effect 로 하면 한 번 옛 선수가 그려진다)
+  const [prevPropId, setPrevPropId] = useState(props.playerId)
+  if (prevPropId !== props.playerId) {
+    setPrevPropId(props.playerId)
+    setCurrent({ id: props.playerId, name: props.playerName })
+  }
+  return (
+    <PlayerQuickViewInner
+      key={current.id}
+      {...props}
+      playerId={current.id}
+      playerName={current.name}
+      onOpenPlayer={(id, name) => setCurrent({ id, name })}
+    />
+  )
+}
+
+function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted, onOpenPlayer }: Props & { onOpenPlayer?: (id: string, name: string) => void }) {
 
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
   const [stats, setStats] = useState<SeasonStats | null>(null)
@@ -926,6 +952,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
                     {/* 세부 능력치 — 묶음별 백분위 막대 (선택한 기간 기준) */}
                     {activeDetail?.percentile_bars && <PercentileBars data={activeDetail.percentile_bars} />}
+
+                    {/* 비슷한 스타일 선수 — 같은 기간·같은 자격 집단 (줄을 누르면 그 선수 카드로) */}
+                    {activeDetail?.similar_players && <SimilarPlayers data={activeDetail.similar_players} onOpen={onOpenPlayer} />}
 
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {

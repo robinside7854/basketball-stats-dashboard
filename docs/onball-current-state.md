@@ -9,7 +9,8 @@
 - 스탯 탭: 성공률 최소 시도(`eligibility.ts` `MIN_ATTEMPTS_PER_DAY` = 하루 평균 × 출전일) · 통산 누적 「역대 N위」(`careerRanks.ts`, `CareerLeadersBoard`) · 「숫자 읽는 법」 시트(`glossary.ts READING_GUIDE`, TS% 는 +1·ft_2pt 로 부풀려짐 명시).
 - 선수 카드: 세부 능력치 백분위 막대(`percentileBars.ts` — 높음 초록·낮음 빨강, 최소 시도 `PCT_MIN_ATTEMPTS` 는 기간 합계 기준) · 「분기별 기록」 탭(`detail?quarterRows=only`) · 비교 시트 「맞대결」(`players/head-to-head`, `playerHeadToHead.ts`).
 - ⚠ 최소 시도 기준이 두 벌이다(스탯 탭=하루 평균 기준, 선수 카드 막대=기간 합계 기준). 운영진이 숫자를 정하면 한 벌로 합칠 것.
-- 보류(운영진 확인 필요): 비슷한 스타일 선수·역할 라벨(배지처럼 보일 위험) · 경기 카드 「눈에 띈 선수」(경기 MVP 와 같음) · 내 소식함.
+- 비슷한 스타일 선수(2026-10-14 사용자 승인): `lib/stats/similarStyle.ts` — 스타일(모양) 중심 유사도, 선수 카드에서 눌러 그 선수로 전환. 역할 라벨은 상위 10%(올라운더 20%) 기준으로 진행 예정.
+- 보류(운영진 확인 필요): · 경기 카드 「눈에 띈 선수」(경기 MVP 와 같음) · 내 소식함.
 
 **최근 결정 (2026-10-14, 마지막 출전일):**
 - /me·선수 카드에 「마지막 출전 10.10 (토) · 3일 전」 + 「이후 경기일 N번 결장」(3번↑ 노랑). 계산 `lib/stats/lastPlayed.ts`, 표기 `lib/format/lastPlayed.ts`, 화면 `ui/LastPlayedLine.tsx`.
