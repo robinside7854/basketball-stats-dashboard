@@ -29,6 +29,8 @@ interface RecentEntry {
   clip_start?: number | null
   clip_end?: number | null
   shot_type?: string | null
+  /** 「통산 득점 3위」 — 지금 순위(lib/stats/milestones.ts). 옛 캐시 응답엔 없다 */
+  career_rank_label?: string | null
 }
 
 // 서버에서 여전히 upcoming/recent 두 필드를 반환 — upcoming 은 사용하지 않지만
@@ -206,6 +208,11 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                           {formatKoreanDate(r.achieved_at)}
                         </span>
                       </p>
+                      {r.career_rank_label && (
+                        <p className="t-label font-bold mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+                          현재 {r.career_rank_label}
+                        </p>
+                      )}
                     </div>
                   </button>
 

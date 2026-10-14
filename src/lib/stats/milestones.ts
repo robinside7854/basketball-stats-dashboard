@@ -15,6 +15,7 @@ import { fetchQuarterVideos, resolveGameVideo } from '@/lib/youtube/gameVideo'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { rankIn } from './careerRanks'
 
 // 커리어 마일스톤 — 득점 (PTS) 만 유지
 // 사용자 판단: 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 정도는 아님
@@ -33,6 +34,10 @@ export interface UpcomingEntry {
   target: number
   distance: number
   percent: number
+  /** 지금 통산 득점 순위(공동 순위 · 친선전 제외 전체 기간). 득점 0 이면 null */
+  career_rank: number | null
+  /** 「통산 득점 3위」 — 화면에 그대로 쓰는 문구 */
+  career_rank_label: string | null
 }
 
 export interface RecentEntry {
@@ -52,6 +57,9 @@ export interface RecentEntry {
   clip_start?: number | null
   clip_end?: number | null
   shot_type?: string | null     // 재생 컨텍스트/필터용
+  /** 지금(달성 시점 아님) 통산 득점 순위 · 문구 — UpcomingEntry 와 같은 값 */
+  career_rank?: number | null
+  career_rank_label?: string | null
 }
 
 export interface MilestonesResult {
@@ -242,6 +250,19 @@ export async function computeMilestones(
     if (pts > 0) bump(pid, 'PTS', pts, ev)
   }
 
+  // 통산 득점 순위 — 이 누적(cumul)이 곧 전체 기간 정규 경기 득점이다(친선 제외 · 같은 채점).
+  //   마일스톤은 득점만 다루므로 순위도 득점만 붙인다(다른 부문 순위는 스탯 탭 「통산 누적」 보드).
+  const ptsTotals = new Map<string, number>()
+  for (const [key, v] of cumul) {
+    const [pid, cat] = key.split('|')
+    if (cat === 'PTS') ptsTotals.set(pid, v)
+  }
+  const rankFor = (pid: string) => {
+    const r = rankIn(ptsTotals, pid)
+    return { career_rank: r, career_rank_label: r != null ? `통산 득점 ${r}위` : null }
+  }
+  for (const r of recent) Object.assign(r, rankFor(r.player_id))
+
   // 6) 임박 (upcoming) 계산 — 각 (player, category) 의 다음 threshold 기준 percent 정렬
   const upcoming: UpcomingEntry[] = []
   for (const [key, cur] of cumul) {
@@ -263,6 +284,7 @@ export async function computeMilestones(
       target,
       distance,
       percent,
+      ...rankFor(pid),
     })
   }
 

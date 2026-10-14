@@ -9,6 +9,24 @@ import { HelpCircle, ChevronDown } from 'lucide-react'
 export interface GuideItem {
   term: string
   text: string
+  /** 계산식 — 있으면 설명 아래 작은 글씨 */
+  formula?: string
+}
+
+/** 항목 목록 — 이 접힘 상자와 스탯 탭 「숫자 읽는 법」 시트(StatsGlossarySheet)가 같이 쓴다 */
+export function GuideItemList({ items }: { items: GuideItem[] }) {
+  return (
+    <>
+      {items.map(item => (
+        <p key={item.term} className="text-xs leading-relaxed max-w-prose" style={{ color: 'var(--mm-ink-soft)' }}>
+          <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{item.term}</span> {item.text}
+          {item.formula && (
+            <span className="block mt-0.5 t-num" style={{ color: 'var(--mm-muted)' }}>계산: {item.formula}</span>
+          )}
+        </p>
+      ))}
+    </>
+  )
 }
 
 interface Props {
@@ -36,11 +54,7 @@ export default function StatsReadingGuide({ items, className }: Props) {
         />
       </summary>
       <div className="px-3 pb-3 pt-1 space-y-1.5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-        {items.map(item => (
-          <p key={item.term} className="text-xs leading-relaxed max-w-prose" style={{ color: 'var(--mm-ink-soft)' }}>
-            <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{item.term}</span> {item.text}
-          </p>
-        ))}
+        <GuideItemList items={items} />
       </div>
     </details>
   )

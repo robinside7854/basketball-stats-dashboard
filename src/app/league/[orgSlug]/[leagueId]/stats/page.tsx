@@ -19,21 +19,22 @@ import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
 import Avatar from '@/components/league/ui/Avatar'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
-import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
+import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
+import CareerLeadersBoard from '@/components/league/stats/CareerLeadersBoard'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import type { PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 import AwardsBoard from './_components/AwardsBoard'
 import { calcUsg } from '@/lib/stats/advanced'
-import { splitEligible } from '@/lib/stats/eligibility'
+import { splitEligible, STATS_MIN_ROUND_RATIO, isPctStatKey, meetsAttemptMin, attemptRuleLabel, type PctStatKey } from '@/lib/stats/eligibility'
 
 type ViewMode = 'avg' | 'total'
 
 // 최소 출전 자격 — 해당 기간 내 열린 라운드의 30% 이상 참여 (2026-08-03 완화)
 // 이전엔 "리그 최다 출전자의 2/3" 였는데, 개근자 1명 때문에 커트라인이 과하게 올라가
-// 정상 참여자까지 리더보드에서 빠지는 문제가 있었다.
-const MIN_ROUND_RATIO = 0.3
+// 정상 참여자까지 리더보드에서 빠지는 문제가 있었다. 값은 eligibility.ts(용어 시트와 공유).
+const MIN_ROUND_RATIO = STATS_MIN_ROUND_RATIO
 
 // 한 번에 보여줄 선수 행 수 — 나머지는 "더 보기" 로 점진 노출한다(schedule/page.tsx 와 같은 방식).
 // 자격을 통과한 선수 전원(미라클 기준 25~35명)을 세로로 잇던 것을 자른다.
@@ -152,8 +153,18 @@ function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; 
 function IneligibleTag() {
   return <span className="ml-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 자격 미달</span>
 }
+// 성공률 정렬에서 하루 평균 최소 시도(eligibility.ts MIN_ATTEMPTS_PER_DAY)를 못 채운 선수 — 표에는 두되 순위 없음
+function LowAttemptTag() {
+  return <span className="ml-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 시도 부족</span>
+}
+// 「야투율은 하루 평균 야투 5개 이상 시도한 선수만 순위」 — 성공률로 정렬했을 때만 보인다
+function AttemptRuleCaption({ k, className = '' }: { k: PctStatKey | null; className?: string }) {
+  if (!k) return null
+  return <p className={`text-xs font-bold ${className}`} style={{ color: 'var(--mm-muted)' }}>{attemptRuleLabel(k)}</p>
+}
 
-function rankTier(rank: number): { color: string; bg: string; accent: string; border: string } {
+function rankTier(rank: number | null): { color: string; bg: string; accent: string; border: string } {
+  if (rank == null) return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent', border: 'none' }
   if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', accent: 'var(--rank-1-fg)', border: '1px solid var(--rank-1-fg)' }  // gold
   if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', accent: 'var(--rank-2-fg)', border: '1px solid var(--rank-2-fg)' }  // silver
   if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', accent: 'var(--rank-3-fg)', border: '1px solid var(--rank-3-fg)' }  // bronze
@@ -168,11 +179,13 @@ function rankTier(rank: number): { color: string; bg: string; accent: string; bo
 type CardItem = { key: string; label: string; value: string; ratio: number | null; mark?: number | null; active?: boolean }
 
 function MobileStatCard({
-  rank, p, ineligible, bigLabel, bigTerm, bigValue, items, footer, onOpen,
+  rank, p, ineligible, lowAttempts = false, bigLabel, bigTerm, bigValue, items, footer, onOpen,
 }: {
-  rank: number
+  /** null = 순위 없음(성공률 정렬에서 시도 부족) */
+  rank: number | null
   p: PlayerStat
   ineligible: boolean
+  lowAttempts?: boolean
   bigLabel: string
   bigTerm: string
   bigValue: string
@@ -185,7 +198,7 @@ function MobileStatCard({
     <div role="button" tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
-      aria-label={`${rank}위 ${p.name} — 선수 상세 보기`}
+      aria-label={`${rank != null ? `${rank}위` : '순위 없음(시도 부족)'} ${p.name} — 선수 상세 보기`}
       className="w-full text-left px-3 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
       style={{
         background: 'var(--mm-panel)',
@@ -195,7 +208,7 @@ function MobileStatCard({
       }}>
       <div className="flex items-center gap-2.5">
         <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-          style={{ color: rt.color, background: rt.bg, border: rt.border }}>{rank}</span>
+          style={{ color: rt.color, background: rt.bg, border: rt.border }}>{rank ?? '–'}</span>
         <Avatar src={p.photo_url} name={p.name} size={40} decorative />
         <div className="flex-1 min-w-0">
           <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, overflowWrap: 'anywhere' }}>{p.name}</div>
@@ -205,11 +218,11 @@ function MobileStatCard({
                 <span className="truncate max-w-[7rem]">{p.team_name}</span>
               </Chip>
             )}
-            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{p.gp}일 출전{ineligible && <IneligibleTag />}</span>
+            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{p.gp}일 출전{ineligible && <IneligibleTag />}{lowAttempts && <LowAttemptTag />}</span>
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '26px', letterSpacing: '-0.015em' }}>{bigValue}</div>
+          <div className="font-jersey font-black tabular-nums leading-none" style={{ color: lowAttempts ? 'var(--mm-muted)' : 'var(--mm-ink)', fontSize: '26px', letterSpacing: '-0.015em' }}>{bigValue}</div>
           <div className="text-xs font-black mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink-soft)' }}>
             <StatHeader term={bigTerm} label={bigLabel} />
           </div>
@@ -282,6 +295,10 @@ function LeagueStatsPageInner() {
   // 리더보드와 같은 데이터 소스, 새 API 없음(GET /api/leagues/[leagueId]/season-highs).
   const [categoryHighs, setCategoryHighs] = useState<SeasonHigh[]>([])
   const [highsLoading, setHighsLoading] = useState(true)
+  // 통산 누적 보드(역대 N위) — 전체 기간 스탯. 「전체」를 보고 있으면 표 데이터를 그대로 쓰고,
+  //   분기를 보고 있을 때만 분기 없이 한 번 더 받는다(서버 캐시라 가볍다).
+  const [careerPlayers, setCareerPlayers] = useState<PlayerStat[]>([])
+  const [careerLoading, setCareerLoading] = useState(true)
   // "더 보기" 노출 상한 — 모바일 카드뷰와 데스크탑 표뷰가 **한 상태를 공유**한다.
   // 뷰마다 따로 두면 화면 폭이 바뀔 때(회전·창 크기) 보이는 인원이 튄다.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
@@ -347,6 +364,18 @@ function LeagueStatsPageInner() {
       .catch(() => { setCategoryHighs([]); setHighsLoading(false) })
   }, [leagueId, selectedQuarterId, isAwards, quarterReady])
 
+  useEffect(() => {
+    if (isAwards || !quarterReady || selectedQuarterId === 'all') return
+    if (careerPlayers.length > 0) return  // 전체 기간 값은 분기를 바꿔도 같다
+    setCareerLoading(true)
+    fetch(`/api/leagues/${leagueId}/stats`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { setCareerPlayers(d?.players ?? []); setCareerLoading(false) })
+      .catch(() => setCareerLoading(false))
+  }, [leagueId, selectedQuarterId, isAwards, quarterReady, careerPlayers.length])
+  const careerSource = selectedQuarterId === 'all' ? players : careerPlayers
+  const careerBoardLoading = selectedQuarterId === 'all' ? loading : careerLoading
+
   // 정렬 지표·정렬 방향·스탯 모드·평균/누적·분기를 바꾸면 늘려둔 노출 수를 초기값으로 되돌린다.
   // 안 되돌리면 "PPG 로 30명까지 펼쳐 둔 상태" 가 3P% 정렬에 그대로 남아, 보려던 상위권이 아니라
   // 엉뚱한 구간이 이어서 보인다.
@@ -370,8 +399,14 @@ function LeagueStatsPageInner() {
   const { eligible, ineligible } = splitEligible(players, effectiveMinGP)
   const isIneligible = (p: PlayerStat) => p.gp < effectiveMinGP
   // 정렬은 자격·미달 구분 없이 한 줄로 — 미달자가 늘 아래에 깔리면 「정렬」이 거짓말이 된다.
+  //   단, 성공률 정렬에서 **시도 부족**은 예외로 맨 아래(순위 없음)다 — 1개 던져 1개 넣은 100% 가
+  //   1위에 앉으면 그 정렬은 아무것도 말해 주지 않는다(eligibility.ts MIN_ATTEMPTS_PER_DAY).
+  const basicPctKey: PctStatKey | null = isPctStatKey(sortKey) ? sortKey : null
+  const lowAttempts = (p: PlayerStat, k: PctStatKey | null) => k != null && !meetsAttemptMin(p, k)
   const filtered = (showAll ? [...eligible, ...ineligible] : eligible)
     .sort((a, b) => {
+      const la = lowAttempts(a, basicPctKey), lb = lowAttempts(b, basicPctKey)
+      if (la !== lb) return la ? 1 : -1
       const diff = (a[sortKey] as number) - (b[sortKey] as number)
       return sortDir === 'desc' ? -diff : diff
     })
@@ -397,11 +432,8 @@ function LeagueStatsPageInner() {
       let ids = new Set<string>()
       const isPct = String(key).includes('_pct')
       for (const p of pool) {
-        // 성공률 리더는 시도 수 최소 5회 이상만 인정 (fluke 방지)
-        if (isPct) {
-          const attempts = key === 'fg3_pct' ? p.fg3a : key === 'ft_pct' ? p.fta : p.fga
-          if ((attempts ?? 0) < 5) continue
-        }
+        // 성공률 리더는 하루 평균 최소 시도를 채운 선수만 (eligibility.ts — 표 순위·TOP 5 와 같은 기준)
+        if (isPct && isPctStatKey(String(key)) && !meetsAttemptMin(p, String(key) as PctStatKey)) continue
         const v = p[key] as number ?? 0
         if (v > best) { best = v; ids = new Set([p.player_id]) }
         else if (v === best) ids.add(p.player_id)
@@ -413,13 +445,13 @@ function LeagueStatsPageInner() {
 
   const isLeader = (p: PlayerStat, key: string) => seasonLeaders[key]?.has(p.player_id) ?? false
 
-  // 모바일 카드 막대의 분모 = 자격자 중 1위 값. 성공률은 시도 5회 이상만 1위 후보(seasonLeaders 와 같은 기준) —
+  // 모바일 카드 막대의 분모 = 자격자 중 1위 값. 성공률은 최소 시도를 채운 선수만 1위 후보(seasonLeaders 와 같은 기준) —
   //   1개 던져 1개 넣은 100% 가 분모가 되면 모든 막대가 바닥에 깔린다.
   const leaderPool = players.filter(p => p.gp >= effectiveMinGP)
-  function leaderOf(get: (p: PlayerStat) => number | null, attempts?: (p: PlayerStat) => number): number {
+  function leaderOf(get: (p: PlayerStat) => number | null, pctKey?: PctStatKey | null): number {
     let best = 0
     for (const p of leaderPool) {
-      if (attempts && attempts(p) < 5) continue
+      if (pctKey && !meetsAttemptMin(p, pctKey)) continue
       const v = get(p)
       if (v != null && Number.isFinite(v) && v > best) best = v
     }
@@ -428,6 +460,7 @@ function LeagueStatsPageInner() {
   const ratioOf = (v: number | null, leader: number) => (v == null || leader <= 0 ? null : Math.max(0, Math.min(1, v / leader)))
   const basicAttempts = (key: SortKey): ((p: PlayerStat) => number) | undefined =>
     key === 'fg3_pct' ? p => p.fg3a : key === 'ft_pct' ? p => p.fta : (key === 'fg_pct' || key === 'efg_pct') ? p => p.fga : undefined
+  const pctKeyOf = (key: string): PctStatKey | null => (isPctStatKey(key) ? key : null)
 
   // 테이블 컬럼 정의
   // label = 화면 글자(한국어), term = 용어 사전 키(툴팁). 약어는 툴팁 안에만 남긴다(2026-10-12 리뉴얼 3단계).
@@ -509,10 +542,13 @@ function LeagueStatsPageInner() {
       return advSortDir === 'desc' ? -diff : diff
     })
 
-  // Shooting 정렬된 리스트
+  // Shooting 정렬된 리스트 — 성공률 정렬이면 시도 부족을 맨 아래로(기본 표와 같은 규칙)
+  const shootPctKey: PctStatKey | null = pctKeyOf(shootSortKey)
   const filteredShoot = [...filtered]
     .map(p => ({ p, sh: calcShoot(p) }))
     .sort((a, b) => {
+      const la = lowAttempts(a.p, shootPctKey), lb = lowAttempts(b.p, shootPctKey)
+      if (la !== lb) return la ? 1 : -1
       const diff = a.sh[shootSortKey] - b.sh[shootSortKey]
       return shootSortDir === 'desc' ? -diff : diff
     })
@@ -593,15 +629,9 @@ function LeagueStatsPageInner() {
       const col = (viewMode === 'avg' ? AVG_COLS : TOTAL_COLS).find(c => c.key === sortKey)
       const label = col?.label ?? String(sortKey)
       const fullLabel = BASIC_FULL_LABELS[sortKey] ?? label
-      const isPct = String(sortKey).includes('_pct')
-      let pool = eligibleBase
-      if (isPct) {
-        pool = pool.filter(p => {
-          if (sortKey === 'fg3_pct') return p.fg3a >= 5
-          if (sortKey === 'ft_pct')  return p.fta  >= 5
-          return p.fga >= 5
-        })
-      }
+      // 성공률은 하루 평균 최소 시도를 채운 선수만 (eligibility.ts — 표 순위와 같은 기준)
+      const pk = pctKeyOf(sortKey)
+      const pool = pk ? eligibleBase.filter(p => meetsAttemptMin(p, pk)) : eligibleBase
       const sorted = [...pool].sort((a, b) => (b[sortKey] as number) - (a[sortKey] as number)).slice(0, 5)
       return {
         key: `basic:${sortKey}:${viewMode}`,
@@ -620,13 +650,9 @@ function LeagueStatsPageInner() {
       const col = SHOOTING_COLS.find(c => c.key === shootSortKey)
       const label = col?.label ?? shootSortKey
       const fullLabel = (col?.desc ?? label).split('·')[0].trim() || label
-      // 슛 관련 성공률은 시도 5개 이상 자격
-      const pool = eligibleBase.filter(p => {
-        if (shootSortKey === 'fg3_pct') return p.fg3a >= 5
-        if (shootSortKey === 'ft_pct')  return p.fta  >= 5
-        // 그 외는 fga>0 만 요구
-        return p.fga > 0
-      })
+      // 성공률은 하루 평균 최소 시도를 채운 선수만 (eligibility.ts). 슛 분포(3점 비중)는 야투가 있으면 된다
+      const pk = pctKeyOf(shootSortKey)
+      const pool = eligibleBase.filter(p => (pk ? meetsAttemptMin(p, pk) : p.fga > 0))
       const withVals = pool.map(p => ({ p, val: calcShoot(p)[shootSortKey] }))
       const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
       // shot_mix 는 3P 비중 프록시로 정렬 · 값은 "3P {n}%" 표기 (혼동 방지)
@@ -710,7 +736,11 @@ function LeagueStatsPageInner() {
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
       {/* 제목 · 분기 · 표 모드를 한 카드에 — 배경 위에 칩만 떠 있지 않게 (2026-10-13) */}
       <SectionCard variant="standalone" className="space-y-3">
-        <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em', lineHeight: 1.15 }}>리그 스탯</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em', lineHeight: 1.15 }}>리그 스탯</h2>
+          {/* 「숫자 읽는 법」 — 하루 평균·+1·자유투 룰·친선 제외·최소 출전/시도 기준 (glossary.ts READING_GUIDE) */}
+          <StatsGlossarySheet className="shrink-0" />
+        </div>
         {/* 1줄: 분기 선택 */}
         <QuarterChips
           quarters={quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q`, isCurrent: q.is_current }))}
@@ -731,6 +761,15 @@ function LeagueStatsPageInner() {
           orgSlug={orgSlug}
           leagueId={leagueId}
           loading={highsLoading}
+        />
+      )}
+
+      {/* 통산 누적 — 역대 N위 (전체 기간 · 친선 제외). 분기를 보고 있어도 늘 전체 기간 값이다 */}
+      {statMode !== 'awards' && (
+        <CareerLeadersBoard
+          players={careerSource}
+          loading={careerBoardLoading}
+          onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
         />
       )}
 
@@ -778,6 +817,7 @@ function LeagueStatsPageInner() {
               </div>
             )
           })()}
+          <AttemptRuleCaption k={statMode === 'basic' ? basicPctKey : statMode === 'shooting' ? shootPctKey : null} className="mb-2" />
             </>}
           />
 
@@ -803,14 +843,7 @@ function LeagueStatsPageInner() {
             </div>
           )}
 
-          {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
-          <StatsReadingGuide items={[
-            { term: '득점 (PPG)', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
-            { term: '리바 (RPG)', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
-            { term: '어시 (APG)', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
-            { term: '턴오버 (TOPG)', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
-            { term: 'USG%', text: '팀 내 공격 점유율 · 본인이 뛴 경기에서 팀 야투+0.44×자유투+턴오버 중 본인 몫' },
-          ]} />
+          {/* 「이 표 읽는 법」 접힘 상자는 머리의 「숫자 읽는 법」 시트로 합쳤다(2026-10-14) */}
 
           {/* 전체 스탯 테이블 */}
           <SectionCard variant="standalone" pad="none">
@@ -868,6 +901,15 @@ function LeagueStatsPageInner() {
               </div>
             </div>
 
+            {(() => {
+              const k = statMode === 'basic' ? basicPctKey : statMode === 'shooting' ? shootPctKey : null
+              return k ? (
+                <div className="px-4 py-2 lg:px-6" style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
+                  <AttemptRuleCaption k={k} />
+                </div>
+              ) : null
+            })()}
+
             {statMode === 'basic' ? (<>
             {/* Basic — 모바일 카드뷰 (정렬 지표 크게 + 핵심 4칸 · 1위 대비 막대) */}
             <div className="md:hidden p-2.5 space-y-2">
@@ -889,11 +931,12 @@ function LeagueStatsPageInner() {
                     const has = !att || att(p) > 0
                     return {
                       key: c.key, label: c.label, value: cellVal(p, c.key),
-                      ratio: has ? ratioOf(raw, leaderOf(q => q[c.key] as number, att)) : null,
+                      ratio: has ? ratioOf(raw, leaderOf(q => q[c.key] as number, pctKeyOf(c.key))) : null,
                     }
                   })
+                const low = lowAttempts(p, basicPctKey)
                 return (
-                  <MobileStatCard key={p.player_id} rank={i + 1} p={p} ineligible={isIneligible(p)}
+                  <MobileStatCard key={p.player_id} rank={low ? null : i + 1} p={p} ineligible={isIneligible(p)} lowAttempts={low}
                     bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)}
                     items={items}
                     onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
@@ -927,13 +970,16 @@ function LeagueStatsPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleBasic.map((p, i) => (
+                  {visibleBasic.map((p, i) => {
+                    const rank = lowAttempts(p, basicPctKey) ? null : i + 1
+                    return (
                     <tr key={p.player_id}
                       className={`transition-colors`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border }}>{i+1}</span>
+                          style={{ color: rankTier(rank).color, background: rankTier(rank).bg, border: rankTier(rank).border }}
+                          title={rank == null ? '시도 부족 — 순위 없음' : undefined}>{rank ?? '–'}</span>
                       </td>
                       <td className="px-2 py-3 text-center">
                         <input type="checkbox" checked={compareIds.has(p.player_id)}
@@ -952,23 +998,27 @@ function LeagueStatsPageInner() {
                       </td>
                       {COLS.map(({ key }) => {
                         const leader = isLeader(p, key as string)
-                        const cellColor = sortKey === key
-                          ? 'var(--mm-ink)'
-                          : leader
+                        // 성공률 칸은 시도 기준 미달이면 흐린 글자(순위 대상 아님) — 정렬 중인 칸엔 「시도 부족」도 붙인다
+                        const low = lowAttempts(p, pctKeyOf(key))
+                        const cellColor = low
+                          ? 'var(--mm-muted)'
+                          : sortKey === key || leader
                             ? 'var(--mm-ink)'
                             : 'var(--mm-ink-soft)'
                         return (
                           <td key={key}
-                              className={`px-1.5 ${sortKey === key || leader ? 't-td-key' : 't-td'}`}
+                              className={`px-1.5 ${(sortKey === key || leader) && !low ? 't-td-key' : 't-td'}`}
                               style={{ color: cellColor }}
-                              title={leader ? '리그 리더' : undefined}>
+                              title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
                             {cellVal(p, key)}
                             {key === 'gp' && isIneligible(p) && <IneligibleTag />}
+                            {key === sortKey && low && <LowAttemptTag />}
                           </td>
                         )
                       })}
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
                 {/* Career Totals Footer — 자격자 대상 리그 총합/평균 */}
                 {/* 푸터는 토글과 무관하게 자격자 기준 — 「리그 평균」에 1경기 뛴 선수가 섞이면 기준선이 흔들린다 */}
@@ -1061,15 +1111,16 @@ function LeagueStatsPageInner() {
                     const c = SHOOTING_COLS.find(x => x.key === k)!
                     const att = SHOOT_ATTEMPTS[k]
                     const has = att(p) > 0
-                    const leader = leaderOf(q => calcShoot(q)[k], att)
+                    const leader = leaderOf(q => calcShoot(q)[k], pctKeyOf(k))
                     return {
                       key: k, label: c.label, value: has ? `${fmt1(sh[k])}%` : '—',
                       ratio: has ? ratioOf(sh[k], leader) : null,
                       mark: shootMarks[k] != null && leader > 0 ? Math.min(1, shootMarks[k]! / leader) : null,
                     }
                   })
+                const low = lowAttempts(p, shootPctKey)
                 return (
-                  <MobileStatCard key={p.player_id} rank={i + 1} p={p} ineligible={isIneligible(p)}
+                  <MobileStatCard key={p.player_id} rank={low ? null : i + 1} p={p} ineligible={isIneligible(p)} lowAttempts={low}
                     bigLabel={isMix ? '3점 비중' : (sortCol?.label ?? '')} bigTerm={sortCol?.term ?? ''}
                     bigValue={SHOOT_ATTEMPTS[shootSortKey](p) > 0 ? `${fmt1(sh[shootSortKey])}%` : '—'}
                     items={items}
@@ -1114,13 +1165,16 @@ function LeagueStatsPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleShoot.map(({ p, sh }, i) => (
+                  {visibleShoot.map(({ p, sh }, i) => {
+                    const rank = lowAttempts(p, shootPctKey) ? null : i + 1
+                    return (
                     <tr key={p.player_id}
                       className={`transition-colors`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border }}>{i+1}</span>
+                          style={{ color: rankTier(rank).color, background: rankTier(rank).bg, border: rankTier(rank).border }}
+                          title={rank == null ? '시도 부족 — 순위 없음' : undefined}>{rank ?? '–'}</span>
                       </td>
                       <td className="px-2 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -1134,18 +1188,22 @@ function LeagueStatsPageInner() {
                       {SHOOTING_COLS.map(({ key }, idx) => {
                         const val = sh[key]
                         const active = shootSortKey === key
+                        const low = lowAttempts(p, pctKeyOf(key))
                         // 구분선: 슈팅 효율(0-6) | 슛 분포(7 · SHOT MIX)
                         const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-rule)' } : {}
                         return (
                           <td key={key}
-                              className={active ? 't-td-key' : 't-td'}
-                              style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', ...dividerStyle }}>
+                              className={active && !low ? 't-td-key' : 't-td'}
+                              style={{ color: low ? 'var(--mm-muted)' : active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', ...dividerStyle }}
+                              title={low ? '시도 부족 — 순위 대상 아님' : undefined}>
                             {key === 'shot_mix' ? <ShotMixBar p={p} /> : `${fmt1(val)}%`}
+                            {active && low && <LowAttemptTag />}
                           </td>
                         )
                       })}
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
               {/* 지표 설명 범례 */}
