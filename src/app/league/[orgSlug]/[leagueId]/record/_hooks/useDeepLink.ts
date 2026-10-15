@@ -5,7 +5,7 @@ import type { RecordState } from './useRecordState'
 
 // 딥링크(`?date=&game=`) · 「이어서 기록하기」 진입 — 최초 1회
 export type UseDeepLinkCtx = Pick<RecordState,
-  'loadingDates' | 'scheduleDates' | 'setResumeTarget'
+  'loadingDates' | 'scheduleDates' | 'setResumeTarget' | 'setShowGameLog'
 > & {
   leagueId: string
   selectDate: (date: string) => Promise<void>
@@ -13,8 +13,9 @@ export type UseDeepLinkCtx = Pick<RecordState,
 }
 
 export function useDeepLink(ctx: UseDeepLinkCtx) {
-  const { loadingDates, scheduleDates, setResumeTarget, leagueId, selectDate, selectSlot } = ctx
+  const { loadingDates, scheduleDates, setResumeTarget, setShowGameLog, leagueId, selectDate, selectSlot } = ctx
   // 대회 관리 화면의 「기록」 버튼이 보내는 딥링크 — `?date=YYYY-MM-DD&game=<id>`.
+  //   `&log=1` 이면 그 경기를 연 뒤 「기록 내역」(GameLogModal)까지 띄운다 — 박스스코어 「기록 수정」(2026-10-15).
   //   없으면 종전대로 날짜 목록부터 시작한다.
   //   ⚠ `useSearchParams()` 를 쓰지 않는다 — 이 페이지는 Suspense 경계가 없어서 그걸 쓰면
   //     빌드가 깨진다(일정 화면이 같은 이유로 내부 컴포넌트를 분리해 뒀다).
@@ -61,6 +62,7 @@ export function useDeepLink(ctx: UseDeepLinkCtx) {
         else setResumeTarget(resume)
       }
       await selectSlot(hit)
+      if (sp.get('log') === '1') setShowGameLog(true)
     })()
     // selectDate/selectSlot 은 매 렌더 새로 만들어진다 — 넣으면 매번 다시 돈다.
     // eslint-disable-next-line react-hooks/exhaustive-deps

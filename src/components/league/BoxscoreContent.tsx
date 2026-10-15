@@ -23,7 +23,18 @@ import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
 import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
 import ShotTypeBreakdown, { type ShotTypeRow } from '@/components/league/boxscore/ShotTypeBreakdown'
-import DayHighlightsLauncher from '@/components/league/boxscore/DayHighlightsLauncher'
+import DayHighlightsLauncher, { type HighlightScope } from '@/components/league/boxscore/DayHighlightsLauncher'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { PenLine } from 'lucide-react'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { tallyDayRecord, identityKeyOf } from '@/lib/stats/dayRecord'
+
+type BoxTab = 'result' | 'players' | 'shots' | 'compare' | 'assist'
+const BOX_TABS: readonly BoxTab[] = ['result', 'players', 'shots', 'compare', 'assist']
+// 마지막으로 본 탭 — 같은 탭 세션 안에서 다른 날짜 박스스코어로 넘어가도 이어진다(2026-10-15)
+const BOX_TAB_KEY = 'mm_boxscore_tab'
+const isBoxTab = (v: unknown): v is BoxTab => typeof v === 'string' && (BOX_TABS as readonly string[]).includes(v)
 
 // 큰 모달(선수 카드) — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
 
@@ -81,6 +92,8 @@ type PlayerRow = {
 type GameData = {
   id: string; slot_num: number; round_num: number
   is_complete: boolean; is_started: boolean
+  /** 친선전 — 목록에는 남고 「팀별 일일 전적」에서는 빠진다(lib/stats/dayRecord.ts). 옛 응답엔 없다 */
+  is_exhibition?: boolean
   home_score: number; away_score: number
   home_team: { id: string; name: string; color: string } | null
   away_team: { id: string; name: string; color: string } | null
@@ -128,6 +141,10 @@ interface Props {
   /** 이 경기를 펼친 채로 연다. 명경기 카드처럼 "그날"이 아니라 "그 경기"로 보내는 진입점용.
    *  하루에 여러 경기가 열리므로, 날짜만 넘기면 어느 경기였는지 다시 찾아야 한다. */
   initialGameId?: string
+  /** ?hl=mine|team|all — 「하이라이트 보기」를 펼친 채 그 범위로 연다(홈 「내 하이라이트 ▶」). 기본은 접힘 */
+  initialHl?: HighlightScope | null
+  /** ?tab= — 안쪽 탭. 없으면 이 세션에서 마지막으로 본 탭 */
+  initialTab?: string | null
 }
 
 // 선수명. 누르면 선수 카드 모달이 열린다 — 글자 크기·굵기·색은 기존 그대로 두고
@@ -562,7 +579,10 @@ function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: P
 
 // 멀티테넌트 전환(온볼): leagueName 은 항상 호출부(boxscore page)에서 DB league.name 을 넘겨받음 —
 // 기본값은 다른 클럽명이 아닌 빈 문자열로 폴백 (호출부 fallback 미전달 시에도 특정 클럽명 노출 방지)
-export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId }: Props) {
+export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId, initialHl, initialTab }: Props) {
+  const { orgSlug } = useParams<{ orgSlug: string }>()
+  // 팀 어드민 · CEO — 펼친 경기 카드에 「기록 수정」(→ 기록 화면 · 기록 내역)
+  const { isEditMode } = useLeagueEditMode()
   const [games, setGames] = useState<GameData[]>([])
   // 이 날짜에 대진 롤업이 걸렸는지 — 화면에는 안내 문구로만 쓴다(슬롯별 보기는 제공하지 않는다)
   const [rolledUp, setRolledUp] = useState(false)
@@ -570,7 +590,23 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const [loading, setLoading] = useState(true)
   // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
   const [expandedGame, setExpandedGame] = useState<string | null>(initialGameId ?? null)
-  const [activeTab, setActiveTab] = useState<'result' | 'players' | 'shots' | 'compare' | 'assist'>('result')
+  // 탭 기억(2026-10-15) — ?tab= 이 우선, 없으면 sessionStorage. 첫 그림이 로딩 스피너라(탭은 데이터 뒤에 그린다)
+  //   서버 렌더(늘 'result')와 달라도 하이드레이션 어긋남이 없다.
+  const [activeTab, setActiveTabState] = useState<BoxTab>(() => {
+    if (isBoxTab(initialTab)) return initialTab
+    if (typeof window === 'undefined') return 'result'
+    try { const v = sessionStorage.getItem(BOX_TAB_KEY); return isBoxTab(v) ? v : 'result' } catch { return 'result' }
+  })
+  // 탭을 바꾸면 주소(?tab=)도 바꾼다 — 공유·새로고침에 남게. replaceState 라 뒤로가기 기록이 쌓이지 않고,
+  //   Next 라우터를 거치지 않으므로 다시 그리거나 스크롤이 튀지 않는다.
+  const setActiveTab = useCallback((t: BoxTab) => {
+    setActiveTabState(t)
+    try { sessionStorage.setItem(BOX_TAB_KEY, t) } catch { /* 저장소가 막혀 있으면 기억만 안 한다 */ }
+    const url = new URL(window.location.href)
+    if (t === 'result') url.searchParams.delete('tab')
+    else url.searchParams.set('tab', t)
+    window.history.replaceState(window.history.state, '', url)
+  }, [])
   const [teamFilter, setTeamFilter] = useState<string>('all')
   // 경기별 박스스코어는 경기 카드를 펼친 안에 팀별로 있다 — 선수 기록 탭은 하루 합산만 (2026-10-12).
   const [assistLinks, setAssistLinks] = useState<AssistLink[]>([])
@@ -629,22 +665,18 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
     }
   }
 
-  // 팀 전적 계산 (공유 이미지용 + 경기결과 탭 요약)
-  const teamRecords = (() => {
-    const map = new Map<string, { id: string; name: string; color: string | null; W: number; L: number; D: number; PF: number; PA: number }>()
-    for (const g of games.filter(gg => gg.is_complete)) {
-      if (!g.home_team || !g.away_team) continue
-      const home = map.get(g.home_team.id) ?? { id: g.home_team.id, name: g.home_team.name, color: g.home_team.color, W: 0, L: 0, D: 0, PF: 0, PA: 0 }
-      const away = map.get(g.away_team.id) ?? { id: g.away_team.id, name: g.away_team.name, color: g.away_team.color, W: 0, L: 0, D: 0, PF: 0, PA: 0 }
-      home.PF += g.home_score; home.PA += g.away_score
-      away.PF += g.away_score; away.PA += g.home_score
-      if (g.home_score > g.away_score) { home.W++; away.L++ }
-      else if (g.home_score < g.away_score) { home.L++; away.W++ }
-      else { home.D++; away.D++ }
-      map.set(g.home_team.id, home); map.set(g.away_team.id, away)
-    }
-    return [...map.values()].sort((a, b) => (b.W - b.L) - (a.W - a.L) || (b.PF - b.PA) - (a.PF - a.PA))
-  })()
+  // 팀 전적 (공유 이미지용 + 경기결과 탭 요약) — 정본 lib/stats/dayRecord.ts. 홈·일정·하이라이트와 같은 규칙:
+  //   친선전 제외(친선전뿐인 날은 친선전으로 세고 「친선전」 표시) · 정체성 키(team_id + 그 분기 이름)로 묶음 · 승률 → 득실.
+  //   팀 이름은 daily-boxscore 가 이미 (team_id, quarter_id) 로 풀어 준 값이다.
+  const dayRecord = tallyDayRecord(games.map(g => ({
+    home: g.home_team ? { key: identityKeyOf(g.home_team.id, g.home_team.name), name: g.home_team.name, color: g.home_team.color } : null,
+    away: g.away_team ? { key: identityKeyOf(g.away_team.id, g.away_team.name), name: g.away_team.name, color: g.away_team.color } : null,
+    home_score: g.home_score, away_score: g.away_score,
+    is_complete: g.is_complete, is_exhibition: g.is_exhibition,
+  })))
+  const teamRecords = dayRecord.teams.map(t => ({
+    id: t.key, name: t.name, color: t.color, W: t.wins, L: t.losses, D: t.draws, PF: t.ptsFor, PA: t.ptsAgainst,
+  }))
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -735,7 +767,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
       {/* 하이라이트 보기 — 전체 · 우리 팀 · 내 기록 → 전체화면 연속 재생 (2026-10-14). 클립은 펼칠 때 받는다 */}
       {!loading && games.length > 0 && (
-        <DayHighlightsLauncher leagueId={leagueId} date={date} games={games} />
+        <DayHighlightsLauncher leagueId={leagueId} date={date} games={games} initialScope={initialHl} />
       )}
 
       {/* 탭 바 — 스코어보드 접이식 섹션 제거, 콘텐츠는 경기결과 탭으로 이관 */}
@@ -780,7 +812,12 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   <h3
                     className="text-base lg:text-lg font-black mb-2.5"
                     style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-                  >팀별 일일 전적</h3>
+                  >팀별 일일 전적{dayRecord.exhibitionOnly && (
+                    <span className="ml-2 align-middle text-xs font-bold px-1.5 py-0.5" style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>친선전</span>
+                  )}</h3>
+                  {!dayRecord.exhibitionOnly && dayRecord.exhibitionGames > 0 && (
+                    <p className="text-xs -mt-1.5 mb-2" style={{ color: 'var(--mm-muted)' }}>친선전 {dayRecord.exhibitionGames}경기는 전적에서 뺐어요.</p>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {teamRecords.map(r => {
                       const diff = r.PF - r.PA
@@ -1007,6 +1044,19 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                                 videos={videoList}
                                 label={`${g.home_team?.name ?? '?'} vs ${g.away_team?.name ?? '?'}`}
                               />
+                            </div>
+                          )}
+                          {isEditMode && (
+                            // 팀 어드민 · CEO 전용 — 이 경기의 기록 화면을 「기록 내역」이 열린 채로 연다(record/_hooks/useDeepLink)
+                            <div className="px-4 sm:px-5 pt-3 flex justify-end">
+                              <Link
+                                href={`/league/${orgSlug}/${leagueId}/record?date=${date}&game=${g.slot_ids?.[0] ?? g.id}&log=1`}
+                                className="inline-flex items-center gap-1.5 min-h-11 px-3 text-sm font-bold whitespace-nowrap hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                                style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+                              >
+                                <PenLine size={14} aria-hidden />
+                                기록 수정
+                              </Link>
                             </div>
                           )}
                           <div className="px-4 sm:px-5 pb-4">

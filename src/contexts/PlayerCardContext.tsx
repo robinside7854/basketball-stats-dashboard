@@ -9,19 +9,24 @@
 // - 프로바이더 밖(비공개 리그 게이트·리그 트리 바깥)에서는 `useOpenPlayerCard()` 가 null —
 //   `<PlayerName>` 은 그때 평범한 글자로 그린다.
 // - 편집 전용 카드(팀 명단 편집기 — isEditMode·저장 콜백)는 이 전역 카드가 아니라 그 화면 자기 모달을 쓴다.
+// - (2026-10-15) 카드는 **연 화면의 분기**로 열린다(quarterId) — 스탯 탭에서 4분기를 보다 이름을 누르면 카드도 4분기.
+//   없거나 'all' 이면 전체 기간. 카드 안 「나와 비교」는 카드를 닫고 이 프로바이더가 비교 시트를 띄운다
+//   (카드 안에 겹쳐 띄우면 두 창이 Esc·Tab 을 서로 빼앗는다 — Sheet 의 usePlayerCardOpen 주석).
 import { createContext, useCallback, useContext, useState } from 'react'
 import dynamic from 'next/dynamic'
+import type { PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompareModal'), { ssr: false })
 
 export type OpenPlayerCardArgs = {
   playerId: string
   /** 카드가 데이터를 받기 전 머리에 바로 보일 이름 */
   playerName?: string
-  /** 예약 — 지금 카드는 자기 데이터로 사진을 그린다 */
-  photoUrl?: string | null
-  /** 예약 — 지금 카드는 자기 분기 선택을 쓴다 */
+  /** 카드를 연 화면의 분기 — 카드가 이 분기로 열린다. 없거나 'all' 이면 전체 기간 */
   quarterId?: string | null
+  /** 처음 열 미니 탭 — 없으면 이 리그에서 마지막으로 본 탭(데이터가 없으면 시즌 스탯) */
+  tab?: PlayerTabKey
 }
 
 type OpenFn = (args: OpenPlayerCardArgs) => void
@@ -31,10 +36,12 @@ const OpenContext = createContext<OpenFn | null>(null)
 const OpenStateContext = createContext(false)
 
 export function PlayerCardProvider({ leagueId, children }: { leagueId: string; children: React.ReactNode }) {
-  const [current, setCurrent] = useState<{ id: string; name: string } | null>(null)
+  const [current, setCurrent] = useState<{ id: string; name: string; quarterId: string | null; tab?: PlayerTabKey } | null>(null)
+  const [compare, setCompare] = useState<{ ids: [string, string]; quarterId: string | null } | null>(null)
   const open = useCallback((args: OpenPlayerCardArgs) => {
     if (!args.playerId) return
-    setCurrent({ id: args.playerId, name: args.playerName ?? '' })
+    const q = args.quarterId && args.quarterId !== 'all' ? args.quarterId : null
+    setCurrent({ id: args.playerId, name: args.playerName ?? '', quarterId: q, tab: args.tab })
   }, [])
   return (
     <OpenContext.Provider value={open}>
@@ -48,9 +55,20 @@ export function PlayerCardProvider({ leagueId, children }: { leagueId: string; c
             leagueId={leagueId}
             playerId={current.id}
             playerName={current.name}
+            initialQuarterId={current.quarterId}
+            initialTab={current.tab}
             onClose={() => setCurrent(null)}
+            onCompare={(ids, quarterId) => { setCurrent(null); setCompare({ ids, quarterId }) }}
           />
         </div>
+      )}
+      {compare && (
+        <PlayerCompareModal
+          leagueId={leagueId}
+          initialIds={compare.ids}
+          quarterId={compare.quarterId}
+          onClose={() => setCompare(null)}
+        />
       )}
     </OpenStateContext.Provider>
     </OpenContext.Provider>

@@ -334,7 +334,8 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
 
   // 5탭 고정 — 더보기 삭제(Task 4-C). 인스타그램처럼 계정/개인 화면은 맨 오른쪽.
   // 선수 명단·팀 순위는 스탯 탭으로 이동(2026-08-08, 아래 isActive 참조) — 경기 탭은 원래대로 경기만.
-  // 드래프트·설정은 하단에서 완전히 빠지고 /me 바로가기로만 닿는다(Task 4-D 참조).
+  // 드래프트·설정은 하단 탭에 없다. 드래프트는 /me 「바로가기」(어드민)와 데스크톱 상단 탭으로,
+  //   설정은 헤더의 톱니 버튼(어드민·CEO, 위 「어드민 설정 진입점」) 하나로만 닿는다 — /me 에는 설정 바로가기가 없다.
   const mainTabs: { href: string; label: string; Icon: typeof Home; ariaLabel?: string }[] = [
     { href: base,                  label: '홈',      Icon: Home },
     { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
@@ -349,8 +350,9 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   // 홈 매칭 — 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
   // 경기 우산 매칭 — /schedule 이면서 /boxscore·/record 도 경기 탭 활성.
   // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings 도 여기로 흡수한다. 둘 다 하단 탭이
-  //   따로 없고 /me 의 "바로가기"(또는 설정)로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부
-  //   꺼진다. (인스타 카드 생성기 /social 은 2026-10-12 폐지)
+  //   따로 없어서(드래프트 = /me 바로가기, 설정 = 헤더 톱니) 안 그러면 그 페이지에서 하단 탭이 전부
+  //   꺼진다. 설정은 /me 에서 가는 길이 없지만 계정·운영 쪽이라 같은 우산에 둔다.
+  //   (인스타 카드 생성기 /social 은 2026-10-12 폐지)
   const isActive = (href: string) => {
     if (href === base) return pathname === base
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`)

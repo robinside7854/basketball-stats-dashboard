@@ -84,6 +84,15 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
       <div className="grid gap-0">
         {standings.map((t, idx) => {
           const isTop = idx === 0
+          // 팀 이름 → 팀 탭의 그 팀 카드(2026-10-15). 앵커는 `team-<team_id>` — 정체성 키(`${team_id}::이름`)의
+          //   앞부분이다. 이 표는 한 분기짜리라 team_id 하나가 팀 하나다. 링크가 없으면(재사용 시) 글자 그대로.
+          const teamHref = orgSlug && leagueId ? `/league/${orgSlug}/${leagueId}/teams#team-${t.key.split('::')[0]}` : null
+          const nameStyle = {
+            fontSize: isTop ? 'clamp(18px, 4.6vw, 22px)' : 'clamp(16px, 3.8vw, 18px)',
+            letterSpacing: '-0.005em',
+            color: accentOrInk(t.color),
+            lineHeight: 1.15,
+          }
           const rateColor = t.winRate >= 60 ? 'var(--mm-positive)' : t.winRate >= 40 ? 'var(--mm-ink-soft)' : 'var(--mm-negative)'
           return (
             <div
@@ -117,18 +126,21 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                     className="block h-6 w-1 sm:w-1.5 rounded-sm shrink-0"
                     style={{ background: t.color, opacity: isTop ? 0.85 : 1, border: '1px solid var(--mm-rule)' }}
                   />
-                  <span
-                    className="font-black min-w-0 break-keep truncate"
-                    title={t.name}
-                    style={{
-                      fontSize: isTop ? 'clamp(18px, 4.6vw, 22px)' : 'clamp(16px, 3.8vw, 18px)',
-                      letterSpacing: '-0.005em',
-                      color: accentOrInk(t.color),
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    {t.name}
-                  </span>
+                  {teamHref ? (
+                    // 터치 영역 44px — 줄 높이는 그대로 두고 위아래 패딩을 음수 여백으로 상쇄한다
+                    <Link
+                      href={teamHref}
+                      className="block font-black min-w-0 break-keep truncate py-[11px] -my-[11px] hover:underline underline-offset-2"
+                      title={`${t.name} 팀 기록 보기`}
+                      style={nameStyle}
+                    >
+                      {t.name}
+                    </Link>
+                  ) : (
+                    <span className="font-black min-w-0 break-keep truncate" title={t.name} style={nameStyle}>
+                      {t.name}
+                    </span>
+                  )}
                 </div>
 
                 <div className={`order-last basis-full ${wide('lg:order-none lg:basis-auto lg:flex-1 lg:pl-0')} min-w-0 pl-8 sm:pl-11`}>

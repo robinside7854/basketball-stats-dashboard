@@ -7,12 +7,14 @@
 //     「N경기 보기」로 펴고 「접기」로 다시 접는다. 팀 성적 한 줄씩은 늘 보인다.
 // 데이터는 홈 「최근 라운드」와 같은 서버 캐시(computeRecentRounds)의 첫 라운드다 — 새 요청이 없다.
 // 로그인 회원이면 내가 뛴 경기를 노랑으로 표시한다(HomeMeContext — 브라우저에서 받은 개인 데이터).
+// (2026-10-15) 그날 내가 뛰었으면 머리에 「내 하이라이트 ▶」(→ 박스스코어 ?hl=mine — 범위 「내 기록」이 골라진 채
+//   하이라이트 보기가 펼쳐진다), 카드 맨 아래 「전체 일정 보기 →」(홈 탭 「지난 경기일」을 대신한다).
 import Link from 'next/link'
 import { useState } from 'react'
-import { ChevronDown, ClipboardList, PlayCircle, Trophy } from 'lucide-react'
+import { ArrowRight, ChevronDown, ClipboardList, PlayCircle, Trophy } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
-import type { RoundSummary, RoundGame } from '@/components/league/nba/NbaRoundsSummary'
+import type { RoundSummary, RoundGame } from './roundTypes'
 import { useHomeMe } from './HomeMeContext'
 
 function dayEyebrow(date: string): string {
@@ -97,7 +99,20 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
   return (
     <SectionCard variant="stack" pad="none" ariaLabel={`${round.weekLabel} 경기 목록`}>
       <header className="px-4 lg:px-5 pt-3.5 pb-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-        <p className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>{dayEyebrow(round.date)}</p>
+        <div className="flex items-center justify-between gap-2 min-h-[28px]">
+          <p className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>{dayEyebrow(round.date)}</p>
+          {myCount > 0 && (
+            // 재생은 박스스코어에서 한 번 더 눌러야 시작된다(iPhone 은 사용자 탭 안에서만 재생 — DayHighlightsLauncher)
+            <Link
+              href={`${base}/boxscore/${round.date}?hl=mine`}
+              className="inline-flex items-center gap-1 min-h-[44px] -my-2 px-2 -mr-2 text-xs font-black whitespace-nowrap hover:brightness-90"
+              style={{ color: 'var(--mm-ink)' }}
+            >
+              내 하이라이트
+              <PlayCircle size={14} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+            </Link>
+          )}
+        </div>
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mt-0.5">
           <h2 className="font-black break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 26px)', lineHeight: 1.15 }}>
             {round.weekLabel}
@@ -210,6 +225,18 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
         </ol>
         </>
       )}
+
+      {/* 지난 날짜 전부는 일정 탭 — 홈 탭 「지난 경기일」(그 앞 3일)을 2026-10-15 이 링크로 대신했다 */}
+      <div className="px-4 lg:px-5 pb-3" style={{ borderTop: games.length > 0 && open ? '1px solid var(--mm-rule)' : 'none' }}>
+        <Link
+          href={`${base}/schedule`}
+          className="flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-90"
+          style={{ color: 'var(--mm-ink-soft)' }}
+        >
+          전체 일정 보기
+          <ArrowRight size={15} aria-hidden />
+        </Link>
+      </div>
     </SectionCard>
   )
 }

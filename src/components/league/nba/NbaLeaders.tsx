@@ -73,7 +73,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
   const [loading, setLoading] = useState(!hasInitial)
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
-  const setQuickPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
+  const setQuickPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId }) }
   // 모바일에서 카테고리 chip 으로 하나만 노출 · 데스크탑은 전체 그리드 (2026-07-16 세로 스크롤 축소)
   const [selectedCatKey, setSelectedCatKey] = useState<keyof PlayerStat>(CATEGORIES[0].key)
 

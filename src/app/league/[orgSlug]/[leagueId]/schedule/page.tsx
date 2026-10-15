@@ -15,6 +15,7 @@ import { RecordBar } from '@/components/league/ui/viz'
 import Chip from '@/components/league/ui/Chip'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
+import { tallyDayRecord, identityKeyOf, type DayRecord } from '@/lib/stats/dayRecord'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
@@ -24,34 +25,44 @@ type ScheduleDate = {
   id: string; date: string; is_skipped?: boolean
   start_time?: string | null; place?: string | null; capacity?: number | null
 }
-// 날짜 카드에 보여 줄 그날 결과 — 팀별 승패. 정규전만 센다(친선은 따로 경기 수만).
-type DayTeam = { name: string; color: string | null; w: number; l: number; d: number }
-type DayResult = { teams: DayTeam[]; games: number; exhibition: number }
+// 날짜 카드에 보여 줄 그날 결과 — 팀별 승패. 규칙은 lib/stats/dayRecord.ts 한 벌(홈·하이라이트·박스스코어와 같다):
+//   친선전 제외(친선전뿐인 날은 친선전으로 세고 「친선전」 표시) · 정체성 키(team_id + 그 분기 이름)로 묶음 · 승률 → 득실.
+//   (종전엔 이름으로 묶고 승−패 순이라, 같은 날 홈과 순서가 달랐다.)
+type DayGame = {
+  id: string; slot_num: number | null; is_exhibition: boolean
+  home: string; away: string; home_score: number; away_score: number
+}
+type DayResult = { record: DayRecord; games: DayGame[] }
 type CompleteGame = {
+  id: string; slot_num?: number | null
   date: string; quarter_id?: string; is_exhibition?: boolean
   home_score: number | null; away_score: number | null
   home_team_id: string | null; away_team_id: string | null
-  home_team?: { name: string; color: string | null } | null
-  away_team?: { name: string; color: string | null } | null
+  // /games 가 분기 이름(override)으로 이미 풀어 준다
+  home_team?: { id: string; name: string; color: string | null } | null
+  away_team?: { id: string; name: string; color: string | null } | null
 }
 
 function buildDayResults(games: CompleteGame[]): Record<string, DayResult> {
+  const byDate: Record<string, CompleteGame[]> = {}
+  for (const g of games) (byDate[g.date] ??= []).push(g)
+  const side = (t: CompleteGame['home_team']) => t ? { key: identityKeyOf(t.id, t.name), name: t.name, color: t.color } : null
   const out: Record<string, DayResult> = {}
-  for (const g of games) {
-    const r = (out[g.date] ??= { teams: [], games: 0, exhibition: 0 })
-    if (g.is_exhibition) { r.exhibition++; continue }
-    if (!g.home_team_id || !g.away_team_id) continue
-    r.games++
-    const team = (id: string, t: CompleteGame['home_team']) => {
-      let row = r.teams.find(x => x.name === (t?.name ?? id))
-      if (!row) { row = { name: t?.name ?? '팀', color: t?.color ?? null, w: 0, l: 0, d: 0 }; r.teams.push(row) }
-      return row
+  for (const [date, gs] of Object.entries(byDate)) {
+    const sorted = [...gs].sort((x, y) => (x.slot_num ?? 999) - (y.slot_num ?? 999))
+    out[date] = {
+      record: tallyDayRecord(sorted.map(g => ({
+        home: side(g.home_team), away: side(g.away_team),
+        home_score: g.home_score, away_score: g.away_score,
+        is_complete: true, is_exhibition: g.is_exhibition,
+      }))),
+      games: sorted.filter(g => g.home_team && g.away_team).map(g => ({
+        id: g.id, slot_num: g.slot_num ?? null, is_exhibition: !!g.is_exhibition,
+        home: g.home_team!.name, away: g.away_team!.name,
+        home_score: g.home_score ?? 0, away_score: g.away_score ?? 0,
+      })),
     }
-    const h = team(g.home_team_id, g.home_team), a = team(g.away_team_id, g.away_team)
-    const hs = g.home_score ?? 0, as_ = g.away_score ?? 0
-    if (hs > as_) { h.w++; a.l++ } else if (as_ > hs) { a.w++; h.l++ } else { h.d++; a.d++ }
   }
-  for (const r of Object.values(out)) r.teams.sort((x, y) => (y.w - y.l) - (x.w - x.l) || y.w - x.w)
   return out
 }
 
@@ -708,28 +719,69 @@ function ScheduleContent() {
 
               {/* 그날 결과 — 팀별 승패 (2026-10-11). 예전엔 「일정·결과」인데 결과가 하나도 없어서
                   누가 이겼는지 보려면 날짜마다 박스스코어를 열어야 했다. 승패는 색만이 아니라 숫자로 쓴다. */}
-              {!upcoming && dayResults[sd.date] && (dayResults[sd.date].games > 0 || dayResults[sd.date].exhibition > 0) && (
+              {!upcoming && dayResults[sd.date] && (() => {
+                const { record: rec, games: dayGames } = dayResults[sd.date]
+                if (rec.regularGames === 0 && rec.exhibitionGames === 0) return null
+                return (
                 <div className="px-3 py-2.5 space-y-1.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   <div className="flex flex-wrap items-center gap-x-2 text-xs tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
-                    {dayResults[sd.date].games > 0 && <span className="font-bold">{dayResults[sd.date].games}경기</span>}
-                    {dayResults[sd.date].exhibition > 0 && <span className="font-medium">친선 {dayResults[sd.date].exhibition}경기</span>}
+                    {rec.regularGames > 0 && <span className="font-bold">{rec.regularGames}경기</span>}
+                    {rec.exhibitionGames > 0 && <span className="font-medium">친선 {rec.exhibitionGames}경기</span>}
+                    {/* 친선전뿐인 날 — 승패를 숨기지 않고 친선전으로 센 것임을 밝힌다(순위·스탯에는 안 들어간다) */}
+                    {rec.exhibitionOnly && rec.teams.length > 0 && <Chip tone="neutral">친선전 전적</Chip>}
                   </div>
                   {/* 팀별 그날 승패 — 이름 칸 폭 고정 + 막대(칸 안에 「2승」 글자). 360px 에서도 이름 6자 + 막대 3칸이 들어간다 */}
-                  {dayResults[sd.date].teams.length > 0 && (
+                  {rec.teams.length > 0 && (
                     <div className="grid grid-cols-[minmax(0,5.5rem)_1fr] sm:grid-cols-[minmax(0,7rem)_1fr] items-center gap-x-2 gap-y-1.5 max-w-md">
-                      {dayResults[sd.date].teams.map((t, ti) => (
-                        <Fragment key={t.name}>
+                      {rec.teams.map((t, ti) => (
+                        <Fragment key={t.key}>
                           <span className="inline-flex items-center gap-1.5 min-w-0" title={t.name}>
                             <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color ?? 'var(--mm-muted)' }} />
                             <span className={`text-xs truncate ${ti === 0 ? 'font-black' : 'font-bold'}`} style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
                           </span>
-                          <RecordBar wins={t.w} losses={t.l} draws={t.d} height={22} />
+                          <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} height={22} />
                         </Fragment>
                       ))}
                     </div>
                   )}
+                  {/* 경기별 바로가기 (2026-10-15) — 홈 경기 타일처럼 그 경기를 펼친 박스스코어로. 처음엔 접어 둔다
+                      (하루 9경기면 카드가 두 배로 길어진다). <details> 라 상태·스크립트가 없다. */}
+                  {dayGames.length > 0 && (
+                    <details className="group">
+                      <summary
+                        className="list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1 min-h-[44px] text-xs font-bold cursor-pointer"
+                        style={{ color: 'var(--mm-ink-soft)' }}
+                      >
+                        경기별 결과 {dayGames.length}경기
+                        <ChevronDown size={14} aria-hidden className="transition-transform group-open:rotate-180" />
+                      </summary>
+                      <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pb-1">
+                        {dayGames.map((g, gi) => {
+                          const hw = g.home_score > g.away_score, aw = g.away_score > g.home_score
+                          const num = g.slot_num ?? gi + 1
+                          return (
+                            <li key={g.id}>
+                              <Link
+                                href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}?game=${g.id}`}
+                                className="flex items-center gap-1.5 min-h-[44px] px-2.5 text-xs tabular-nums hover:brightness-95"
+                                style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
+                                aria-label={`${num}경기 ${g.home} ${g.home_score} 대 ${g.away_score} ${g.away}${g.is_exhibition ? ' 친선전' : ''} 박스스코어`}
+                              >
+                                <span className="shrink-0 w-9 font-bold" style={{ color: 'var(--mm-muted)' }}>{num}경기</span>
+                                <span className={`min-w-0 flex-1 truncate text-right ${hw ? 'font-black' : ''}`} style={{ color: hw ? 'var(--mm-ink)' : undefined }}>{g.home}</span>
+                                <span className="shrink-0 font-black" style={{ color: 'var(--mm-ink)' }}>{g.home_score}:{g.away_score}</span>
+                                <span className={`min-w-0 flex-1 truncate ${aw ? 'font-black' : ''}`} style={{ color: aw ? 'var(--mm-ink)' : undefined }}>{g.away}</span>
+                                {g.is_exhibition && <span className="shrink-0 text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>친선</span>}
+                              </Link>
+                            </li>
+                          )
+                        })}
+                      </ol>
+                    </details>
+                  )}
                 </div>
-              )}
+                )
+              })()}
 
               {/* 시간·장소·정원 — 입력된 것만 그린다. 비어 있으면 줄 자체가 없다.
                   '미정'을 나열하면 과거 날짜 32개가 전부 '미정 · 미정'으로 도배된다. */}

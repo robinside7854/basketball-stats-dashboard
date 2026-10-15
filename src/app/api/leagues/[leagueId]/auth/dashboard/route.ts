@@ -1,58 +1,23 @@
 // GET /api/leagues/[leagueId]/auth/dashboard
-//   로그인 유저 개인화 대시보드 데이터
-//     a. **이번 분기 · 하루 평균** PTS/REB/AST/STL/BLK + 각 항목 리그 순위 (2026-10-12)
-//        — 홈 「리그 리더」와 같은 기준(분기 = loadCurrentQuarter/gameDateRange, 하루 평균,
-//          최소 출전 = leaderMinRounds). 종전엔 시즌 누적 합계 순위라 홈 리더와 숫자가 안 맞았다.
-//     a'. 시즌 누적 합계(보조 줄) — 마일스톤 체이서도 이 누적값 기준
-//     b. "이번 주 하이라이트" 활성 여부 (직전 라운드 참여 시 true + href)
-//     c. 마일스톤 체이서 · 진행 중 스트릭
-//     d. (2026-10-12 · /me 확장) 출석률 `attendance` · 하루별 트렌드 `trend` · 베스트샷 `pinned_clips`
-//        — 모두 **추가 필드**다. 홈(내 카드)이 quarter/season/milestoneChasers 를 읽으므로 기존 모양은 건드리지 않는다.
-//        트렌드·출석의 하루 단위 집계는 computePerDayStats(친선 제외 · scorePoints/isPlusOneFor 판정) 재사용.
-//     e. (2026-10-12 · 기간 선택) `career` — quarter 와 같은 모양의 「전체(이 리그 시즌 첫 경기일부터)」 블록.
-//        두 블록·attendance 에 내 「첫 기록일」(joined_on)과 그 이후 경기일 수(my_total_rounds · since_join) 추가 —
-//        중간 합류 회원의 출석률 분모를 첫 기록일부터 센다. 순위 자격은 리그 공통 규칙 그대로.
-//     f. (2026-10-13) 두 기간 블록에 `shooting`(야투·3점 성공/시도/성공률) 추가 — 순위 없음.
-//     g. (2026-10-14) `last_played: { date, missed_game_days } | null` — 마지막 출전일 + 그 뒤 결장 경기일.
-//        ⚠ 이 값만 친선일을 포함한다(출석 지표) — computeLastPlayed 머리 주석.
-//   친선전은 computeLeagueStats 가 제외한다. 게스트도 거기서 순위 모집단에서 빠진다.
+//   로그인 유저 개인 화면(/me) 데이터 — **나에게만 있는 것만** 준다 (2026-10-15 정리).
+//     · 출석률 `attendance` — 내가 뛴 날 / 리그가 열린 날(이번 분기 + 전체), 분모는 내 첫 기록일부터
+//     · 마일스톤 체이서 `milestoneChasers` — 통산 누적 → 다음 눈금(lib/stats/milestoneLadder.ts 정본)
+//     · 베스트샷 `pinned_clips` · 최근 하이라이트 바로가기 `weekly` · 마지막 출전 `last_played`
+//   하루 평균·순위·야투율·트렌드·진행 중 연속 기록은 **선수 카드**(players/[id]/detail)가 정본이다.
+//     종전엔 여기서도 따로 세어(순위 자격까지 다른 식으로) 카드와 숫자가 갈렸다 — /me 는 카드를 여는 버튼만 둔다.
+//   친선전은 제외(computeLeagueStats · computePerDayStats). 단 last_played 만 친선일 포함 — computeLastPlayed 머리 주석.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
-import { unstable_cache } from 'next/cache'
 import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
-import { computeStreaks, type StreakCategory, type StreaksResult } from '@/lib/stats/streaks'
+import { getCachedDashboardBase } from '@/lib/stats/dashboardBase'
 import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
-import { leaderMinRounds } from '@/lib/stats/eligibility'
-import { computePerDayStats } from '@/lib/stats/perDayStats'
+import { MILESTONE_LADDER, nextMilestone } from '@/lib/stats/milestoneLadder'
 import { loadClipsByEventIds } from '@/lib/highlights/loader'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { computeLastPlayed } from '@/lib/stats/lastPlayed'
 import { pickPlayerRow } from '@/lib/stats/playerTotals'
 import type { HighlightClip } from '@/lib/highlights/types'
-import type { PlayerStat } from '@/types/league'
-
-// 진행 중 스트릭 라벨 (개인 대시보드 표기용)
-const STREAK_LABEL: Record<StreakCategory, string> = {
-  pts10: '두 자릿수 득점', pts20: '20+ 득점', tp1: '3점 성공',
-  dd: '더블더블', wins: '연승', stlblk3: '스틸+블록 3+',
-}
-
-// 마일스톤 사다리 (playerMilestoneChart 와 동일 규칙)
-const MILESTONE_LADDER: Record<'pts' | 'reb' | 'ast' | 'stl' | 'blk', number[]> = {
-  pts: [100, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000],
-  reb: [50, 100, 200, 300, 500, 750, 1000, 1500, 2000],
-  ast: [25, 50, 100, 150, 250, 400, 500, 750, 1000],
-  stl: [25, 50, 100, 150, 250, 400, 500, 750, 1000],
-  blk: [10, 25, 50, 100, 150, 250, 400, 500],
-}
-
-type Metric = 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
-// 하루 평균 필드 — 홈 리더(NbaLeaders)와 같은 값(computeLeagueStats 가 소수 첫째 자리로 반올림)
-const PER_DAY_KEY: Record<Metric, 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg'> = {
-  pts: 'ppg', reb: 'rpg', ast: 'apg', stl: 'spg', blk: 'bpg',
-}
-const METRICS: Metric[] = ['pts', 'reb', 'ast', 'stl', 'blk']
 
 export async function GET(
   _req: Request,
@@ -72,11 +37,8 @@ export async function GET(
   const pid = session.pid
 
   // 1) 리그 전체 집계는 **캐시**에서 읽는다 (2026-10-14 — 「내 기록」이 열릴 때마다 수 초씩 걸리던 원인).
-  //   종전엔 요청마다 리그 전체 이벤트를 네 번 훑었다(분기 스탯 · 시즌 스탯 · 하루 집계 · 스트릭 안의 하루 집계 한 번 더).
-  //   이 값들은 보는 사람과 무관한 리그 공용 집계라 캐시해도 개인 정보가 섞이지 않는다 —
-  //   여기서 내 줄(pid)만 골라낸다. 분기·시즌 스탯은 스탯 탭·선수 카드와 **같은 캐시 항목**이다.
-  //   무효화는 기록 편집 API 들의 기존 `league-{id}-games` 태그로 자동.
-  //   분기 판정을 기다리지 않는 것들은 먼저 출발시킨다.
+  //   리그 공용 집계라 캐시해도 개인 정보가 섞이지 않는다 — 여기서 내 줄(pid)만 골라낸다.
+  //   시즌 스탯은 스탯 탭·선수 카드와 **같은 캐시 항목**이다. 무효화는 `league-{id}-games` 태그로 자동.
   const seasonStatsP = getCachedLeagueStats(leagueId)
   const baseP = getCachedDashboardBase(leagueId)
   const pinnedP = loadPinnedClips(sb, leagueId, pid)
@@ -84,11 +46,7 @@ export async function GET(
   const lastPlayedP = computeLastPlayed(sb, leagueId, pid)
   const q = await loadCurrentQuarter(sb, leagueId)
   const range = q ? gameDateRange(q) : null
-  const [quarterStats, seasonStats, base, quarterDates, pinnedClips, lastPlayed] = await Promise.all([
-    getCachedLeagueStats(leagueId, {
-      unit: 'round',
-      ...(range ? { from: range.from, to: range.to } : q ? { quarterId: q.id } : {}),
-    }),
+  const [seasonStats, base, quarterDates, pinnedClips, lastPlayed] = await Promise.all([
     seasonStatsP,
     baseP,
     // 분기에 기간이 없을 때만 quarter_id 로 그 분기 경기일을 따로 읽는다(기간이 있으면 날짜로 거른다)
@@ -96,29 +54,15 @@ export async function GET(
     pinnedP,
     lastPlayedP,
   ])
-  const streaksResult = base.streaks
   // 게스트도 자기 줄은 있다(순위 모집단에서만 빠진다) — 선수 카드와 같은 「선수 숫자는 한 벌」
   const me = pickPlayerRow(seasonStats, pid)
-
-  // 진행 중 스트릭 (이 선수) — 연속 참석 먼저, 이후 지표 스트릭 count 내림차순
-  const myAtt = streaksResult.attendance.find(a => a.player_id === pid)
-  const streaks: Array<{ key: string; label: string; count: number; unit: string }> = []
-  if (myAtt && myAtt.current_streak >= 2) {
-    streaks.push({ key: 'attend', label: '연속 참석', count: myAtt.current_streak, unit: '라운드' })
-  }
-  streaks.push(
-    ...streaksResult.streaks
-      .filter(s => s.player_id === pid)
-      .sort((a, b) => b.count - a.count)
-      .map(s => ({ key: s.category, label: STREAK_LABEL[s.category] ?? s.category, count: s.count, unit: '경기' })),
-  )
+  const myAtt = base.streaks.attendance.find(a => a.player_id === pid)
 
   // 내 「첫 기록일」 = 이 리그(정규 · 친선 제외)에서 내 이벤트가 처음 남은 경기일 (2026-10-12).
   //   중간에 들어온 회원의 출석률 분모를 이날부터 센다 — 들어오기 전 경기일을 「결장」으로 치지 않는다.
   //   판정은 computePerDayStats 의 「뛴 날」과 같다(내 이벤트 · 어시스트로 이름이 남은 날 포함).
-  //   ⚠ 순위 자격(leaderMinRounds)은 리그 공통 규칙 그대로다 — 홈 리그 리더와 갈라지면 안 된다.
-  const myDays = new Map(Object.entries(base.days[pid] ?? {}))
-  const joinedOn: string | null = [...myDays.keys()].sort()[0] ?? null
+  const myDays = new Set(Object.keys(base.days[pid] ?? {}))
+  const joinedOn: string | null = [...myDays].sort()[0] ?? null
   const sinceJoin = (d: string): boolean => joinedOn != null && d >= joinedOn
 
   const inQuarter = (d: string): boolean =>
@@ -126,117 +70,37 @@ export async function GET(
   const seasonDays = [...base.allDates].sort()
   const quarterDays = seasonDays.filter(inQuarter)
 
-  // 기간 블록(이번 분기 · 전체) — 같은 모양. 순위 모집단 = 홈 리더와 같은 「최소 출전」 충족자
-  const buildPeriod = (stats: { players: PlayerStat[]; guests?: PlayerStat[]; total_rounds?: number }, label: string | null, days: string[]) => {
-    const players = stats.players
-    const minRounds = leaderMinRounds(players)
-    const eligible = players.filter(p => p.gp >= minRounds)
-    const mine = pickPlayerRow(stats, pid)
-    // 순위는 모집단(게스트 제외) 안에 있을 때만
-    const isEligible = !!mine && players.includes(mine) && mine.gp >= minRounds
-    const rankOf = (m: PlayerStat, key: Metric): { rank: number; total: number } => {
-      const f = PER_DAY_KEY[key]
-      return { rank: eligible.filter(p => p[f] > m[f]).length + 1, total: eligible.length }
-    }
-    const attended = mine?.gp ?? 0
-    return {
-      label,
-      attended_rounds: attended,
-      total_rounds: stats.total_rounds ?? 0,
-      /** (추가) 이 기간 경기일 중 내 첫 기록일 이후 — 출석 분모. 출전일이 이보다 클 수 없게 맞춘다 */
-      my_total_rounds: Math.max(attended, days.filter(sinceJoin).length),
-      /** (추가) 내 첫 기록일 — 기간과 무관하게 리그 전체 기준 */
-      joined_on: joinedOn,
-      min_rounds: minRounds,
-      eligible: isEligible,
-      per_day: Object.fromEntries(METRICS.map(k => [k, mine ? mine[PER_DAY_KEY[k]] : 0])) as Record<Metric, number>,
-      /** (추가 2026-10-13) 야투율·3점 야투율 — computeLeagueStats 선수 행의 값을 그대로(다시 계산하지 않는다).
-       *  순위는 없다: 홈 리그 리더에 야투율 자격 규칙(최소 시도)이 없어서 등수를 매기면 기준이 갈라진다. */
-      shooting: {
-        fgm: mine?.fgm ?? 0, fga: mine?.fga ?? 0, fg_pct: mine?.fg_pct ?? 0,
-        fg3m: mine?.fg3m ?? 0, fg3a: mine?.fg3a ?? 0, fg3_pct: mine?.fg3_pct ?? 0,
-      },
-      ranks: (mine && isEligible
-        ? Object.fromEntries(METRICS.map(k => [k, rankOf(mine, k)]))
-        : {}) as Partial<Record<Metric, { rank: number; total: number }>>,
-    }
-  }
-  const quarter = buildPeriod(quarterStats, q?.label ?? null, quarterDays)
-  // 「전체」 = 이 리그 시즌의 기록 전부(첫 경기일부터). 미라클은 리그 시즌이 하나(2026)라 곧 「기록 시작 이후 전부」다.
-  //   시즌 누적(seasonStats)을 그대로 쓴다 — 요청 수를 늘리지 않는다.
-  const career = { ...buildPeriod(seasonStats, '전체', seasonDays), from: seasonDays[0] ?? null }
-
-  // 출석률 · 트렌드 — 「리그가 열린 날」 = 정규(친선 제외) 경기일(allDates)
-  const toPoint = (d: string) => {
-    const s = myDays.get(d)!
-    return { date: d, pts: s.pts, reb: s.reb, ast: s.ast }
-  }
-  const mySeasonDays = seasonDays.filter(d => myDays.has(d))
-  const myQuarterDays = quarterDays.filter(d => myDays.has(d))
+  // 출석률 — 「리그가 열린 날」 = 정규(친선 제외) 경기일(allDates)
   const attendance = {
-    /** (추가) 내 첫 기록일 — 이날 이전 경기일은 분모·날짜 칸에서 뺀다 */
+    /** 내 첫 기록일 — 이날 이전 경기일은 분모·날짜 칸에서 뺀다 */
     joined_on: joinedOn,
     quarter: {
-      attended: myQuarterDays.length,
+      attended: quarterDays.filter(d => myDays.has(d)).length,
       /** 이 분기에 리그가 연 날 전체 */
       total: quarterDays.length,
-      /** (추가) 그중 내 첫 기록일 이후 — 출석률 분모 */
+      /** 그중 내 첫 기록일 이후 — 출석률 분모 */
       since_join: quarterDays.filter(sinceJoin).length,
       /** 분기 경기일(내 첫 기록일부터) — 출석 칸 표시용(오름차순) */
       days: quarterDays.filter(sinceJoin).map(d => ({ date: d, played: myDays.has(d) })),
     },
     season: {
-      attended: mySeasonDays.length,
+      attended: seasonDays.filter(d => myDays.has(d)).length,
       total: seasonDays.length,
       since_join: seasonDays.filter(sinceJoin).length,
-      /** (추가) 시즌 경기일(내 첫 기록일부터) — 「전체」 출석 칸 */
       days: seasonDays.filter(sinceJoin).map(d => ({ date: d, played: myDays.has(d) })),
     },
     current_streak: myAtt?.current_streak ?? 0,
     longest_streak: myAtt?.longest_streak ?? 0,
   }
-  const trend = {
-    quarter: myQuarterDays.map(toPoint),
-    season: mySeasonDays.map(toPoint),
-  }
 
-  if (!me) {
-    return NextResponse.json({
-      quarter,
-      career,
-      attendance,
-      trend,
-      pinned_clips: pinnedClips,
-      last_played: lastPlayed,
-      season: { attended_rounds: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 },
-      weekly: { available: false },
-      milestoneChasers: [],
-      streaks,
-    })
-  }
-
-  // 시즌 누적 합계 — 보조 줄 · 마일스톤 체이서 기준
-  const season = {
-    attended_rounds: me.gp,
-    pts: me.pts,
-    reb: me.reb,
-    ast: me.ast,
-    stl: me.stl,
-    blk: me.blk,
-  }
-
-  // 2) "이번 주 하이라이트" · 이 선수가 최근 참여한 라운드로 바로 연결
-  //    · 이 선수 이벤트의 game_id 를 모두 모아 → games 에서 date desc 로 정렬 → 최댓값
-  //    · 이전엔 events order-by-id (UUID 정렬) 이라 임의 이벤트가 반환됨 · 2026-07-21 버그 픽스
-  //    (2026-10-14) 마지막 출전일(computeLastPlayed)을 그대로 쓴다 — 종전엔 내 이벤트를 따로 한 번 더
-  //    나눠 읽었다. 차이는 「어시스트로만 이름이 남은 날」도 출전으로 치는 것뿐이라 바로가기 용도로 같다.
+  // 2) "최근 하이라이트" · 이 선수가 최근 참여한 라운드로 바로 연결
+  //    (2026-10-14) 마지막 출전일(computeLastPlayed)을 그대로 쓴다 — 「어시스트로만 이름이 남은 날」도 출전으로 친다.
   const weekly: { available: boolean; date?: string } = lastPlayed
     ? { available: true, date: lastPlayed.date }
     : { available: false }
 
-  // 3) (삭제) 최근 5경기 트렌드 · 유저 피드백으로 제거 · 2026-07-21
-
-  // 4) 마일스톤 체이서 · 각 지표별 다음 임계값까지 남은 수치 · 가장 가까운 것부터
+  // 3) 마일스톤 체이서 · 각 지표별 다음 눈금까지 남은 수치 · 가장 가까운 것부터
+  //    눈금 정본은 milestoneLadder.ts — 홈 「최근 마일스톤」·마일스톤 나무와 같은 표.
   const chasers: Array<{
     metric: 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
     metricLabel: string
@@ -246,38 +110,31 @@ export async function GET(
     progressPct: number
   }> = []
   const labelMap = { pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK' } as const
-  for (const key of ['pts', 'reb', 'ast', 'stl', 'blk'] as const) {
-    const cur = me[key]
+  for (const key of Object.keys(MILESTONE_LADDER) as Array<keyof typeof MILESTONE_LADDER>) {
+    const cur = me?.[key] ?? 0
     if (cur <= 0) continue
-    const ladder = MILESTONE_LADDER[key]
-    const next = ladder.find(t => t > cur)
-    if (!next) continue
-    const prev = [...ladder].reverse().find(t => t <= cur) ?? 0
-    const remaining = next - cur
-    const progressPct = +(((cur - prev) / (next - prev)) * 100).toFixed(1)
+    const step = nextMilestone(key, cur)
+    if (!step) continue
     chasers.push({
       metric: key,
       metricLabel: labelMap[key],
       current: cur,
-      nextThreshold: next,
-      remaining,
-      progressPct,
+      nextThreshold: step.next,
+      remaining: step.next - cur,
+      progressPct: +(((cur - step.prev) / (step.next - step.prev)) * 100).toFixed(1),
     })
   }
   // 가장 도달 가능한 것 = remaining 오름차순
   chasers.sort((a, b) => a.remaining - b.remaining)
 
   return NextResponse.json({
-    quarter,
-    career,
+    /** 출석 칸 머리 표시용 「26.4Q」 — 분기가 없으면 null */
+    quarter_label: q?.label ?? null,
     attendance,
-    trend,
     pinned_clips: pinnedClips,
     last_played: lastPlayed,
-    season,
     weekly,
     milestoneChasers: chasers,
-    streaks,
   })
 }
 
@@ -316,28 +173,4 @@ async function loadPinnedClips(
   } catch {
     return []
   }
-}
-
-/** 리그 공용 · 하루 집계(득점·리바·어시) + 스트릭 — 캐시(60초 · 기록 편집 시 태그로 즉시 무효화).
- *  unstable_cache 는 JSON 으로 저장하므로 Map 대신 평범한 객체로 바꿔 담는다.
- *  하루 집계를 스트릭 계산에 넘겨 리그 이벤트를 한 번만 훑는다. */
-type DayPoint = { pts: number; reb: number; ast: number }
-type DashboardBase = { allDates: string[]; days: Record<string, Record<string, DayPoint>>; streaks: StreaksResult }
-function getCachedDashboardBase(leagueId: string): Promise<DashboardBase> {
-  return unstable_cache(
-    async (): Promise<DashboardBase> => {
-      const sb = createClient()
-      const perDay = await computePerDayStats(sb, leagueId)
-      const streaks = await computeStreaks(sb, leagueId, { minStreak: 2, perDay })
-      const days: DashboardBase['days'] = {}
-      for (const [p, byDate] of perDay.dayStats) {
-        const row: Record<string, DayPoint> = {}
-        for (const [d, st] of byDate) row[d] = { pts: st.pts, reb: st.reb, ast: st.ast }
-        days[p] = row
-      }
-      return { allDates: perDay.allDates, days, streaks }
-    },
-    ['auth-dashboard-base-v1', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
-  )()
 }

@@ -33,6 +33,7 @@ import ClassicGameCard from '@/components/league/highlights/ClassicGameCard'
 import PlayerMilestoneChart, { type PlayerMilestoneData } from '@/components/league/highlights/PlayerMilestoneChart'
 import { loadRecentRounds, loadRoundDetail, loadPlayerHighlights, loadLeagueBestShots } from '@/lib/highlights/loader'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+import { tallyDayRecord, type DayRecord, type DayRecordGame } from '@/lib/stats/dayRecord'
 import { computeClassicGames } from '@/lib/stats/classicGames'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import StatGate from '@/components/league/auth/StatGate'
@@ -40,26 +41,29 @@ import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
 // ── 날짜 카드 W-L 뱃지 ──────────────────────────────────────────
-// · 홈 페이지 computeRecentRounds 와 동일한 승패 산정 방식 (완료된 경기만)
-// · 친선 포함 — 날짜 카드가 이미 친선을 포함해 노출하므로 일관성 유지
-type RoundTeamRecord = { key: string; name: string; wins: number; losses: number; draws: number }
-
+// 규칙은 lib/stats/dayRecord.ts 한 벌 — 홈·일정·박스스코어와 같다(2026-10-15):
+//   친선전 제외(친선전뿐인 날은 친선전으로 세고 「친선」 표시) · 정체성 키로 묶음 · 승률 → 득실.
+//   (종전엔 친선 포함 · 승 순이라 같은 날 홈과 승패가 달랐다.) 날짜 카드 자체는 친선 날도 그대로 남는다.
 async function computeRoundRecords(
   supabase: SupabaseClient,
   leagueId: string,
   dates: string[],
-): Promise<Record<string, RoundTeamRecord[]>> {
+): Promise<Record<string, DayRecord>> {
   if (dates.length === 0) return {}
   const [{ data: games }, resolver] = await Promise.all([
     supabase
       .from('league_games')
-      .select('date, home_team_id, away_team_id, home_score, away_score, quarter_id')
+      .select('date, home_team_id, away_team_id, home_score, away_score, quarter_id, is_exhibition')
       .eq('league_id', leagueId)
       .eq('is_complete', true)
       .in('date', dates),
     loadIdentityResolver(supabase, leagueId),
   ])
-  const byDate: Record<string, Map<string, RoundTeamRecord>> = {}
+  const byDate: Record<string, DayRecordGame[]> = {}
+  const side = (teamId: string | null, quarterId: string | null) => {
+    const id = resolver(teamId, quarterId)
+    return id ? { key: id.key, name: id.display_name, color: id.color } : null
+  }
   for (const g of (games ?? []) as Array<{
     date: string
     home_team_id: string | null
@@ -67,35 +71,17 @@ async function computeRoundRecords(
     home_score: number | null
     away_score: number | null
     quarter_id: string | null
+    is_exhibition: boolean | null
   }>) {
-    if (!byDate[g.date]) byDate[g.date] = new Map()
-    const agg = byDate[g.date]
-    const ensure = (teamId: string | null, quarterId: string | null) => {
-      const id = resolver(teamId, quarterId)
-      if (!id) return null
-      let t = agg.get(id.key)
-      if (!t) {
-        t = { key: id.key, name: id.display_name, wins: 0, losses: 0, draws: 0 }
-        agg.set(id.key, t)
-      }
-      return t
-    }
-    const h = ensure(g.home_team_id, g.quarter_id)
-    const a = ensure(g.away_team_id, g.quarter_id)
-    if (!h || !a) continue
-    const hs = g.home_score ?? 0
-    const as_ = g.away_score ?? 0
-    if (hs > as_) { h.wins++; a.losses++ }
-    else if (hs < as_) { a.wins++; h.losses++ }
-    else { h.draws++; a.draws++ }
+    (byDate[g.date] ??= []).push({
+      home: side(g.home_team_id, g.quarter_id),
+      away: side(g.away_team_id, g.quarter_id),
+      home_score: g.home_score,
+      away_score: g.away_score,
+      is_exhibition: g.is_exhibition,
+    })
   }
-  const result: Record<string, RoundTeamRecord[]> = {}
-  for (const [date, agg] of Object.entries(byDate)) {
-    result[date] = [...agg.values()]
-      .filter(t => t.wins + t.losses + t.draws > 0)
-      .sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses) || a.name.localeCompare(b.name))
-  }
-  return result
+  return Object.fromEntries(Object.entries(byDate).map(([date, gs]) => [date, tallyDayRecord(gs)]))
 }
 
 // ── 캐시 (옛 페이지들과 같은 키·태그) ──────────────────────────────
@@ -108,8 +94,8 @@ const getLandingCached = (leagueId: string) =>
       const records = await computeRoundRecords(sb, leagueId, rounds.map(r => r.date))
       return { rounds, records }
     },
-    // v4: 카드 썸네일(thumb_video_id) 추가
-    ['highlights-landing-v4', leagueId],
+    // v4: 카드 썸네일(thumb_video_id) 추가 · v5: 승패 = dayRecord(친선 제외)
+    ['highlights-landing-v5', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 
@@ -452,7 +438,7 @@ function FeedLinks({ links }: { links: Array<{ href: string; label: string }> })
 
 type LandingRound = Awaited<ReturnType<ReturnType<typeof getLandingCached>>>['rounds'][number]
 
-function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[]; records: Record<string, RoundTeamRecord[]> }) {
+function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[]; records: Record<string, DayRecord> }) {
   if (rounds.length === 0) {
     return (
       <EmptyState
@@ -468,7 +454,8 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
         {rounds.map(r => {
           const isReady = r.status === 'ready'
           const isPendingRecord = r.status === 'pending_record'
-          const teamRecords = records[r.date] ?? []
+          const teamRecords = records[r.date]?.teams ?? []
+          const exhibitionOnly = records[r.date]?.exhibitionOnly ?? false
           const StatusIcon = isReady ? PlayCircle : isPendingRecord ? Clock : VideoOff
           const statusLabel = isReady ? null : isPendingRecord ? '기록 대기 중' : '영상 없음'
           const statusHint = isReady ? null : isPendingRecord
@@ -546,6 +533,9 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
                 {teamRecords.length > 0 ? (
                   // 팀별 W-L — 이긴 팀 노랑
                   <div className="flex items-center gap-1 flex-wrap">
+                    {exhibitionOnly && (
+                      <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>친선</span>
+                    )}
                     {teamRecords.slice(0, 6).map(t => {
                       const isWinner = t.wins > t.losses
                       const rec = t.draws > 0 ? `${t.wins}-${t.losses}-${t.draws}` : `${t.wins}-${t.losses}`

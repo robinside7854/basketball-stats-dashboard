@@ -43,6 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 export default async function BoxscorePage({
   params,
   // ?game=<id> — 그 경기를 펼친 채로 연다. 명경기 카드가 "그날"이 아니라 "그 경기"로 보낸다.
+  // ?hl= · ?tab= — 하이라이트 범위 · 안쪽 탭 (2026-10-15)
   searchParams,
 }: {
   params: Promise<Params>
@@ -116,7 +117,15 @@ export default async function BoxscorePage({
       </div>
 
       {/* 콘텐츠 */}
-      <BoxscoreContent leagueId={leagueId} date={date} leagueName={leagueName} initialGameId={typeof sp?.game === 'string' ? sp.game : undefined}
+      <BoxscoreContent
+        leagueId={leagueId}
+        date={date}
+        leagueName={leagueName}
+        initialGameId={typeof sp?.game === 'string' ? sp.game : undefined}
+        // ?hl=mine|team|all — 홈 「내 하이라이트 ▶」 등 명시적 딥링크일 때만 하이라이트 보기를 펼친다(기본은 접힘)
+        initialHl={sp?.hl === 'mine' || sp?.hl === 'team' || sp?.hl === 'all' ? sp.hl : null}
+        // ?tab= — 안쪽 탭 기억(검증은 BoxscoreContent 가 한다)
+        initialTab={typeof sp?.tab === 'string' ? sp.tab : null}
       />
     </div>
   )

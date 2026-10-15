@@ -4,7 +4,7 @@
 //   · 리그 PIN 필요 (leagueHeaders 로 전달)
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { UserPlus, Check, X, RotateCcw, Ban, User as UserIcon, RefreshCw, ShieldCheck, ShieldOff } from 'lucide-react'
+import { UserPlus, Check, X, RotateCcw, Ban, User as UserIcon, RefreshCw, Search, ShieldCheck, ShieldOff } from 'lucide-react'
 
 type Status = 'pending' | 'approved' | 'rejected' | 'disabled'
 
@@ -55,6 +55,9 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [busyId, setBusyId] = useState<string | null>(null)
+  // 이름 검색 (2026-10-15) — 「전체」 목록이 회원 수만큼 길어서, 비번 초기화·어드민 지정을 하려면
+  //   한참 스크롤해야 했다. 이름·등번호·아이디로 거른다(서버 재요청 없음 — 받은 목록 안에서만).
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -96,6 +99,11 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
   }
 
   const pendingCount = rows.filter(r => r.status === 'pending').length
+  const q = query.replace(/\s+/g, '').toLowerCase()
+  const shown = !q ? rows : rows.filter(r =>
+    (r.player?.name ?? '').replace(/\s+/g, '').toLowerCase().includes(q)
+    || r.login_id.toLowerCase().includes(q)
+    || (r.player?.number != null && String(r.player.number) === q))
 
   return (
     <section
@@ -151,7 +159,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
           <button
             onClick={load}
             aria-label="새로고침"
-            className="p-1.5 min-h-[36px] min-w-[36px] cursor-pointer rounded"
+            className="p-1.5 min-h-11 min-w-11 inline-flex items-center justify-center cursor-pointer rounded"
             style={{ color: 'var(--mm-muted)' }}
           >
             <RefreshCw size={14} />
@@ -159,17 +167,36 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
         </div>
       </header>
 
+      {/* 이름 검색 — 대기 목록에서 찾으면 승인된 회원이 안 나오므로, 입력을 시작하면 「전체」로 넘긴다 */}
+      <div className="px-3 pt-3">
+        <label className="relative block">
+          <span className="sr-only">회원 이름·등번호·아이디 검색</span>
+          <Search size={16} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--mm-muted)' }} />
+          <input
+            type="search"
+            value={query}
+            onChange={e => {
+              setQuery(e.target.value)
+              if (e.target.value && filter === 'pending') setFilter('all')
+            }}
+            placeholder="이름 · 등번호 · 아이디로 찾기"
+            className="w-full min-h-11 pl-9 pr-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+            style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
+          />
+        </label>
+      </div>
+
       {loading ? (
         <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           로딩중…
         </div>
-      ) : rows.length === 0 ? (
+      ) : shown.length === 0 ? (
         <div className="py-10 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>
-          {filter === 'pending' ? '승인 대기 중인 요청이 없습니다' : '계정 없음'}
+          {q ? '맞는 회원이 없어요' : filter === 'pending' ? '승인 대기 중인 요청이 없습니다' : '계정 없음'}
         </div>
       ) : (
         <ul className="divide-y divide-[color:var(--mm-rule)]">
-          {rows.map(r => (
+          {shown.map(r => (
             <li key={r.id} className="flex items-center gap-3 p-3">
               {/* 프로필 */}
               <div

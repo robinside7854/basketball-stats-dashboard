@@ -25,6 +25,17 @@ const STATUS_OPTIONS = [
   { value: 'completed', label: '완료', color: 'text-[color:var(--mm-muted)]' },
 ]
 
+// 설정 바로가기 칩 — 아래 카드의 id 와 짝. 분기 카드는 분기가 있어야 그려진다.
+const SETTINGS_JUMPS: { id: string; label: string; needsQuarters?: boolean }[] = [
+  { id: 'settings-members', label: '회원' },
+  { id: 'settings-visibility', label: '공개' },
+  { id: 'settings-schedule', label: '일정' },
+  { id: 'settings-venue', label: '대관' },
+  { id: 'settings-video', label: '영상' },
+  { id: 'settings-plusone', label: '+1' },
+  { id: 'settings-quarters', label: '분기', needsQuarters: true },
+]
+
 export default function LeagueSettingsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
@@ -304,8 +315,31 @@ export default function LeagueSettingsPage() {
     <div className="space-y-5 max-w-lg">
       <h2 className="font-black text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
 
+      {/* 바로가기 (2026-10-15) — 설정이 카드 열 개 넘게 세로로 이어져, 회원 승인·명단을 찾으려면 한참 내려가야 했다.
+          명단은 이 화면이 아니라 팀 탭의 편집 모드(?edit=1)에 있어서 어드민이 「명단은 어디서 고치나」에서 멈췄다. */}
+      <Link
+        href={`/league/${orgSlug}/${leagueId}/teams?edit=1`}
+        className="flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)]"
+        style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+      >
+        <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 추가 · 소속 · +1)</span>
+        <ChevronRight size={16} aria-hidden />
+      </Link>
+      <nav aria-label="설정 바로가기" className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap">
+        {SETTINGS_JUMPS.filter(j => !j.needsQuarters || quarters.length > 0).map(j => (
+          <a
+            key={j.id}
+            // 분기 카드는 「팀 이름」(별칭 팀이 있을 때)이 「날짜 범위」보다 위에 있다 — 위의 것으로 보낸다
+            href={`#${j.id === 'settings-quarters' && aliasTeams.length > 0 ? 'settings-quarter-names' : j.id}`}
+            className="shrink-0 inline-flex items-center min-h-11 px-3 text-sm font-bold whitespace-nowrap border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
+          >
+            {j.label}
+          </a>
+        ))}
+      </nav>
+
       {/* 공개 범위 (2026-08-04 신규) — 링크만으로 열람 가능한지, 승인 회원만 볼 수 있는지 */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+      <div id="settings-visibility" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           {isPublic ? <Globe size={16} className="text-[color:var(--mm-muted)]" /> : <Lock size={16} className="text-[color:var(--mm-muted)]" />}
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">공개 범위</h3>
@@ -343,12 +377,14 @@ export default function LeagueSettingsPage() {
       </div>
 
       {/* 회원 가입 · 계정 관리 (2026-07-20 신규) */}
-      <AccountApprovalPanel leagueId={leagueId} leagueHeaders={leagueHeaders} />
+      <div id="settings-members" className="scroll-mt-24">
+        <AccountApprovalPanel leagueId={leagueId} leagueHeaders={leagueHeaders} />
+      </div>
 
       {/* 푸시 알림 (공지·알럿 발송) (2026-07-27 신규) */}
 
       {/* 리그 상태 */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+      <div id="settings-status" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <h3 className="font-black text-lg text-[color:var(--mm-ink)]">리그 상태</h3>
         <div className="flex gap-2">
           {STATUS_OPTIONS.map(opt => (
@@ -376,7 +412,7 @@ export default function LeagueSettingsPage() {
       </div>
 
       {/* 정기 일정 설정 */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
+      <div id="settings-schedule" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
         <h3 className="font-black text-lg text-[color:var(--mm-ink)]">정기 일정 설정</h3>
 
         <div className="space-y-1.5">
@@ -446,7 +482,7 @@ export default function LeagueSettingsPage() {
           여기 한 번 넣어두면 모든 예정 일정이 이 값을 따르고, 다른 날만 일정 화면에서 덮는다.
           ⚠ 일정 행에 복사해 넣지 않는다 — 복사하면 체육관이 바뀌었을 때 이미 만들어진
              예정 일정이 옛 장소에 굳는다. */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
+      <div id="settings-venue" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
         <div className="flex items-center gap-2">
           <MapPin size={16} className="text-[color:var(--mm-yellow-strong)]" />
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">고정 대관</h3>
@@ -499,7 +535,7 @@ export default function LeagueSettingsPage() {
       {/* 일정 자동 생성은 '경기 > 일정' 페이지로 이동했습니다 */}
 
       {/* YouTube 채널 설정 */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+      <div id="settings-video" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Youtube size={16} className="text-[color:var(--mm-live)]" />
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">YouTube 채널 설정</h3>
@@ -599,7 +635,7 @@ export default function LeagueSettingsPage() {
       </div>
 
       {/* 플러스원(+1) 나이 기준 */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+      <div id="settings-plusone" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] px-2 py-0.5 tracking-tight">+1</span>
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">플러스원 나이 기준</h3>
@@ -636,7 +672,7 @@ export default function LeagueSettingsPage() {
           옛 이름으로 나왔으며 영상 제목의 `굿모닝` 도 아는 팀이 없어 연동이 끊겼다(2026-09-17).
           빈 칸은 에러가 아니라 "기본 이름 사용"으로 조용히 떨어지기 때문에 아무도 몰랐다. */}
       {quarters.length > 0 && aliasTeams.length > 0 && (
-        <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+        <div id="settings-quarter-names" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Users size={16} className="text-[color:var(--mm-muted)]" />
             <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 팀 이름</h3>
@@ -722,7 +758,7 @@ export default function LeagueSettingsPage() {
 
       {/* 분기 날짜 범위 설정 */}
       {quarters.length > 0 && (
-        <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+        <div id="settings-quarters" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-[color:var(--mm-muted)]" />
             <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 날짜 범위</h3>

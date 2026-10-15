@@ -3,18 +3,26 @@
 // 출처: kbl-stats `app/components/PercentileBars.tsx` 의 배치(라벨 · 값 · 막대 · 백분위 숫자).
 // 막대 길이 = 백분위, 색 = 낮음 빨강 · 50 회색 · 높음 초록(divergingFill). 숫자는 막대 밖에 둔다.
 // 계산은 서버(`detail` 라우트 → lib/stats/percentileBars.ts) — 여기서는 그리기만.
-import { divergingFill, percentileTone, PCT_MIN_ATTEMPTS, type PercentileBarsResult } from '@/lib/stats/percentileBars'
+import { ChevronRight } from 'lucide-react'
+import { divergingFill, percentileTone, MIN_ATTEMPTS_PER_DAY, type PercentileBarsResult } from '@/lib/stats/percentileBars'
 
 export default function PercentileBars({ data }: { data: PercentileBarsResult }) {
   if (data.groups.length === 0) return null
   return (
-    <section aria-labelledby="pct-bars-title" className="mt-3">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <h3 id="pct-bars-title" className="text-sm font-black" style={{ color: 'var(--mm-ink)' }}>세부 능력치</h3>
+    // (2026-10-15) 접어 둔다 — 같은 탭의 순위 칩·6축 레이더와 같은 데이터라 처음부터 펼치면 같은 숫자를 세 번 보게 된다.
+    //   레이더가 요약, 이 막대는 「왜 그 축이 그만큼인가」를 보고 싶을 때 여는 세부다.
+    <details className="mt-3 group">
+      <summary
+        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 min-h-11 py-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+      >
+        <span className="inline-flex items-center gap-1.5 text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
+          <ChevronRight size={16} aria-hidden className="transition-transform duration-200 group-open:rotate-90" />
+          세부 능력치
+        </span>
         <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           리그 백분위 · 하루 평균 · 비교 {data.sample}명
         </span>
-      </div>
+      </summary>
       {!data.qualified && (
         <p className="mb-2 text-xs" style={{ color: 'var(--mm-muted)' }}>
           출전일이 순위 기준(열린 날의 30%)에 못 미쳐 백분위는 비워 둡니다.
@@ -64,9 +72,9 @@ export default function PercentileBars({ data }: { data: PercentileBarsResult })
         ))}
         <span>
           표본이 작다(약 {data.sample}명) — 몇 명 차이로 크게 움직입니다. 실책(↓)은 적을수록 높은 백분위 ·
-          성공률은 야투 {PCT_MIN_ATTEMPTS.fg} · 3점 {PCT_MIN_ATTEMPTS.fg3} · 자유투 {PCT_MIN_ATTEMPTS.ft}회 이상 시도했을 때만
+          성공률은 하루 평균 야투 {MIN_ATTEMPTS_PER_DAY.fg} · 3점 {MIN_ATTEMPTS_PER_DAY.fg3} · 자유투 {MIN_ATTEMPTS_PER_DAY.ft}개 이상 시도했을 때만(스탯 탭과 같은 기준)
         </span>
       </p>
-    </section>
+    </details>
   )
 }

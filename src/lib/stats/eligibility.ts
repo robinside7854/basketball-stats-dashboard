@@ -17,14 +17,31 @@ export function splitEligible<T extends { gp: number }>(players: T[], minRounds:
 }
 
 /**
- * 홈 「리그 리더」의 최소 출전(일) — 정본. 홈 리더(NbaLeaders)와 개인 대시보드(/me 순위)가 같이 쓴다.
- *   평소엔 3일 이상(하루 반짝한 선수가 1위에 앉지 않게), 최다 출전자의 절반 이상.
- *   분기 초에는 아무도 3일을 못 채워 카드가 통째로 비므로, 지금까지 최다 출전 일수까지 낮춘다.
- *   ⚠ 두 화면이 각자 식을 쓰면 「홈에선 2위인데 내 기록에선 순위 없음」이 된다.
+ * 순위 자격(최소 출전일) — **리그 순위의 단일 규칙** (2026-10-15 통합).
+ *
+ *   최소 출전 = 그 기간에 열린 날(total_rounds)의 30%(STATS_MIN_ROUND_RATIO) 올림, 최소 1일.
+ *   단, 지금까지 최다 출전자도 그만큼 못 뛰었으면 최다 출전 일수까지 낮춘다(분기 초 — 순위가 통째로 비지 않게).
+ *   total_rounds 를 모르면(옛 캐시 응답 등) 최다 출전 일수를 분모로 쓴다.
+ *
+ * 왜 하나로: 종전엔 스탯 탭·선수 카드는 「열린 날의 30%」(rankMinRounds),
+ *   홈 리그 리더·/me 는 「3일 또는 최다 출전의 절반」(leaderMinRounds)을 써서
+ *   「홈에선 2위인데 선수 카드에선 순위 없음」 같은 화면 간 불일치가 났다.
+ *   스탯 탭·선수 카드·홈 리그 리더·/me·역할 라벨이 전부 이 함수 하나를 본다.
+ *   ⚠ 새 화면에서 순위를 매길 때 자격 식을 다시 쓰지 말 것.
  */
-export function leaderMinRounds(players: ReadonlyArray<{ gp: number }>): number {
+export function leagueMinRounds(totalRounds: number, players: ReadonlyArray<{ gp: number }>): number {
   const maxGP = players.reduce((m, p) => Math.max(m, p.gp), 0)
-  return Math.max(1, Math.min(3, maxGP), Math.ceil(maxGP / 2))
+  const base = totalRounds > 0 ? totalRounds : maxGP
+  const need = Math.max(1, Math.ceil(base * STATS_MIN_ROUND_RATIO))
+  return maxGP > 0 ? Math.max(1, Math.min(need, maxGP)) : need
+}
+
+/**
+ * @deprecated 옛 이름 — 홈 리그 리더(NbaLeaders)가 아직 이 이름으로 부른다. leagueMinRounds 와 같은 규칙이다.
+ *   totalRounds 를 안 넘기면 최다 출전 일수를 분모로 쓴다(그 화면이 열린 날 수를 받으면 넘겨 줄 것).
+ */
+export function leaderMinRounds(players: ReadonlyArray<{ gp: number }>, totalRounds = 0): number {
+  return leagueMinRounds(totalRounds, players)
 }
 
 // ─────────────────────────────────────────────
@@ -103,4 +120,55 @@ export function attemptRuleLabel(key: PctStatKey): string {
   const r = PCT_ATTEMPT_RULE[key]
   const n = MIN_ATTEMPTS_PER_DAY[r.bucket]
   return `${r.name}은 하루 평균 ${r.attemptName} ${n}개 이상 시도한 선수만 순위`
+}
+
+/**
+ * 성공률(%) — 시도 기준을 채웠을 때만, 아니면 null (2026-10-15 — 선수 카드 순위 칩·세부 능력치 막대 공용).
+ *   스탯 탭 정렬의 「시도 부족」과 같은 규칙(meetsAttemptMin)이라 세 화면의 순위·백분위 모집단이 같다.
+ */
+export function rateIfQualified(made: number, attempts: number, gp: number, key: PctStatKey): number | null {
+  if (!(attempts > 0) || !(gp > 0)) return null
+  if (attempts < minAttemptsFor(key, gp)) return null
+  return (made / attempts) * 100
+}
+
+/**
+ * 비율 지표의 최소 표본(기간 합계) — 하루 평균으로 나눌 수 없는 것들만 남았다.
+ *   ⚠ fg·fg3·ft 는 **옛 기준**(기간 합계 20·10·8)이다. 선수 카드 순위·세부 능력치 막대·스탯 탭은
+ *   2026-10-15 부터 하루 평균 기준(MIN_ATTEMPTS_PER_DAY · meetsAttemptMin)을 쓴다.
+ *   레이더(hexRadar.ts)·분기별 기록표(quarterTable.ts)·비슷한 선수(similarStyle.ts)가 아직 이 값을 읽는다 —
+ *   그쪽도 rateIfQualified 로 옮기면 fg·fg3·ft 를 지운다.
+ */
+export const PCT_MIN_ATTEMPTS = {
+  /** @deprecated 야투율 — rateIfQualified(…, 'fg_pct') 를 쓸 것 */
+  fg: 20,
+  /** @deprecated 3점 성공률 — rateIfQualified(…, 'fg3_pct') 를 쓸 것 */
+  fg3: 10,
+  /** @deprecated 자유투 성공률 — rateIfQualified(…, 'ft_pct') 를 쓸 것 */
+  ft: 8,
+  /** 어시/실책 — 어시 + 실책 */
+  astTo: 10,
+  /** 미드레인지 성공률 — 미드레인지 시도 (6축 레이더 `hexRadar.ts` 슈팅 축) */
+  mid: 10,
+  /** 실책 비율 — 공격 기회(야투 시도 + 0.44×자유투 시도 + 실책) (6축 레이더 리딩 축) */
+  tovRatio: 20,
+} as const
+
+/**
+ * 순위 자리 — 공동 순위(1, 2, 2, 4). 선수 카드의 모든 순위 칩이 이 규칙이다(통산 보드 withRanks 와 같다).
+ *   모집단에 없거나 값이 null 이면 0(순위 없음).
+ */
+export function competitionRank<T extends { player_id: string }>(
+  pool: readonly T[], playerId: string, value: (p: T) => number | null, higherIsBetter = true,
+): number {
+  const me = pool.find(p => p.player_id === playerId)
+  const mine = me ? value(me) : null
+  if (mine == null || !Number.isFinite(mine)) return 0
+  let better = 0
+  for (const p of pool) {
+    const v = value(p)
+    if (v == null || !Number.isFinite(v)) continue
+    if (higherIsBetter ? v > mine : v < mine) better++
+  }
+  return better + 1
 }

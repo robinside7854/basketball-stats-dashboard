@@ -2,18 +2,11 @@
 //
 // 리그 전체 참여 이력을 walk 하며 임박(다음 목표) + 최근 달성(30일 내) 마일스톤을 반환.
 //
-// 카테고리별 임계값 (누적):
-//   PTS: 100, 250, 500, 1000, 2000
-//   REB: 50, 100, 250, 500, 1000
-//   AST: 25, 50, 100, 250, 500
-//   STL: 10, 25, 50, 100, 250
-//   BLK: 5, 10, 25, 50, 100
-//   3PM: 10, 25, 50, 100, 250
-//   GP:  10, 25, 50, 100, 200 (경기일 수)
+// 카테고리별 임계값(누적) 정본은 `@/lib/stats/milestoneLadder` 한 벌 — 홈 · /me · 하이라이트 차트가 같이 쓴다(2026-10-15).
 //
 // GET /api/leagues/[id]/milestones?horizonDays=30&maxUpcoming=8&maxRecent=8
 //   → {
-//       upcoming: [{ player_id, name, number, category, current, target, distance, percent }],
+//       upcoming: [...]  (홈 피드는 쓰지 않는다 — 호환용),
 //       recent:   [{ player_id, name, number, category, target, achieved_at }]
 //     }
 //

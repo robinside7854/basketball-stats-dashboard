@@ -12,6 +12,7 @@ import Image from 'next/image'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users, Pencil } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import RosterEditor from './_components/RosterEditor'
 import type { Team } from './_types'
 import { pickTeamLeader } from './_lib/teamLeaders'
@@ -46,7 +47,7 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
   )
 }
 import StatHeader from '@/components/league/StatHeader'
-import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
+import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
 import type { PlayerStat, Leader } from '@/types/league'
 
 type Game = {
@@ -217,7 +218,9 @@ function StatsTable({
   const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
-  const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
+  // 카드는 이 화면에서 고른 분기로 연다(2026-10-15 — 분기 표를 보다 카드를 열면 전체 기간이 나오던 어긋남)
+  const { selectedQuarterId: cardQuarterId } = useLeagueQuarter()
+  const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId: cardQuarterId }) }
 
   // viewMode 변경 시 basicSortKey가 새 col 셋에 없으면 기본값으로
   useEffect(() => {
@@ -640,26 +643,23 @@ function StatsTable({
 type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
 
 function TeamDetailPanel({
-  teamId, team, standing, h2h, players, tablePlayers, regularIds, allTeams, leagueId, games, quarterId,
+  teamId, team, standing, players, regularIds, leagueId, games, quarterId,
 }: {
   teamId: string
   team: Team
   standing: StandingEntry
-  h2h: Record<string, { w: number; d: number; l: number }>
+  // 팀 스탯 카드는 전원 합계라 게스트·비정규 필터 없이 그대로 쓴다.
+  // (선수별 표는 아래 「팀별 선수」 섹션 하나만 둔다 — 2026-10-15 패널 안 중복 표 제거)
   players: PlayerStat[]
-  // 「선수 스탯」 표에 보일 행 — 팀별 선수와 같은 필터(게스트 제외 · 비정규 보기 토글).
-  // 팀 스탯 카드는 전원 합계라 players 를 그대로 쓴다.
-  tablePlayers: PlayerStat[]
   // 팀 내 1위 후보 — 그 분기 정규 명단(team_id 일치 + is_regular)
   regularIds: ReadonlySet<string>
-  allTeams: Team[]
   leagueId: string
   games: Game[]
   quarterId: string | 'all'
 }) {
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
-  const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
+  const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId }) }
 
   const teamGames = useMemo(() => {
     return games.filter(g =>
@@ -675,7 +675,6 @@ function TeamDetailPanel({
     const totPts    = players.reduce((s, p) => s + p.pts, 0)
     const totFgm    = players.reduce((s, p) => s + p.fgm, 0)
     const totFga    = players.reduce((s, p) => s + p.fga, 0)
-    const totFg3m   = players.reduce((s, p) => s + p.fg3m, 0)
     const totFg3a   = players.reduce((s, p) => s + p.fg3a, 0)
     const totFtm    = players.reduce((s, p) => s + p.ftm, 0)
     const totFta    = players.reduce((s, p) => s + p.fta, 0)
@@ -684,7 +683,6 @@ function TeamDetailPanel({
 
     const ppg    = totPts / gp
     const fgPct  = totFga  > 0 ? totFgm / totFga * 100 : 0
-    const efgPct = totFga  > 0 ? (totFgm + 0.5 * totFg3m) / totFga * 100 : 0
     const defPg  = (totStl + totBlk) / gp
     const ftPct  = totFta  > 0 ? totFtm / totFta * 100 : 0
     const threePct = totFga > 0 ? totFg3a / totFga * 100 : 0
@@ -700,11 +698,10 @@ function TeamDetailPanel({
     const topScorer = byPpg
     const acePct = totPts > 0 && topScorer ? topScorer.pts / totPts * 100 : 0
 
-    return { ppg, fgPct, efgPct, defPg, ftPct, threePct, acePct, byPpg, byRpg, byApg, byDef, byEfg }
+    return { ppg, fgPct, defPg, ftPct, threePct, acePct, byPpg, byRpg, byApg, byDef, byEfg }
   }, [players, regularIds, gp])
 
   const played = standing.w + standing.d + standing.l
-  const winPct = played > 0 ? (standing.w / played * 100).toFixed(1) : '—'
 
   // standings.gf/ga가 가장 신뢰성 있는 소스 (games 루프와 동일 기준)
   const avgPf = played > 0 ? standing.gf / played : 0
@@ -719,7 +716,7 @@ function TeamDetailPanel({
       <div className="pl-5 pr-16 py-4 lg:pl-6 flex flex-wrap items-center gap-x-3 gap-y-1" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
         <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '24px', letterSpacing: '-0.005em' }}>{team.name}</span>
-        <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{standing.w}승 {standing.d > 0 ? `${standing.d}무 ` : ''}{standing.l}패</span>
+        {/* 승·패는 바로 위 팀 카드 머리(승률 · N경기 + 승패 막대)에 이미 있다 — 여기서 다시 쓰지 않는다 */}
       </div>
 
       <div className="px-4 py-4 pl-5 lg:px-6 lg:py-5 space-y-6">
@@ -744,11 +741,11 @@ function TeamDetailPanel({
                   </div>
                   <VersusBar a={avgPf} b={avgPa} aLabel="평균 득점" bLabel="평균 실점" height={12} />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* 팀 eFG% 는 아래 TeamInsights 의 Four Factors 가 보여 준다 — 화면에서 따로 계산한 값을 두지 않는다 */}
+                <div className="grid grid-cols-3 gap-2.5">
                   {[
                     { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: '누적', color: ptsDiff >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
                     { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: 'var(--mm-positive)' },
-                    { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: 'var(--mm-ink)' },
                     { label: 'STL+BLK', value: computed.defPg.toFixed(1), sub: '평균 수비 이벤트', color: 'var(--mm-ink)' },
                   ].map(card => (
                     <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
@@ -860,11 +857,7 @@ function TeamDetailPanel({
               teamColor={team.color}
             />
 
-            {/* E. Player Stats Table */}
-            <div>
-              <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>선수 스탯</p>
-              <StatsTable players={tablePlayers} leagueId={leagueId} color={team.color} viewMode="avg" statMode="basic" />
-            </div>
+            {/* 선수별 표는 패널에 두지 않는다 — 아래 「팀별 선수」 섹션과 같은 표가 두 번 나왔다(2026-10-15) */}
           </>
         )}
       </div>
@@ -1102,7 +1095,6 @@ function LeagueTeamsPageInner() {
   }, [identities, rosterByQuarter, selectedQId])
 
   // ── 데이터 가공 ───────────────────────────────────────────
-  const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
   const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
 
   // 순위표: 정체성 API 데이터로 대체 (팀명 override 반영, 전체 뷰에서 5팀 노출)
@@ -1124,12 +1116,7 @@ function LeagueTeamsPageInner() {
     }))
   }, [identities])
 
-  // 상대 전적 — 정체성 API 에서 이미 h2h 를 반환 (identityKey → opponentKey → {w,d,l})
-  const h2h = useMemo(() => {
-    const m: Record<string, Record<string, { w: number; d: number; l: number }>> = {}
-    for (const id of identities) m[id.key] = id.h2h
-    return m
-  }, [identities])
+  // 팀 카드의 「상대 전적」 막대는 뺐다(2026-10-15) — 아래 「누적 맞대결」 섹션이 같은 대진 전적을 득실까지 보여 준다.
 
   // 팀별 선수 스탯: API에서 team_id 이벤트 기준으로 분할된 데이터를 그대로 사용
   // → 같은 선수가 여러 팀에서 뛰었으면 각 팀에 그 팀에서의 스탯만 표시됨
@@ -1204,6 +1191,31 @@ function LeagueTeamsPageInner() {
     statsTabBarRef.current?.scrollIntoView({ block: 'nearest' })
   }, [statsTeamKey])
 
+  // 주소의 `#team-<team_id>` 로 들어오면(홈 순위표 링크) 그 팀 카드로 내려가 상세를 펼친다.
+  //   카드 목록은 정체성 API 를 받은 뒤에야 생기므로 standings 가 차고 로딩이 끝난 뒤 한 번만 처리한다.
+  //   「선수단 보기」 같은 접힌 칸은 그대로 둔다 — 여는 것은 팀 카드(상세 패널)뿐이다.
+  const handledHash = useRef<string | null>(null)
+  useEffect(() => {
+    if (dataLoading || standings.length === 0) return
+    const openFromHash = () => {
+      const m = /^#team-(.+)$/.exec(window.location.hash)
+      if (!m) return
+      const hash = window.location.hash
+      if (handledHash.current === hash) return
+      const target = standings.find(st => st.teamId === decodeURIComponent(m[1]))
+      if (!target) return
+      handledHash.current = hash
+      setSelectedTeamId(target.identityKey)
+      requestAnimationFrame(() => {
+        document.getElementById(`team-${target.teamId}`)?.scrollIntoView({ block: 'start' })
+      })
+    }
+    openFromHash()
+    const onHashChange = () => { handledHash.current = null; openFromHash() }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [standings, dataLoading])
+
   // 「전체」에서 비정규·게스트는 시즌 누적이 아니라 현재 분기 기준으로 보여준다 —
   // 비정규 참가자는 분기마다 바뀌어서 누적으로 합치면 이미 떠난 사람이 목록을 채운다.
   // 「지금 분기」 정본(pickCurrentQuarter) — is_current 깃발만 보면 운영자가 늦게 옮길 때 화면마다 갈린다
@@ -1245,6 +1257,23 @@ function LeagueTeamsPageInner() {
     setShowIrregular(next)
     try { localStorage.setItem(showIrregularKey, next ? '1' : '0') } catch { /* private mode */ }
   }
+  // 로그인한 회원의 팀 정체성 — 누적 맞대결 기본 대진을 「내 팀」 쪽으로. 이미 받은 명단·스탯에서 찾는다(추가 요청 없음).
+  //   정규 명단 → 없으면 그 기간 그 팀에서 가장 많이 뛴(출전일) 정체성. 「전체」에서는 여러 정체성 중 출전이 많은 쪽.
+  const myPlayerId = useOptionalCurrentUser()?.user?.player_id ?? null
+  const myIdentityKey = useMemo(() => {
+    if (!myPlayerId) return null
+    let best: { key: string; gp: number } | null = null
+    for (const id of identities) {
+      const row = (teamStatsApi[id.key] ?? []).find(p => p.player_id === myPlayerId)
+      const regular = regularIdsByIdentity[id.key]?.has(myPlayerId) ?? false
+      if (!row && !regular) continue
+      // 정규 명단이면 출전이 0이어도 후보 — 출전일로 우열을 가리되 정규에 가산
+      const score = (row?.gp ?? 0) + (regular ? 1000 : 0)
+      if (!best || score > best.gp) best = { key: id.key, gp: score }
+    }
+    return best?.key ?? null
+  }, [myPlayerId, identities, teamStatsApi, regularIdsByIdentity])
+
   // 팀별 선수 탭에 보일 행 — 게스트는 늘 빼고, 끔이면 정규 명단만
   const visibleTeamPlayers = (key: string) => (teamStats[key] ?? []).filter(p =>
     !isGuest(p) && (showIrregular || (regularIdsByIdentity[key]?.has(p.player_id) ?? false)))
@@ -1282,8 +1311,6 @@ function LeagueTeamsPageInner() {
     </div>
   )
 
-  const totalPlayed = standings.reduce((s, t) => s + t.w + t.d + t.l, 0) / 2
-
   return (
     <div className="mm-brand space-y-4 lg:space-y-5">
       {/* 스탯 우산 서브탭 — 리더보드 · 팀 (2026-09-28 4→2, 어워즈·명단 흡수) */}
@@ -1305,7 +1332,7 @@ function LeagueTeamsPageInner() {
         <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
       ) : (
         <>
-        {/* ── 섹션 1: 팀별 전적 + 상대 전적 ── */}
+        {/* ── 섹션 1: 팀별 전적 (상대 전적은 섹션 1.5 「누적 맞대결」) ── */}
         <div className="space-y-3">
           <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
 
@@ -1316,11 +1343,17 @@ function LeagueTeamsPageInner() {
               const winPct = played > 0 ? (s.w / played * 100).toFixed(1) : '—'
               const isSelected = selectedTeamId === s.identityKey
               const isFirst = idx === 0
+              // 바로가기 앵커 `#team-<team_id>` — 홈 순위표가 여기로 링크한다.
+              //   identityKey 는 팀명(공백·한글)이 들어가 id 로 쓰기 나빠 team_id 를 쓴다.
+              //   「전체」에서는 한 team_id 가 여러 정체성(분기별 팀명)으로 나올 수 있어 순위가 가장 높은 카드에만 단다.
+              const anchorId = standings.findIndex(o => o.teamId === s.teamId) === idx ? `team-${s.teamId}` : undefined
               return (
                 <div
                   key={s.identityKey}
+                  id={anchorId}
                   className="overflow-hidden relative"
                   style={{
+                    scrollMarginTop: '12px',
                     background: isFirst ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     border: isSelected ? '2px solid var(--mm-ink)' : '1px solid var(--mm-rule)',
                     borderRadius: 'var(--mm-radius-card)',
@@ -1352,8 +1385,10 @@ function LeagueTeamsPageInner() {
                     </div>
                   </button>
                   {/* 승·무·패 막대 — 헤더 바로 아래 전체 폭 (2026-10-12: w-16 미니바 → RecordBar) */}
-                  {played > 0 && (
-                    <div className="px-4 pt-3 pl-5">
+                  {played === 0 ? (
+                    <p className="px-4 py-3 pl-5 text-xs" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>
+                  ) : (
+                    <div className="px-4 py-3 pl-5">
                       <OnPanel>
                         <RecordBar wins={s.w} losses={s.l} draws={s.d} height={26} />
                       </OnPanel>
@@ -1364,33 +1399,6 @@ function LeagueTeamsPageInner() {
                       )}
                     </div>
                   )}
-                  {/* 상대 전적 — 정체성 기준 (같은 정체성 그룹 안의 다른 정체성들과 대전) */}
-                  <div className="px-4 py-3 pl-5">
-                    <p className="text-xs font-bold mb-2" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 72%, transparent)' : 'var(--mm-ink-soft)' }}>상대 전적</p>
-                    {/* 상대별 미니 전적 막대 — 이름 칸 폭을 고정해 막대 시작점을 맞춘다 */}
-                    <div className="space-y-1.5">
-                      {standings.filter(op => op.identityKey !== s.identityKey).map(op => {
-                        const rec = h2h[s.identityKey]?.[op.identityKey] ?? { w: 0, d: 0, l: 0 }
-                        const total = rec.w + rec.d + rec.l
-                        return (
-                          <div key={op.identityKey} className="grid grid-cols-[5.5rem_1fr] sm:grid-cols-[6.5rem_1fr] items-center gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0" title={op.displayName}>
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
-                              <span className="text-xs font-bold truncate" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)' }}>{op.displayName}</span>
-                            </div>
-                            {total === 0 ? (
-                              <span className="text-xs" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>기록 없음</span>
-                            ) : (
-                              <OnPanel>
-                                <RecordBar wins={rec.w} losses={rec.l} draws={rec.d} height={22} />
-                              </OnPanel>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {totalPlayed === 0 && <p className="text-xs py-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>}
-                  </div>
                 </div>
               )
             })}
@@ -1402,10 +1410,6 @@ function LeagueTeamsPageInner() {
             const selStanding = standings.find(s => s.identityKey === selectedTeamId)
             if (!selStanding) return null
             const teamForPanel = { id: selStanding.teamId, name: selStanding.displayName, color: selStanding.color }
-            const oppositeTeams = standings
-              .filter(s => s.identityKey !== selStanding.identityKey)
-              .map(s => ({ id: s.identityKey, name: s.displayName, color: s.color }))
-            const h2hByIdentity = h2h[selStanding.identityKey] ?? {}
             return (
               <div className="relative">
                 <button
@@ -1420,11 +1424,8 @@ function LeagueTeamsPageInner() {
                   teamId={selStanding.teamId}
                   team={teamForPanel}
                   standing={{ w: selStanding.w, d: selStanding.d, l: selStanding.l, gf: selStanding.gf, ga: selStanding.ga, teamId: selStanding.teamId }}
-                  h2h={h2hByIdentity}
                   players={teamStats[selectedTeamId] ?? []}
-                  tablePlayers={visibleTeamPlayers(selectedTeamId)}
                   regularIds={regularIdsByIdentity[selectedTeamId] ?? EMPTY_IDS}
-                  allTeams={oppositeTeams}
                   leagueId={leagueId}
                   games={games}
                   quarterId={selectedQId}
@@ -1437,7 +1438,7 @@ function LeagueTeamsPageInner() {
         {/* 명단 편집 중에는 팀별 선수 이하(섹션 2~4)를 편집 화면(아래 RosterEditor)이 대신한다 */}
         {!editing && (<>
         {/* ── 섹션 1.5: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
-        <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} />
+        <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} myTeamKey={myIdentityKey} />
 
         {/* ── 섹션 1.6: 시즌 어시스트 · 공격 유형 (2026-10-12) — 날짜별 박스스코어의 두 탭을 분기·전체로 쌓은 것 ── */}
         <TeamInsightsSection leagueId={leagueId} quarterId={selectedQId} teamOrder={standings.map(s => s.identityKey)} />
@@ -1504,15 +1505,10 @@ function LeagueTeamsPageInner() {
                 />
                 비정규 선수 보기
               </label>
+              {/* 「숫자 읽는 법」 — 스탯 탭과 같은 시트(glossary.ts READING_GUIDE 하나). 종전 팀 탭 전용 접힘 상자는 없앴다(2026-10-15) */}
+              <StatsGlossarySheet className="shrink-0" />
             </div>
 
-          {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
-          <StatsReadingGuide items={[
-            { term: '득점 (PPG)', text: '경기한 날 하루에 평균 몇 점을 넣는지예요(하루 여러 경기 합계). 높을수록 득점력이 좋아요.' },
-            { term: '리바 (RPG)', text: '경기한 날 하루에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
-            { term: '어시 (APG)', text: '경기한 날 하루에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
-            { term: '턴오버 (TOPG)', text: '경기한 날 하루에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
-          ]} />
 
           {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).
               계층 구분: 상위 스탯 우산탭(LeagueGroupTabs)은 밑줄형, 분기·모드 세그먼트는 ink 채움형이라

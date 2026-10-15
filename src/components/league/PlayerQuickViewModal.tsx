@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
-import { Loader2, X, Crown, Pencil, Camera, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
+import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ArrowLeftRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -13,7 +13,8 @@ import { CountUp } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { LEAGUE_BASELINE, tierAgainst, type ShootingBaseline } from '@/lib/stats/shootingBaseline'
-import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
+import PlayerMiniTabs, { PLAYER_TABS, type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
+import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import type { LastPlayedData } from '@/lib/format/lastPlayed'
@@ -42,10 +43,13 @@ type Detail = {
   rankings: {
     ppg: number; rpg: number; apg: number; spg: number; bpg: number
     total: number; win_rate_rank?: number
-    // 신규 (#5a): { rank, total } 형태 — gp>=1 자격
+    // { rank, total } — 출전일은 전원(gp>=1), 성공률은 순위 자격 + 스탯 탭과 같은 최소 시도(2026-10-15)
     gp?: RankTotal; fg_pct?: RankTotal; fg3_pct?: RankTotal; ft_pct?: RankTotal
+    /** 순위 자격 최소 출전일(leagueMinRounds) */
+    min_rounds?: number
   }
-  active_streaks?: { ten: number; twenty: number; three: number; win: number }
+  /** 진행 중 연속 기록 — /me 와 같은 판정(lib/stats/dashboardBase.ts). 분기 없는 응답에만 실린다. 단위는 「일」 */
+  active_streaks?: Array<{ key: string; label: string; count: number; unit: string }>
   dynamic_duo?: DuoEntry[]
   pinned_event_ids?: string[]
   /** (2026-10-14) 마지막 출전(친선일 포함) — 분기 없는 요청에만 실린다 */
@@ -99,13 +103,6 @@ type CareerSummary = {
 }
 
 // mm-brand: 포지션 뱃지도 통일 톤 (뮤트 배경 + 잉크 라벨)
-const POSITION_COLORS: Record<string, string> = {
-  PG: 'mm-position-badge',
-  SG: 'mm-position-badge',
-  SF: 'mm-position-badge',
-  PF: 'mm-position-badge',
-  C:  'mm-position-badge',
-}
 const MM_POSITION_STYLE: React.CSSProperties = {
   background: 'var(--mm-panel-alt)',
   color: 'var(--mm-ink)',
@@ -130,9 +127,6 @@ const ACCENT_DEFAULT: AccentPalette = {
   borderCls: '',                // 아래에서 style 로 처리
   textCls: '',
   ringCls: '',
-}
-function computeAccent(_rankings?: Detail['rankings']): AccentPalette {
-  return ACCENT_DEFAULT
 }
 
 // data emphasis (spec 5): 양수=emerald, 음수=red, muted 유지
@@ -161,6 +155,21 @@ interface Props {
   leagueHeaders?: Record<string, string>
   onSaved?: () => void
   onDeleted?: () => void
+  /** 처음 고른 기간(분기 id) — 카드를 연 화면의 분기. null 이면 전체 */
+  initialQuarterId?: string | null
+  /** 처음 열 미니 탭 — 없으면 이 리그에서 마지막으로 본 탭 */
+  initialTab?: PlayerTabKey
+  /** 「나와 비교」 — [나, 이 선수] 와 지금 고른 분기를 넘긴다. 없으면 버튼을 그리지 않는다(편집 전용 카드 등) */
+  onCompare?: (ids: [string, string], quarterId: string | null) => void
+}
+
+// 미니 탭 기억 — 리그마다 마지막으로 본 탭 (2026-10-15). 매번 「시즌 스탯」부터 다시 누르게 하지 않으려고.
+const tabStorageKey = (leagueId: string) => `player-card:${leagueId}:tab`
+function readStoredTab(leagueId: string): PlayerTabKey | null {
+  try {
+    const v = localStorage.getItem(tabStorageKey(leagueId))
+    return v && PLAYER_TABS.some(t => t.key === v) ? (v as PlayerTabKey) : null
+  } catch { return null }
 }
 
 /**
@@ -186,7 +195,9 @@ export default function PlayerQuickViewModal(props: Props) {
   )
 }
 
-function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted, onOpenPlayer }: Props & { onOpenPlayer?: (id: string, name: string) => void }) {
+function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted, onOpenPlayer, initialQuarterId = null, initialTab, onCompare }: Props & { onOpenPlayer?: (id: string, name: string) => void }) {
+  // 「나와 비교」 — 로그인 회원이 남의 카드를 볼 때만 (프로바이더 밖이면 null)
+  const me = useOptionalCurrentUser()?.user ?? null
 
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -194,7 +205,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const [gated, setGated] = useState(false)  // 401 — 상세 스탯은 승인 회원 전용 (2026-07-28)
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [career, setCareer] = useState<CareerSummary | null>(null)
-  const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
+  // 카드를 연 화면의 분기로 시작한다(2026-10-15) — 스탯 탭 4분기에서 열면 카드도 4분기
+  const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(initialQuarterId)
   const [quarterDetail, setQuarterDetail] = useState<Detail | null>(null)
   const [quarterLoading, setQuarterLoading] = useState(false)
   // 분기별 기록표 — 무거워서 본 응답과 따로 받는다(`detail?quarterRows=only`)
@@ -226,7 +238,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   })
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   // 미니 탭 — 세로 스크롤 과다 해소 (2026-08-03). 탭 전환 시 본문 최상단으로 스크롤 복귀.
-  const [activeTab, setActiveTab] = useState<PlayerTabKey>('season')
+  //   (2026-10-15) 처음 탭 = 호출부가 정한 탭 → 이 리그에서 마지막으로 본 탭 → 시즌 스탯
+  const [activeTab, setActiveTab] = useState<PlayerTabKey>(() => initialTab ?? readStoredTab(leagueId) ?? 'season')
   const routeParams = useParams<{ orgSlug?: string; org?: string }>()
   const orgSlug = routeParams?.orgSlug ?? routeParams?.org ?? ''
 
@@ -340,13 +353,9 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     return s
   }, [detail, activeDetail, quarterRows])
 
-  // 선택된 탭이 사라지면(분기 전환 등) 시즌 스탯으로 복귀
-  useEffect(() => {
-    if (!availableTabs.has(activeTab)) setActiveTab('season')
-  }, [availableTabs, activeTab])
-
   const changeTab = (key: PlayerTabKey) => {
     setActiveTab(key)
+    try { localStorage.setItem(tabStorageKey(leagueId), key) } catch { /* 저장소가 막혀 있으면 기억만 생략 */ }
     // 긴 탭 → 짧은 탭 전환 시 화면이 비어 보이지 않도록 탭 바가 상단에 오도록 스크롤 정렬.
     // (0 으로 올리면 히어로가 다시 나와 탭이 화면 밖으로 밀림)
     const scroller = modalScrollRef.current
@@ -356,12 +365,17 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     if (scroller.scrollTop > target) scroller.scrollTo({ top: target, behavior: 'smooth' })
   }
 
+  // 고른 탭에 보일 것이 없으면(분기 전환 · 기억해 둔 탭의 데이터가 아직 안 옴 — 분기별 기록표는 따로 받는다)
+  //   그동안 시즌 스탯을 보여 준다. activeTab 은 그대로 두어 데이터가 오면 그 탭으로 돌아간다.
+  //   (종전엔 effect 로 activeTab 을 'season' 으로 덮어써, 첫 렌더에 기억해 둔 탭이 바로 지워졌다)
+  const shownTab: PlayerTabKey = availableTabs.has(activeTab) ? activeTab : 'season'
+
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
 
   // 분기 탭 레이블
   const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
 
-  const accent = computeAccent(detail?.rankings)
+  const accent = ACCENT_DEFAULT
 
   return (
     <>
@@ -602,6 +616,18 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     <Film size={14} aria-hidden /> 하이라이트
                   </Link>
                 )}
+                {/* 나와 비교 (2026-10-15) — 로그인 회원이 남의 카드를 볼 때만. 비교 시트는 카드를 닫고 프로바이더가 띄운다 */}
+                {onCompare && me && me.player_id && me.player_id !== playerId && !gated && (
+                  <button
+                    type="button"
+                    onClick={() => onCompare([me.player_id, playerId], selectedQuarterId)}
+                    className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-sm cursor-pointer transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] hover:bg-[color:var(--mm-yellow-soft)]"
+                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
+                    aria-label={`나와 ${player?.name ?? playerName} 비교하기`}
+                  >
+                    <ArrowLeftRight size={14} aria-hidden /> 나와 비교
+                  </button>
+                )}
                 {/* 베스트샷 재생 — 포지션 옆 · 핀 있을 때만 노출 */}
                 {detail?.pinned_event_ids && detail.pinned_event_ids.length > 0 && (
                   <PlayerBestShotBanner
@@ -828,10 +854,10 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             </div>
 
             {/* 미니 탭 — 시즌 스탯 / 다이나믹 듀오 / 공격 스타일 / 커리어 하이 / 최근 트렌드 */}
-            <PlayerMiniTabs active={activeTab} onChange={changeTab} available={availableTabs} topOffset={actionBarH} />
+            <PlayerMiniTabs active={shownTab} onChange={changeTab} available={availableTabs} topOffset={actionBarH} />
 
             {/* ── 시즌 스탯 ─────────────────────────────── */}
-            {activeTab === 'season' && (activeDetail?.player_stats ? (
+            {shownTab === 'season' && (activeDetail?.player_stats ? (
               <div className="px-5 py-4">
                 {quarterLoading ? (
                   <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
@@ -883,9 +909,20 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                         )
                       })}
                     </div>
+                    {/* 순위가 비어 있는 이유를 숫자로 — 자격은 리그 공통 규칙 하나(eligibility.ts leagueMinRounds) */}
+                    {(() => {
+                      const r = (activeDetail ?? detail)?.rankings
+                      const gp = activeDetail?.player_stats?.gp ?? 0
+                      if (!r?.min_rounds || gp <= 0 || gp >= r.min_rounds) return null
+                      return (
+                        <p className="text-xs font-bold -mt-1 mb-3" style={{ color: 'var(--mm-muted)' }}>
+                          순위는 {selectedQuarterId ? '이 분기' : '전체 기간'} {r.min_rounds}일 이상 출전하면 보여요
+                        </p>
+                      )
+                    })()}
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       {[
-                        // #5a: 슛 정확도 랭킹 (시도>0 필요, gp>=1 자격)
+                        // 슛 정확도 순위 — 순위 자격 + 스탯 탭과 같은 최소 시도(하루 평균 기준). 미달이면 순위 칸 없음
                         { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0, rt: (activeDetail ?? detail)?.rankings.fg_pct },
                         { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0, rt: (activeDetail ?? detail)?.rankings.fg3_pct },
                         { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0, rt: (activeDetail ?? detail)?.rankings.ft_pct },
@@ -919,6 +956,10 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                                 {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
                                 {rank}위{total > 0 && <span className="opacity-60"> · {total}</span>}
                               </p>
+                            )}
+                            {/* 출전은 채웠는데 시도가 적어 순위에서 빠진 경우 — 스탯 탭의 「시도 부족」과 같은 말 */}
+                            {rank === 0 && a > 0 && (activeDetail?.player_stats?.gp ?? 0) >= ((activeDetail ?? detail)?.rankings.min_rounds ?? Infinity) && (
+                              <p className="text-xs font-bold mt-1" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-muted)' }}>시도 부족</p>
                             )}
                           </div>
                         )
@@ -1029,34 +1070,23 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                         </span>
                       </div>
                     )}
-                    {(() => {
-                      const streaks = detail?.active_streaks
-                      const chips = streaks ? ([
-                        { count: streaks.ten,    label: '두자릿수 득점', Icon: Flame },
-                        { count: streaks.twenty, label: '20+ 득점',      Icon: Star },
-                        { count: streaks.three,  label: '3P 메이드',     Icon: Target },
-                        { count: streaks.win,    label: '출전 연승',     Icon: CheckCircle2 },
-                      ]).filter(c => c.count >= 2) : []
-                      if (chips.length === 0) return null
-                      return (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {chips.map(c => {
-                            const Icon = c.Icon
-                            return (
-                              <span
-                                key={c.label}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold"
-                                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
-                              >
-                                <Icon size={14} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
-                                <span>{c.label}</span>
-                                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{'R'}</span>
-                              </span>
-                            )
-                          })}
-                        </div>
-                      )
-                    })()}
+                    {/* 진행 중 연속 기록 — /me 와 같은 판정·같은 캐시(lib/stats/dashboardBase.ts). 기간과 무관한 값이라 분기를 골라도 그대로다.
+                        단위는 「일」(하루 단위 판정) — 종전 「R」 표기·자체 계산은 2026-10-15 정리했다. */}
+                    {(detail?.active_streaks?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label="진행 중 연속 기록">
+                        {detail!.active_streaks!.map(c => (
+                          <span
+                            key={c.key}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold"
+                            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
+                          >
+                            <Flame size={14} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+                            <span>{c.label}</span>
+                            <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{c.unit}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {/* ── 리그 통산 · 대회 기록 (2026-10-14 「선수 숫자는 한 벌」) ──────────────
                         위 누적은 지금 보고 있는 묶음 기준. 아래는 같은 정의(그 묶음 스탯 탭의 그 선수 행)로
@@ -1087,7 +1117,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             ))}
 
             {/* ── 다이나믹 듀오 ─────────────────────────── */}
-            {activeTab === 'duo' && (
+            {shownTab === 'duo' && (
               <DynamicDuoPanel
                 duos={detail?.dynamic_duo ?? []}
                 playerName={player?.name ?? playerName}
@@ -1099,7 +1129,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             {/* ── 공격 스타일 ─────────────────────────── */}
             {/* 시도 비중(얼마나 자주 쏘는가) 과 성공률(그중 얼마나 넣는가) 을 별도 컬럼으로 분리.
                 이전엔 두 수치가 한 줄에 섞여 있어 혼동을 유발했다 (2026-08-03 개편). */}
-            {activeTab === 'shot' && activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
+            {shownTab === 'shot' && activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>공격 스타일</p>
@@ -1280,13 +1310,13 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             )}
 
             {/* ── 분기별 기록 (분기 선택과 무관 — 전 분기를 한 표로) ── */}
-            {activeTab === 'quarters' && quarterRows && quarterRows.length > 0 && (
+            {shownTab === 'quarters' && quarterRows && quarterRows.length > 0 && (
               <QuarterTable rows={quarterRows} />
             )}
 
             {/* ── 커리어 하이 ───────────────────────────── */}
             {/* Career High Day — 하루(같은 날의 여러 경기 합산) 기준 최고점 */}
-            {activeTab === 'career' && detail?.career_high && Object.keys(detail.career_high).length > 0 && (() => {
+            {shownTab === 'career' && detail?.career_high && Object.keys(detail.career_high).length > 0 && (() => {
               const CH_LABEL: Record<string, string> = {
                 pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK',
                 fgPct: 'FG%', fg3m: '3PM',
@@ -1349,17 +1379,17 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             })()}
             {/* ── 최근 트렌드 (월별 성장지표 + 게임 트렌드 + 최근 5R) ── */}
             {/* 월별 성장지표 */}
-            {activeTab === 'trend' && activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
+            {shownTab === 'trend' && activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
               <MonthlyStatsChart data={activeDetail.monthly_stats} />
             )}
 
             {/* 게임별 트렌드 라인 — 최소 3경기 이상일 때만 표시 */}
-            {activeTab === 'trend' && activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
+            {shownTab === 'trend' && activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
               <GameTrendChart log={activeDetail.game_log} />
             )}
 
             {/* 최근 5R (R = 라운드 단위, 같은 날 여러 경기는 합산. 단일 상대 개념 없음) */}
-            {activeTab === 'trend' && detail && detail.recent_games.length > 0 && (
+            {shownTab === 'trend' && detail && detail.recent_games.length > 0 && (
               <div className="px-5 py-4">
                 <p className="t-label font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>최근 5R</p>
                 <div className="overflow-x-auto">

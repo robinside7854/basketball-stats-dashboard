@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
+import { leagueMinRounds } from '@/lib/stats/eligibility'
 import { computeMilestones } from '@/lib/stats/milestones'
 
 // 홈 페이지 공통 — teams/overrides 를 한 번만 로드해 3개 계산 함수(highlights/rounds/standings)에
@@ -14,23 +15,26 @@ import PendingSignupsAlert from '@/components/league/PendingSignupsAlert'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
 import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
-import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary, type RoundGame } from '@/components/league/nba/NbaRoundsSummary'
+import type { RoundSummary, RoundTeamSummary, RoundGame } from '@/components/league/home/roundTypes'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import HomeSectionTabs from '@/components/league/HomeSectionTabs'
 import { HomeMeProvider } from '@/components/league/home/HomeMeContext'
 import { LastRoundTimeline } from '@/components/league/home/LastRound'
+import DraftInProgressBanner from '@/components/league/home/DraftInProgressBanner'
 import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { fetchLeagueMode } from '@/lib/league/competitions'
 import TournamentBoard from '@/components/league/TournamentBoard'
 import { resolveTeamId } from '@/lib/league/teamScope'
-import { pickRecentRounds, RECENT_ROUNDS } from '@/lib/league/recentRounds'
+import { pickRecentRounds } from '@/lib/league/recentRounds'
 import type { League } from '@/types/league'
 import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
 import { computeTeamForm, computeGamesBehind, type FormGame } from '@/lib/stats/standings'
+import { tallyDayRecord } from '@/lib/stats/dayRecord'
 
-// 기록이 있는 최근 RECENT_ROUNDS 라운드 요약 — NbaRoundsSummary 용.
-// 미라클모닝은 하루 = 1라운드 (여러 경기 진행). 각 라운드마다 팀별 W-L-득실차 요약.
+// 기록이 있는 최근 경기일 요약 — 홈 맨 위 경기일 카드(LastRoundTimeline) 용.
+// 미라클모닝은 하루 = 1라운드 (여러 경기 진행). 팀별 W-L-득실차 + 슬롯 순 경기 목록.
+// (2026-10-15) 홈 탭 「지난 경기일」(그 앞 3일)을 뺐으므로 하루만 만든다 — 지난 날짜는 일정 탭.
 async function computeRecentRounds(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
@@ -57,7 +61,7 @@ async function computeRecentRounds(
   // 분기와 상관없이 기록이 있는 최근 RECENT_ROUNDS 일 (2026-10-12 사용자 요청).
   //   종전엔 지금 분기 경기만 골라서, 분기 첫 주에는 카드가 1장뿐이었다.
   //   팀명은 경기마다 (team_id, quarter_id) 로 풀리므로 지난 분기 날짜도 그때 팀명으로 나온다.
-  const recent = pickRecentRounds(games ?? [])
+  const recent = pickRecentRounds(games ?? [], 1)
 
   const fmtWeek = (iso: string): string => {
     const d = new Date(iso + 'T00:00:00')
@@ -67,37 +71,20 @@ async function computeRecentRounds(
 
   const rounds: RoundSummary[] = []
   for (const [date, roundGames] of recent) {
-    const teamAgg = new Map<string, RoundTeamSummary>()
-    const ensureTeam = (team_id: string | null, quarter_id: string | null) => {
+    // 그날 팀 승패 — lib/stats/dayRecord.ts 한 벌(일정·하이라이트·박스스코어와 같은 규칙).
+    //   이 조회는 이미 정규전·마감만이라 친선 처리는 탈 일이 없다.
+    const toSide = (team_id: string | null, quarter_id: string | null) => {
       const id = resolver(team_id, quarter_id)
-      if (!id) return null
-      let t = teamAgg.get(id.key)
-      if (!t) {
-        t = { key: id.key, name: id.display_name, color: id.color, wins: 0, losses: 0, draws: 0, ptsFor: 0, ptsAgainst: 0 }
-        teamAgg.set(id.key, t)
-      }
-      return t
+      return id ? { key: id.key, name: id.display_name, color: id.color } : null
     }
-    for (const g of roundGames ?? []) {
-      const h = ensureTeam(g.home_team_id as string | null, g.quarter_id as string | null)
-      const a = ensureTeam(g.away_team_id as string | null, g.quarter_id as string | null)
-      if (!h || !a) continue
-      const hs = (g.home_score as number) ?? 0
-      const as_ = (g.away_score as number) ?? 0
-      h.ptsFor += hs; h.ptsAgainst += as_
-      a.ptsFor += as_; a.ptsAgainst += hs
-      if (hs > as_) { h.wins++; a.losses++ }
-      else if (hs < as_) { a.wins++; h.losses++ }
-      else { h.draws++; a.draws++ }
-    }
-    const teams = [...teamAgg.values()]
-      .filter(t => t.wins + t.losses + t.draws > 0)
-      .sort((a, b) => {
-        const ar = a.wins / (a.wins + a.losses + a.draws)
-        const br = b.wins / (b.wins + b.losses + b.draws)
-        if (br !== ar) return br - ar
-        return (b.ptsFor - b.ptsAgainst) - (a.ptsFor - a.ptsAgainst)
-      })
+    const teams: RoundTeamSummary[] = tallyDayRecord((roundGames ?? []).map(g => ({
+      home: toSide(g.home_team_id as string | null, g.quarter_id as string | null),
+      away: toSide(g.away_team_id as string | null, g.quarter_id as string | null),
+      home_score: g.home_score as number | null,
+      away_score: g.away_score as number | null,
+      is_complete: g.is_complete as boolean,
+      is_exhibition: g.is_exhibition as boolean,
+    }))).teams.map(t => ({ ...t, color: t.color ?? '#9ca3af' }))
     // 그날 경기를 슬롯 순서로 — 홈 「지난 토요일」 타임라인(2026-10-12). 위 집계와 같은 행·같은 resolver 라
     //   추가 쿼리가 없다. 친선전은 위 조회에서 이미 빠졌다(정규전은 대진 롤업이 일어나지 않으므로 슬롯 = 경기).
     const games: RoundGame[] = [...(roundGames ?? [])]
@@ -269,7 +256,7 @@ const getCachedRecentRounds = (leagueId: string) =>
       const resolverPromise = loadIdentityResolver(sb, leagueId)
       return computeRecentRounds(sb, leagueId, resolverPromise)
     },
-    ['home-recent-rounds', leagueId, String(RECENT_ROUNDS), 'all-quarters', 'v2-games'],
+    ['home-recent-rounds', leagueId, '1', 'all-quarters', 'v3-dayrecord'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
   )
 
@@ -310,7 +297,8 @@ const getCachedMilestones = (leagueId: string) =>
   unstable_cache(
     async () => {
       const sb = createClient()
-      return computeMilestones(sb, leagueId, { horizonDays: 30, maxUpcoming: 6, maxRecent: 6 })
+      // 홈 마일스톤 피드는 recent 만 그린다(MilestoneFeed) — 임박 목록은 최소로만 계산한다
+      return computeMilestones(sb, leagueId, { horizonDays: 30, maxUpcoming: 1, maxRecent: 6 })
     },
     // v3 (2026-07-19): 7/18 이벤트 points 백필이 API 우회로 실행돼 revalidateTag 미호출 →
     //                  캐시가 백필 이전 상태(변원식/천세원 100점을 6/27 로 잘못 표기) 로 pin 됨.
@@ -432,6 +420,7 @@ export default async function LeagueDetailPage({
     milestonesData,
     homeHighlights,
     approvedSession,
+    draftLive,
   ] = await Promise.all([
     getCachedLeagueMeta(leagueId, orgSlug)(),
     getCachedRecentRounds(leagueId)(),
@@ -442,6 +431,15 @@ export default async function LeagueDetailPage({
     getCachedHomeHighlights(leagueId)(),
     // 스탯 게이팅 — 쿠키 접근이라 unstable_cache 밖에서 호출 (2026-07-28)
     getApprovedSession(leagueId),
+    // 진행 중인 드래프트가 있는가 — 한 줄 조회(캐시 밖: 시작·마감이 바로 보여야 한다). 띠는 어드민에게만 그린다.
+    //   'setup'(만들고 시작 안 한 것)·리허설(is_test)은 뺀다 — 안 그러면 띠가 몇 주씩 떠 있는다.
+    createClient()
+      .from('league_drafts')
+      .select('id', { count: 'exact', head: true })
+      .eq('league_id', leagueId)
+      .eq('is_test', false)
+      .not('status', 'in', '(setup,completed)')
+      .then(({ count }) => (count ?? 0) > 0, () => false),
   ])
 
   if (!league) notFound()
@@ -498,12 +496,13 @@ export default async function LeagueDetailPage({
           그 지연은 그대로 이탈이 된다. 참여신청 카드보다 위에 두는 이유는 이게
           '나만 처리할 수 있는 일'이기 때문이다. */}
       <PendingSignupsAlert leagueId={leagueId} />
+      {draftLive && <DraftInProgressBanner orgSlug={orgSlug} leagueId={leagueId} />}
 
       {/* ── 홈 통합 개편 (2026-10-14) ────────────────────────────────────────────────
-          순서: ① 지난 경기일(팀 성적 + 경기 타일 한 카드) → ② 이번 분기(순위 · 리더) → ③ 탭(그 전 경기일 · 하이라이트 · 마일스톤).
+          순서: ① 지난 경기일(팀 성적 + 경기 타일 한 카드) → ② 이번 분기(순위 · 리더) → ③ 탭(하이라이트 · 마일스톤).
           · 「내 카드」를 뺐다(사용자 결정) — 로딩이 느렸고 내 기록은 하단 네비 「내 프로필」(/me)에 같은 것이 있다.
           · 「그날 팀 성적」 카드를 경기 목록 카드에 합쳤다 — 아래 「최근 라운드」 첫 장도 같은 날이라 세 번 보였다.
-            탭의 경기일 목록은 그 날을 빼고 그 앞 날짜들만 보인다.
+            (2026-10-15) 탭의 「지난 경기일」도 뺐다 — 일정 탭과 같은 목록이라 카드 아래 「전체 일정 보기 →」로 대신한다.
           · 마일스톤은 맨 아래 따로 있던 것을 탭으로 넣었다.
           개인 데이터(내 경기 노랑 표시)는 HomeMeProvider 가 **브라우저에서** 받는다 —
           이 페이지의 나머지는 unstable_cache(사용자 공용)라 개인 값이 거기 섞이면 안 된다. */}
@@ -547,6 +546,8 @@ export default async function LeagueDetailPage({
               quarterLabel={leaderStats.quarterLabel}
               quarterId={leaderStats.quarterId}
               initialPlayers={leaderStats.players}
+              // 최소 출전 = 스탯 탭·선수 카드와 같은 leagueMinRounds(열린 날 기준) — 넘기지 않으면 최다 출전을 분모로 써 하루쯤 어긋난다
+              minGP={leagueMinRounds(leaderStats.total_rounds ?? 0, leaderStats.players)}
               initialPhotoMap={initialPhotoMap}
               narrow={hasStandings}
             />
@@ -554,17 +555,8 @@ export default async function LeagueDetailPage({
         </div>
       </section>
 
-      {/* 그 전 경기일 · 하이라이트 · 마일스톤 — 탭 3개 (맨 위 경기일은 빼서 중복을 없앴다) */}
+      {/* 하이라이트 · 마일스톤 — 탭 2개 (2026-10-15 「지난 경기일」 탭 삭제 — 일정 탭과 같은 목록이었다) */}
       <HomeSectionTabs
-        rounds={recentRounds.length > 1 ? (
-          <NbaRoundsSummary
-            rounds={recentRounds.slice(1)}
-            leagueId={leagueId}
-            orgSlug={orgSlug}
-            title="지난 경기일"
-            caption={`${latestRound?.weekLabel ?? ''} 이전 · 하루 = 1라운드`}
-          />
-        ) : null}
         highlights={
           isMember ? (
             <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
@@ -574,13 +566,14 @@ export default async function LeagueDetailPage({
         }
         milestones={
           isMember ? (
-            <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
+            // recent 만 넘긴다 — upcoming 은 화면이 읽지 않는데 RSC 페이로드에만 실렸다
+            <MilestoneFeed leagueId={leagueId} initialData={{ recent: milestonesData.recent }} />
           ) : (
             <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
           )
         }
-        // 비회원에게는 하이라이트가 잠금 카드라 첫 화면을 잠금으로 열지 않게 기본 탭을 경기일로 둔다.
         highlightsAvailable={isMember && highlightsAvailable}
+        isMember={isMember}
       />
     </div>
   )

@@ -25,14 +25,13 @@ import { QuarterChips } from '@/components/league/QuarterChips'
 import type { PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 import { calcUsg } from '@/lib/stats/advanced'
-import { splitEligible, STATS_MIN_ROUND_RATIO, isPctStatKey, meetsAttemptMin, attemptRuleLabel, type PctStatKey } from '@/lib/stats/eligibility'
+import { splitEligible, leagueMinRounds, isPctStatKey, meetsAttemptMin, attemptRuleLabel, type PctStatKey } from '@/lib/stats/eligibility'
 
 type ViewMode = 'avg' | 'total'
 
 // 최소 출전 자격 — 해당 기간 내 열린 라운드의 30% 이상 참여 (2026-08-03 완화)
 // 이전엔 "리그 최다 출전자의 2/3" 였는데, 개근자 1명 때문에 커트라인이 과하게 올라가
 // 정상 참여자까지 리더보드에서 빠지는 문제가 있었다. 값은 eligibility.ts(용어 시트와 공유).
-const MIN_ROUND_RATIO = STATS_MIN_ROUND_RATIO
 
 // 한 번에 보여줄 선수 행 수 — 나머지는 "더 보기" 로 점진 노출한다(schedule/page.tsx 와 같은 방식).
 // 자격을 통과한 선수 전원(미라클 기준 25~35명)을 세로로 잇던 것을 자른다.
@@ -266,7 +265,7 @@ function LeagueStatsPageInner() {
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
-  const setQuickViewPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name }) }
+  const setQuickViewPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId: selectedQuarterId }) }
   // 최소 출전 임계값 — 자동으로 리그 최다 출전의 2/3 로 고정 (사용자 수동 조작 제거 · 2026-07-15)
   // 이전엔 수동 입력 + '전체 선수' 토글이 있어 "왜 내 값이 안 먹지" 혼란 유발 → 자동 임계값 하나만 유지
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
@@ -357,7 +356,8 @@ function LeagueStatsPageInner() {
   // total_rounds 를 못 받은 경우(구 캐시 응답 등)만 최다 출전자 기준으로 폴백.
   const maxPlayerGP = useMemo(() => players.reduce((m, p) => Math.max(m, p.gp), 0), [players])
   const roundBase = totalRounds > 0 ? totalRounds : maxPlayerGP
-  const autoMinGP = Math.max(1, Math.ceil(roundBase * MIN_ROUND_RATIO))
+  // 순위 자격 = leagueMinRounds 한 벌(홈 리더·선수 카드와 같다, 2026-10-15)
+  const autoMinGP = leagueMinRounds(totalRounds, players)
   const effectiveMinGP = autoMinGP
 
   const { eligible, ineligible } = splitEligible(players, effectiveMinGP)
@@ -1274,6 +1274,7 @@ function LeagueStatsPageInner() {
           leagueId={leagueId}
           candidates={compareCandidates}
           initialIds={compareList}
+          quarterId={selectedQuarterId}
           onClose={() => setCompareModalOpen(false)}
         />
       )}

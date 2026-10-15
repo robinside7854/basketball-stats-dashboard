@@ -3,7 +3,7 @@
 
 import type { PlayerStat } from '@/types/league'
 import type { LeagueStatsOpts, LeagueStatsResult } from './leagueStats'
-import { STATS_MIN_ROUND_RATIO } from './eligibility'
+import { leagueMinRounds } from './eligibility'
 
 export type StatsPeriod =
   | 'all'
@@ -41,8 +41,8 @@ export function pickPlayerRow(
 
 /** 순위 자격(최소 출전일) — 스탯 탭 리더보드와 같은 「열린 날의 30%」 (순수) */
 export function rankMinRounds(totalRounds: number, players: ReadonlyArray<{ gp: number }>): number {
-  const base = totalRounds > 0 ? totalRounds : players.reduce((m, p) => Math.max(m, p.gp), 0)
-  return Math.max(1, Math.ceil(base * STATS_MIN_ROUND_RATIO))
+  // (2026-10-15) 순위 자격은 eligibility.ts leagueMinRounds 한 벌 — 홈 리더·스탯 탭·선수 카드가 같다
+  return leagueMinRounds(totalRounds, players)
 }
 
 /**

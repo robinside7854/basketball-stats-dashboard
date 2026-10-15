@@ -10,6 +10,7 @@ import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 
 import { useMemo, useState, useEffect } from 'react'
 import { X, ChevronRight } from 'lucide-react'
+import { MILESTONE_LADDER, MILESTONE_STEP } from '@/lib/stats/milestoneLadder'
 
 // 선수카드 모달 · 상호작용 트리거 후에만 필요 (recharts 등 포함)
 
@@ -30,12 +31,13 @@ export type PlayerMilestoneData = {
 //   · 리그 1위 값에 따라 TOP 을 근사치로 스냅 → 선수 분포가 촘촘히 몰리지 않음
 //   · 색은 globals.css 의 다계열 팔레트(--mm-series-1..5) — 라벨 글자로도 쓰여 라이트/다크 모두 4.5:1↑.
 //     var() 라 hex 뒤에 알파를 붙일 수 없다 → 반투명은 color-mix 로 만든다.
+//   · 눈금·확장 스텝의 정본은 lib/stats/milestoneLadder.ts — 홈 마일스톤·/me 체이서와 같은 표(2026-10-15)
 const METRICS = [
-  { key: 'pts', label: 'PTS', color: 'var(--mm-series-1)', base: [100, 250, 500, 1000, 2000], step: 500 },
-  { key: 'reb', label: 'REB', color: 'var(--mm-series-2)', base: [50,  100, 250, 500,  1000], step: 100 },
-  { key: 'ast', label: 'AST', color: 'var(--mm-series-3)', base: [25,  50,  100, 250,  500 ], step: 100 },
-  { key: 'stl', label: 'STL', color: 'var(--mm-series-4)', base: [25,  50,  100, 250,  500 ], step: 100 },
-  { key: 'blk', label: 'BLK', color: 'var(--mm-series-5)', base: [10,  25,  50,  100,  250 ], step: 50  },
+  { key: 'pts', label: 'PTS', color: 'var(--mm-series-1)', base: MILESTONE_LADDER.pts, step: MILESTONE_STEP.pts },
+  { key: 'reb', label: 'REB', color: 'var(--mm-series-2)', base: MILESTONE_LADDER.reb, step: MILESTONE_STEP.reb },
+  { key: 'ast', label: 'AST', color: 'var(--mm-series-3)', base: MILESTONE_LADDER.ast, step: MILESTONE_STEP.ast },
+  { key: 'stl', label: 'STL', color: 'var(--mm-series-4)', base: MILESTONE_LADDER.stl, step: MILESTONE_STEP.stl },
+  { key: 'blk', label: 'BLK', color: 'var(--mm-series-5)', base: MILESTONE_LADDER.blk, step: MILESTONE_STEP.blk },
 ] as const
 
 type MetricKey = typeof METRICS[number]['key']
@@ -43,7 +45,7 @@ type MetricKey = typeof METRICS[number]['key']
 // TOP 을 1위 값에 근사치로 스냅
 //   · 1위 ≤ 기본 사다리의 어떤 값 → 그 값을 TOP 으로 · 그 이하 눈금만 표시
 //   · 1위 > 기본 사다리 최대 → step 단위로 올림한 값을 TOP 으로 추가
-// 예: PTS 기본=[100,250,500,1000,2000], 1위=2400 → TOP=2500, 눈금=[100,250,500,1000,2000,2500]
+// 예: 사다리 끝이 5000 이고 1위=5400 → TOP=5500 (step 500)
 function buildThresholds(base: readonly number[], step: number, leaderValue: number): number[] {
   for (const t of base) {
     if (t >= leaderValue) {
@@ -76,6 +78,7 @@ export default function PlayerMilestoneChart({ players }: Props) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const mq = window.matchMedia('(hover: hover) and (pointer: fine)')
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 미디어쿼리는 클라이언트에서만 판정 가능, 마운트 1회 동기화
     setHoverCapable(mq.matches)
     const handler = (e: MediaQueryListEvent) => setHoverCapable(e.matches)
     mq.addEventListener('change', handler)

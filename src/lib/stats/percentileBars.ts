@@ -9,26 +9,16 @@
 //   · 백분위 = 레이더와 같은 식 — 자격 집단(n명) 안에서 rank 를 매겨 (n - rank + 1) / n × 100.
 //     rank = 1 + (나보다 엄격히 나은 선수 수) — 동점은 같은 순위.
 //     자격 집단은 호출부가 정한다(선수 카드 = 레이더와 같은 「열린 날의 30% 이상 출전」).
-//   · 성공률·비율은 `PCT_MIN_ATTEMPTS` 미달이면 값은 보여 주되 백분위는 「–」이고 집단에서도 빠진다.
-//     아마추어 리그라 KBL 처럼 「리그 평균 시도」로 잡으면 분기 초에 거의 전원이 빠진다 —
-//     작은 절대 기준을 둔다. 기준을 바꾸면 이 상수 하나만 고친다(분기별 기록표의 굵은 글씨도 이걸 쓴다).
+//   · 성공률(야투·3점·자유투)은 **스탯 탭과 같은 하루 평균 시도 기준**(eligibility.ts rateIfQualified ·
+//     MIN_ATTEMPTS_PER_DAY) 미달이면 값은 보여 주되 백분위는 「–」이고 집단에서도 빠진다(2026-10-15 통합 —
+//     종전엔 이 파일만 기간 합계 20·10·8 을 써서 스탯 탭 「시도 부족」·카드 순위 칩과 모집단이 갈렸다).
+//     어시/실책은 하루 평균으로 나눌 수 없는 비율이라 PCT_MIN_ATTEMPTS.astTo(기간 합계)를 그대로 쓴다.
 //   · 실책은 낮을수록 높은 백분위.
 
-/** 성공률·비율 지표의 최소 시도(기간 합계). 분기별 기록표의 「리그 최고」 판정도 같은 값을 쓴다. */
-export const PCT_MIN_ATTEMPTS = {
-  /** 야투율 — 야투 시도 */
-  fg: 20,
-  /** 3점 성공률 — 3점 시도 */
-  fg3: 10,
-  /** 자유투 성공률 — 자유투 시도 */
-  ft: 8,
-  /** 어시/실책 — 어시 + 실책 */
-  astTo: 10,
-  /** 미드레인지 성공률 — 미드레인지 시도 (6축 레이더 `hexRadar.ts` 슈팅 축) */
-  mid: 10,
-  /** 실책 비율 — 공격 기회(야투 시도 + 0.44×자유투 시도 + 실책) (6축 레이더 리딩 축) */
-  tovRatio: 20,
-} as const
+import { PCT_MIN_ATTEMPTS, rateIfQualified, MIN_ATTEMPTS_PER_DAY } from './eligibility'
+
+// 옛 import 경로 호환 — 정본은 eligibility.ts (hexRadar·quarterTable·similarStyle 이 아직 여기서 가져간다)
+export { PCT_MIN_ATTEMPTS, MIN_ATTEMPTS_PER_DAY }
 
 /** 백분위 계산에 쓰는 선수 한 명의 기간 합계 */
 export interface PercentileInput {
@@ -53,7 +43,6 @@ interface MetricSpec {
 }
 
 const perDay = (n: number, p: PercentileInput) => (p.gp > 0 ? n / p.gp : 0)
-const rate = (m: number, a: number, min: number) => (a >= min && a > 0 ? (m / a) * 100 : null)
 
 const GROUPS: { key: string; label: string; metrics: MetricSpec[] }[] = [
   {
@@ -67,9 +56,9 @@ const GROUPS: { key: string; label: string; metrics: MetricSpec[] }[] = [
   {
     key: 'shooting', label: '슈팅',
     metrics: [
-      { key: 'fg_pct',  label: '야투율',     kind: 'rate', higherIsBetter: true, value: p => rate(p.fgm, p.fga, PCT_MIN_ATTEMPTS.fg) },
-      { key: 'fg3_pct', label: '3점 성공률', kind: 'rate', higherIsBetter: true, value: p => rate(p.fg3m, p.fg3a, PCT_MIN_ATTEMPTS.fg3) },
-      { key: 'ft_pct',  label: '자유투율',   kind: 'rate', higherIsBetter: true, value: p => rate(p.ftm, p.fta, PCT_MIN_ATTEMPTS.ft) },
+      { key: 'fg_pct',  label: '야투율',     kind: 'rate', higherIsBetter: true, value: p => rateIfQualified(p.fgm, p.fga, p.gp, 'fg_pct') },
+      { key: 'fg3_pct', label: '3점 성공률', kind: 'rate', higherIsBetter: true, value: p => rateIfQualified(p.fg3m, p.fg3a, p.gp, 'fg3_pct') },
+      { key: 'ft_pct',  label: '자유투율',   kind: 'rate', higherIsBetter: true, value: p => rateIfQualified(p.ftm, p.fta, p.gp, 'ft_pct') },
     ],
   },
   {

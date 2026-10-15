@@ -8,11 +8,11 @@
 //     (`gameDateRange`)로 고른다. quarter_id 로 고르면 뒤늦게 채워진 경기가 옛 분기로 들어간다.
 //   · 값은 하루 평균(득점·리바·어시·스틸·블락)과 기간 성공률(야투율·3점 성공률).
 //   · 「리그 최고」 = 그 분기 자격 선수(열린 날의 30% 이상 출전 — 선수 카드 순위와 같은 기준) 중 최댓값.
-//     성공률은 `PCT_MIN_ATTEMPTS` 시도를 채운 선수끼리만. 출전일은 자격 없이 전원 중 최댓값.
+//     성공률은 eligibility.ts 최소 시도(하루 평균 × 출전일)를 채운 선수끼리만. 출전일은 자격 없이 전원 중 최댓값.
 //     이 선수가 그 최댓값과 같고(동점 포함) 자격을 채웠으면 굵게.
 
 import type { PlayerStat } from '@/types/league'
-import { PCT_MIN_ATTEMPTS } from './percentileBars'
+import { meetsAttemptMin, leagueMinRounds } from './eligibility'
 
 export const QUARTER_TABLE_KEYS = ['gp', 'ppg', 'rpg', 'apg', 'spg', 'bpg', 'fg_pct', 'fg3_pct'] as const
 export type QuarterTableKey = typeof QUARTER_TABLE_KEYS[number]
@@ -34,15 +34,15 @@ export interface QuarterTableRow {
 }
 
 /** 최소 출전(일) — 선수 카드 순위(`detail` 라우트)와 같은 「열린 날의 30%」 */
+/** 순위 자격 — eligibility.ts leagueMinRounds 한 벌(2026-10-15) */
 export function quarterMinRounds(totalRounds: number, players: ReadonlyArray<{ gp: number }>): number {
-  const base = totalRounds > 0 ? totalRounds : players.reduce((m, p) => Math.max(m, p.gp), 0)
-  return Math.max(1, Math.ceil(base * 0.3))
+  return leagueMinRounds(totalRounds, players)
 }
 
 function valueOf(p: PlayerStat, key: QuarterTableKey): number | null {
   switch (key) {
-    case 'fg_pct':  return p.fga  >= PCT_MIN_ATTEMPTS.fg  ? p.fg_pct  : null
-    case 'fg3_pct': return p.fg3a >= PCT_MIN_ATTEMPTS.fg3 ? p.fg3_pct : null
+    case 'fg_pct':  return meetsAttemptMin(p, 'fg_pct')  ? p.fg_pct  : null
+    case 'fg3_pct': return meetsAttemptMin(p, 'fg3_pct') ? p.fg3_pct : null
     default: return p[key]
   }
 }

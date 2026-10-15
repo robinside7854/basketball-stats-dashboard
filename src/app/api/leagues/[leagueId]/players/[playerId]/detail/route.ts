@@ -11,8 +11,10 @@ import { findSimilarStyle, similarReasonText, type StyleInput } from '@/lib/stat
 import { isAssistEvent, FIELD_SHOT_TYPES } from '@/lib/stats/boxLine'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import {
-  loadPeriodStats, quarterPeriod, gameInPeriod, pickPlayerRow, rankMinRounds, rankOf, type StatsPeriod,
+  loadPeriodStats, quarterPeriod, gameInPeriod, pickPlayerRow, type StatsPeriod,
 } from '@/lib/stats/playerTotals'
+import { leagueMinRounds, competitionRank, meetsAttemptMin, type PctStatKey } from '@/lib/stats/eligibility'
+import { getCachedDashboardBase, ongoingStreaksFor, type OngoingStreak } from '@/lib/stats/dashboardBase'
 import { computeRoleLabels, roleLabelsPublic } from '@/lib/stats/roleLabels'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import type { PlayerStat } from '@/types/league'
@@ -76,6 +78,12 @@ export async function GET(
   //   (선수 카드는 분기 없는 첫 응답에서 읽는다). ⚠ 이 값만 친선일 포함 — computeLastPlayed 머리 주석.
   //   아래 집계와 독립이라 먼저 띄워 두고 응답 직전에 받는다. 실패하면 null.
   const lastPlayedP = quarterId ? Promise.resolve(undefined) : computeLastPlayed(supabase, leagueId, playerId)
+  // (2026-10-15) 진행 중 연속 기록 — /me 와 **같은 캐시·같은 판정**(lib/stats/dashboardBase.ts · computeStreaks).
+  //   종전엔 아래 이벤트 루프로 따로 세어 /me 와 숫자가 갈렸다. 「진행 중」은 기간과 무관한 값이라
+  //   분기 없는 요청에서만 싣는다(카드는 분기 없는 첫 응답의 값을 읽는다).
+  const streaksP: Promise<OngoingStreak[] | undefined> = quarterId
+    ? Promise.resolve(undefined)
+    : getCachedDashboardBase(leagueId).then(b => ongoingStreaksFor(b, playerId)).catch(() => [])
 
   const [
     { data: leaguePlayers },
@@ -159,7 +167,7 @@ export async function GET(
   }
 
   if (gameIds.length === 0) {
-    return NextResponse.json({ rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [], player_stats: null, last_played: await lastPlayedP })
+    return NextResponse.json({ rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [], player_stats: null, last_played: await lastPlayedP, active_streaks: await streaksP })
   }
 
   // 서버측 db-max-rows(=1000) 우회 위해 페이지네이션 청크 조회.
@@ -320,7 +328,7 @@ export async function GET(
 
   const playedGames = Object.keys(perGame)
 
-  // ── unit(라운드/게임) 단위 승패 판정 — recentGames 카드와 연승(sWin) 스트릭이 공유 ──
+  // ── unit(라운드/게임) 단위 승패 판정 — recentGames 카드가 쓴다 (연승은 2026-10-15 부터 dashboardBase 의 computeStreaks) ──
   //   과거엔 recentGames 가 "그 unit의 첫 경기" 하나만으로 승패를 판정해, 스탯은 하루
   //   합산인데 승패만 첫 경기인 사고가 났다(2026-08-09, 김로빈 8/8 2승4패인데 W로 표시됨).
   //   이제 이 함수 하나로 두 곳 모두 "그 unit에 속한 모든 게임"을 합산해 판정한다.
@@ -468,15 +476,16 @@ export async function GET(
   })
 
   // ── 순위 · 백분위 · 비슷한 선수 — 스탯 탭과 같은 computeLeagueStats 결과 한 벌 ──
-  //   모집단 = 게스트를 뺀 선수(스탯 탭 표와 같다), 자격 = 열린 날의 30% 이상(STATS_MIN_ROUND_RATIO).
+  //   모집단 = 게스트를 뺀 선수(스탯 탭 표와 같다), 자격 = leagueMinRounds(리그 순위 단일 규칙 — eligibility.ts).
   //   예전엔 여기서 이벤트를 다시 세어 게스트가 섞이고 출전시간만 있는 날이 gp 에서 빠져, 스탯 탭과 순위가 갈렸다.
+  //   순위는 전부 공동 순위(1, 2, 2, 4 — competitionRank). 종전엔 정렬 순서로 매겨 동점자가 서로 다른 순위였다.
   const periodStats = await statsP
   const pool: PlayerStat[] = periodStats.players
   const myRow = pickPlayerRow(periodStats, playerId)
-  const effectiveMinGp = rankMinRounds(periodStats.total_rounds ?? 0, pool)
+  const effectiveMinGp = leagueMinRounds(periodStats.total_rounds ?? 0, pool)
   const eligibleForRank = pool.filter(p => p.gp >= effectiveMinGp)
 
-  const getRank = (stat: 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg') => rankOf(eligibleForRank, playerId, p => p[stat])
+  const getRank = (stat: 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg') => competitionRank(eligibleForRank, playerId, p => p[stat])
 
   // ── 역할 라벨 (플레이 스타일, 2026-10-14) ── 순위와 같은 모집단·같은 기간. 배지가 아니다 — lib/stats/roleLabels.ts.
   //   모집단 밖(자격 미달·게스트)이면 라벨 없음(null). 공개 스위치가 꺼져 있으면 CEO 에게만 preview 로.
@@ -533,7 +542,7 @@ export async function GET(
     }
   })()
 
-  // 승률 순위 — 모집단·출전일은 위와 같은 computeLeagueStats(출전 3일 이상), 승패는 경기 단위.
+  // 승률 순위 — 모집단은 위와 같은 순위 자격(eligibleForRank — 종전엔 따로 「출전 3일 이상」), 승패는 경기 단위.
   //   선수마다 뛴 경기와 그 경기의 팀은 이벤트 team_id 로 안다(본인은 teamForGame 폴백).
   //   ⚠ 예전 구현은 경기 id 자리에 날짜를 넣어 찾느라 **아무도 승패가 잡히지 않아** 순위가 늘 0 이었다.
   const playedByPlayer: Record<string, Map<string, string | undefined>> = {}
@@ -547,8 +556,7 @@ export async function GET(
     if (e.league_player_id && e.type !== 'sub_in' && e.type !== 'sub_out') markPlayed(e.league_player_id, e.league_game_id, e.team_id)
     if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) markPlayed(e.related_player_id, e.league_game_id, e.team_id)
   }
-  const winRateEligible = pool
-    .filter(p => p.gp >= 3)
+  const winRateEligible = eligibleForRank
     .map(p => {
       let wins = 0, losses = 0
       for (const [gId, evTid] of playedByPlayer[p.player_id] ?? new Map<string, string | undefined>()) {
@@ -565,28 +573,29 @@ export async function GET(
       return { player_id: p.player_id, wins, losses, rate: wins + losses > 0 ? wins / (wins + losses) * 100 : 0 }
     })
     .filter(w => w.wins + w.losses > 0)
-  const win_rate_rank = rankOf(winRateEligible, playerId, w => w.rate)
+  const win_rate_rank = competitionRank(winRateEligible, playerId, w => w.rate)
 
-  // 추가 랭킹 (gp, fg_pct, fg3_pct, ft_pct) — 모집단 전원(gp>=1), 성공률은 시도>0
-  //   { rank, total } 객체 형태로 하위호환 위해 기존 필드는 유지
-  const getRankTotal = (
-    stat: 'gp' | 'fg_pct' | 'fg3_pct' | 'ft_pct',
-    requireAttempt?: 'fga' | 'fg3a' | 'fta',
-  ): { rank: number; total: number } => {
-    const base = pool.filter(p => p.gp >= 1)
-    const sel = requireAttempt ? base.filter(p => p[requireAttempt] > 0) : base
-    return { rank: rankOf(sel, playerId, p => p[stat]), total: sel.length }
+  // 출전일 순위 — 자격 없이 모집단 전원(gp>=1). 「얼마나 자주 나왔나」 자체가 순위라 출전 자격을 걸 수 없다.
+  const gpPool = pool.filter(p => p.gp >= 1)
+  // 성공률 순위 — 순위 자격(출전일) + **스탯 탭과 같은 최소 시도**(eligibility.ts meetsAttemptMin · 하루 평균 기준).
+  //   세부 능력치 막대도 같은 기준이라(rateIfQualified) 칩 순위와 막대 백분위의 모집단이 같다.
+  //   종전엔 「시도 1개 이상」이면 순위에 넣어 1/1(100%) 선수가 1위에 앉았다.
+  const pctRank = (key: PctStatKey & ('fg_pct' | 'fg3_pct' | 'ft_pct')): { rank: number; total: number } => {
+    const sel = eligibleForRank.filter(p => meetsAttemptMin(p, key))
+    return { rank: competitionRank(sel, playerId, p => p[key]), total: sel.length }
   }
 
   const rankings = {
     ppg: getRank('ppg'), rpg: getRank('rpg'), apg: getRank('apg'),
     spg: getRank('spg'), bpg: getRank('bpg'),
     total: eligibleForRank.length,     // 자격 요건(min GP) 통과 인원. rank 표시 계산의 분모로 사용됨
+    /** 순위 자격 최소 출전일 — 카드가 「N일 이상 출전하면 순위」를 안내한다 */
+    min_rounds: effectiveMinGp,
     win_rate_rank,
-    gp:      getRankTotal('gp'),
-    fg_pct:  getRankTotal('fg_pct',  'fga'),
-    fg3_pct: getRankTotal('fg3_pct', 'fg3a'),
-    ft_pct:  getRankTotal('ft_pct',  'fta'),
+    gp:      { rank: competitionRank(gpPool, playerId, p => p.gp), total: gpPool.length },
+    fg_pct:  pctRank('fg_pct'),
+    fg3_pct: pctRank('fg3_pct'),
+    ft_pct:  pctRank('ft_pct'),
   }
 
 
@@ -674,36 +683,6 @@ export async function GET(
       fg_pct:  s.fga > 0 ? +(s.fgm / s.fga * 100).toFixed(1) : 0,
     }))
 
-  // ── Active Streaks (현재 진행 중인 연속 기록) ────────────────────
-  // unit 기준(round 또는 game)으로 최신부터 역방향 walk, 조건 깨지면 stop
-  const sortedUnitsDesc = [...playedUnits].reverse()
-  let s10 = 0, s10Done = false
-  let s20 = 0, s20Done = false
-  let s3p = 0, s3pDone = false
-  let sWin = 0, sWinDone = false
-
-  for (const unitKey of sortedUnitsDesc) {
-    const agg = aggregateMap[unitKey]
-    if (!s10Done) {
-      if (agg.pts >= 10) s10++; else s10Done = true
-    }
-    if (!s20Done) {
-      if (agg.pts >= 20) s20++; else s20Done = true
-    }
-    if (!s3pDone) {
-      if (agg.fg3m >= 1) s3p++; else s3pDone = true
-    }
-    if (!sWinDone) {
-      // recentGames 카드와 **같은 판정 함수**를 쓴다. 예전엔 이 블록만 전 경기를 합산하고
-      //   recentGames 는 첫 경기만 봐서, 같은 화면에 승패 정의가 둘이었다(2026-08-09 사고).
-      //   무승부 라운드(승==패)는 연승을 잇지 않는다 — 이긴 날이 아니기 때문.
-      if (computeUnitRecord(unitKey).result === 'W') sWin++
-      else sWinDone = true
-    }
-    if (s10Done && s20Done && s3pDone && sWinDone) break
-  }
-  const active_streaks = { ten: s10, twenty: s20, three: s3p, win: sWin }
-
   // ── 다이나믹 듀오 (Dynamic Duo) ───────────────────────────────
   //   정의: 나와 상대 선수 사이의 "어시스트 → 득점" 합작 점수 합계 (양방향 모두 합산).
   //         pair_pts = Σ points  WHERE (scorer, assister) ∈ {(me, X), (X, me)}
@@ -781,7 +760,7 @@ export async function GET(
     recent_games: recentGames,
     game_log: gameLog,
     win_loss: winLoss, player_stats, monthly_stats, unit,
-    active_streaks,
+    active_streaks: await streaksP,
     dynamic_duo,
     pinned_event_ids,
     last_played: await lastPlayedP,

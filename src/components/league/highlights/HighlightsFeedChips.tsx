@@ -12,11 +12,20 @@
 //   · 베스트샷 + 선수    → 그 선수의 핀
 //   · 명경기·마일스톤은 단독 (날짜·선수를 고르면 클립 보기로 돌아간다)
 // 칩을 바꾸면 재생 위치(clip·type 등 안쪽 필터)는 버린다 — 다른 목록의 번호라 엉뚱한 클립을 가리킨다.
+//
+// 바로가기 칩 (2026-10-15)
+//   · 「내 클립」 — 로그인 회원만. ?player=<내 선수 id> 와 같다(새 쿼리를 만들지 않는다 — 링크 공유 시
+//     받는 사람에게도 그 선수 클립으로 열려야 한다). 내 id 는 브라우저의 로그인 상태에서 푼다.
+//   · 최근 날짜 3개 — 날짜 시트를 열지 않고 한 번에. 나머지 날짜는 그대로 「날짜 ▾」 시트에 있다.
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { CalendarDays, ChevronDown, Pin, Search, Trophy, User, X, Medal } from 'lucide-react'
 import { Avatar, Chip, Sheet } from '@/components/league/ui'
 import { formatFeedDate } from './feedFormat'
+import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
+
+// 칩 줄에 바로 꺼내 둘 최근 날짜 수 — 360px 에서 가로 스크롤 한 번이면 닿는 만큼
+const QUICK_DAYS = 3
 
 export type FeedKind = 'all' | 'best' | 'classics' | 'milestones'
 
@@ -52,6 +61,10 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   const [playerOpen, setPlayerOpen] = useState(false)
   const [players, setPlayers] = useState<FeedPlayerLabel[] | null>(null)
   const [query, setQuery] = useState('')
+  // 내 선수 id — 리그 로그인(회원)일 때만. 게이트 화면 등 프로바이더 밖이면 null(칩을 안 그린다)
+  const myId = useOptionalCurrentUser()?.user?.player_id ?? null
+  const quickDays = days.slice(0, QUICK_DAYS)
+  const isMine = !!myId && playerId === myId && kind === 'all' && !date
 
   // 선수 목록 — 시트를 열 때, 또는 칩 이름을 서버가 모를 때(안쪽 필터에서 선수를 바꾼 경우)만 받는다
   const needPlayers = playerOpen || (!!playerId && knownPlayer?.id !== playerId)
@@ -111,13 +124,40 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
           전체
         </Chip>
 
+        {myId && (
+          <Chip
+            as="button" size="md" icon={User}
+            selected={isMine}
+            onClick={() => go(isMine ? { f: 'all', date: null, player: null } : { f: 'all', date: null, player: myId })}
+          >
+            내 클립
+          </Chip>
+        )}
+
+        {/* 최근 날짜 바로가기 — 다시 누르면 해제 */}
+        {quickDays.map(d => {
+          const on = d.date === date && kind === 'all'
+          return (
+            <Chip
+              key={d.date}
+              as="button" size="md"
+              selected={on}
+              onClick={() => go({ f: 'all', date: on ? null : d.date })}
+              ariaLabel={`${formatFeedDate(d.date, true)} 클립 ${d.clips}개${on ? ' — 해제' : ''}`}
+            >
+              {formatFeedDate(d.date)}
+            </Chip>
+          )
+        })}
+
         <Chip
           as="button" size="md" icon={CalendarDays}
-          selected={!!date && kind === 'all'}
+          // 바로가기 칩에 없는 날짜를 골랐을 때만 이 칩이 그 날짜를 보인다(같은 날짜가 두 칩에 켜지지 않게)
+          selected={!!date && kind === 'all' && !quickDays.some(d => d.date === date)}
           onClick={() => setDateOpen(true)}
           ariaLabel={date ? `날짜 ${formatFeedDate(date)} — 바꾸기` : '날짜 고르기'}
         >
-          {date && kind === 'all' ? formatFeedDate(date) : '날짜'}
+          {date && kind === 'all' && !quickDays.some(d => d.date === date) ? formatFeedDate(date) : quickDays.length > 0 ? '다른 날짜' : '날짜'}
           <ChevronDown size={14} aria-hidden />
         </Chip>
 

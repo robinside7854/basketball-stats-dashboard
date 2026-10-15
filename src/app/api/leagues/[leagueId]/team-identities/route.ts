@@ -27,6 +27,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewLeague } from '@/lib/auth/guard'
 import { computeTeamForm, computeGamesBehind, type FormGame, type TeamForm } from '@/lib/stats/standings'
+import { gameDateRange } from '@/lib/league/currentQuarter'
 
 export interface TeamIdentity {
   key: string
@@ -71,7 +72,10 @@ export async function GET(
     supabase.from('league_games')
       .select('id, date, slot_num, quarter_id, home_team_id, away_team_id, home_score, away_score, is_exhibition, is_started, is_complete')
       .eq('league_id', leagueId)
-      .eq('is_started', true),
+      // 마감된 정규전만 — 홈 「이번 분기」 순위(app/league/.../page.tsx)와 같은 경기 집합이라야
+      //   팀 탭 승패·흐름·승차가 홈과 어긋나지 않는다(진행 중 경기를 세면 팀 탭만 1경기 앞서 있었다).
+      .eq('is_complete', true)
+      .eq('is_exhibition', false),
     // 임시팀은 정체성(프랜차이즈) 후보가 아니다 — 넣으면 분기 × 임시팀 조합만큼 유령 정체성이 생긴다
     supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId).is('exhibition_date', null),
     supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
@@ -131,27 +135,40 @@ export async function GET(
     }
   }
 
-  // 2) 게임 필터
+  // 2) 게임 필터 — 특정 분기면 기간(날짜)으로 고른다(lib/league/currentQuarter.ts gameDateRange, 홈과 같은 규칙).
+  //    quarter_id 는 기록 화면을 열 때 뒤늦게 채워져, 새 분기 행을 만들기 전에 기록한 경기는 옛 분기로 박힌다.
+  //    기간이 없는 분기만 quarter_id 로 폴백한다.
+  const selectedQ = quarterId && quarterId !== 'all' ? quarters.find(qq => qq.id === quarterId) ?? null : null
+  const selectedRange = selectedQ ? gameDateRange({ ...selectedQ, label: '' }) : null
+  const inQuarter = (g: Game) => selectedRange
+    ? g.date >= selectedRange.from && g.date <= selectedRange.to
+    : g.quarter_id === quarterId
   const targetGames = quarterId && quarterId !== 'all'
-    ? games.filter(g => g.quarter_id === quarterId)
+    ? games.filter(inQuarter)
     : games
+  // 팀명은 특정 분기면 **그 분기 이름**으로 푼다 — 옛 quarter_id 로 박힌 경기에 지난 분기 팀명이 섞이지 않게(홈과 같음).
+  const qidFor = (g: Game) => (quarterId && quarterId !== 'all') ? quarterId : g.quarter_id
 
-  // 3) 정체성별 승/패/득실 집계 (친선전 제외)
+  // 3) 정체성별 승/패/득실 집계 (친선전·미마감은 조회 단계에서 이미 뺐다)
   for (const g of targetGames) {
-    if (g.is_exhibition) continue
-    if (!g.home_team_id || !g.away_team_id || !g.quarter_id) continue
-    const homeId = resolveIdentity(g.home_team_id, g.quarter_id)
-    const awayId = resolveIdentity(g.away_team_id, g.quarter_id)
+    const qid = qidFor(g)
+    if (!g.home_team_id || !g.away_team_id || !qid) continue
+    const homeId = resolveIdentity(g.home_team_id, qid)
+    const awayId = resolveIdentity(g.away_team_id, qid)
     if (!homeId || !awayId) continue
     const h = identityGroups.get(homeId.key)
     const a = identityGroups.get(awayId.key)
     if (!h || !a) continue
 
     h.gp++; a.gp++
-    h.goals_for += g.home_score; h.goals_against += g.away_score
-    a.goals_for += g.away_score; a.goals_against += g.home_score
+    h.goals_for += g.home_score ?? 0; h.goals_against += g.away_score ?? 0
+    a.goals_for += g.away_score ?? 0; a.goals_against += g.home_score ?? 0
 
+    // 같은 팀끼리 잡힌 경기(데이터 이상)는 승패에는 세고 상대전적에서만 뺀다 — 홈 순위표와 같은 처리
+    const isSelfMatch = homeId.key === awayId.key
+    const scratch = { w: 0, d: 0, l: 0 }
     const ensureH2H = (owner: TeamIdentity, oppKey: string) => {
+      if (isSelfMatch) return scratch
       if (!owner.h2h[oppKey]) owner.h2h[oppKey] = { w: 0, d: 0, l: 0 }
       return owner.h2h[oppKey]
     }
@@ -197,13 +214,9 @@ export async function GET(
   // 4-1) 흐름 지표 — 특정 분기만. 기간이 있으면 날짜로(lib/league/currentQuarter.ts 와 같은 원칙),
   //      팀명은 그 분기 이름으로 푼다(옛 quarter_id 로 박힌 경기도 이 분기 정체성으로).
   if (quarterId && quarterId !== 'all') {
-    const q = quarters.find(qq => qq.id === quarterId)
-    const inQuarter = (g: Game) => q?.start_date && q?.end_date
-      ? g.date >= q.start_date && g.date <= q.end_date
-      : g.quarter_id === quarterId
+    // 위 2) 와 같은 경기 집합 — 승패와 흐름이 서로 다른 경기를 세지 않게
     const formGames: FormGame[] = []
-    for (const g of games) {
-      if (!g.is_complete || g.is_exhibition || !inQuarter(g)) continue
+    for (const g of targetGames) {
       if (!g.home_team_id || !g.away_team_id) continue
       const h = resolveIdentity(g.home_team_id, quarterId)
       const a = resolveIdentity(g.away_team_id, quarterId)

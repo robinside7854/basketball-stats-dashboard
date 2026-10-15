@@ -14,7 +14,10 @@
 //   · 재생은 공용 HighlightsPlayer 의 몰입 모드(immersiveOnly) — 재생기를 따로 만들지 않는다.
 //     ⚠ openImmersive() 는 클릭 핸들러 안에서 동기로 부른다(Fullscreen API 는 사용자 제스처 안에서만 열린다).
 //     재생기는 펼칠 때 미리 화면 밖에 띄워 영상을 준비해 둔다 — 누른 뒤에 만들면 iPhone 이 재생을 막는다.
-import { useCallback, useMemo, useRef, useState } from 'react'
+//   · 기본은 **접힘**(사용자 결정). 펼친 채로 여는 건 명시적 딥링크뿐이다 — `?hl=mine|team|all`
+//     (홈 경기일 카드 「내 하이라이트 ▶」, 2026-10-15). 그때도 재생은 사용자가 한 번 더 눌러야 시작된다(위 ⚠).
+//     고른 범위가 비어 있으면(그날 안 뛰었음 등) 「전체」로 보인다.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronUp, Clapperboard, Loader2, Play } from 'lucide-react'
 import HighlightsPlayer, { type HighlightsPlayerHandle } from '@/components/highlights/HighlightsPlayer'
@@ -22,7 +25,8 @@ import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import type { HighlightClip } from '@/lib/highlights/types'
 
-type Scope = 'all' | 'team' | 'mine'
+export type HighlightScope = 'all' | 'team' | 'mine'
+type Scope = HighlightScope
 
 /** 박스스코어 경기(롤업 결과) 중 여기서 쓰는 것만 */
 export type LauncherGame = {
@@ -36,16 +40,20 @@ export type LauncherGame = {
 type LoadState = 'idle' | 'loading' | 'ready' | 'login' | 'error'
 
 export default function DayHighlightsLauncher({
-  leagueId, date, games,
-}: { leagueId: string; date: string; games: LauncherGame[] }) {
+  leagueId, date, games, initialScope,
+}: {
+  leagueId: string; date: string; games: LauncherGame[]
+  /** 딥링크(?hl=)로 들어왔을 때만 — 펼친 채로 그 범위를 골라 둔다 */
+  initialScope?: HighlightScope | null
+}) {
   const { user, ceo, loading: authLoading } = useCurrentUser()
   const canView = !!user || ceo
   const meId = user?.player_id ?? null
 
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(!!initialScope)
   const [state, setState] = useState<LoadState>('idle')
   const [clips, setClips] = useState<HighlightClip[]>([])
-  const [scope, setScope] = useState<Scope>('all')
+  const [scope, setScope] = useState<Scope>(initialScope ?? 'all')
   const [idx, setIdx] = useState(0)
   // 재생기를 새로 띄우는 열쇠 — 범위를 바꾸거나 전체화면을 닫으면 처음 클립에 멈춘 새 재생기로 갈아 끼운다
   const [playerKey, setPlayerKey] = useState(0)
@@ -108,11 +116,23 @@ export default function DayHighlightsLauncher({
     if (next && state === 'idle' && canView) void load()
   }
 
-  // 「전체」는 나머지 둘을 품으므로 기본값으로 두면 0개짜리가 골라져 있을 일이 없다
-  const current = lists[scope]
+  // 딥링크로 펼친 채 열렸을 때 — 로그인 확인이 끝나면 한 번 받는다(펼침 버튼을 누른 것과 같은 요청)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그인 확인(외부 상태)이 끝난 뒤 1회 조회 시작
+    if (open && state === 'idle' && canView && !authLoading) void load()
+  }, [open, state, canView, authLoading, load])
+
+  const teamHint = !user ? '로그인한 회원만' : !playedToday ? '이날 출전 기록이 없어요' : null
+  const mineHint = !user ? '로그인한 회원만' : null
+
+  // 「전체」는 나머지 둘을 품으므로 기본값으로 두면 0개짜리가 골라져 있을 일이 없다.
+  //   딥링크가 고른 범위가 막혀 있거나 비어 있으면 「전체」로 보인다(빈 재생 버튼을 남기지 않는다).
+  const blocked = (k: Scope) => (k === 'team' && !!teamHint) || (k === 'mine' && !!mineHint) || lists[k].length === 0
+  const shownScope: Scope = scope !== 'all' && blocked(scope) ? 'all' : scope
+  const current = lists[shownScope]
 
   function pickScope(k: Scope) {
-    if (k === scope) return
+    if (k === shownScope) return
     setScope(k)
     setIdx(0)
     setPlayerKey(n => n + 1)
@@ -122,9 +142,6 @@ export default function DayHighlightsLauncher({
     // 닫으면 처음 클립에 멈춘 새 재생기로 — 다음에 누르면 다시 처음부터
     if (!isOpen) { setIdx(0); setPlayerKey(n => n + 1) }
   }, [])
-
-  const teamHint = !user ? '로그인한 회원만' : !playedToday ? '이날 출전 기록이 없어요' : null
-  const mineHint = !user ? '로그인한 회원만' : null
 
   const label = (text: string, n: number | null) => (
     <span className="inline-flex items-center gap-1">
@@ -182,7 +199,7 @@ export default function DayHighlightsLauncher({
                   { key: 'team', label: label('우리 팀', teamHint ? null : lists.team.length), disabled: !!teamHint || lists.team.length === 0 },
                   { key: 'mine', label: label('내 기록', mineHint ? null : lists.mine.length), disabled: !!mineHint || lists.mine.length === 0 },
                 ]}
-                value={scope}
+                value={shownScope}
                 onChange={pickScope}
                 ariaLabel="하이라이트 범위"
                 size="md"
@@ -214,7 +231,7 @@ export default function DayHighlightsLauncher({
       {/* 화면 밖에서 영상을 미리 준비하는 재생기 — fixed 위치가 조상의 transform 에 끌려가지 않게 body 로 띄운다 */}
       {open && ready && current.length > 0 && createPortal(
         <HighlightsPlayer
-          key={`${scope}-${playerKey}`}
+          key={`${shownScope}-${playerKey}`}
           ref={playerRef}
           clips={current}
           currentIdx={Math.min(idx, current.length - 1)}

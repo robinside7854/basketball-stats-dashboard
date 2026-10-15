@@ -1,10 +1,15 @@
 /**
- * 커리어 마일스톤 (임박 + 최근 달성) 계산 유틸.
+ * 커리어 마일스톤 (최근 달성) 계산 유틸.
  * `/api/leagues/[id]/milestones` route 와 홈 SSR 프리페치가 공유.
  *
  * v3: PTS (득점) 만 트래킹.
  *   사용자 판단 · 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 가치 낮음.
  *   슛 이벤트로 crossing 발생 · 하이라이트 재생 가능 (video_url · timestamp 매핑 시).
+ *
+ * (2026-10-15) 「임박(upcoming)」은 계산하지 않는다 — 읽는 화면이 없었다(홈 피드는 최근 달성만 그린다).
+ *   눈금은 milestoneLadder.ts 정본(/me 체이서·마일스톤 나무와 같은 표).
+ *   「통산 득점 N위」는 computeLeagueStats(스탯 탭 「전체」와 같은 캐시 항목) 위의 공동 순위 —
+ *   통산 누적 보드(CareerLeadersBoard)와 같은 숫자·같은 모집단(게스트 제외)이다.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
@@ -16,28 +21,15 @@ import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type G
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { rankIn } from './careerRanks'
+import { MILESTONE_LADDER } from './milestoneLadder'
+import { getCachedLeagueStats } from './cachedLeagueStats'
 
 // 커리어 마일스톤 — 득점 (PTS) 만 유지
 // 사용자 판단: 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 정도는 아님
 export type MilestoneCategory = 'PTS'
 
-const THRESHOLDS: Record<MilestoneCategory, number[]> = {
-  PTS: [100, 250, 500, 1000, 2000],
-}
-
-export interface UpcomingEntry {
-  player_id: string
-  name: string
-  number: number | null
-  category: MilestoneCategory
-  current: number
-  target: number
-  distance: number
-  percent: number
-  /** 지금 통산 득점 순위(공동 순위 · 친선전 제외 전체 기간). 득점 0 이면 null */
-  career_rank: number | null
-  /** 「통산 득점 3위」 — 화면에 그대로 쓰는 문구 */
-  career_rank_label: string | null
+const THRESHOLDS: Record<MilestoneCategory, readonly number[]> = {
+  PTS: MILESTONE_LADDER.pts,
 }
 
 export interface RecentEntry {
@@ -57,24 +49,23 @@ export interface RecentEntry {
   clip_start?: number | null
   clip_end?: number | null
   shot_type?: string | null     // 재생 컨텍스트/필터용
-  /** 지금(달성 시점 아님) 통산 득점 순위 · 문구 — UpcomingEntry 와 같은 값 */
+  /** 지금(달성 시점 아님) 통산 득점 순위(공동 순위 · 게스트 제외 · 통산 누적 보드와 같은 값). 없으면 null */
   career_rank?: number | null
   career_rank_label?: string | null
 }
 
 export interface MilestonesResult {
-  upcoming: UpcomingEntry[]
   recent: RecentEntry[]
 }
 
 export async function computeMilestones(
   supabase: SupabaseClient | null,
   leagueId: string,
+  /** maxUpcoming — 옛 호출부 호환용으로 받기만 한다(임박 계산은 2026-10-15 뺐다) */
   opts: { horizonDays?: number; maxUpcoming?: number; maxRecent?: number } = {},
 ): Promise<MilestonesResult> {
   const sb = supabase ?? createClient()
   const horizonDays = Math.max(1, opts.horizonDays ?? 30)
-  const maxUpcoming = Math.max(1, opts.maxUpcoming ?? 8)
   const maxRecent = Math.max(1, opts.maxRecent ?? 8)
 
   // 1) 게임 목록 (is_started=true) — 날짜/youtube 매핑 + 게임별 플러스원 지정 확보
@@ -89,7 +80,7 @@ export async function computeMilestones(
   if (gErr) throw new Error(`computeMilestones: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as Array<{ id: string; date: string; youtube_url: string | null; plus_one_player_id: string | null; plus_one_extra_ids: string[] | null; plus_one_quarters: Record<string, number[]> | null }>
   if (gameRows.length === 0) {
-    return { upcoming: [], recent: [] }
+    return { recent: [] }
   }
   const gameById = new Map(gameRows.map(g => [g.id, g]))
   const gameIds = gameRows.map(g => g.id)
@@ -250,49 +241,22 @@ export async function computeMilestones(
     if (pts > 0) bump(pid, 'PTS', pts, ev)
   }
 
-  // 통산 득점 순위 — 이 누적(cumul)이 곧 전체 기간 정규 경기 득점이다(친선 제외 · 같은 채점).
-  //   마일스톤은 득점만 다루므로 순위도 득점만 붙인다(다른 부문 순위는 스탯 탭 「통산 누적」 보드).
-  const ptsTotals = new Map<string, number>()
-  for (const [key, v] of cumul) {
-    const [pid, cat] = key.split('|')
-    if (cat === 'PTS') ptsTotals.set(pid, v)
-  }
-  const rankFor = (pid: string) => {
-    const r = rankIn(ptsTotals, pid)
-    return { career_rank: r, career_rank_label: r != null ? `통산 득점 ${r}위` : null }
-  }
-  for (const r of recent) Object.assign(r, rankFor(r.player_id))
-
-  // 6) 임박 (upcoming) 계산 — 각 (player, category) 의 다음 threshold 기준 percent 정렬
-  const upcoming: UpcomingEntry[] = []
-  for (const [key, cur] of cumul) {
-    if (cur <= 0) continue
-    const [pid, catStr] = key.split('|') as [string, MilestoneCategory]
-    const idx = nextIdx.get(key) ?? 0
-    const thr = THRESHOLDS[catStr]
-    if (idx >= thr.length) continue
-    const target = thr[idx]
-    const distance = target - cur
-    const percent = +((cur / target) * 100).toFixed(1)
-    const meta = playerMeta[pid]
-    upcoming.push({
-      player_id: pid,
-      name: meta?.name ?? '알 수 없음',
-      number: meta?.number ?? null,
-      category: catStr,
-      current: cur,
-      target,
-      distance,
-      percent,
-      ...rankFor(pid),
-    })
+  // 통산 득점 순위 — 통산 누적 보드와 같은 재료(computeLeagueStats 전체 기간, 게스트 제외)의 공동 순위.
+  //   종전엔 이 함수의 이벤트 누적(cumul)으로 매겨 게스트가 순위에 끼어 보드와 한 칸씩 어긋났다.
+  //   캐시 항목은 스탯 탭 「전체」와 같다 — 홈은 이 함수를 60초 캐시 안에서 부르므로 추가 비용이 거의 없다.
+  if (recent.length > 0) {
+    const career = await getCachedLeagueStats(leagueId)
+    const ptsTotals = new Map<string, number>(career.players.map(p => [p.player_id, p.pts]))
+    for (const r of recent) {
+      const rank = rankIn(ptsTotals, r.player_id)
+      r.career_rank = rank
+      r.career_rank_label = rank != null ? `통산 득점 ${rank}위` : null
+    }
   }
 
-  upcoming.sort((a, b) => b.percent - a.percent)
   recent.sort((a, b) => b.achieved_at.localeCompare(a.achieved_at))
 
   return {
-    upcoming: upcoming.slice(0, maxUpcoming),
     recent: recent.slice(0, maxRecent),
   }
 }

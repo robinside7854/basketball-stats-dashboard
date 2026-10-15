@@ -13,7 +13,12 @@ type Pair = { a: Side; b: Side; games: number; draws: number; lastDate: string }
 
 const hex = (c: string | null | undefined, fallback: string) => (c && /^#[0-9a-f]{3,8}$/i.test(c) ? c : fallback)
 
-export default function HeadToHeadSection({ leagueId, quarterId }: { leagueId: string; quarterId: string }) {
+export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = null }: {
+  leagueId: string
+  quarterId: string
+  /** 로그인한 회원의 팀 정체성 key — 있으면 그 팀이 낀 대진을 먼저 보여 준다(없으면 가장 최근 대진) */
+  myTeamKey?: string | null
+}) {
   const [pairs, setPairs] = useState<Pair[] | null>(null)
   const [activeKey, setActiveKey] = useState<string | null>(null)
 
@@ -31,7 +36,9 @@ export default function HeadToHeadSection({ leagueId, quarterId }: { leagueId: s
   }, [leagueId, quarterId])
 
   const keyOf = (p: Pair) => `${p.a.key}|${p.b.key}`
-  const active = pairs?.find(p => keyOf(p) === activeKey) ?? pairs?.[0] ?? null
+  // 기본 선택: 내 팀이 낀 대진 중 가장 최근(목록이 최근순) → 없으면 가장 최근 대진. 고른 것이 있으면 그것.
+  const mine = myTeamKey ? pairs?.find(p => p.a.key === myTeamKey || p.b.key === myTeamKey) : undefined
+  const active = pairs?.find(p => keyOf(p) === activeKey) ?? mine ?? pairs?.[0] ?? null
 
   return (
     <SectionCard variant="standalone" pad="none" ariaLabel="누적 맞대결">

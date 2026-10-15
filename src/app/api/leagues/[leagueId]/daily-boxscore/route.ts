@@ -37,7 +37,7 @@ export async function GET(
   ] = await Promise.all([
     supabase
       .from('league_games')
-      .select('id, slot_num, date, home_team_id, away_team_id, home_score, away_score, is_complete, is_started, youtube_url, youtube_start_offset, quarter_id, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
+      .select('id, slot_num, date, home_team_id, away_team_id, home_score, away_score, is_complete, is_started, is_exhibition, youtube_url, youtube_start_offset, quarter_id, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
       .eq('league_id', leagueId)
       .eq('date', date)
       .eq('is_started', true)
@@ -210,6 +210,8 @@ export async function GET(
     return {
       id: g.id, slot_num: g.slot_num, round_num: g.round_num,
       is_complete: g.is_complete, is_started: g.is_started,
+      // 그날 팀 승패(lib/stats/dayRecord.ts)가 친선전을 빼고 센다 — 경기 목록에는 그대로 남는다
+      is_exhibition: g.is_exhibition === true,
       home_score: g.home_score, away_score: g.away_score,
       home_team: homeIdentity ? { id: homeIdentity.team_id, name: homeIdentity.display_name, color: homeIdentity.color } : null,
       away_team: awayIdentity ? { id: awayIdentity.team_id, name: awayIdentity.display_name, color: awayIdentity.color } : null,
@@ -291,7 +293,9 @@ export async function GET(
     //   한 쿼터를 기록 안 한 날은 대신 경기가 둘로 갈려 보인다 — 조용히 잘못 합치는 것보다 낫다.
     const adjacent = prev ? g.slot_num === prev.slot_nums[prev.slot_nums.length - 1] + 1 : false
     // key 가 null(팀 미배정)이면 절대 묶지 않는다 — 빈 슬롯끼리 한 덩어리가 되면 표가 거짓말을 한다
-    if (!prev || !key || key !== prevKey || !adjacent) {
+    // 친선·정규가 섞인 칸은 묶지 않는다 — 묶으면 정규전 승패에 친선 점수가 들어간다
+    const sameKind = prev ? prev.is_exhibition === g.is_exhibition : false
+    if (!prev || !key || key !== prevKey || !adjacent || !sameKind) {
       groups.push({
         ...g,
         players: g.players.map(r => ({ ...r })),

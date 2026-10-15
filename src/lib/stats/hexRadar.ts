@@ -12,7 +12,7 @@
 //   · 백분위 식은 막대와 같은 `rankPercentile`((n − 순위 + 1) / n × 100, 동점 같은 순위) — 같은 지표는
 //     레이더 상세와 막대가 같은 숫자를 보인다. (kbl-stats 는 mid-rank 식이라 1위가 100 이 아니다 — 여기선 막대에 맞췄다)
 //   · 낮을수록 좋은 요소(실책 비율)는 뒤집어서 센다.
-//   · 성공률·비율은 `PCT_MIN_ATTEMPTS`(기간 합계, 막대와 같은 기준 한 벌) 미달이면 **그 선수에게서 그 요소를 뺀다**
+//   · 야투·3점·자유투 성공률은 eligibility.ts 하루 평균 최소 시도(막대·스탯 탭과 같은 한 벌), 그 밖의 비율은 `PCT_MIN_ATTEMPTS` 미달이면 **그 선수에게서 그 요소를 뺀다**
 //     (그 선수의 축 평균에서 빠지고, 다른 선수의 비교 집단에서도 빠진다).
 //   · 축 원점수 = 남은 요소 백분위의 평균. 요소가 하나도 없으면 그 축은 null(레이더에서 0, 표기는 「–」).
 //   · 축 값 = 모집단 각자의 축 원점수 사이에서 다시 매긴 백분위. 평균끼리는 50 근처로 모이므로 재순위해야
@@ -32,6 +32,7 @@
 //   · 「상대 실책 유도」 — 스틸은 기록 화면에서 상대 실책과 짝(related_player_id)으로 입력돼 짝지은 스틸 수가
 //     곧 스틸 수(입력 누락분만 적다)다. 같은 숫자를 두 번 세게 되므로 수비 축은 스틸·블락 둘이다.
 import { PCT_MIN_ATTEMPTS, rankPercentile } from './percentileBars'
+import { rateIfQualified, meetsAttemptMin } from './eligibility'
 
 /** 비교 인원이 이보다 적으면 백분위를 매기지 않는다 */
 export const HEX_MIN_SAMPLE = 3
@@ -108,10 +109,10 @@ export const HEX_AXES: readonly { key: HexAxisKey; label: string; components: re
     components: [
       { key: 'fg3m',    label: '3점 성공',          kind: 'perDay', higherIsBetter: true, value: p => perDay(p.fg3m, p) },
       { key: 'fg3a',    label: '3점 시도',          kind: 'perDay', higherIsBetter: true, value: p => perDay(p.fg3a, p) },
-      { key: 'fg3_pct', label: '3점 성공률',        kind: 'rate',   higherIsBetter: true, value: p => rate(p.fg3m, p.fg3a, PCT_MIN_ATTEMPTS.fg3) },
+      { key: 'fg3_pct', label: '3점 성공률',        kind: 'rate',   higherIsBetter: true, value: p => rateIfQualified(p.fg3m, p.fg3a, p.gp, 'fg3_pct') },
       { key: 'mid_a',   label: '미드레인지 시도',   kind: 'perDay', higherIsBetter: true, value: p => perDay(p.md_a, p) },
       { key: 'mid_pct', label: '미드레인지 성공률', kind: 'rate',   higherIsBetter: true, value: p => rate(p.md_m, p.md_a, PCT_MIN_ATTEMPTS.mid) },
-      { key: 'ft_pct',  label: '자유투 성공률',     kind: 'rate',   higherIsBetter: true, value: p => rate(p.ftm, p.fta, PCT_MIN_ATTEMPTS.ft) },
+      { key: 'ft_pct',  label: '자유투 성공률',     kind: 'rate',   higherIsBetter: true, value: p => rateIfQualified(p.ftm, p.fta, p.gp, 'ft_pct') },
     ],
   },
   {
@@ -138,7 +139,7 @@ export const HEX_AXES: readonly { key: HexAxisKey; label: string; components: re
     components: [
       {
         key: 'efg_pct', label: 'eFG%', kind: 'rate', higherIsBetter: true,
-        value: p => (p.fga >= PCT_MIN_ATTEMPTS.fg && p.fga > 0 ? ((p.fgm + 0.5 * p.fg3m) / p.fga) * 100 : null),
+        value: p => (meetsAttemptMin(p, 'fg_pct') ? ((p.fgm + 0.5 * p.fg3m) / p.fga) * 100 : null),
       },
     ],
   },

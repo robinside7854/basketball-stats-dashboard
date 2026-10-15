@@ -1,47 +1,38 @@
 'use client'
-// 홈 하단 섹션(최근 라운드·하이라이트)을 탭으로 묶어 스크롤 길이 단축.
+// 홈 맨 아래 보조 섹션(하이라이트 · 마일스톤)을 탭으로 묶어 스크롤 길이 단축.
 // 2026-10-12 리뉴얼 2단계: 팀 승률·리그 리더는 탭에서 빠져 「이번 분기」 묶음(홈 본문)으로 올라갔다.
-//   여기 남은 건 「지난 토요일」 아래의 보조 섹션뿐이다.
+// 2026-10-15: 「지난 경기일」 탭을 뺐다 — 일정 탭과 같은 목록이 하나 더 있었을 뿐이다.
+//   지난 날짜는 홈 맨 위 경기일 카드 아래 「전체 일정 보기 →」(→ /schedule)로 간다.
 // 서버에서 렌더된 섹션 노드를 슬롯으로 받아 활성 탭만 노출(나머지는 display:none → 높이 0, 상태 유지).
 import { useState, useEffect, type ReactNode } from 'react'
 import SegmentedTabs, { tabPanelProps } from '@/components/league/ui/SegmentedTabs'
 
-type TabKey = 'rounds' | 'highlights' | 'milestones'
-const HOME_TAB_SEEN = 'mm_home_tab_seen'
+type TabKey = 'highlights' | 'milestones'
 
 export default function HomeSectionTabs({
-  rounds, highlights, milestones, highlightsAvailable = false,
+  highlights, milestones, highlightsAvailable = false, isMember = false,
 }: {
-  /** 없으면(기록이 하루뿐) 탭에서 뺀다 */
-  rounds: ReactNode | null
   highlights: ReactNode
   /** (2026-10-14 홈 통합 개편) 홈 맨 아래 따로 있던 마일스톤을 탭으로 넣어 세로를 줄였다 */
   milestones: ReactNode
+  /** 승인 회원이고 이번 주 클러치 클립이 있다 */
   highlightsAvailable?: boolean
+  isMember?: boolean
 }) {
   const tabs: { key: TabKey; label: string; node: ReactNode }[] = [
-    ...(rounds ? [{ key: 'rounds' as const, label: '지난 경기일', node: rounds }] : []),
     { key: 'highlights', label: '하이라이트', node: highlights },
     { key: 'milestones', label: '마일스톤', node: milestones },
   ]
-  const [active, setActive] = useState<TabKey>(rounds ? 'rounds' : 'highlights')
-
-  // #9 첫 방문 + 하이라이트 있으면 기본 탭을 하이라이트로(인스타 유입 팬의 첫 화면에 영상). 최초 1회만.
-  useEffect(() => {
-    try {
-      if (!localStorage.getItem(HOME_TAB_SEEN)) {
-        localStorage.setItem(HOME_TAB_SEEN, '1')
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- 첫 방문 판정(localStorage)은 클라이언트에서만 가능, 마운트 1회 동기화
-        if (highlightsAvailable) setActive('highlights')
-      }
-    } catch { /* 무시 */ }
-  }, [highlightsAvailable])
+  // 기본 탭(2026-10-15) — 볼 클립이 있으면 늘 하이라이트(종전엔 첫 방문 1회만이라 두 번째부터는
+  //   빈 「지난 경기일」이 먼저 떴다). 회원인데 클러치 클립이 없으면 빈 상태 대신 마일스톤.
+  //   비회원은 둘 다 잠금 카드라 앞 탭 그대로. 서버가 아는 값이라 첫 그림부터 맞다(깜빡임 없음).
+  const [active, setActive] = useState<TabKey>(highlightsAvailable || !isMember ? 'highlights' : 'milestones')
 
   // #7 투어 스텝 진입 시 해당 탭 열기 (mm-home-tab 이벤트)
   useEffect(() => {
     const onTab = (e: Event) => {
       const key = (e as CustomEvent).detail as TabKey
-      if (key && ['rounds', 'highlights', 'milestones'].includes(key)) setActive(key)
+      if (key && ['highlights', 'milestones'].includes(key)) setActive(key)
     }
     window.addEventListener('mm-home-tab', onTab)
     return () => window.removeEventListener('mm-home-tab', onTab)

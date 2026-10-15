@@ -287,8 +287,15 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   선수 카드에는 따로 「대회 기록 (통산 미포함)」으로 보인다. 리그 시즌이 하나뿐이면 「리그 통산」은 위 누적과
   같으므로 그리지 않는다.
 - 어시스트 판정은 `boxLine.ts` 의 `isAssistEvent` 하나, 득점은 `scorePoints`+`isPlusOneFor` 하나(저장된 `points` 금지).
-- 다른 기간·다른 기준을 쓰는 화면은 **라벨로 드러낸다**: /me·홈 「리그 리더」 순위는 `leaderMinRounds`(홈 리더 기준),
-  선수 맞대결·팀 누적 맞대결은 「마감된 정규전」만.
+- **순위 자격은 한 벌 (2026-10-15)**: `eligibility.ts` 의 `leagueMinRounds(열린 날, 선수들)` = 열린 날의 30% 올림(최소 1일),
+  최다 출전자가 그만큼 못 뛰었으면 그 일수까지 낮춘다. 홈 리더·스탯 탭·선수 카드·분기 표가 전부 이걸 쓴다
+  (`leaderMinRounds`·`rankMinRounds`·`quarterMinRounds` 는 같은 함수를 부르는 옛 이름).
+  성공률(야투·3점·자유투) 최소 시도도 한 벌 — `MIN_ATTEMPTS_PER_DAY` × 출전일(`meetsAttemptMin`·`rateIfQualified`).
+  카드 순위·막대·레이더·스탯 탭이 같다. 동률은 공동 순위(1·2·2·4).
+- 선수 카드는 **연 화면의 분기**로 열린다(`openPlayerCard({ quarterId })`) — 분기 표에서 열었는데 전체 기간이 나오던 어긋남.
+- 연속 기록(`lib/stats/dashboardBase.ts` — 캐시) · 마일스톤 눈금(`lib/stats/milestoneLadder.ts`) · 그날 팀 승패(`lib/stats/dayRecord.ts`,
+  친선 제외 · 정체성 키로 묶음 · 승률→득실 순)도 각각 한 벌이다. 화면에서 다시 세지 말 것.
+- 선수 맞대결·팀 누적 맞대결·팀 탭 전적은 「마감된 정규전」만(팀 탭도 2026-10-15 부터 진행 중 경기 제외 · 분기는 날짜 범위).
 
 ### 역할 라벨 = 「플레이 스타일」 (2026-10-14) — 배지가 아니다
 

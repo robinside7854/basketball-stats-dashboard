@@ -1,9 +1,10 @@
 'use client'
-// 홈 「내 카드」·「지난 토요일」이 함께 쓰는 개인 데이터 (리뉴얼 2단계, 2026-10-12).
+// 홈 맨 위 경기일 카드가 쓰는 개인 데이터 — 「그날 내가 뛴 경기」 (리뉴얼 2단계, 2026-10-12).
+//   (2026-10-15) 쓰는 곳이 「내 경기」 노랑 표시와 「내 하이라이트 ▶」 링크뿐이라 gameIds 만 남겼다
+//   (하루 합계 line · 승패 results 는 그리던 「내 카드」가 없어져 아무도 읽지 않았다).
+//   useMePeriod · MePeriod · MeShooting 은 /me(PersonalDashboard)가 쓴다 — 지우지 말 것.
 //
 // 왜 컨텍스트인가
-//   · 두 섹션이 같은 「그날 박스스코어」를 본다 — 내 카드는 내 줄을, 타임라인은 내가 뛴 경기를.
-//     각자 받으면 같은 요청이 두 번 나간다.
 //   · 개인 데이터는 **반드시 브라우저에서** 받는다. 홈의 나머지는 unstable_cache(사용자 공용)를
 //     타므로, 여기 값이 서버 캐시에 들어가면 다른 사람에게 내 기록이 보인다.
 //
@@ -13,60 +14,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
-type Metric = 'pts' | 'reb' | 'ast' | 'stl' | 'blk'
-
-/** 기간 블록 — 「이번 분기」(quarter) · 「전체」(career) 가 같은 모양이다 */
-export interface MePeriodBlock {
-  label: string | null
-  attended_rounds: number
-  /** 이 기간에 리그가 연 날 전체 */
-  total_rounds: number
-  /** 그중 내 첫 기록일 이후 — 출석 분모 (2026-10-12 추가 · 옛 응답엔 없다) */
-  my_total_rounds?: number
-  /** 내 첫 기록일(리그 전체 기준) — 이날 이전은 「결장」이 아니다 */
-  joined_on?: string | null
-  min_rounds: number
-  eligible: boolean
-  per_day: Record<Metric, number>
-  ranks: Partial<Record<Metric, { rank: number; total: number }>>
-  /** 야투·3점 성공/시도/성공률(%) — 2026-10-13 추가(옛 응답엔 없다). 순위 없음 */
-  shooting?: MeShooting
-}
-
+/** 야투·3점 성공/시도/성공률(%) — /me 기간 블록. 순위 없음 */
 export interface MeShooting {
   fgm: number; fga: number; fg_pct: number
   fg3m: number; fg3a: number; fg3_pct: number
 }
 
-export interface HomeDashboard {
-  quarter?: MePeriodBlock
-  /** 「전체」 — 이 리그 시즌 첫 경기일부터 */
-  career?: MePeriodBlock
-  milestoneChasers?: Array<{
-    metric: Metric
-    current: number
-    nextThreshold: number
-    remaining: number
-    progressPct: number
-  }>
-}
-
-export interface MyDayLine {
-  pts: number; reb: number; ast: number; stl: number; blk: number
-  fgm: number; fga: number; fg3m: number
-  gp: number
-  team_name: string | null
-  team_color: string | null
-}
-
 export interface MyDay {
   date: string
-  /** 그날 내 하루 합계 — 출전하지 않았으면 null */
-  line: MyDayLine | null
-  /** 내가 뛴 경기의 슬롯 id 전부 (롤업된 경기도 슬롯 단위로 맞출 수 있게) */
+  /** 내가 뛴 경기의 슬롯 id 전부 (롤업된 경기도 슬롯 단위로 맞출 수 있게) — 비어 있으면 그날 안 뛰었다 */
   gameIds: Set<string>
-  /** 마감된 내 경기 결과(슬롯 순서) */
-  results: Array<'W' | 'L' | 'D'>
 }
 
 type Status = 'idle' | 'loading' | 'ready' | 'error'
@@ -105,51 +62,20 @@ export function useMePeriod(leagueId: string): [MePeriod, (p: MePeriod) => void]
   return [period, setPeriod]
 }
 
-/** 기간 블록의 출석 분모 — 첫 기록일 이후 경기일(옛 응답이면 리그 전체 일수) */
-export function myTotalRounds(b: Pick<MePeriodBlock, 'total_rounds' | 'my_total_rounds'>): number {
-  return b.my_total_rounds ?? b.total_rounds
-}
-
 // daily-boxscore 응답에서 쓰는 부분만
 interface BoxGame {
   id: string
   slot_ids?: string[]
-  is_complete: boolean
-  home_score: number | null
-  away_score: number | null
-  home_team: { id: string } | null
-  away_team: { id: string } | null
-  players: Array<{ player_id: string; team_id: string | null }>
+  players: Array<{ player_id: string }>
 }
-interface BoxDaily extends MyDayLine { player_id: string }
 
-function buildDay(date: string, pid: string, games: BoxGame[], daily: BoxDaily[]): MyDay {
+function buildDay(date: string, pid: string, games: BoxGame[]): MyDay {
   const gameIds = new Set<string>()
-  const results: MyDay['results'] = []
   for (const g of games) {
-    const row = g.players?.find(p => p.player_id === pid)
-    if (!row) continue
+    if (!g.players?.some(p => p.player_id === pid)) continue
     for (const id of g.slot_ids?.length ? g.slot_ids : [g.id]) gameIds.add(id)
-    if (!g.is_complete || !row.team_id) continue
-    const side = row.team_id === g.home_team?.id ? 'home' : row.team_id === g.away_team?.id ? 'away' : null
-    if (!side) continue
-    const mine = (side === 'home' ? g.home_score : g.away_score) ?? 0
-    const theirs = (side === 'home' ? g.away_score : g.home_score) ?? 0
-    results.push(mine > theirs ? 'W' : mine < theirs ? 'L' : 'D')
   }
-  const d = daily.find(x => x.player_id === pid)
-  return {
-    date,
-    line: d
-      ? {
-          pts: d.pts, reb: d.reb, ast: d.ast, stl: d.stl, blk: d.blk,
-          fgm: d.fgm, fga: d.fga, fg3m: d.fg3m, gp: d.gp,
-          team_name: d.team_name ?? null, team_color: d.team_color ?? null,
-        }
-      : null,
-    gameIds,
-    results,
-  }
+  return { date, gameIds }
 }
 
 export function HomeMeProvider({
@@ -180,7 +106,7 @@ export function HomeMeProvider({
     getJson(`/api/leagues/${leagueId}/daily-boxscore?date=${latestDate}`).then(box => {
       if (!alive) return
       setDay(box
-        ? buildDay(latestDate, pid, (box.games ?? []) as BoxGame[], (box.daily_stats ?? []) as BoxDaily[])
+        ? buildDay(latestDate, pid, (box.games ?? []) as BoxGame[])
         : null)
       setStatus(box ? 'ready' : 'error')
     })

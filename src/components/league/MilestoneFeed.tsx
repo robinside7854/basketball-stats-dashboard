@@ -10,8 +10,10 @@ import { Play, ChevronRight, Trophy } from 'lucide-react'
 // ▶ 클릭 시에만 열리는 클립 모달 — YT iframe API 지연 로드
 const MilestoneClipModal = dynamic(() => import('./MilestoneClipModal'), { ssr: false })
 import SectionCard from '@/components/league/ui/SectionCard'
+import EmptyState from '@/components/league/ui/EmptyState'
 
-type MilestoneCategory = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | '3PM' | 'GP'
+// 마일스톤은 득점만 다룬다(lib/stats/milestones.ts v3) — 다른 카테고리 라벨은 2026-10-15 정리했다
+type MilestoneCategory = 'PTS'
 
 interface RecentEntry {
   player_id: string
@@ -33,10 +35,8 @@ interface RecentEntry {
   career_rank_label?: string | null
 }
 
-// 서버에서 여전히 upcoming/recent 두 필드를 반환 — upcoming 은 사용하지 않지만
-// 상위 서버컴포넌트가 initialData 형태를 그대로 넘기므로 타입은 유지한다.
+// 서버(lib/stats/milestones.ts)는 최근 달성만 준다 — 「임박」은 2026-10-15 계산 자체를 뺐다
 interface MilestoneData {
-  upcoming?: unknown[]
   recent: RecentEntry[]
 }
 
@@ -48,12 +48,6 @@ interface Props {
 
 const CATEGORY_LABEL: Record<MilestoneCategory, string> = {
   PTS: '득점',
-  REB: '리바',
-  AST: '도움',
-  STL: '스틸',
-  BLK: '블락',
-  '3PM': '3점',
-  GP:  '참석',
 }
 
 function formatKoreanDate(dateStr: string): string {
@@ -89,7 +83,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
     // initial 데이터가 있으면 mount 시 fetch skip — 서버 렌더 결과 그대로 사용
     if (hasInitial) return
     setLoading(true)
-    fetch(`/api/leagues/${leagueId}/milestones?maxUpcoming=0&maxRecent=${MAX_RECENT}&horizonDays=30`)
+    fetch(`/api/leagues/${leagueId}/milestones?maxRecent=${MAX_RECENT}&horizonDays=30`)
       .then(r => r.json())
       .then(d => {
         setRecent(d.recent ?? [])
@@ -114,8 +108,6 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
     )
   }
 
-  if (recent.length === 0) return null
-
   const recentShown = recent.slice(0, MAX_RECENT)
 
   return (
@@ -139,12 +131,23 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
               최근 <span style={{ color: 'var(--mm-ink-soft)' }}>마일스톤</span>
             </h3>
           </div>
-          <span className="t-label t-num shrink-0 whitespace-nowrap">
-            최근 {recentShown.length}
-          </span>
+          {recentShown.length > 0 && (
+            <span className="t-label t-num shrink-0 whitespace-nowrap">
+              최근 {recentShown.length}
+            </span>
+          )}
         </header>
 
         {/* 최근 달성 — PC 에선 전폭 한 줄이 이름 옆 1000px 빈칸이었다 → 카드 격자(2026-10-12) */}
+        {/* (2026-10-15) 비어 있으면 카드째 사라지던 것을 안내 문구로 — 홈 탭 안이라 null 이면 빈 탭이 열린다 */}
+        {recentShown.length === 0 ? (
+          <EmptyState
+            variant="compact"
+            icon={Trophy}
+            title="최근 달성한 마일스톤이 없어요"
+            description="최근 30일 안에 통산 득점 눈금(100·250·500…)을 넘은 선수가 생기면 여기 떠요"
+          />
+        ) : (
         <div className="p-4 md:p-5">
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {recentShown.map(r => {
@@ -244,6 +247,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
             })}
           </div>
         </div>
+        )}
 
         {/* 더보기 링크 */}
         {milestonesHref && (

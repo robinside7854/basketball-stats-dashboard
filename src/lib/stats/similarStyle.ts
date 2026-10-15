@@ -7,7 +7,7 @@
 // 비교 집단
 //   · 세부 능력치 막대·레이더와 **같은 자격 집단**을 호출부가 넘긴다(열린 날의 30% 이상 출전).
 //     새 자격 규칙을 만들지 않는다. 집단 밖 선수는 결과 없음(qualified=false).
-//   · 슛 구성 차원은 야투 시도가 `PCT_MIN_ATTEMPTS.fg` 이상일 때만 쓴다(막대의 야투율과 같은 기준).
+//   · 슛 구성 차원은 야투 시도가 최소 시도(eligibility.ts, 막대의 야투율과 같은 기준) 이상일 때만 쓴다(막대의 야투율과 같은 기준).
 //     미달이면 그 차원들은 빼고 나머지 비중으로 다시 나눈다(KBL combinedSimilarity 와 같은 방식).
 //
 // 차원 — 모두 자격 집단 안 백분위(0~100)로 맞춘다(척도가 같아야 거리가 공정하다)
@@ -28,7 +28,8 @@
 //     차원을 앞세운다: 정렬 키 = |차이| − 0.3 × |두 값 평균 − 50|. 수준 차원은 이유로 쓰지 않는다.
 
 import { FIELD_SHOT_TYPES } from './boxLine'
-import { PCT_MIN_ATTEMPTS, rankPercentile } from './percentileBars'
+import { rankPercentile } from './percentileBars'
+import { minAttemptsFor } from './eligibility'
 
 /** 선수 한 명의 기간 합계 (호출부가 이미 모은 값) */
 export interface StyleInput {
@@ -54,7 +55,7 @@ interface DimSpec {
 }
 
 const perDay = (n: number, p: StyleInput) => (p.gp > 0 ? n / p.gp : 0)
-const hasShots = (p: StyleInput) => p.fga >= PCT_MIN_ATTEMPTS.fg && p.fga > 0
+const hasShots = (p: StyleInput) => p.gp > 0 && p.fga > 0 && p.fga >= minAttemptsFor('fg_pct', p.gp)
 const share = (type: string) => (p: StyleInput) => (hasShots(p) ? ((p.shotAttempts[type] ?? 0) / p.fga) * 100 : null)
 
 const SHOT_LABEL: Record<string, string> = {

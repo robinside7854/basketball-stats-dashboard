@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+import { gameDateRange } from '@/lib/league/currentQuarter'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, addBoxLine, type BoxLine } from '@/lib/stats/boxLine'
 
@@ -19,6 +20,9 @@ import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, addBoxLine, type BoxL
  * - 이벤트의 팀은 **이 경기의 두 팀 중 하나**로 고른다: 이벤트 team_id → 경기 한정 배정 → 분기 소속
  *   (daily-boxscore 와 같은 원칙 — 무관한 팀이 박히면 그 기록이 통째로 사라진다).
  * - 한 줄 누적·득점 규칙은 boxLine.ts / scoring.ts 공용.
+ * - 특정 분기는 **기간(날짜)으로** 고른다(gameDateRange — 홈 순위·팀 탭 team-identities 와 같은 규칙).
+ *   quarter_id 는 뒤늦게 채워져 새 분기 첫 경기가 옛 분기로 박혀 있을 수 있다. 기간이 없는 분기만 quarter_id 폴백.
+ *   팀명도 그 분기 이름으로 푼다 — 옛 quarter_id 경기에 지난 분기 팀명이 붙지 않게.
  */
 export async function GET(
   req: Request,
@@ -30,6 +34,15 @@ export async function GET(
   }
   const quarterId = new URL(req.url).searchParams.get('quarterId')
   const supabase = createClient()
+  const oneQuarter = !!quarterId && quarterId !== 'all'
+
+  let selectedRange: { from: string; to: string } | null = null
+  if (oneQuarter) {
+    const { data: q } = await supabase
+      .from('league_quarters').select('id, year, quarter, start_date, end_date')
+      .eq('league_id', leagueId).eq('id', quarterId).maybeSingle()
+    if (q) selectedRange = gameDateRange({ ...q, label: '' })
+  }
 
   let gq = supabase
     .from('league_games')
@@ -39,7 +52,13 @@ export async function GET(
     .eq('is_exhibition', false)
     .not('home_team_id', 'is', null)
     .not('away_team_id', 'is', null)
-  if (quarterId && quarterId !== 'all') gq = gq.eq('quarter_id', quarterId)
+  if (oneQuarter) {
+    gq = selectedRange
+      ? gq.gte('date', selectedRange.from).lte('date', selectedRange.to)
+      : gq.eq('quarter_id', quarterId)
+  }
+  // 정체성·분기 소속을 풀 분기 — 특정 분기면 그 분기, 「전체」면 경기의 분기
+  const qidOf = (g: { quarter_id: unknown }): string | null => oneQuarter ? quarterId : (g.quarter_id as string | null)
 
   const [{ data: games, error: gErr }, resolver, scoringRules, teamId] = await Promise.all([
     gq,
@@ -96,7 +115,7 @@ export async function GET(
     const cands = [
       e.team_id,
       gpTeam.get(`${g.id}:${e.league_player_id}`),
-      g.quarter_id ? qTeam.get(`${g.quarter_id}:${e.league_player_id}`) : undefined,
+      qidOf(g) ? qTeam.get(`${qidOf(g)}:${e.league_player_id}`) : undefined,
     ]
     return (cands.find(c => c && both.includes(c)) as string | undefined) ?? null
   }
@@ -118,8 +137,8 @@ export async function GET(
   type Pair = { a: Side; b: Side; games: number; draws: number; lastDate: string }
   const pairs = new Map<string, Pair>()
   for (const g of games) {
-    const h = resolver(g.home_team_id as string, g.quarter_id as string | null)
-    const a = resolver(g.away_team_id as string, g.quarter_id as string | null)
+    const h = resolver(g.home_team_id as string, qidOf(g))
+    const a = resolver(g.away_team_id as string, qidOf(g))
     if (!h || !a || h.key === a.key) continue
     const [x, y, xTid, yTid, xs, ys] = h.key < a.key
       ? [h, a, g.home_team_id, g.away_team_id, g.home_score ?? 0, g.away_score ?? 0]

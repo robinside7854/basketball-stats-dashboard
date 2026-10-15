@@ -9,6 +9,8 @@
 //   · 라벨은 한국어, 약어(FG% 등)는 StatHeader 툴팁 안에만.
 //   · (2026-10-14) 「맞대결」 — 두 선수가 상대편으로 만난 경기의 전적과 그 경기들의 하루 평균,
 //     같은 팀으로 뛴 경기의 전적. `players/head-to-head` (lib/stats/playerHeadToHead.ts).
+//   · (2026-10-15) 기간 = 연 화면의 분기(quarterId) — 스탯 탭에서 4분기를 보다 열면 4분기 숫자로 비교한다.
+//     선수 카드 「나와 비교」는 후보 목록 없이 연다 → 그 기간 스탯 목록을 여기서 받아 후보로 쓴다.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Plus, Search, ArrowLeftRight } from 'lucide-react'
@@ -48,10 +50,12 @@ export interface CompareCandidate {
 
 interface Props {
   leagueId: string
-  /** 고를 수 있는 선수(보통 스탯 목록 전원) */
-  candidates: CompareCandidate[]
+  /** 고를 수 있는 선수(보통 스탯 목록 전원). 없으면 그 기간 스탯 목록을 받아 쓴다(선수 카드 「나와 비교」) */
+  candidates?: CompareCandidate[]
   /** 미리 고른 선수(최대 2) — PC 표 체크 */
   initialIds?: string[]
+  /** 비교 기간(분기 id). null·'all'·없음 = 전체 기간 */
+  quarterId?: string | null
   onClose: () => void
 }
 
@@ -60,7 +64,27 @@ const COLOR2 = 'var(--mm-series-3)'
 
 type Slot = 0 | 1
 
-export default function PlayerCompareModal({ leagueId, candidates, initialIds = [], onClose }: Props) {
+export default function PlayerCompareModal({ leagueId, candidates: givenCandidates, initialIds = [], quarterId, onClose }: Props) {
+  const q = quarterId && quarterId !== 'all' ? quarterId : null
+  const qs = q ? `?quarterId=${encodeURIComponent(q)}` : ''
+  // 후보를 안 받았으면 그 기간 스탯 목록(게스트 제외 · 스탯 탭과 같은 응답)으로 만든다
+  const [fetchedCandidates, setFetchedCandidates] = useState<CompareCandidate[] | null>(null)
+  useEffect(() => {
+    if (givenCandidates) return
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/stats?unit=round${q ? `&quarterId=${encodeURIComponent(q)}` : ''}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { players?: Array<{ player_id: string; name: string; photo_url?: string | null; team_name?: string | null; team_color?: string | null; gp?: number }> } | null) => {
+        if (cancelled) return
+        setFetchedCandidates((d?.players ?? []).map(p => ({
+          id: p.player_id, name: p.name, photo_url: p.photo_url ?? null,
+          team_name: p.team_name ?? null, team_color: p.team_color ?? null, gp: p.gp,
+        })))
+      })
+      .catch(() => { if (!cancelled) setFetchedCandidates([]) })
+    return () => { cancelled = true }
+  }, [givenCandidates, leagueId, q])
+  const candidates = useMemo(() => givenCandidates ?? fetchedCandidates ?? [], [givenCandidates, fetchedCandidates])
   const [ids, setIds] = useState<[string | null, string | null]>([initialIds[0] ?? null, initialIds[1] ?? null])
   // 고르는 중인 칸 — 두 칸이 다 비어 있으면 첫 칸부터 목록을 펼쳐 둔다
   const [picking, setPicking] = useState<Slot | null>(() => (!initialIds[0] ? 0 : !initialIds[1] ? 1 : null))
@@ -78,22 +102,22 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
   const [loadedPair, setLoadedPair] = useState<string | null>(null)
 
   const id1 = ids[0], id2 = ids[1]
-  const pairKey = id1 && id2 ? `${id1}:${id2}` : null
+  const pairKey = id1 && id2 ? `${id1}:${id2}${qs}` : null
   const loading = pairKey !== null && loadedPair !== pairKey
   useEffect(() => {
     if (!id1 || !id2) return
     let cancelled = false
     Promise.all([
-      fetch(`/api/leagues/${leagueId}/players/${id1}/detail`).then(r => r.ok ? r.json() : null),
-      fetch(`/api/leagues/${leagueId}/players/${id2}/detail`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/leagues/${leagueId}/players/${id1}/detail${qs}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/leagues/${leagueId}/players/${id2}/detail${qs}`).then(r => r.ok ? r.json() : null),
       fetch(`/api/leagues/${leagueId}/players/head-to-head?a=${id1}&b=${id2}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([a, b, h]) => {
       if (cancelled) return
       setD1(a); setD2(b); setH2h(h)
     }).catch(() => { /* 빈 값으로 보여 준다 */ })
-      .finally(() => { if (!cancelled) setLoadedPair(`${id1}:${id2}`) })
+      .finally(() => { if (!cancelled) setLoadedPair(`${id1}:${id2}${qs}`) })
     return () => { cancelled = true }
-  }, [leagueId, id1, id2])
+  }, [leagueId, id1, id2, qs])
 
   function choose(slot: Slot, id: string) {
     setIds(prev => {
@@ -176,7 +200,7 @@ export default function PlayerCompareModal({ leagueId, candidates, initialIds = 
   }
 
   return (
-    <Sheet open onClose={onClose} title="선수 비교" width="lg">
+    <Sheet open onClose={onClose} title={q ? '선수 비교 · 고른 분기' : '선수 비교 · 전체 기간'} width="lg">
       {/* 두 칸 — 누르면 아래 목록에서 고른다 */}
       <div className="flex items-stretch gap-2">
         {slotButton(0)}
