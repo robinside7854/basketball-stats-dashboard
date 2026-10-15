@@ -499,9 +499,9 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
               <span className="t-label">{label}</span>
               {p && ddKinds.get(p.player_id) && <span className="ml-auto shrink-0"><DdChip kind={ddKinds.get(p.player_id)!} /></span>}
             </div>
-            {/* 얼굴(36) 옆에 이름·기록 두 줄 — 이름 칸이 카드 폭을 다 쓴다 */}
+            {/* 얼굴(40) 옆에 이름·기록 두 줄 — 이름 칸이 카드 폭을 다 쓴다 */}
             <div className="flex items-center gap-2 min-w-0 mt-0.5">
-              {p && <Avatar src={p.photo_url} name={p.name} size={36} ringColor={ringOf(p.team_color)} decorative />}
+              {p && <Avatar src={p.photo_url} name={p.name} size={40} ringColor={ringOf(p.team_color)} decorative />}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1 min-w-0">
                   {p
