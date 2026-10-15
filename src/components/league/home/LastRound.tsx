@@ -39,19 +39,21 @@ function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
       {teams.map((t, i) => {
         const diff = t.ptsFor - t.ptsAgainst
         return (
-          <li key={t.key} className="flex items-center gap-2 min-h-[36px]" style={{ borderTop: i > 0 ? '1px dashed var(--mm-rule)' : 'none' }}>
+          <li key={t.key} className="flex items-center gap-2 sm:gap-4 min-h-[36px]" style={{ borderTop: i > 0 ? '1px dashed var(--mm-rule)' : 'none' }}>
             <span aria-hidden className="block h-4 w-1.5 rounded-sm shrink-0" style={{ background: t.color, border: '1px solid var(--mm-rule)' }} />
-            <span className="min-w-0 flex-1 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
+            {/* 팀명 칸: 폰은 남는 폭을 다 쓰고(기록이 오른쪽 끝), sm+ 는 폭을 고정해 기록이 이름 바로 옆에 붙는다 —
+                PC 에서 이름과 승패가 화면 양 끝으로 갈라져 읽기 어려웠다(2026-10-15) */}
+            <span className="min-w-0 flex-1 sm:flex-none sm:w-40 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
               {i === 0 && <Trophy size={13} aria-label="그날 1위" className="inline -mt-0.5 mr-1" style={{ color: 'var(--mm-yellow-strong)' }} />}
               {t.name}
             </span>
-            <span className="shrink-0 text-sm font-black tabular-nums whitespace-nowrap">
+            <span className="shrink-0 sm:w-24 text-sm font-black tabular-nums whitespace-nowrap">
               <span style={{ color: 'var(--mm-positive)' }}>{t.wins}승</span>{' '}
               <span style={{ color: 'var(--mm-negative)' }}>{t.losses}패</span>
               {t.draws > 0 && <span style={{ color: 'var(--mm-ink-soft)' }}> {t.draws}무</span>}
             </span>
             <span
-              className="shrink-0 w-10 text-right text-sm font-black tabular-nums"
+              className="shrink-0 w-10 text-right sm:text-left text-sm font-black tabular-nums"
               style={{ color: diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-ink-soft)' }}
               title={`득점 ${t.ptsFor} · 실점 ${t.ptsAgainst}`}
             >

@@ -493,20 +493,20 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
             className="shrink-0 w-[10.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
-            <div className="flex items-center gap-1.5">
+            {/* DD/TD 칩은 머리 줄 오른쪽 — 이름 줄에 두면 PC 7칸(칸당 ~140px)에서 이름이 「이...」로 잘렸다(2026-10-15) */}
+            <div className="flex items-center gap-1.5 min-h-[20px]">
               <Icon size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
               <span className="t-label">{label}</span>
+              {p && ddKinds.get(p.player_id) && <span className="ml-auto shrink-0"><DdChip kind={ddKinds.get(p.player_id)!} /></span>}
             </div>
-            {/* 얼굴(40) 옆에 이름·기록 두 줄. 카드 폭 10.5rem 에서 이름 칸이 ~80px — 세 글자 이름이 안 잘린다.
-                칩이 이름에 밀려 잘리지 않게 이름 쪽만 줄어든다(min-w-0 + shrink-0). */}
+            {/* 얼굴(36) 옆에 이름·기록 두 줄 — 이름 칸이 카드 폭을 다 쓴다 */}
             <div className="flex items-center gap-2 min-w-0 mt-0.5">
-              {p && <Avatar src={p.photo_url} name={p.name} size={40} ringColor={ringOf(p.team_color)} decorative />}
+              {p && <Avatar src={p.photo_url} name={p.name} size={36} ringColor={ringOf(p.team_color)} decorative />}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1 min-w-0">
                   {p
                     ? <PlayerName row={p} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
                     : <span className="text-base font-semibold leading-tight" style={{ color: 'var(--mm-ink)' }}>—</span>}
-                  {p && ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}
                 </div>
                 <p className="t-num text-base font-black leading-tight" style={{ color: 'var(--mm-yellow-strong)' }}>
                   {val ?? ''}
