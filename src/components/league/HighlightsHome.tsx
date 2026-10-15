@@ -169,7 +169,8 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
         */}
         {hasClutch ? (
           // PC: 카드 폭을 240px 로 묶고 가운데 정렬 — 클립이 1~2개인 날 왼쪽에만 몰리고 오른쪽이 비던 것(2026-10-15)
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(0,240px))] lg:justify-center gap-3 p-4 sm:p-6">
+          // 폰 2열: 카드 수가 홀수면 마지막 한 장이 왼쪽 반에만 붙고 오른쪽이 비었다 → 그 한 장만 가운데로
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(0,240px))] lg:justify-center max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-6px)] gap-3 p-4 sm:p-6">
             {orderedClips.map(({ c, i }) => {
               const shotLabel = SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type
               const kind = c.clutch_kind

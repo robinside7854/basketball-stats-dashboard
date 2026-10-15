@@ -405,7 +405,7 @@ export default function LeagueSettingsPage() {
         <Button
           onClick={() => save('status', { status })}
           disabled={saving === 'status' || status === league.status}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
           size="sm"
         >
           {saving === 'status' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}상태 저장
@@ -472,7 +472,7 @@ export default function LeagueSettingsPage() {
         <Button
           onClick={() => save('schedule-settings', { match_day: matchDay, start_date: startDate, season_type: seasonType, games_per_round: gamesPerRound })}
           disabled={saving === 'schedule-settings'}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
           size="sm"
         >
           {saving === 'schedule-settings' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}설정 저장
@@ -526,7 +526,7 @@ export default function LeagueSettingsPage() {
             default_capacity: defCapacity ? Number(defCapacity) : null,
           })}
           disabled={saving === 'default-venue'}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
           size="sm"
         >
           {saving === 'default-venue' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}고정 대관 저장
@@ -557,7 +557,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={() => save('youtube', { youtube_channel: ytChannel.trim() || null })}
             disabled={saving === 'youtube'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
             size="sm"
           >
             {saving === 'youtube' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
@@ -656,7 +656,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={() => save('plus_one_age', { plus_one_age: plusOneAge ? Number(plusOneAge) : null })}
             disabled={saving === 'plus_one_age'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
             size="sm"
           >
             {saving === 'plus_one_age' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
@@ -802,11 +802,11 @@ export default function LeagueSettingsPage() {
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => saveQuarterDates(q.id)}
                         disabled={savingQuarter === q.id}
-                        className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none">
+                        className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none max-sm:min-h-11">
                         {savingQuarter === q.id ? <Loader2 size={14} className="animate-spin" /> : '저장'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditingQuarter(null)}
-                        className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold rounded-none">취소</Button>
+                        className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold rounded-none max-sm:min-h-11">취소</Button>
                     </div>
                   </div>
                 ) : (

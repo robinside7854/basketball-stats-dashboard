@@ -105,11 +105,13 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             라운드 단위 최고 기록 · {data.day_count}R · {data.game_count}G
           </span>
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+        {/* 폰 2열: 카드 7장이면 마지막 한 장이 왼쪽 반만 차고 오른쪽이 비었다 → 그 한 장만 가운데로.
+            칸이 좁아(약 140px) 「10-08 · vs 챗지피…」가 잘리지 않게 폰 안쪽 여백을 한 단계 줄였다 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-5px)]">
           {recordCards.filter(c => c.record).map(c => (
             <div
               key={c.key}
-              className="p-4 sm:p-5 rounded-md"
+              className="p-3 sm:p-5 rounded-md"
               style={{
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
@@ -222,7 +224,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {/* ORtg */}
             <div
-              className="p-4 sm:p-5 rounded-md"
+              className="p-3 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
@@ -240,7 +242,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* DRtg */}
             <div
-              className="p-4 sm:p-5 rounded-md"
+              className="p-3 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
@@ -258,7 +260,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* Net Rtg — 부호에 따라 emerald/red 데이터 강조 예외 허용 */}
             <div
-              className="p-4 sm:p-5 rounded-md"
+              className="p-3 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
@@ -279,7 +281,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* Pace */}
             <div
-              className="p-4 sm:p-5 rounded-md"
+              className="p-3 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>

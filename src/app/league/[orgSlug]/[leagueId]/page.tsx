@@ -517,7 +517,7 @@ export default async function LeagueDetailPage({
       <section aria-labelledby="home-quarter-title" className="space-y-3">
         {/* 묶음 제목 — 카드 밖에 있으므로 노란 세로 막대로 「제목」임을 분명히 한다(2026-10-13 가독성) */}
         {/* 설명은 제목 바로 옆에 — PC 에서 오른쪽 끝으로 밀면 제목과 따로 놀았다(2026-10-15) */}
-        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-x-3 gap-y-1 px-1">
+        <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1 px-1">
           <h2
             id="home-quarter-title"
             className="font-black break-keep pl-2.5"

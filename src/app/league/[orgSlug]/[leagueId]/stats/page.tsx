@@ -807,8 +807,10 @@ function LeagueStatsPageInner() {
                   ))}
                 </div>
                 {/* 자동 임계값 뱃지 · 정규 참여자 필터 (수동 컨트롤 제거) */}
+                {/* 폰: 기준 문구는 한 줄을 통째로 쓰고(맨 위), 버튼은 남는 폭을 나눠 채운다 —
+                    종전엔 토글·문구·버튼이 제각각 줄바꿈돼 줄마다 오른쪽이 들쭉날쭉 비었다 */}
                 <span
-                  className="shrink-0 text-xs font-bold tabular-nums"
+                  className="shrink-0 basis-full order-first sm:basis-auto sm:order-none text-xs font-bold tabular-nums"
                   style={{ color: 'var(--mm-muted)' }}
                   title={`이 기간에 열린 ${roundBase}라운드의 30% 이상 참여 · 정규 참여자 자동 필터`}
                 >
@@ -818,7 +820,7 @@ function LeagueStatsPageInner() {
                   type="button"
                   onClick={toggleShowAll}
                   aria-pressed={showAll}
-                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 min-h-11 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="flex-1 sm:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-11 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                   style={showAll
                     ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
                     : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
@@ -830,7 +832,7 @@ function LeagueStatsPageInner() {
                 <button
                   type="button"
                   onClick={() => setCompareModalOpen(true)}
-                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  className="flex-1 sm:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
                 >
                   <ArrowLeftRight size={16} aria-hidden="true" />

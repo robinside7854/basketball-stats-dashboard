@@ -210,7 +210,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
               <button
                 type="button"
                 onClick={() => setPwOpen(true)}
-                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-black rounded-sm cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1.5 min-h-[36px] max-sm:min-h-11 px-3 py-1.5 text-xs font-black rounded-sm cursor-pointer transition-colors"
                 style={{
                   background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                   color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',

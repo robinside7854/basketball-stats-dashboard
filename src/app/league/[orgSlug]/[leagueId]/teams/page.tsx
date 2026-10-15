@@ -305,7 +305,7 @@ function StatsTable({
 
   return (
     <>
-    {/* 모바일 정렬 칩 + 카드뷰 (md 미만) */}
+    {/* 모바일 정렬 칩 + 카드뷰 (md 미만) — 칩은 26px 로 눌러지지 않아 스탯 탭 정렬 칩과 같은 36px 로 맞췄다 */}
     <div className="md:hidden">
       <div className="px-1 pb-2 overflow-x-auto">
         <div className="flex gap-1.5 whitespace-nowrap">
@@ -314,7 +314,7 @@ function StatsTable({
               const active = basicSortKey === key
               return (
                 <button key={key} onClick={() => handleBasicSort(key)}
-                  className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                  className="inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -329,7 +329,7 @@ function StatsTable({
               const active = shootSortKey === key
               return (
                 <button key={key} onClick={() => handleShootSort(key)}
-                  className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                  className="inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -344,7 +344,7 @@ function StatsTable({
               const active = advSortKey === key
               return (
                 <button key={key} onClick={() => handleAdvSort(key)}
-                  className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                  className="inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -796,7 +796,8 @@ function TeamDetailPanel({
             {computed && (
               <div>
                 <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 특성</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* 에이스 칸이 빠져 3장이면 폰 2열에서 마지막 한 장만 가운데로(왼쪽 반만 차던 것) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-5px)]">
                   {[
                     // 에이스(정규 득점 1위)가 없으면 0% 가 초록으로 '좋음'처럼 보인다 — 카드째 뺀다
                     ...(computed.byPpg ? [{

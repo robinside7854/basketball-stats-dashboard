@@ -401,10 +401,17 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Avatar src={rr.photo_url} name={rr.name} size={32} ringColor={ringOf(rr.team_color)} decorative />
-                <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0" />
+                {/* 팀명·경기 수는 이름 아래 줄로 — 한 줄에 다 두면 360px 에서 이름이 「이…」로 잘렸다 */}
+                <span className="flex flex-col min-w-0">
+                  <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
+                  {(rr.team_name || showGP) && (
+                    <span className="flex items-center gap-1.5 min-w-0 text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+                      {rr.team_name && <span className="truncate min-w-0">{rr.team_name}</span>}
+                      {showGP && <span className="font-semibold shrink-0 tabular-nums">{rr.gp}G</span>}
+                    </span>
+                  )}
+                </span>
                 {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
-                {rr.team_name && <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</span>}
-                {showGP && <span className="text-xs font-semibold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rr.gp}G</span>}
               </div>
               <div className="flex items-baseline gap-1 shrink-0">
                 {/* 큰 점수 숫자(≥20px)만 유니폼체 유지 — 운영자 결정 */}

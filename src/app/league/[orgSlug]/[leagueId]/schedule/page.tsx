@@ -121,7 +121,8 @@ function ScheduleDetailEditor({
           <span className="t-label font-medium">시작 시간</span>
           <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="min-h-[44px]" />
         </label>
-        <label className="flex flex-col gap-1 min-w-0 col-span-2 sm:col-span-1">
+        {/* 폰: 장소를 먼저 한 줄로 두고 시간·정원을 나란히 — 시간·정원이 각자 반 칸만 차지해 오른쪽이 비던 배치 */}
+        <label className="flex flex-col gap-1 min-w-0 col-span-2 sm:col-span-1 order-first sm:order-none">
           <span className="t-label font-medium">장소</span>
           <Input value={place} onChange={e => setPlace(e.target.value)} placeholder={ph.place} className="min-h-[44px]" />
         </label>
@@ -550,10 +551,11 @@ function ScheduleContent() {
               }}
             />
           </div>
+          {/* 폰: 날짜 칸(최소 220px) 옆에 안 들어가 버튼만 아랫줄 왼쪽에 덩그러니 남았다 → 폰에서는 꽉 찬 폭 */}
           <button
             onClick={addDate}
             disabled={adding}
-            className="inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
             style={{
               background: 'var(--mm-ink)',
               color: 'var(--mm-panel)',
@@ -767,7 +769,8 @@ function ScheduleContent() {
                                 style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
                                 aria-label={`${num}경기 ${g.home} ${g.home_score} 대 ${g.away_score} ${g.away}${g.is_exhibition ? ' 친선전' : ''} 박스스코어`}
                               >
-                                <span className="shrink-0 w-9 font-bold" style={{ color: 'var(--mm-muted)' }}>{num}경기</span>
+                                {/* 「10경기」(두 자리)가 36px 칸을 넘어 홈 팀 이름에 붙었다 → 40px */}
+                                <span className="shrink-0 w-10 whitespace-nowrap font-bold" style={{ color: 'var(--mm-muted)' }}>{num}경기</span>
                                 <span className={`min-w-0 flex-1 truncate text-right ${hw ? 'font-black' : ''}`} style={{ color: hw ? 'var(--mm-ink)' : undefined }}>{g.home}</span>
                                 <span className="shrink-0 font-black" style={{ color: 'var(--mm-ink)' }}>{g.home_score}:{g.away_score}</span>
                                 <span className={`min-w-0 flex-1 truncate ${aw ? 'font-black' : ''}`} style={{ color: aw ? 'var(--mm-ink)' : undefined }}>{g.away}</span>

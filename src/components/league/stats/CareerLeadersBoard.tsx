@@ -33,11 +33,13 @@ export default function CareerLeadersBoard({ players, loading, onPlayerClick }: 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 lg:px-6 lg:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <Landmark size={18} style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
         <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>통산 누적 순위</h3>
-        <span className="ml-auto sm:ml-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 친선전 제외</span>
+        {/* 폰에서도 제목 바로 옆 — 오른쪽 끝으로 밀면 제목과 따로 놀았다 */}
+        <span className="ml-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 친선전 제외</span>
       </div>
 
       <div className="px-4 pt-3 lg:px-6" role="group" aria-label="통산 부문">
-        <div className="flex flex-wrap gap-1.5">
+        {/* 칩 13개가 36px 높이라 폰에서 줄 사이를 조금 띄워 옆 칩을 잘못 누르지 않게 */}
+        <div className="flex flex-wrap gap-2 lg:gap-1.5">
           {CAREER_STATS.map(s => (
             <Chip key={s.key} as="button" size="sm" selected={s.key === key} onClick={() => setKey(s.key)}>{s.label}</Chip>
           ))}

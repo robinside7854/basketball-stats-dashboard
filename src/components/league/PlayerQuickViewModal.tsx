@@ -1523,7 +1523,8 @@ function CareerBlock({ title, total, rows }: {
         {rows.map(c => (
           <div
             key={c.leagueId}
-            className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-sm min-h-[36px]"
+            // 폰: 오른쪽 기록 한 줄(약 150px)이 묶음 이름을 「2026 미…」로 눌렀다 → 모자라면 기록이 아랫줄(오른쪽 정렬)로
+            className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-2 gap-y-0.5 text-xs px-2 py-1.5 rounded-sm min-h-[36px]"
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
           >
             <span className="flex items-center gap-1.5 min-w-0">
@@ -1536,7 +1537,7 @@ function CareerBlock({ title, total, rows }: {
               >{c.mode === 'tournament' ? '대회' : '리그'}</span>
               <span className="truncate" style={{ color: 'var(--mm-ink-soft)' }}>{c.name}</span>
             </span>
-            <span className="shrink-0 tabular-nums font-bold" style={{ color: 'var(--mm-ink)' }}>
+            <span className="shrink-0 ml-auto tabular-nums font-bold" style={{ color: 'var(--mm-ink)' }}>
               {c.gp}일 · {c.pts}점 · 리바 {c.reb} · 어시 {c.ast}
             </span>
           </div>

@@ -80,7 +80,8 @@ export default async function BoxscorePage({
       <LeagueSubTabs group="games" />
       {/* 페이지 헤더 — 뒤로가기 · 날짜 · 공유 링크 */}
       <div
-        className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-6 lg:py-5"
+        // 폰: 줄바꿈을 허용하면 「링크 복사」 버튼만 아랫줄 왼쪽에 홀로 떨어졌다 → 제목이 두 줄로 접히고 버튼은 오른쪽에 남게
+        className="flex flex-nowrap sm:flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-6 lg:py-5"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',

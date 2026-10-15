@@ -197,7 +197,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
       ) : (
         <ul className="divide-y divide-[color:var(--mm-rule)]">
           {shown.map(r => (
-            <li key={r.id} className="flex items-center gap-3 p-3">
+            <li key={r.id} className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2 p-3">
               {/* 프로필 */}
               <div
                 className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
@@ -244,14 +244,14 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   {r.last_login_at && ` · 최근로그인: ${new Date(r.last_login_at).toLocaleDateString('ko-KR')}`}
                 </div>
               </div>
-              {/* 액션 */}
-              <div className="flex items-center gap-1 shrink-0">
+              {/* 액션 — 폰: 승인 회원은 버튼이 셋(약 250px)이라 한 줄에 두면 이름 칸이 0 으로 눌렸다 → 이름 아래 줄로(아바타 폭만큼 들여서) */}
+              <div className="flex flex-wrap items-center gap-1 shrink-0 w-full pl-[52px] sm:w-auto sm:pl-0">
                 {r.status === 'pending' && (
                   <>
                     <button
                       onClick={() => act(r.id, 'approve')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
                       style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
                       <Check size={14} />
@@ -260,7 +260,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                     <button
                       onClick={() => act(r.id, 'reject')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-negative)', border: '1px solid var(--mm-negative)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
                       <X size={14} />
@@ -274,7 +274,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       onClick={() => act(r.id, 'set_role', r.role === 'admin' ? 'member' : 'admin')}
                       disabled={busyId === r.id}
                       title={r.role === 'admin' ? '편집 권한 회수' : '편집 권한 부여 (PIN 과 동일)'}
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
                       style={{
                         background: r.role === 'admin' ? 'var(--mm-panel-alt)' : 'var(--mm-yellow)',
                         color: r.role === 'admin' ? 'var(--mm-muted)' : 'var(--mm-black)',
@@ -290,7 +290,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       onClick={() => act(r.id, 'reset_password')}
                       disabled={busyId === r.id}
                       title="비번을 '123456' 으로 초기화"
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
                       <RotateCcw size={14} />
@@ -299,7 +299,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                     <button
                       onClick={() => act(r.id, 'disable')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
                       <Ban size={14} />

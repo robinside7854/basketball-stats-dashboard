@@ -127,7 +127,8 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             </Link>
           )}
         </div>
-        <div className="flex flex-wrap items-baseline justify-between sm:justify-start gap-x-3 gap-y-1 mt-0.5">
+        {/* 날짜 제목과 경기 수는 붙여 둔다 — 폰에서도 오른쪽 끝으로 밀면 따로 노는 글자로 보였다 */}
+        <div className="flex flex-wrap items-baseline justify-start gap-x-3 gap-y-1 mt-0.5">
           <h2 className="font-black break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 26px)', lineHeight: 1.15 }}>
             {round.weekLabel}
           </h2>
@@ -177,7 +178,8 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             <ChevronDown size={16} aria-hidden style={{ transform: open ? 'rotate(180deg)' : undefined }} />
           </button>
         </div>
-        <ol id={`day-games-${round.date}`} className={`${open ? 'grid' : 'hidden'} grid-cols-2 sm:grid-cols-3 gap-2 p-3 lg:p-4`} aria-label="경기 순서">
+        {/* 폰 2열에서 경기 수가 홀수면 마지막 타일만 가운데로 — 왼쪽 반 칸만 차고 오른쪽이 비던 것 */}
+        <ol id={`day-games-${round.date}`} className={`${open ? 'grid' : 'hidden'} grid-cols-2 sm:grid-cols-3 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-4px)] gap-2 p-3 lg:p-4`} aria-label="경기 순서">
           {games.map((g, i) => {
             const homeWon = g.home_score > g.away_score
             const awayWon = g.away_score > g.home_score
