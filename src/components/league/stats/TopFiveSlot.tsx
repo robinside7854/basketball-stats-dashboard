@@ -84,7 +84,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
         </h3>
         {active && (
           <span
-            className="basis-full sm:basis-auto sm:ml-auto min-w-0 font-bold text-base break-keep"
+            className="basis-full sm:basis-auto sm:ml-2 min-w-0 font-bold text-base break-keep"
             style={{ color: 'var(--mm-ink)', letterSpacing: '0.02em' }}
           >
             {metricFullLabel ?? metricLabel}

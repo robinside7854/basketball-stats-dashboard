@@ -76,11 +76,14 @@ export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = nul
                 )
               })}
             </div>
+            {/* PC 전폭이면 가운데 항목명과 양끝 숫자가 너무 멀어 폭을 묶는다(2026-10-15) */}
+            <div className="max-w-3xl mx-auto space-y-4">
             <HeadToHeadBars
               a={{ name: active.a.name, color: hex(active.a.color, '#C4362B'), sub: `${active.a.wins}승`, totals: active.a.totals }}
               b={{ name: active.b.name, color: hex(active.b.color, '#2563eb'), sub: `${active.b.wins}승`, totals: active.b.totals }}
               centerSub={`맞대결 ${active.games}경기${active.draws > 0 ? ` · ${active.draws}무` : ''}`}
             />
+            </div>
           </>
         )}
       </div>

@@ -127,7 +127,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             </Link>
           )}
         </div>
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mt-0.5">
+        <div className="flex flex-wrap items-baseline justify-between sm:justify-start gap-x-3 gap-y-1 mt-0.5">
           <h2 className="font-black break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 26px)', lineHeight: 1.15 }}>
             {round.weekLabel}
           </h2>

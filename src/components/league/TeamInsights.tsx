@@ -150,7 +150,8 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               Dean Oliver 표준 · 좌: 우리 팀 · 우: 상대(디펜스)
             </span>
           </p>
-          <div className="space-y-1.5">
+          {/* 막대 비교는 폭을 묶어 가운데로 — 전폭이면 가운데 항목명과 양끝 숫자가 너무 멀다 */}
+          <div className="space-y-1.5 max-w-3xl mx-auto">
             {ffRows.map(row => {
               const max = Math.max(row.team, row.opp, 1)
               const teamWins = row.higherBetter ? row.team > row.opp : row.team < row.opp

@@ -273,7 +273,8 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
               ))}
             </div>
           )}
-          <ul className="space-y-2">
+          {/* PC 두 칸 — 전폭이면 이름과 야투 숫자가 카드 양 끝으로 벌어졌다 */}
+          <ul className="space-y-2 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-2">
             {shownPlayers.map(p => {
               const meta = p.team_id ? teamMeta.get(p.team_id) : undefined
               const name = players.get(p.player_id)?.name ?? '?'

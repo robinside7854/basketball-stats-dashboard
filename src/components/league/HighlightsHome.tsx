@@ -104,7 +104,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
       <SectionCard variant="stack" pad="none">
         {/* 헤더 */}
         <header
-          className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
+          className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 py-4 md:py-5"
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <div className="min-w-0">
@@ -168,7 +168,8 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
             · 정렬: 위닝샷 > 역전 > 동점 > 추격 > 쐐기 (가치순 · 랜덤 아님)
         */}
         {hasClutch ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-4 sm:p-6 md:p-8 lg:p-10">
+          // PC: 카드 폭을 240px 로 묶고 가운데 정렬 — 클립이 1~2개인 날 왼쪽에만 몰리고 오른쪽이 비던 것(2026-10-15)
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(0,240px))] lg:justify-center gap-3 p-4 sm:p-6">
             {orderedClips.map(({ c, i }) => {
               const shotLabel = SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type
               const kind = c.clutch_kind
@@ -322,7 +323,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
           </div>
         ) : (
           // 클러치샷 없음 · 안내 코멘트
-          <div className="px-4 sm:px-6 md:px-10 py-8 md:py-10 text-center">
+          <div className="px-4 sm:px-6 py-8 md:py-10 text-center">
             <div
               className="inline-flex items-center gap-2 text-sm font-bold mb-2"
               style={{ color: 'var(--mm-ink-soft)' }}
@@ -338,7 +339,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
 
         {hasClutch && data.totalClips > 0 && (
           <div
-            className="px-4 sm:px-6 md:px-10 pb-4 md:pb-5 text-xs font-bold"
+            className="px-4 sm:px-6 pb-4 md:pb-5 text-xs font-bold"
             style={{ color: 'var(--mm-muted)' }}
           >
             이 라운드 · 클러치 {data.clips.length} / 전체 {data.totalClips}

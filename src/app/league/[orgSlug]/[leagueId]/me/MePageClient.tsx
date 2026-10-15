@@ -53,8 +53,9 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
 
       {/* 바로가기 — 드래프트(진행 중 · 어드민만)만 남았다. 「내 하이라이트」는 2026-10-12 부터
           대시보드의 「내 베스트샷」 카드 머리(전체 하이라이트)로 옮겼다 — 같은 링크를 두 곳에 두지 않는다. */}
+      {/* PC: 바로가기·계정 카드는 위 대시보드 왼쪽 칼럼(380px) 폭에 맞춘다 — 전폭이면 버튼 한두 개 옆이 텅 비었다 */}
       {showDraft && (
-        <SectionCard variant="standalone" pad="none">
+        <SectionCard variant="standalone" pad="none" className="lg:max-w-[380px]">
           <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />
         </SectionCard>
       )}
@@ -63,7 +64,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
           라이트/다크 토글은 2026-08-15 에 헤더 우측 아이콘으로 옮겼다(`LeagueLayoutClient`).
           여기 있으면 테마를 바꾸려고 개인 화면까지 들어와야 했다. 같은 설정을 두 곳에 두면
           '설정 탭 vs 톱니바퀴'와 똑같은 중복이 되므로 이 자리에는 남기지 않는다. */}
-      <SectionCard variant="standalone" pad="base">
+      <SectionCard variant="standalone" pad="base" className="lg:max-w-[380px]">
         <div className="flex flex-wrap items-center gap-2">
           {/* 앱 설치 — 브라우저 메뉴를 뒤지지 않도록 앱 안에 입구를 둔다.
               설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다. */}

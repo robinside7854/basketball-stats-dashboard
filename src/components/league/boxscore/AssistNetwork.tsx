@@ -140,7 +140,8 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
           {/* 베스트 콤비 */}
           <section aria-labelledby="assist-best-title">
             <p id="assist-best-title" className="text-sm font-black mb-2" style={{ color: 'var(--mm-ink)' }}>베스트 어시스트 콤비</p>
-            <ol className="space-y-1.5">
+            {/* sm+: 두 칸 — 전폭 한 줄이면 이름과 「×N」이 카드 양 끝으로 벌어졌다 */}
+            <ol className="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-1.5">
               {best.map((e, i) => (
                 <li
                   key={`${e.team.key}-${e.from}-${e.to}`}
@@ -212,7 +213,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
       <div className="flex items-center gap-2 mb-1 min-w-0">
         <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color ?? 'var(--mm-muted)' }} />
         <span className="font-jersey font-bold text-sm truncate min-w-0" title={team.name ?? undefined} style={{ color: 'var(--mm-ink)' }}>{team.name}</span>
-        <span className="ml-auto text-xs font-bold tabular-nums shrink-0" style={{ color: 'var(--mm-muted)' }}>어시스트 {team.total}개</span>
+        <span className="ml-1 text-xs font-bold tabular-nums shrink-0" style={{ color: 'var(--mm-muted)' }}>어시스트 {team.total}개</span>
       </div>
 
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block mx-auto" style={{ maxWidth: 420 }} role="img" aria-label={summary}>

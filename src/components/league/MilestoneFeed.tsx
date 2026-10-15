@@ -115,7 +115,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
       <SectionCard variant="stack" pad="none">
         {/* 헤더 */}
         <header
-          className="flex items-center justify-between gap-3 px-5 md:px-8 py-4 md:py-5"
+          className="flex items-center gap-3 px-4 sm:px-6 py-4 md:py-5"
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -148,7 +148,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
             description="최근 30일 안에 통산 득점 눈금(100·250·500…)을 넘은 선수가 생기면 여기 떠요"
           />
         ) : (
-        <div className="p-4 md:p-5">
+        <div className="p-4 sm:p-5 lg:p-6">
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {recentShown.map(r => {
               const playable = isPlayable(r)
@@ -252,7 +252,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
         {/* 더보기 링크 */}
         {milestonesHref && (
           <div
-            className="px-4 md:px-6 py-3 flex items-center justify-end"
+            className="px-4 sm:px-6 py-3 flex items-center justify-center"
             style={{ borderTop: '1px solid var(--mm-rule)' }}
           >
             <Link

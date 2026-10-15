@@ -728,7 +728,9 @@ function TeamDetailPanel({
             {computed && (
               <div>
                 <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 스탯</p>
-                <div className="p-3 mb-2.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                {/* PC: 득점·실점 막대와 타일 3개를 나란히 — 전폭 막대는 두 숫자가 화면 양 끝으로 갈라졌다 */}
+                <div className="lg:grid lg:grid-cols-2 lg:gap-2.5">
+                <div className="p-3 mb-2.5 lg:mb-0 lg:flex lg:flex-col lg:justify-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   <div className="flex items-end justify-between gap-3 mb-2">
                     <div>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-positive)', fontSize: '28px' }}>{avgPf.toFixed(1)}</div>
@@ -754,6 +756,7 @@ function TeamDetailPanel({
                       <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{card.sub}</div>
                     </div>
                   ))}
+                </div>
                 </div>
               </div>
             )}
@@ -1337,7 +1340,8 @@ function LeagueTeamsPageInner() {
           <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
 
           {/* 팀 카드 그리드 — 정체성(identityKey) 기준. 전체 뷰에서 5팀 노출 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {/* xl 4칸은 팀이 4개 이상일 때만 — 3팀이면 오른쪽 한 칸이 통째로 비었다(2026-10-15) */}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${standings.length >= 4 ? 'xl:grid-cols-4' : ''} gap-3`}>
             {standings.map((s, idx) => {
               const played = s.w + s.d + s.l
               const winPct = played > 0 ? (s.w / played * 100).toFixed(1) : '—'
@@ -1592,7 +1596,7 @@ function LeagueTeamsPageInner() {
                   {s.quarterLabels.length > 0 && selectedQId === 'all' && (
                     <span className="text-xs font-mono" style={{ color: 'var(--mm-muted)' }}>· {s.quarterLabels.join(', ')}</span>
                   )}
-                  <span className="text-xs font-bold tracking-wider ml-auto" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
+                  <span className="text-xs font-bold tracking-wider ml-1" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
                 </div>
                 <div className="px-4 py-3 pl-5 lg:px-6 lg:py-4">
                   {/* 2026-08-10: "팀 순위 화면 사진 0건" 피드백 대응 — 로스터의 4:5 사진 + 팀컬러
@@ -1611,7 +1615,7 @@ function LeagueTeamsPageInner() {
                         <ChevronDown
                           size={14}
                           aria-hidden
-                          className="ml-auto transition-transform duration-200 group-open:rotate-180"
+                          className="transition-transform duration-200 group-open:rotate-180"
                           style={{ color: 'var(--mm-muted)', flexShrink: 0 }}
                         />
                       </summary>
@@ -1670,7 +1674,7 @@ function LeagueTeamsPageInner() {
                 title={`비정규 선수${scopeSuffix}`}
                 description="팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)"
               />
-              <div className="px-4 py-3 lg:px-6 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+              <div className="px-4 py-3 lg:px-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>
                 <span className="text-xs font-bold tracking-wider tabular-nums" style={{ color: 'var(--mm-muted)' }}>{irregularStats.length}명</span>
               </div>

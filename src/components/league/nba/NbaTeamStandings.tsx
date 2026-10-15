@@ -55,7 +55,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
   return (
     <SectionCard variant="stack" pad="none">
       <header
-        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5 px-4 sm:px-6 md:px-10 py-4 md:py-5"
+        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5 px-4 sm:px-6 py-4 md:py-5"
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <h3
@@ -97,7 +97,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
           return (
             <div
               key={t.key}
-              className="px-4 sm:px-6 md:px-8 py-3 sm:py-3.5"
+              className="px-4 sm:px-6 py-3 sm:py-3.5"
               style={{
                 background: isTop ? 'var(--mm-yellow-soft)' : 'transparent',
                 borderLeft: isTop ? '3px solid var(--mm-yellow-strong)' : '3px solid transparent',

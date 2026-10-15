@@ -766,7 +766,7 @@ function LeagueStatsPageInner() {
               <button
                 onClick={() => setCompareModalOpen(true)}
                 disabled={compareIds.size === 0}
-                className="ml-auto px-3 py-1 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="ml-auto sm:ml-3 px-3 py-1 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }}
               >
                 비교하기 ({compareIds.size}/2)

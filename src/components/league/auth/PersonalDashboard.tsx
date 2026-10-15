@@ -587,7 +587,8 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
       {shown.length === 0 ? (
         <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
       ) : (
-        <div className="space-y-2.5 md:space-y-3">
+        // PC 두 칸 — 오른쪽 칼럼 전폭이면 지표명과 「현재 / 목표」가 양 끝으로 벌어졌다
+        <div className="space-y-2.5 md:space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-3">
           {shown.map((c, idx) => {
             const prox = proximityStyle(c.progressPct)
             return (

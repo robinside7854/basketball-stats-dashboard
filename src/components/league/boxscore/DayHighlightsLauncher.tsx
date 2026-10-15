@@ -159,7 +159,7 @@ export default function DayHighlightsLauncher({
         onClick={toggle}
         aria-expanded={open}
         aria-controls="day-highlights-panel"
-        className="w-full inline-flex items-center justify-between gap-2 min-h-11 px-3 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+        className="w-full inline-flex items-center justify-between sm:justify-center gap-2 min-h-11 px-3 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
         style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
       >
         <span className="inline-flex items-center gap-2">
@@ -170,7 +170,8 @@ export default function DayHighlightsLauncher({
       </button>
 
       {open && (
-        <div id="day-highlights-panel" className="mt-2.5 space-y-2.5">
+        // PC: 범위 탭·재생 버튼이 1000px 로 늘어나지 않게 가운데 폭을 묶는다(토글 글자도 가운데)
+        <div id="day-highlights-panel" className="mt-2.5 space-y-2.5 sm:max-w-lg sm:mx-auto">
           {authLoading ? (
             <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
           ) : !canView || state === 'login' ? (

@@ -486,7 +486,7 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
   return (
     <section aria-labelledby="daily-leaders-title">
       <h3 id="daily-leaders-title" className="text-base lg:text-lg font-black mb-2.5" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>당일 스탯 리더</h3>
-      <div className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-4 lg:grid-cols-7 sm:overflow-visible">
+      <div className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-4 xl:grid-cols-7 sm:overflow-visible">
         {leaders.map(({ Icon, label, p, val, sub }) => (
           <div
             key={label}
@@ -561,7 +561,7 @@ function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: P
             >
               <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: side.color ?? 'var(--mm-muted)' }} />
               <span className="font-jersey font-bold text-base truncate min-w-0" title={side.name ?? undefined} style={{ color: 'var(--mm-ink)' }}>{side.name}</span>
-              <span className="ml-auto text-sm font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>{total.pts}점</span>
+              <span className="ml-1 text-sm font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>{total.pts}점</span>
             </div>
             <div className="hidden md:block">
               <StatTable rows={rows} ddKinds={dd} onPlayerPick={onPlayerPick} total={total} />
@@ -1446,13 +1446,14 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
           <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>두 팀이 실제 맞붙은 경기 기록만 집계됩니다.</p>
         </div>
       ) : (
-        <>
+        // 팀 탭 「누적 맞대결」과 같이 폭을 묶어 가운데로 — PC 전폭이면 항목명과 양끝 숫자가 너무 멀다
+        <div className="max-w-3xl mx-auto">
           <HeadToHeadBars
             a={{ name: A.name, color: colorA, sub: '', totals: A }}
             b={{ name: B.name, color: colorB, sub: '', totals: B }}
             centerSub={`맞대결 ${h2h.gameCount}경기`}
           />
-        </>
+        </div>
       )}
     </div>
   )

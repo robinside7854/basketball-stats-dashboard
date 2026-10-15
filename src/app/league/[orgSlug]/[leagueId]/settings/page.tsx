@@ -312,7 +312,8 @@ export default function LeagueSettingsPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-lg">
+    // PC: 폼 한 열이 왼쪽에 붙고 오른쪽 절반이 비어 있었다 → 조금 넓혀 가운데로(2026-10-15)
+    <div className="space-y-5 max-w-lg lg:max-w-2xl lg:mx-auto">
       <h2 className="font-black text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
 
       {/* 바로가기 (2026-10-15) — 설정이 카드 열 개 넘게 세로로 이어져, 회원 승인·명단을 찾으려면 한참 내려가야 했다.

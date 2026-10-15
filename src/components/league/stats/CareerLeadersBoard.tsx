@@ -6,7 +6,7 @@
 // 부문 칩 + 상위 10명 목록 (2026-10-14 — 스탯 탭 「기록실」 전용 화면이 되면서 5명 → 10명, 부문 13개).
 //   칩은 줄바꿈으로 모두 보인다(가로 스크롤 안에 숨기면 뒤쪽 부문이 있는 줄 모른다).
 // 출전 자격은 따지지 않는다: 통산 누적은 「얼마나 쌓았나」라 오래 뛴 사람이 위에 오는 게 맞다.
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Landmark } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Chip from '@/components/league/ui/Chip'
@@ -30,10 +30,10 @@ export default function CareerLeadersBoard({ players, loading, onPlayerClick }: 
 
   return (
     <SectionCard variant="standalone" ariaLabel="통산 누적 — 역대 순위" pad="none">
-      <div className="flex items-center gap-2 px-4 py-3 lg:px-6 lg:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 lg:px-6 lg:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <Landmark size={18} style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
         <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>통산 누적 순위</h3>
-        <span className="ml-auto text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 친선전 제외</span>
+        <span className="ml-auto sm:ml-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 친선전 제외</span>
       </div>
 
       <div className="px-4 pt-3 lg:px-6" role="group" aria-label="통산 부문">
@@ -54,7 +54,12 @@ export default function CareerLeadersBoard({ players, loading, onPlayerClick }: 
         ) : rows.length === 0 ? (
           <p className="text-sm py-4 text-center" style={{ color: 'var(--mm-muted)' }}>아직 기록이 없어요</p>
         ) : (
-          <ol className="space-y-1.5" aria-label={`통산 ${def.label} 순위`}>
+          // PC: 전폭 한 줄이면 이름과 숫자가 양 끝으로 벌어진다 → 위·아래 절반씩 두 열(1~5위 | 6~10위)
+          <ol
+            className="space-y-1.5 lg:space-y-0 lg:grid lg:grid-cols-2 lg:grid-flow-col lg:grid-rows-[repeat(var(--rows),auto)] lg:gap-x-4 lg:gap-y-1.5"
+            style={{ '--rows': Math.ceil(rows.length / 2) } as CSSProperties}
+            aria-label={`통산 ${def.label} 순위`}
+          >
             {rows.map(r => (
               <li key={r.player_id}>
                 <button
