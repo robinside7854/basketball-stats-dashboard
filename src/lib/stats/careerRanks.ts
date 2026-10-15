@@ -25,6 +25,7 @@ export type CareerStatKey =
   | 'fg3m' | 'fg2m' | 'fgm' | 'ftm' | 'and_one' | 'gp'
 
 export const CAREER_STATS: readonly { key: CareerStatKey; label: string; unit: string }[] = [
+  { key: 'gp',      label: '출전일',   unit: '일' },
   { key: 'pts',     label: '득점',     unit: '점' },
   { key: 'reb',     label: '리바운드',  unit: '개' },
   { key: 'ast',     label: '어시스트',  unit: '개' },
@@ -37,7 +38,6 @@ export const CAREER_STATS: readonly { key: CareerStatKey; label: string; unit: s
   { key: 'oreb',    label: '공격 리바', unit: '개' },
   { key: 'dreb',    label: '수비 리바', unit: '개' },
   { key: 'and_one', label: '앤드원',   unit: '개' },
-  { key: 'gp',      label: '출전일',   unit: '일' },
 ]
 
 /** 통산 보드 기본 인원 */
