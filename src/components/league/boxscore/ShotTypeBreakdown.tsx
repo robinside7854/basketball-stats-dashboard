@@ -47,9 +47,9 @@ const pctText = (m: number, a: number) => a > 0 ? `${Math.round(m / a * 1000) / 
 const shareOf = (a: number, total: number) => total > 0 ? Math.round(a / total * 1000) / 10 : 0
 
 const chipStyle = (on: boolean): CSSProperties => on
-  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
-const chipClass = 'shrink-0 px-3 min-h-11 text-xs font-black tracking-wide whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1'
+  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }
+const chipClass = 'mm-press shrink-0 px-3 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1'
 
 /** 시도 비중을 한 줄 막대로 — 유형별 조각. 글 값은 옆 표가 맡으므로 그림은 aria-hidden. */
 function StackBar({ counts, total }: { counts: Counts; total: number }) {
@@ -131,7 +131,7 @@ function TeamCard({ title, color, counts }: { title: string; color: string | nul
   )
 }
 
-export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTitle = '이날 기록된 야투가 없습니다.', overallTitle }: {
+export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTitle = '이날 기록된 야투가 없어요.', overallTitle }: {
   rows: ShotTypeRow[]
   games: ShotGame[]
   /** 그날 출전한 팀(이름·색) — 팀 id 로 이름을 찾는다 */
@@ -208,7 +208,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
   return (
     <div className="space-y-4">
       <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-        야투를 3점슛 · 미들슛 · 레이업 · 골밑슛으로 나눠, 어떤 슛을 얼마나 던졌고(시도 비중) 얼마나 넣었는지(야투율) 보여줍니다. 자유투는 빠집니다.
+        야투를 3점슛 · 미들슛 · 레이업 · 골밑슛으로 나눠, 어떤 슛을 얼마나 던졌고(시도 비중) 얼마나 넣었는지(야투율) 보여 줘요. 자유투는 빼요.
       </p>
 
       {/* 범위 — 전체 / 경기별 */}
@@ -243,7 +243,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
       <Legend />
 
       {dayTot.fga === 0 ? (
-        <EmptyState variant="compact" framed title="이 경기에는 기록된 야투가 없습니다." />
+        <EmptyState variant="compact" framed title="이 경기에는 기록된 야투가 없어요." />
       ) : view === 'team' ? (
         <div className="space-y-3">
           {overallTitle !== null && (
@@ -314,7 +314,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
             })}
           </ul>
           {shownPlayers.length === 0 && (
-            <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 팀은 이 범위에서 기록된 야투가 없습니다.</p>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 팀은 이 범위에서 기록된 야투가 없어요.</p>
           )}
         </div>
       )}

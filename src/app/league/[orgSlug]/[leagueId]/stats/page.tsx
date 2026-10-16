@@ -3,8 +3,8 @@ import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowLeftRight } from 'lucide-react'
-import { BasketballLoader } from '@/components/league/BasketballIcons'
+import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowLeftRight, ArrowDown, ArrowUp, RotateCw } from 'lucide-react'
+import StatsSkeleton from '@/components/league/stats/StatsSkeleton'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
 
 // 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
@@ -73,11 +73,12 @@ const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
 }
 
 // 슛 존별 컬러 (SHOT MIX 스택 막대 · 통일 팔레트)
+// 리그 차트 팔레트(--mm-series-*)만 쓴다 — 라이트·다크 값이 globals.css 에 짝으로 있다.
 const SHOT_MIX_COLORS = {
-  ds:    '#ef4444',  // red · 골밑 (덩크/포스트)
-  lu:    '#f97316',  // orange · 레이업
-  md:    '#eab308',  // yellow · 미드레인지
-  three: '#3b82f6',  // blue · 3점
+  ds:    'var(--mm-series-5)',  // 빨강 · 골밑 (덩크/포스트)
+  lu:    'var(--mm-series-2)',  // 주황 · 레이업
+  md:    'var(--mm-series-1)',  // 앰버 · 미드레인지
+  three: 'var(--mm-series-3)',  // 청록 · 3점
 } as const
 
 function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; height?: number }) {
@@ -128,16 +129,39 @@ function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; 
 // (2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
 // 미달 행은 흐리게 하지 않는다(대비가 4.5:1 아래로 떨어짐) — 「자격 미달」 글자 + 왼쪽 강조 막대 없음으로 구분.
 function IneligibleTag() {
-  return <span className="ml-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 자격 미달</span>
+  return <span className="ml-1 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 자격 미달</span>
 }
 // 성공률 정렬에서 하루 평균 최소 시도(eligibility.ts MIN_ATTEMPTS_PER_DAY)를 못 채운 선수 — 표에는 두되 순위 없음
 function LowAttemptTag() {
-  return <span className="ml-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 시도 부족</span>
+  return <span className="ml-1 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 시도 부족</span>
 }
 // 「야투율은 하루 평균 야투 5개 이상 시도한 선수만 순위」 — 성공률로 정렬했을 때만 보인다
 function AttemptRuleCaption({ k, className = '' }: { k: PctStatKey | null; className?: string }) {
   if (!k) return null
-  return <p className={`text-xs font-bold ${className}`} style={{ color: 'var(--mm-muted)' }}>{attemptRuleLabel(k)}</p>
+  return <p className={`text-xs font-medium ${className}`} style={{ color: 'var(--mm-muted)' }}>{attemptRuleLabel(k)}</p>
+}
+
+// 정렬 머리 — 표 머리칸(th) 안의 진짜 버튼. 용어 툴팁(StatHelpTooltip)도 버튼이라 정렬 버튼 안에 넣지 않고
+// StatHeader 의 표시 칸(children)에 정렬 버튼을 끼운다 → 버튼 두 개가 나란히, 중첩 없음.
+function ariaSort(active: boolean, dir: 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+  return active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'
+}
+function SortHeader({ term, label, active, dir, onSort }: { term: string; label: string; active: boolean; dir: 'asc' | 'desc'; onSort: () => void }) {
+  return (
+    <StatHeader term={term} label={label} className="w-full justify-center">
+      <button
+        type="button"
+        onClick={onSort}
+        className="inline-flex items-center justify-center w-full min-h-6 cursor-pointer select-none bg-transparent border-0 p-0 [font:inherit] text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+        style={{ borderRadius: 4 }}
+      >
+        {label}
+        {active
+          ? (dir === 'desc' ? <ChevronDown size={14} className="ml-0.5" aria-hidden /> : <ChevronUp size={14} className="ml-0.5" aria-hidden />)
+          : <ChevronsUpDown size={14} className="ml-0.5 opacity-50" aria-hidden />}
+      </button>
+    </StatHeader>
+  )
 }
 
 function rankTier(rank: number | null): { color: string; bg: string; accent: string; border: string } {
@@ -176,7 +200,7 @@ function MobileStatCard({
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
       aria-label={`${rank != null ? `${rank}위` : '순위 없음(시도 부족)'} ${p.name} — 선수 상세 보기`}
-      className="w-full text-left px-3 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      className="w-full text-left px-3 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={{
         background: 'var(--mm-panel)',
         border: '1px solid var(--mm-rule)',
@@ -195,7 +219,7 @@ function MobileStatCard({
                 <span className="truncate max-w-[7rem]" title={p.team_name}>{p.team_name}</span>
               </Chip>
             )}
-            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{p.gp}일 출전{ineligible && <IneligibleTag />}{lowAttempts && <LowAttemptTag />}</span>
+            <span className="text-xs font-medium" style={{ color: 'var(--mm-muted)' }}>{p.gp}일 출전{ineligible && <IneligibleTag />}{lowAttempts && <LowAttemptTag />}</span>
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -209,7 +233,7 @@ function MobileStatCard({
         <div className="grid gap-2 mt-3 pt-2.5" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, borderTop: '1px solid var(--mm-rule)' }}>
           {items.map(it => (
             <div key={it.key} className="min-w-0 flex flex-col justify-end">
-              <div className="text-xs font-bold leading-tight break-keep" style={{ color: it.active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{it.label}</div>
+              <div className="text-xs font-medium leading-tight break-keep" style={{ color: it.active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{it.label}</div>
               <div className="t-num text-sm font-black mt-0.5 truncate" style={{ color: 'var(--mm-ink)' }}>{it.value}</div>
               <ProgressBar
                 value={it.ratio ?? 0} max={1} mark={it.mark ?? null} height={5} className="mt-1"
@@ -239,6 +263,8 @@ function LeagueStatsPageInner() {
   const [totalRounds, setTotalRounds] = useState(0)  // 기간 내 열린 라운드 수 (자격 커트라인 분모)
   const [loading, setLoading] = useState(true)
   const [gated, setGated] = useState(false)  // 401 — 회원 전용
+  const [error, setError] = useState(false)  // 응답 실패·네트워크 오류 — 「데이터 없음」과 구분한다
+  const [reloadKey, setReloadKey] = useState(0)  // 「다시 시도」 — 같은 조건으로 한 번 더 부른다
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   const router = useRouter()
@@ -301,6 +327,7 @@ function LeagueStatsPageInner() {
   useEffect(() => {
     if (!quarterReady) return
     setLoading(true)
+    setError(false)
     const url = selectedQuarterId === 'all'
       ? `/api/leagues/${leagueId}/stats`
       : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}`
@@ -308,11 +335,12 @@ function LeagueStatsPageInner() {
     fetch(url)
       .then(r => {
         if (r.status === 401) { setGated(true); setLoading(false); return null }
+        if (!r.ok) { setError(true); setLoading(false); return null }
         return r.json()
       })
       .then(d => { if (d) { setPlayers(d.players ?? []); setTotalRounds(d.total_rounds ?? 0); setLoading(false) } })
-      .catch(() => setLoading(false))
-  }, [leagueId, selectedQuarterId, quarterReady])
+      .catch(() => { setError(true); setLoading(false) })
+  }, [leagueId, selectedQuarterId, quarterReady, reloadKey])
 
 
   // 정렬 지표·정렬 방향·스탯 모드·평균/누적·분기를 바꾸면 늘려둔 노출 수를 초기값으로 되돌린다.
@@ -680,12 +708,29 @@ function LeagueStatsPageInner() {
       </SectionCard>
 
       {loading ? (
-        <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
+        <StatsSkeleton variant="body" />
+      ) : error ? (
+        <EmptyState
+          icon={Trophy}
+          title="스탯을 불러오지 못했어요"
+          description="잠시 뒤 다시 시도해 주세요."
+          action={
+            <button
+              type="button"
+              onClick={() => setReloadKey(k => k + 1)}
+              className="mm-press inline-flex items-center justify-center gap-1.5 px-4 py-2 min-h-11 text-sm font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+              style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}
+            >
+              <RotateCw size={16} aria-hidden="true" />
+              다시 시도
+            </button>
+          }
+        />
       ) : players.length === 0 ? (
         <EmptyState
           icon={Trophy}
-          title="아직 완료된 경기 데이터가 없습니다"
-          description="경기를 기록하고 완료 처리하면 스탯이 집계됩니다"
+          title="아직 끝난 경기가 없어요"
+          description="첫 경기가 끝나면 여기에 기록이 쌓여요"
         />
       ) : (
         <>
@@ -713,7 +758,7 @@ function LeagueStatsPageInner() {
                   {chipRow.cols.map(({ key, label }) => (
                     <Chip key={key} as="button" size="sm" onClick={() => chipRow.onPick(key)}
                       selected={chipRow.active === key}>
-                      {label}{chipRow.active === key && (chipRow.dir === 'desc' ? ' ↓' : ' ↑')}
+                      <span className="inline-flex items-center gap-0.5">{label}{chipRow.active === key && (chipRow.dir === 'desc' ? <ArrowDown size={14} aria-label="내림차순" /> : <ArrowUp size={14} aria-label="오름차순" />)}</span>
                     </Chip>
                   ))}
                 </div>
@@ -727,19 +772,21 @@ function LeagueStatsPageInner() {
           {/* 비교하기 버튼 */}
           {compareIds.size > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 lg:px-6" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-card)' }}>
-              <span className="text-xs font-black" style={{ color: 'var(--mm-ink)', letterSpacing: '0.08em' }}>선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--mm-ink)' }}>선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
               <button
                 onClick={() => setCompareModalOpen(true)}
                 disabled={compareIds.size === 0}
-                className="ml-auto sm:ml-3 px-3 py-1 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }}
+                type="button"
+                className="mm-press ml-auto sm:ml-3 px-3 py-1 min-h-11 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}
               >
                 비교하기 ({compareIds.size}/2)
               </button>
               <button
                 onClick={() => setCompareIds(new Set())}
-                className="px-2 py-1 text-xs font-black cursor-pointer transition-colors"
-                style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }}
+                type="button"
+                className="mm-press px-3 py-1 min-h-11 text-xs font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
               >
                 초기화
               </button>
@@ -759,13 +806,13 @@ function LeagueStatsPageInner() {
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
               <div className="flex flex-wrap items-center gap-2 pb-0.5 sm:ml-auto">
                 {/* 누적/평균 토글 (Basic 모드에서만 의미 있음) */}
-                <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)' }}>
+                <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   {(['avg','total'] as ViewMode[]).map(m => (
-                    <button key={m} onClick={() => setViewMode(m)}
-                      className="px-3 py-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press min-h-11"
+                    <button key={m} type="button" onClick={() => setViewMode(m)} aria-pressed={viewMode === m}
+                      className="px-3 py-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors mm-press min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
                       style={viewMode === m
-                        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }
-                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
+                        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)' }
+                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)' }
                       }>
                       {m === 'avg' ? '하루 평균' : '누적'}
                     </button>
@@ -775,7 +822,7 @@ function LeagueStatsPageInner() {
                 {/* 폰: 기준 문구는 한 줄을 통째로 쓰고(맨 위), 버튼은 남는 폭을 나눠 채운다 —
                     종전엔 토글·문구·버튼이 제각각 줄바꿈돼 줄마다 오른쪽이 들쭉날쭉 비었다 */}
                 <span
-                  className="shrink-0 basis-full order-first sm:basis-auto sm:order-none text-xs font-bold tabular-nums"
+                  className="shrink-0 basis-full order-first sm:basis-auto sm:order-none text-xs font-medium tabular-nums"
                   style={{ color: 'var(--mm-muted)' }}
                   title={`이 기간에 열린 ${roundBase}라운드의 30% 이상 참여 · 정규 참여자 자동 필터`}
                 >
@@ -785,10 +832,10 @@ function LeagueStatsPageInner() {
                   type="button"
                   onClick={toggleShowAll}
                   aria-pressed={showAll}
-                  className="flex-1 sm:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-11 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="flex-1 sm:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-11 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors mm-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={showAll
-                    ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
-                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                    ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }
+                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
                 >
                   <Users size={16} aria-hidden="true" />
                   전체 명단 보기
@@ -797,8 +844,8 @@ function LeagueStatsPageInner() {
                 <button
                   type="button"
                   onClick={() => setCompareModalOpen(true)}
-                  className="flex-1 sm:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
+                  className="flex-1 sm:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-colors mm-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-ctl)' }}
                 >
                   <ArrowLeftRight size={16} aria-hidden="true" />
                   선수 비교
@@ -854,21 +901,18 @@ function LeagueStatsPageInner() {
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
-                    <th className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
-                    <th className="t-th px-2 w-8" style={{ color: 'var(--mm-ink)' }}>비교</th>
-                    <th className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
+                    <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
+                    <th scope="col" className="t-th px-2 w-8" style={{ color: 'var(--mm-ink)' }}>비교</th>
+                    <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
                     {COLS.map(({ key, label, term }) => {
                       return (
-                        <th key={key} onClick={() => handleSort(key)}
-                          className="t-th px-1.5 cursor-pointer select-none transition-colors duration-200"
+                        <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
+                          className="t-th px-1.5 select-none transition-colors duration-200"
                           style={{
                             color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                             background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
                           }}>
-                          <StatHeader term={term} label={label} />
-                          {sortKey === key
-                            ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
-                            : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
+                          <SortHeader term={term} label={label} active={sortKey === key} dir={sortDir} onSort={() => handleSort(key)} />
                         </th>
                       )
                     })}
@@ -879,7 +923,7 @@ function LeagueStatsPageInner() {
                     const rank = lowAttempts(p, basicPctKey) ? null : i + 1
                     return (
                     <tr key={p.player_id}
-                      className={`transition-colors`}
+                      className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
@@ -893,14 +937,14 @@ function LeagueStatsPageInner() {
                           className="cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
                           style={{ accentColor: 'var(--mm-yellow-strong)' }} />
                       </td>
-                      <td className="px-2 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
-                        <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                      <th scope="row" className="px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]">
+                        <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
                           className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
                         <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
-                      </td>
+                      </th>
                       {COLS.map(({ key }) => {
                         const leader = isLeader(p, key as string)
                         // 성공률 칸은 시도 기준 미달이면 흐린 글자(순위 대상 아님) — 정렬 중인 칸엔 「시도 부족」도 붙인다
@@ -1031,7 +1075,7 @@ function LeagueStatsPageInner() {
                     items={items}
                     footer={
                       <div className="flex items-center gap-2 mt-3">
-                        <span className="text-xs font-bold shrink-0" style={{ color: isMix ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>슛 분포</span>
+                        <span className="text-xs font-semibold shrink-0" style={{ color: isMix ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>슛 분포</span>
                         <div className="flex-1 min-w-0"><ShotMixBar p={p} height={10} /></div>
                       </div>
                     }
@@ -1046,24 +1090,21 @@ function LeagueStatsPageInner() {
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
-                    <th className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
-                    <th className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    <th className="t-th px-3"><StatHeader term="R" label="출전" /></th>
+                    <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
+                    <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
+                    <th scope="col" className="t-th px-3"><StatHeader term="R" label="출전" /></th>
                     {SHOOTING_COLS.map(({ key, label, term, desc }, idx) => {
                       // 구분선: 슈팅 효율(0-6) | 야투 분포(7-10)
                       const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-ink)' } : {}
                       return (
-                        <th key={key} onClick={() => handleShootSort(key)} title={desc}
-                          className="t-th px-1.5 cursor-pointer select-none transition-colors duration-200"
+                        <th key={key} scope="col" aria-sort={ariaSort(shootSortKey === key, shootSortDir)} title={desc}
+                          className="t-th px-1.5 select-none transition-colors duration-200"
                           style={{
                             color: shootSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                             background: shootSortKey === key ? 'var(--mm-ink)' : 'transparent',
                             ...dividerStyle,
                           }}>
-                          <StatHeader term={term} label={label} />
-                          {shootSortKey === key
-                            ? (shootSortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
-                            : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
+                          <SortHeader term={term} label={label} active={shootSortKey === key} dir={shootSortDir} onSort={() => handleShootSort(key)} />
                         </th>
                       )
                     })}
@@ -1074,21 +1115,21 @@ function LeagueStatsPageInner() {
                     const rank = lowAttempts(p, shootPctKey) ? null : i + 1
                     return (
                     <tr key={p.player_id}
-                      className={`transition-colors`}
+                      className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
                           style={{ color: rankTier(rank).color, background: rankTier(rank).bg, border: rankTier(rank).border }}
                           title={rank == null ? '시도 부족 — 순위 없음' : undefined}>{rank ?? '–'}</span>
                       </td>
-                      <td className="px-2 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
-                        <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                      <th scope="row" className="px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]">
+                        <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
                           className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
                         <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
-                      </td>
+                      </th>
                       <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
                       {SHOOTING_COLS.map(({ key }, idx) => {
                         const val = sh[key]
@@ -1115,7 +1156,7 @@ function LeagueStatsPageInner() {
               <div className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                 {SHOOTING_COLS.map(({ key, label, desc }) => (
                   <span key={key} className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                    <span className="font-black" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.06em' }}>{label}</span> {desc}
+                    <span className="font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>{label}</span> {desc}
                   </span>
                 ))}
               </div>
@@ -1151,20 +1192,17 @@ function LeagueStatsPageInner() {
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
-                    <th className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
-                    <th className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    <th className="t-th px-3"><StatHeader term="R" label="출전" /></th>
+                    <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
+                    <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
+                    <th scope="col" className="t-th px-3"><StatHeader term="R" label="출전" /></th>
                     {ADV_COLS.map(({ key, label, term, desc }) => (
-                      <th key={key} onClick={() => handleAdvSort(key)} title={desc}
-                        className="t-th px-1.5 cursor-pointer select-none transition-colors duration-200"
+                      <th key={key} scope="col" aria-sort={ariaSort(advSortKey === key, advSortDir)} title={desc}
+                        className="t-th px-1.5 select-none transition-colors duration-200"
                         style={{
                           color: advSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: advSortKey === key ? 'var(--mm-ink)' : 'transparent',
                         }}>
-                        <StatHeader term={term} label={label} />
-                        {advSortKey === key
-                          ? (advSortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
-                          : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
+                        <SortHeader term={term} label={label} active={advSortKey === key} dir={advSortDir} onSort={() => handleAdvSort(key)} />
                       </th>
                     ))}
                   </tr>
@@ -1172,20 +1210,20 @@ function LeagueStatsPageInner() {
                 <tbody>
                   {visibleAdv.map(({ p, adv }, i) => (
                     <tr key={p.player_id}
-                      className={`transition-colors`}
+                      className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
                           style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border }}>{i+1}</span>
                       </td>
-                      <td className="px-2 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
-                        <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                      <th scope="row" className="px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]">
+                        <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
                           className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
                         <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
-                      </td>
+                      </th>
                       <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
                       {ADV_COLS.map(({ key }) => {
                         const val = adv[key]
@@ -1207,7 +1245,7 @@ function LeagueStatsPageInner() {
               <div className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                 {ADV_COLS.map(({ key, label, desc }) => (
                   <span key={key} className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                    <span className="font-black" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.06em' }}>{label}</span> {desc}
+                    <span className="font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>{label}</span> {desc}
                   </span>
                 ))}
               </div>
@@ -1223,8 +1261,8 @@ function LeagueStatsPageInner() {
                 <button
                   type="button"
                   onClick={() => setVisibleCount(c => c + REVEAL_STEP)}
-                  className="inline-flex items-center justify-center gap-1.5 text-xs font-bold px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-                  style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
+                  className="mm-press inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
                 >
                   <ChevronDown size={14} aria-hidden />
                   더 보기 ({hiddenCount}명 남음)
@@ -1252,7 +1290,7 @@ function LeagueStatsPageInner() {
 // useSearchParams 는 Suspense 경계 내에서 호출해야 하므로 default export 에서 감싼다.
 export default function LeagueStatsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-16"><BasketballLoader size={24} /></div>}>
+    <Suspense fallback={<StatsSkeleton />}>
       <LeagueStatsPageInner />
     </Suspense>
   )

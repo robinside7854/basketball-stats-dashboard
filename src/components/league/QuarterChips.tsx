@@ -21,10 +21,10 @@ export function QuarterChips({
         type="button"
         onClick={() => onChange(id)}
         aria-pressed={active}
-        className="shrink-0 px-3 py-2 text-sm font-semibold transition-colors cursor-pointer btn-press min-h-[44px] whitespace-nowrap tabular-nums"
+        className="shrink-0 px-3.5 py-2 text-sm font-semibold transition-colors cursor-pointer mm-press min-h-[44px] whitespace-nowrap tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
         style={active
-          ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
-          : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
+          ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-chip)' }
+          : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }
         }
       >
         {label}

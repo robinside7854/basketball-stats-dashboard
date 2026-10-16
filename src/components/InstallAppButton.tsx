@@ -79,7 +79,7 @@ export default function InstallAppButton() {
       <button
         type="button"
         onClick={handleClick}
-        className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-md border text-sm font-bold cursor-pointer transition-colors"
+        className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-[var(--mm-radius-ctl)] border text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
         style={
           promptReady
             ? { borderColor: 'var(--mm-yellow)', background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
@@ -97,8 +97,8 @@ export default function InstallAppButton() {
           onClick={() => setShowGuide(false)}
         >
           <div
-            className="w-full max-w-sm rounded-lg border p-5"
-            style={{ background: 'var(--mm-panel)', borderColor: 'var(--mm-rule)' }}
+            className="w-full max-w-sm border p-5"
+            style={{ background: 'var(--mm-panel)', borderColor: 'var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-shadow-lg)' }}
             onClick={e => e.stopPropagation()}
             role="dialog"
             aria-label="앱 설치 방법"
@@ -109,7 +109,7 @@ export default function InstallAppButton() {
                 type="button"
                 onClick={() => setShowGuide(false)}
                 aria-label="닫기"
-                className="shrink-0 inline-flex items-center justify-center w-11 h-11 -m-2 rounded-md cursor-pointer"
+                className="shrink-0 inline-flex items-center justify-center w-11 h-11 -m-2 rounded-[var(--mm-radius-ctl)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                 style={{ color: 'var(--mm-muted)' }}
               >
                 <X size={20} />
@@ -118,20 +118,20 @@ export default function InstallAppButton() {
             <ol className="space-y-2 text-sm leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
               {isIOS ? (
                 <>
-                  <li>1. 사파리 아래쪽 <b>공유</b> 버튼을 누르세요.</li>
-                  <li>2. 목록에서 <b>홈 화면에 추가</b> 를 고르세요.</li>
-                  <li>3. 오른쪽 위 <b>추가</b> 를 누르면 끝입니다.</li>
+                  <li>1. 사파리 아래쪽 <b>공유</b> 버튼을 눌러요.</li>
+                  <li>2. 목록에서 <b>홈 화면에 추가</b>를 골라요.</li>
+                  <li>3. 오른쪽 위 <b>추가</b>를 누르면 끝이에요.</li>
                 </>
               ) : (
                 <>
-                  <li>1. 크롬 오른쪽 위 <b>점 3개</b> 를 누르세요.</li>
-                  <li>2. <b>앱 설치</b> 또는 <b>홈 화면에 추가</b> 를 고르세요.</li>
-                  <li>3. <b>설치</b> 를 누르면 끝입니다.</li>
+                  <li>1. 크롬 오른쪽 위 <b>점 3개</b>를 눌러요.</li>
+                  <li>2. <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 골라요.</li>
+                  <li>3. <b>설치</b>를 누르면 끝이에요.</li>
                 </>
               )}
             </ol>
             <p className="mt-3 text-[12px]" style={{ color: 'var(--mm-muted)' }}>
-              설치하면 홈 화면 아이콘으로 바로 열리고, 주소창 없이 앱처럼 보입니다.
+              설치하면 홈 화면 아이콘으로 바로 열리고, 주소창 없이 앱처럼 보여요.
             </p>
           </div>
         </div>

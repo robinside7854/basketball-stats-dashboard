@@ -85,10 +85,10 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
         {active && (
           <span
             className="basis-full sm:basis-auto sm:ml-2 min-w-0 font-bold text-base break-keep"
-            style={{ color: 'var(--mm-ink)', letterSpacing: '0.02em' }}
+            style={{ color: 'var(--mm-ink)' }}
           >
             {metricFullLabel ?? metricLabel}
-            <span className="ml-1.5 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', fontWeight: 700 }}>
+            <span className="ml-1.5 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', fontWeight: 500 }}>
               ({metricLabel})
             </span>
           </span>
@@ -103,7 +103,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
           style={{ color: 'var(--mm-muted)' }}
         >
           <p className="t-label">
-            테이블 컬럼을 클릭해 TOP 5 리더 보기
+            표 머리를 누르면 그 지표의 TOP 5가 보여요
           </p>
         </div>
       ) : (
@@ -130,13 +130,15 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
               <button
                 key={p.id}
                 onClick={onPlayerClick ? () => onPlayerClick(p.id, p.name) : undefined}
-                className="topfive-slot w-[30%] min-w-[104px] shrink-0 snap-start sm:w-auto sm:min-w-0 text-left flex flex-col cursor-pointer overflow-hidden rounded-md transition-shadow duration-200 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.20)]"
+                type="button"
+                className="topfive-slot mm-lift w-[30%] min-w-[104px] shrink-0 snap-start sm:w-auto sm:min-w-0 text-left flex flex-col cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                 style={{
+                  borderRadius: 'var(--mm-radius-card)',
                   background: isFirst ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: '1px solid var(--mm-rule)',
                   borderTop: `3px solid ${accent}`,
                   // stagger — 각 슬롯이 순차 등장
-                  animation: 'topfiveIn 260ms ease-out both',
+                  animation: 'topfiveIn 260ms ease-out backwards',  // backwards — 끝난 뒤 transform 을 붙잡지 않아 mm-lift 호버가 먹는다
                   animationDelay: `${i * 50}ms`,
                 }}
               >
@@ -146,8 +148,9 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                     <BigAvatar photo={p.photo_url} name={p.name} />
                   </div>
                   <span
-                    className="absolute top-1.5 left-1.5 inline-flex items-center justify-center t-num font-bold rounded-md"
+                    className="absolute top-1.5 left-1.5 inline-flex items-center justify-center t-num font-bold"
                     style={{
+                      borderRadius: 'var(--mm-radius-chip)',
                       minWidth: 26, height: 26, padding: '0 6px', fontSize: 16, lineHeight: 1,
                       background: isFirst ? 'var(--mm-yellow-strong)' : 'var(--mm-panel)',
                       color: isFirst ? 'var(--mm-panel)' : rankColor,

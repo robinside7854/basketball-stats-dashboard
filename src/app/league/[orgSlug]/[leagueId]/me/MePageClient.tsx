@@ -17,7 +17,7 @@ import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import SectionCard from '@/components/league/ui/SectionCard'
 import InstallAppButton from '@/components/InstallAppButton'
-import { BasketballLoader } from '@/components/league/BasketballIcons'
+import MePageSkeleton from '@/components/league/auth/MePageSkeleton'
 
 interface Props {
   orgSlug: string
@@ -44,7 +44,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       </div>
 
       {authLoading ? (
-        <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
+        <MePageSkeleton />
       ) : user ? (
         <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} />
       ) : (
@@ -73,8 +73,8 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
             <button
               type="button"
               onClick={() => logout()}
-              className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-md border text-sm font-bold cursor-pointer transition-colors hover:border-[color:var(--mm-ink-soft)]"
-              style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-muted)' }}
+              className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-3.5 border text-sm font-bold cursor-pointer transition-colors hover:border-[color:var(--mm-ink-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+              style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
             >
               <LogOut size={16} />
               로그아웃
@@ -92,12 +92,12 @@ function ShortcutRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-4 md:px-5 py-3.5 min-h-[44px] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer"
+      className="mm-press flex items-center gap-3 px-4 md:px-5 py-3.5 min-h-[44px] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={last ? undefined : { borderBottom: '1px solid var(--mm-rule)' }}
     >
       <span
-        className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-md"
-        style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }}
+        className="shrink-0 inline-flex items-center justify-center w-10 h-10"
+        style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
       >
         <Icon size={20} aria-hidden />
       </span>

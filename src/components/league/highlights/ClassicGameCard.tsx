@@ -41,9 +41,9 @@ export default function ClassicGameCard({ g, leagueId }: { g: ClassicGame; leagu
             className="text-xs font-semibold px-2 py-0.5"
             style={{
               background: 'var(--mm-neutral-bg)', color: 'var(--mm-neutral-fg)',
-              borderRadius: 'var(--mm-radius-chip)', letterSpacing: '0.1em',
+              borderRadius: 'var(--mm-radius-chip)',
             }}
-            title="이 달은 3개 조건을 채운 경기가 없어 2개 기준으로 골랐습니다"
+            title="이 달은 3개 조건을 채운 경기가 없어 2개 기준으로 골랐어요"
           >
             완화 기준
           </span>

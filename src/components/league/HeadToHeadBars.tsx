@@ -45,7 +45,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
     >
       <div className="text-right min-w-0">
         <div className="text-base sm:text-lg font-bold truncate" title={a.name} style={{ color: accentOrInk(colorA), letterSpacing: '-0.005em' }}>{a.name}</div>
-        {a.sub && <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{a.sub}</div>}
+        {a.sub && <div className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>{a.sub}</div>}
       </div>
       <div className="flex flex-col items-center shrink-0">
         <span className="font-jersey font-black text-sm" style={{ color: 'var(--mm-muted)' }}>VS</span>
@@ -53,7 +53,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
       </div>
       <div className="text-left min-w-0">
         <div className="text-base sm:text-lg font-bold truncate" title={b.name} style={{ color: accentOrInk(colorB), letterSpacing: '-0.005em' }}>{b.name}</div>
-        {b.sub && <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>{b.sub}</div>}
+        {b.sub && <div className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>{b.sub}</div>}
       </div>
     </div>
 
@@ -74,7 +74,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
             {/* 좌측 (홈) — 막대 오른쪽 정렬, 라벨은 막대 왼쪽 */}
             <div className="flex items-center justify-end gap-2 min-h-[28px]">
               <span
-                className={`text-sm tabular-nums font-jersey font-black whitespace-nowrap ${aWin ? '' : 'opacity-60'}`}
+                className="text-sm tabular-nums font-jersey font-black whitespace-nowrap"
                 style={aWin ? { color: accentOrInk(colorA) } : { color: 'var(--mm-muted)' }}
               >
                 {labelA}
@@ -90,7 +90,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
             {/* 중앙 라벨 */}
             <div className="text-center px-2">
               <span
-                className="text-xs font-black uppercase tracking-widest whitespace-pre-line leading-tight block"
+                className="text-xs font-bold whitespace-pre-line leading-tight block"
                 style={{ color: 'var(--mm-muted)' }}
               >
                 {item.label}
@@ -106,7 +106,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
                 minWidth: item.b > 0 ? 2 : 0,
               }} />
               <span
-                className={`text-sm tabular-nums font-jersey font-black whitespace-nowrap ${bWin ? '' : 'opacity-60'}`}
+                className="text-sm tabular-nums font-jersey font-black whitespace-nowrap"
                 style={bWin ? { color: accentOrInk(colorB) } : { color: 'var(--mm-muted)' }}
               >
                 {labelB}

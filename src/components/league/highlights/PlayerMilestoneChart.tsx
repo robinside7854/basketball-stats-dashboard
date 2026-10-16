@@ -1,7 +1,7 @@
 'use client'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 // 커리어 마일스톤 · 나무(TREE) 뷰 (2026-07-19 재설계)
-//   · 5개 지표 = 5개 나무 (PTS/REB/AST/STL/BLK)
+//   · 5개 지표 = 5개 나무 (득점/리바운드/어시스트/스틸/블록)
 //   · 각 나무 = 세로 축 · 임계값 눈금 · 선수 아바타 핀
 //   · 각 선수는 자기 누적치에 해당하는 y 위치에 핀 → "어디쯤 위치하는지" 한눈에
 //   · 겹치는 핀은 옆으로 오프셋 (최대 4개 · 넘치면 "+N")
@@ -9,7 +9,7 @@ import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 // 아바타 클릭 → 선수별 하이라이트로 이동
 
 import { useMemo, useState, useEffect } from 'react'
-import { X, ChevronRight } from 'lucide-react'
+import { X, ChevronRight, ChevronDown } from 'lucide-react'
 import { MILESTONE_LADDER, MILESTONE_STEP } from '@/lib/stats/milestoneLadder'
 
 // 선수카드 모달 · 상호작용 트리거 후에만 필요 (recharts 등 포함)
@@ -33,11 +33,11 @@ export type PlayerMilestoneData = {
 //     var() 라 hex 뒤에 알파를 붙일 수 없다 → 반투명은 color-mix 로 만든다.
 //   · 눈금·확장 스텝의 정본은 lib/stats/milestoneLadder.ts — 홈 마일스톤·/me 체이서와 같은 표(2026-10-15)
 const METRICS = [
-  { key: 'pts', label: 'PTS', color: 'var(--mm-series-1)', base: MILESTONE_LADDER.pts, step: MILESTONE_STEP.pts },
-  { key: 'reb', label: 'REB', color: 'var(--mm-series-2)', base: MILESTONE_LADDER.reb, step: MILESTONE_STEP.reb },
-  { key: 'ast', label: 'AST', color: 'var(--mm-series-3)', base: MILESTONE_LADDER.ast, step: MILESTONE_STEP.ast },
-  { key: 'stl', label: 'STL', color: 'var(--mm-series-4)', base: MILESTONE_LADDER.stl, step: MILESTONE_STEP.stl },
-  { key: 'blk', label: 'BLK', color: 'var(--mm-series-5)', base: MILESTONE_LADDER.blk, step: MILESTONE_STEP.blk },
+  { key: 'pts', label: '득점', color: 'var(--mm-series-1)', base: MILESTONE_LADDER.pts, step: MILESTONE_STEP.pts },
+  { key: 'reb', label: '리바운드', color: 'var(--mm-series-2)', base: MILESTONE_LADDER.reb, step: MILESTONE_STEP.reb },
+  { key: 'ast', label: '어시스트', color: 'var(--mm-series-3)', base: MILESTONE_LADDER.ast, step: MILESTONE_STEP.ast },
+  { key: 'stl', label: '스틸', color: 'var(--mm-series-4)', base: MILESTONE_LADDER.stl, step: MILESTONE_STEP.stl },
+  { key: 'blk', label: '블록', color: 'var(--mm-series-5)', base: MILESTONE_LADDER.blk, step: MILESTONE_STEP.blk },
 ] as const
 
 type MetricKey = typeof METRICS[number]['key']
@@ -144,7 +144,7 @@ export default function PlayerMilestoneChart({ players }: Props) {
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <label
-          className="text-xs font-black"
+          className="text-xs font-bold"
           style={{ color: 'var(--mm-muted)' }}
           htmlFor="milestone-player-select"
         >
@@ -160,11 +160,11 @@ export default function PlayerMilestoneChart({ players }: Props) {
               background: pinnedPid ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
               color: pinnedPid ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
               border: `1px solid ${pinnedPid ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
-              borderRadius: '4px',
+              borderRadius: 'var(--mm-radius-ctl)',
             }}
-            aria-label="찾을 선수 선택 · 5개 나무에서 위치가 상시 강조됩니다"
+            aria-label="찾을 선수 고르기 · 5개 나무에서 그 선수 위치가 계속 강조돼요"
           >
-            <option value="">— 이름 선택 —</option>
+            <option value="">선수 고르기</option>
             {sortedForSelect.map(p => (
               <option key={p.player_id} value={p.player_id}>
                 {p.number != null ? `#${p.number} ` : ''}{p.name}
@@ -172,24 +172,23 @@ export default function PlayerMilestoneChart({ players }: Props) {
             ))}
           </select>
           {/* select 우측 드롭 화살표 */}
-          <span
+          <ChevronDown
+            size={14}
             aria-hidden
-            className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-xs"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
             style={{ color: pinnedPid ? 'var(--mm-black)' : 'var(--mm-muted)' }}
-          >
-            ▼
-          </span>
+          />
         </div>
         {pinnedPid && pinnedPlayer && (
           <button
             type="button"
             onClick={() => setPinnedPid(null)}
-            className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+            className="mm-press inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 min-h-[36px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
             style={{
               background: 'var(--mm-panel-alt)',
               color: 'var(--mm-ink-soft)',
               border: '1px solid var(--mm-rule)',
-              borderRadius: '3px',
+              borderRadius: 'var(--mm-radius-ctl)',
             }}
             aria-label="선수 지정 해제"
           >
@@ -222,12 +221,11 @@ export default function PlayerMilestoneChart({ players }: Props) {
         className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs pt-3"
         style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
       >
-        <span>
-          <span className="font-bold">임계값</span>은 지표별 기본 사다리 (PTS 100·250·500·1000·2000 등) 에서 시작 ·
-          리그 1위 값에 근사한 상한으로 자동 스냅 (선수 분포 시인성 우선)
+        <span className="font-medium">
+          눈금은 득점 100·250·500·1000·2000처럼 지표마다 정해져 있고, 리그 1위 기록에 맞춰 늘어나요.
         </span>
-        <span>
-          <span className="font-bold">아바타 클릭</span> · 선수카드 열림 (모바일은 요약 팝오버 후 CTA)
+        <span className="font-medium">
+          얼굴을 누르면 선수 카드가 열려요. 폰에서는 요약을 먼저 보여 줘요.
         </span>
       </div>
 
@@ -341,7 +339,7 @@ function MetricTree({
         background: 'var(--mm-panel)',
         border: '1px solid var(--mm-rule)',
         borderTop: `3px solid ${color}`,
-        borderRadius: '4px',
+        borderRadius: 'var(--mm-radius-ctl)',
         padding: '10px 8px 12px',
       }}
     >
@@ -407,10 +405,9 @@ function MetricTree({
             >
               {/* 눈금 라벨 (좌측) */}
               <span
-                className="text-xs font-black tabular-nums pr-1 text-right"
+                className="text-xs font-bold tabular-nums pr-1 text-right"
                 style={{
                   color: isTop ? color : 'var(--mm-muted)',
-                  letterSpacing: '0.04em',
                   width: 26,
                 }}
               >
@@ -458,12 +455,12 @@ function MetricTree({
             }}
           >
             <span
-              className="inline-block text-xs font-black px-1 py-0.5"
+              className="inline-block text-xs font-bold px-1 py-0.5"
               style={{
                 background: 'var(--mm-panel-alt)',
                 color: 'var(--mm-ink-soft)',
                 border: '1px solid var(--mm-rule)',
-                borderRadius: '2px',
+                borderRadius: 'var(--mm-radius-chip)',
               }}
             >
               +{count}
@@ -509,7 +506,7 @@ function PlayerPin({
   return (
     <button
       type="button"
-      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-[transform,opacity] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={{
         bottom: y,
         left: 30 + AVATAR / 2 + xOffset,
@@ -520,10 +517,10 @@ function PlayerPin({
         background: 'var(--mm-panel-alt)',
         border: emphasized ? `2px solid ${borderColor}` : `1.5px solid ${borderColor}`,
         boxShadow: pinned
-          ? `0 0 0 3px var(--mm-yellow), 0 0 0 5px var(--mm-panel), 0 12px 32px -6px var(--mm-yellow), 0 4px 12px -2px rgba(0,0,0,0.35)`
+          ? `0 0 0 3px var(--mm-yellow), 0 0 0 5px var(--mm-panel), var(--mm-shadow-md)`
           : hover
-            ? `0 0 0 3px var(--mm-panel), 0 12px 32px -6px color-mix(in srgb, ${color} 53%, transparent), 0 4px 12px -2px rgba(0,0,0,0.3)`
-            : `0 1px 3px rgba(0,0,0,0.3)`,
+            ? `0 0 0 3px var(--mm-panel), var(--mm-shadow-md)`
+            : 'var(--mm-shadow-sm)',
         opacity: dimmed && !hover ? 0.28 : 1,
         filter: dimmed && !hover ? 'saturate(0.5)' : 'none',
         zIndex: pinned ? 45 : hover ? 40 : 5,
@@ -556,18 +553,17 @@ function PlayerPin({
       {/* 툴팁 · pinned 이거나 hover 일 때 · 이름 + 값 · scale 역보정으로 원 크기 유지 */}
       {emphasized && (
         <span
-          className="absolute pointer-events-none whitespace-nowrap text-xs font-black"
+          className="absolute pointer-events-none whitespace-nowrap text-xs font-bold"
           style={{
             background: pinned ? 'var(--mm-yellow)' : 'var(--mm-black)',
             color: pinned ? 'var(--mm-black)' : 'var(--mm-yellow)',
             border: `1px solid ${pinned ? 'var(--mm-black)' : color}`,
-            borderRadius: '3px',
+            borderRadius: 'var(--mm-radius-chip)',
             padding: '3px 6px',
             left: '105%',
             top: '50%',
             transform: `translateY(-50%) scale(${1 / 2.55})`,
             transformOrigin: 'left center',
-            letterSpacing: '0.06em',
             zIndex: 50,
           }}
         >
@@ -612,8 +608,8 @@ function PlayerMilestonePopover({
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
-          borderRadius: '6px',
-          boxShadow: '0 24px 60px -12px rgba(0,0,0,0.55)',
+          borderRadius: 'var(--mm-radius-card)',
+          boxShadow: 'var(--mm-shadow-lg)',
           overflow: 'hidden',
         }}
       >
@@ -621,8 +617,8 @@ function PlayerMilestonePopover({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-2 right-2 p-1.5 cursor-pointer transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center rounded"
-          style={{ color: 'var(--mm-muted)' }}
+          className="mm-press absolute top-2 right-2 p-1.5 cursor-pointer min-h-11 min-w-11 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+          style={{ color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
           aria-label="닫기"
         >
           <X size={20} />
@@ -635,7 +631,7 @@ function PlayerMilestonePopover({
             style={{
               background: 'var(--mm-panel-alt)',
               border: `3px solid var(--mm-yellow)`,
-              boxShadow: '0 8px 24px -4px rgba(0,0,0,0.4)',
+              boxShadow: 'var(--mm-shadow-md)',
             }}
             aria-hidden
           >
@@ -690,7 +686,7 @@ function PlayerMilestonePopover({
               }}
             >
               <div
-                className="text-xs font-black"
+                className="text-xs font-bold"
                 style={{ color: m.color }}
               >
                 {m.label}
@@ -709,7 +705,7 @@ function PlayerMilestonePopover({
         <button
           type="button"
           onClick={onOpenCard}
-          className="w-full flex items-center justify-center gap-2 px-4 min-h-[52px] font-bold text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+          className="mm-press w-full flex items-center justify-center gap-2 px-4 min-h-[52px] font-bold text-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
           style={{
             background: 'var(--mm-yellow)',
             color: 'var(--mm-black)',

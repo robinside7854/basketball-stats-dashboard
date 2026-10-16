@@ -19,7 +19,7 @@
 //     고른 범위가 비어 있으면(그날 안 뛰었음 등) 「전체」로 보인다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, ChevronUp, Clapperboard, Loader2, Play } from 'lucide-react'
+import { ChevronDown, ChevronUp, Clapperboard, Play } from 'lucide-react'
 import HighlightsPlayer, { type HighlightsPlayerHandle } from '@/components/highlights/HighlightsPlayer'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
@@ -173,7 +173,7 @@ export default function DayHighlightsLauncher({
         // PC: 범위 탭·재생 버튼이 1000px 로 늘어나지 않게 가운데 폭을 묶는다(토글 글자도 가운데)
         <div id="day-highlights-panel" className="mt-2.5 space-y-2.5 sm:max-w-lg sm:mx-auto">
           {authLoading ? (
-            <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
+            <div role="status" aria-label="불러오는 중이에요" className="space-y-2.5"><div className="mm-shimmer h-11 w-full" style={{ borderRadius: 'var(--mm-radius-ctl)' }} /><div className="mm-shimmer h-12 w-full" style={{ borderRadius: 'var(--mm-radius-chip)' }} /></div>
           ) : !canView || state === 'login' ? (
             <p className="text-sm px-1" style={{ color: 'var(--mm-muted)' }}>로그인한 회원만 볼 수 있어요.</p>
           ) : state === 'error' ? (
@@ -189,7 +189,7 @@ export default function DayHighlightsLauncher({
               </button>
             </div>
           ) : !ready ? (
-            <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
+            <div role="status" aria-label="불러오는 중이에요" className="space-y-2.5"><div className="mm-shimmer h-11 w-full" style={{ borderRadius: 'var(--mm-radius-ctl)' }} /><div className="mm-shimmer h-12 w-full" style={{ borderRadius: 'var(--mm-radius-chip)' }} /></div>
           ) : lists.all.length === 0 ? (
             <p className="text-sm px-1" style={{ color: 'var(--mm-muted)' }}>이날은 아직 하이라이트가 없어요.</p>
           ) : (
@@ -216,7 +216,7 @@ export default function DayHighlightsLauncher({
                 // ⚠ 동기 호출 — Fullscreen API 는 이 탭(사용자 제스처) 안에서만 열린다
                 onClick={() => playerRef.current?.openImmersive()}
                 disabled={current.length === 0}
-                className="mm-press w-full inline-flex items-center justify-center gap-2 min-h-12 px-4 text-base font-black cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.99] disabled:opacity-40 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
+                className="mm-press w-full inline-flex items-center justify-center gap-2 min-h-12 px-4 text-base font-black cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:opacity-40 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}
                 aria-label={`${current.length}개 클립을 전체화면으로 이어서 재생`}
               >

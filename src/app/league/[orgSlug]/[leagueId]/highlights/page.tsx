@@ -23,7 +23,7 @@ import { ProgressBar } from '@/components/league/ui/viz'
 import { Avatar } from '@/components/league/ui'
 import PlayerName from '@/components/league/ui/PlayerName'
 import SectionCard from '@/components/league/ui/SectionCard'
-import EmptyState from '@/components/league/EmptyState'
+import { EmptyState } from '@/components/league/ui'
 import HighlightsBrowser from '@/components/highlights/HighlightsBrowser'
 import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBrowser'
 import HighlightsFeedChips, { type FeedKind, type FeedPlayerLabel } from '@/components/league/highlights/HighlightsFeedChips'
@@ -249,19 +249,22 @@ export default async function HighlightsFeedPage({
     if (detail.clips.length === 0) {
       body = (
         <EmptyState
-          Icon={Pin}
-          title="아직 핀된 베스트샷이 없습니다"
-          description="선수 하이라이트 재생기 아래의 농구공 슬롯(1/2/3)에서 내 베스트샷을 핀하면 여기에 모입니다."
+          icon={Pin}
+          title="아직 핀한 베스트샷이 없어요"
+          description="선수 하이라이트 재생기 아래 농구공 슬롯(1/2/3)에서 내 베스트샷을 핀하면 여기에 모여요."
         />
       )
     } else if (playerId && !pinner) {
       body = (
-        <EmptyState Icon={Pin} title={`${knownPlayer?.name ?? '이 선수'}의 베스트샷이 아직 없어요`} description="선수 하이라이트에서 농구공 슬롯(1/2/3)으로 핀하면 여기에 모입니다.">
-          <FeedLinks links={[
+        <EmptyState
+          icon={Pin}
+          title={`${knownPlayer?.name ?? '이 선수'}의 베스트샷이 아직 없어요`}
+          description="선수 하이라이트에서 농구공 슬롯(1/2/3)으로 핀하면 여기에 모여요."
+          action={<FeedLinks links={[
             { href: `${hl}?player=${encodeURIComponent(playerId)}`, label: '이 선수 클립 보기' },
             { href: `${hl}?f=best`, label: '모든 베스트샷' },
-          ]} />
-        </EmptyState>
+          ]} />}
+        />
       )
     } else {
       body = (
@@ -287,13 +290,13 @@ export default async function HighlightsFeedPage({
           <div className="text-sm leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
             <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>뽑는 방법 · </span>
             위닝샷 · 역전 3회 이상 · 2점 차 이내 · 총 38점 이상 — 이 넷 중{' '}
-            <b style={{ color: 'var(--mm-ink)' }}>3개 이상</b>을 채운 경기를 그 달의 명경기로 고릅니다.
-            3개를 채운 경기가 없는 달은 2개로 완화합니다. 같은 조건이면{' '}
-            <b style={{ color: 'var(--mm-ink)' }}>위닝샷 → 역전 → 점수차 → 총득점</b> 순으로 앞섭니다.
+            <b style={{ color: 'var(--mm-ink)' }}>3개 이상</b>을 채운 경기를 그 달의 명경기로 골라요.
+            3개를 채운 경기가 없는 달은 2개로 낮춰요. 같은 조건이면{' '}
+            <b style={{ color: 'var(--mm-ink)' }}>위닝샷 → 역전 → 점수차 → 총득점</b> 순으로 앞서요.
           </div>
         </SectionCard>
         {games.length === 0 ? (
-          <EmptyState Icon={Trophy} title="아직 명경기가 없습니다" description="경기가 쌓이면 월별로 한 경기씩 자동으로 선정됩니다." />
+          <EmptyState icon={Trophy} title="아직 명경기가 없어요" description="경기가 쌓이면 달마다 한 경기씩 자동으로 골라요." />
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
             {games.map(g => <ClassicGameCard key={g.gameId} g={g} leagueId={leagueId} />)}
@@ -305,21 +308,15 @@ export default async function HighlightsFeedPage({
     const players = await getMilestonesCached(leagueId)()
     body = (
       <>
-        <ModeLine title="커리어 마일스톤" sub="선수별 5대 지표 진행도 · 임계값 자동 확장" />
+        <ModeLine title="커리어 마일스톤" sub="선수별 5대 지표 진행도 · 리그 기록에 맞춰 눈금이 늘어나요" />
         {players.length === 0 ? (
           <EmptyState
-            Icon={Trophy}
-            title="아직 활동 기록이 없습니다"
-            description="경기가 진행되면 각 선수의 누적 득점·리바운드·어시스트·스틸·블락 진행도가 여기 표시됩니다."
+            icon={Trophy}
+            title="아직 활동 기록이 없어요"
+            description="경기가 진행되면 선수마다 누적 득점·리바운드·어시스트·스틸·블록 진행도가 여기 보여요."
           />
         ) : (
-          <>
-            <PlayerMilestoneChart players={players} orgSlug={orgSlug} leagueId={leagueId} />
-            <p className="text-xs pt-2" style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}>
-              <span className="font-bold">임계값</span>은 각 지표의 기본 사다리(예: 득점 100·250·500·1000·2000)에서 시작하며,{' '}
-              <span className="font-bold">리그 1위 값에 근사한 상한</span>으로 자동 스냅됩니다.
-            </p>
-          </>
+          <PlayerMilestoneChart players={players} orgSlug={orgSlug} leagueId={leagueId} />
         )}
       </>
     )
@@ -333,14 +330,16 @@ export default async function HighlightsFeedPage({
           sub={`${detail.clips.length}개 클립 · ${detail.players.length}명 선수 · ${detail.teams.length}팀`}
         />
         {detail.clips.length === 0 ? (
-          <EmptyState Icon={Film} title="이 날에는 하이라이트가 없습니다" description="YouTube 영상이 연결되고 영상 시각이 기록된 득점 장면만 표시됩니다." />
+          <EmptyState icon={Film} title="이 날에는 하이라이트가 없어요" description="YouTube 영상이 연결되고 영상 시각이 기록된 득점 장면만 보여요." />
         ) : playerMissing ? (
-          <EmptyState Icon={UserX} title={`이 날 ${knownPlayer?.name ?? '이 선수'}의 클립이 없어요`}>
-            <FeedLinks links={[
+          <EmptyState
+            icon={UserX}
+            title={`이 날 ${knownPlayer?.name ?? '이 선수'}의 클립이 없어요`}
+            action={<FeedLinks links={[
               { href: `${hl}?date=${date}`, label: '이 날 전체 클립' },
               { href: `${hl}?player=${encodeURIComponent(playerId!)}`, label: '이 선수 전체 클립' },
-            ]} />
-          </EmptyState>
+            ]} />}
+          />
         ) : (
           <FeedKeyed>
             <HighlightsBrowser detail={detail} feed={{ preserveParams: ['date'] }} />
@@ -350,7 +349,7 @@ export default async function HighlightsFeedPage({
     )
   } else if (playerId) {
     if (!playerData) {
-      body = <EmptyState Icon={UserX} title="선수를 찾을 수 없어요" description="명단에서 빠졌거나 잘못된 링크예요. 위 「선수」에서 다시 골라 주세요." />
+      body = <EmptyState icon={UserX} title="선수를 찾을 수 없어요" description="명단에서 빠졌거나 잘못된 링크예요. 위 「선수」에서 다시 골라 주세요." />
     } else {
       // 핀 상태 · 편집 UI 초기값 (개인 상태라 캐시 밖). team_id 로 소속 확인 — 명단은 팀 소유.
       const sb = createClient()
@@ -375,7 +374,7 @@ export default async function HighlightsFeedPage({
             avatar={{ src: p.photo_url, name: p.name }}
           />
           {playerData.clips.length === 0 ? (
-            <EmptyState Icon={Film} title="이 선수의 하이라이트가 없습니다" description="YouTube 영상이 연결되고 영상 시각이 기록된 득점 장면만 표시됩니다." />
+            <EmptyState icon={Film} title="이 선수의 하이라이트가 없어요" description="YouTube 영상이 연결되고 영상 시각이 기록된 득점 장면만 보여요." />
           ) : (
             <FeedKeyed>
               <PlayerHighlightsBrowser
@@ -426,8 +425,8 @@ function FeedLinks({ links }: { links: Array<{ href: string; label: string }> })
         <Link
           key={l.href}
           href={l.href}
-          className="inline-flex items-center gap-1 min-h-[44px] px-4 text-sm font-bold"
-          style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
+          className="mm-press inline-flex items-center gap-1 min-h-11 px-4 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+          style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
         >
           {l.label} <ChevronRight size={14} aria-hidden />
         </Link>
@@ -442,9 +441,9 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
   if (rounds.length === 0) {
     return (
       <EmptyState
-        Icon={Film}
-        title="아직 경기한 날이 없습니다"
-        description="경기가 시작되면 날짜가 여기에 표시되고, 영상 · 기록이 완료되면 자동으로 재생 가능해집니다."
+        icon={Film}
+        title="아직 경기한 날이 없어요"
+        description="경기가 시작되면 날짜가 여기 보이고, 영상과 기록이 끝나면 바로 재생할 수 있어요."
       />
     )
   }
@@ -465,13 +464,12 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
             background: 'var(--mm-panel)',
             border: '1px solid var(--mm-rule)',
             borderRadius: 'var(--mm-radius-card)',
-            opacity: isReady ? 1 : 0.6,
           }
 
           const inner = (
             <>
               {/* 썸네일 — 그날 첫 경기 대표 영상. 없으면 상태 아이콘 */}
-              <div className="relative aspect-video overflow-hidden" style={{ background: 'var(--mm-panel-alt)' }}>
+              <div className="relative aspect-video overflow-hidden" style={{ background: 'var(--mm-panel-alt)', opacity: isReady ? 1 : 0.6 }}>
                 {r.thumb_video_id ? (
                   // eslint-disable-next-line @next/next/no-img-element -- YouTube 썸네일(외부 호스트)
                   <img
@@ -508,12 +506,14 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
                     <span
                       className="shrink-0 text-xs font-semibold px-2 py-0.5"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
-                      title={statusHint ?? undefined}
                     >
                       {statusLabel}
                     </span>
                   )}
                 </div>
+                {statusHint && (
+                  <p className="text-xs font-medium break-keep" style={{ color: 'var(--mm-muted)' }}>{statusHint}</p>
+                )}
 
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--mm-muted)' }}>
@@ -576,14 +576,14 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
               key={r.date}
               href={`${hl}?date=${r.date}`}
               scroll
-              className="group block overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              className="group block overflow-hidden mm-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
               style={cardStyle}
               aria-label={`${formatFeedDate(r.date, true)} 하이라이트 재생 (${r.clips_count}개 클립)`}
             >
               {inner}
             </Link>
           ) : (
-            <div key={r.date} className="block overflow-hidden" style={cardStyle} title={statusHint ?? undefined}>
+            <div key={r.date} className="block overflow-hidden" style={cardStyle}>
               {inner}
             </div>
           )
@@ -591,7 +591,7 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
       </div>
       {rounds.some(r => r.status !== 'ready') && (
         <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}>
-          <span className="font-bold">클립</span>은 영상 속 시각이 함께 기록된 득점 장면만 셉니다. 영상이 없는 경기는 재생할 수 없어요.
+          <span className="font-bold">클립</span>은 영상 속 시각이 함께 기록된 득점 장면만 세요. 영상이 없는 경기는 재생할 수 없어요.
         </p>
       )}
     </>

@@ -3,6 +3,16 @@
 최종 갱신 2026-10-10. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-10-16, Taste 리디자인 2차-① 공통 9개 — 스탯·박스스코어·내 기록·하이라이트):**
+- 네 화면을 Taste 점검 목록으로 감사한 뒤 공통 항목만 고쳤다(배치·숫자·기능 불변).
+- **불러오기 실패 ≠ 기록 없음**: 네 화면 모두 `error` 상태 + 「다시 시도」 버튼. 전엔 서버 오류가 「기록이 없습니다」로 보였다.
+- **화면 모양 스켈레톤**: `stats/StatsSkeleton.tsx` · `auth/MePageSkeleton.tsx` · 박스스코어 `BoxscoreSkeleton` · 하이라이트 `loading.tsx` 전용. 공용 `SubTabLoadingSkeleton` 은 손대지 않았다.
+- 팔레트 밖 색 → `--mm-series-*`(슛 분포·마일스톤 점). 박스스코어 팀색 폴백은 hex 상수(accentOrInk 가 hex 만 읽음).
+- 한글 `uppercase`/넓은 자간 제거 · 해요체 통일 · 칩=radius-chip / 버튼=radius-ctl · 보조 글 굵기 낮춤 · `btn-press`→`mm-press` · 손그림 검정 그림자→`mm-lift`/`--mm-shadow-*`.
+- 정렬 표(스탯·박스스코어): th 안 `<button>` + `scope`/`aria-sort`, 선수 칸 `<th scope="row">`. 스탯은 StatHeader 용어 툴팁이 버튼이라 정렬 버튼을 **나란히** 둔다(중첩 금지).
+- 하이라이트는 옛 `league/EmptyState` → `ui/EmptyState`. 마일스톤 나무 이름 한글화. ⚠ `src/components/highlights/*`(파란날개 공용)는 이번에 안 건드렸다 — 클러치 빨강·키보드 목록은 별도 결정 대기.
+- 남은 것(2차-②): 화면별 항목(박스스코어 카드 3겹·승자 표시 중복, 내 기록 노랑 과다·계정 카드 분리 등).
+
 **최근 결정 (2026-10-16, Taste 스킬 리디자인 1차 — 질감·깊이·눌림, 리그 화면 전용):**
 - 토큰(`globals.css` 끝): `--mm-shadow-sm/md/lg`(바탕색 갈색 기운 그림자 — 순검정 금지) · `--mm-edge-light`(카드 윗변 빛) · `--mm-glass` · `--mm-grain`(노이즈 타일) · `--mm-ground-glow`.
 - `.mm-shell` = 리그 레이아웃 바깥 상자. 바탕에 노이즈 + 위쪽 노랑 빛. ⚠ **별도 겹(::before·isolation)으로 만들지 말 것** — 쌓임 맥락이 생겨 팝업 순서가 바뀐다. 파란날개에는 안 걸린다.

@@ -10,7 +10,7 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
 //   · 공격 유형(슛 유형별 비중·야투율) · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
@@ -62,10 +62,10 @@ function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
     <span
       title={full}
       aria-label={full}
-      className="inline-flex items-center px-1.5 text-xs font-black tracking-wider whitespace-nowrap shrink-0 align-middle"
+      className="inline-flex items-center px-1.5 text-xs font-bold whitespace-nowrap shrink-0 align-middle"
       style={kind === 'TD'
-        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
     >{kind}</span>
   )
 }
@@ -245,6 +245,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
             <th
+              scope="col"
               className="t-th text-left px-3 sticky left-0 min-w-[150px]"
               style={{ background: 'var(--mm-panel-alt)' }}
             >선수 / 팀</th>
@@ -252,13 +253,24 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
               const isActive = sortKey === c.sortKey
               return (
                 <th key={c.key}
-                  onClick={() => c.sortKey && handleSort(c.sortKey)}
-                  className="t-th cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
+                  scope="col"
+                  aria-sort={c.sortKey ? (isActive ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none') : undefined}
+                  className={c.sortKey ? 't-th p-0' : 't-th'}
                   style={isActive ? { color: 'var(--mm-yellow-strong)' } : undefined}>
-                  {c.label}
-                  {c.sortKey && (isActive
-                    ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
-                    : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-30" />)}
+                  {c.sortKey ? (
+                    // 정렬은 th 안의 버튼으로 — th 에 onClick 을 걸면 키보드로 닿지 않는다
+                    <button
+                      type="button"
+                      onClick={() => handleSort(c.sortKey!)}
+                      className="mm-press w-full h-full inline-flex items-center justify-center whitespace-nowrap px-2 py-2.5 cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset"
+                      style={{ font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', borderRadius: 'var(--mm-radius-ctl)' }}
+                    >
+                      {c.label}
+                      {isActive
+                        ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" aria-hidden /> : <ChevronUp size={14} className="inline ml-0.5" aria-hidden />)
+                        : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-30" aria-hidden />}
+                    </button>
+                  ) : c.label}
                 </th>
               )
             })}
@@ -267,15 +279,13 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
         <tbody>
           {sorted.map((r, i) => {
             const rr = r as PlayerRow & DailyStat
-            const rowBg = i % 2 === 0 ? 'var(--mm-panel)' : 'var(--mm-panel-alt)'
             return (
               <tr
                 key={rr.player_id}
-                style={{ borderBottom: '1px solid var(--mm-rule)', background: rowBg }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
+                className={`transition-colors duration-200 hover:bg-[color:var(--mm-yellow-soft)] ${i % 2 === 0 ? 'bg-[color:var(--mm-panel)]' : 'bg-[color:var(--mm-panel-alt)]'}`}
+                style={{ borderBottom: '1px solid var(--mm-rule)' }}
               >
-                <td className="py-2 px-3 sticky left-0" style={{ background: 'inherit' }}>
+                <th scope="row" className="py-2 px-3 sticky left-0 text-left font-normal" style={{ background: 'inherit' }}>
                   <div className="flex items-center gap-2">
                     {/* 팀 색 점 대신 얼굴(팀 색 테두리) — 점(8px)보다 16px 넓을 뿐이라 이름 칸 min-w 안에 든다 */}
                     <Avatar src={rr.photo_url} name={rr.name} size={24} ringColor={ringOf(rr.team_color)} decorative />
@@ -288,7 +298,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                       {rr.team_name && <p className="text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
                     </div>
                   </div>
-                </td>
+                </th>
                 {COLS.map(c => {
                   const isActive = sortKey === c.sortKey
                   // 강조는 굵기(t-td-key = 700)로만. 예전엔 인라인 900 이라 토큰 하향을 안 탔다.
@@ -386,10 +396,12 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
             <button
               key={b.key}
               onClick={() => setSortKey(b.key)}
-              className="px-3 min-h-11 text-sm font-black transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              type="button"
+              aria-pressed={active}
+              className="mm-press px-3 min-h-11 text-sm font-bold transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
               style={active
-                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-                : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+                : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-chip)' }}
             >{b.label}</button>
           )
         })}
@@ -595,6 +607,8 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const [rolledUp, setRolledUp] = useState(false)
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
   const [loading, setLoading] = useState(true)
+  // 불러오기 실패 — 빈 날과 구분해 「다시 시도」를 준다
+  const [error, setError] = useState(false)
   // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
   const [expandedGame, setExpandedGame] = useState<string | null>(initialGameId ?? null)
   // 탭 기억(2026-10-15) — ?tab= 이 우선, 없으면 sessionStorage. 첫 그림이 로딩 스피너라(탭은 데이터 뒤에 그린다)
@@ -643,7 +657,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
   async function saveAsImage() {
     if (games.length === 0) {
-      toast.error('저장할 경기 데이터가 없습니다')
+      toast.error('저장할 경기 데이터가 없어요')
       return
     }
     setSavingImage(true)
@@ -662,10 +676,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       link.download = `boxscore-${date}.png`
       link.href = dataUrl
       link.click()
-      toast.success('박스스코어 공유 이미지 저장 완료')
+      toast.success('박스스코어 공유 이미지를 저장했어요')
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      toast.error(`이미지 저장 실패: ${msg}`)
+      toast.error(`이미지를 저장하지 못했어요: ${msg}`)
     } finally {
       setSavingImage(false)
       setRenderingShare(false)
@@ -687,23 +701,26 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/daily-boxscore?date=${date}`)
-      if (r.ok) {
-        const d = await r.json()
-        const gs: GameData[] = d.games ?? []
-        setGames(gs)
-        setRolledUp(d.rolled_up === true)
-        setDailyStats(d.daily_stats ?? [])
-        setAssistLinks(d.assist_links ?? [])
-        setShotTypes(d.shot_types ?? [])
-        // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
-        //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
-        if (initialGameId) {
-          const owner = gs.find(g => g.id === initialGameId || g.slot_ids?.includes(initialGameId))
-          if (owner && owner.id !== initialGameId) setExpandedGame(owner.id)
-        }
+      if (!r.ok) { setError(true); return }
+      const d = await r.json()
+      const gs: GameData[] = d.games ?? []
+      setGames(gs)
+      setRolledUp(d.rolled_up === true)
+      setDailyStats(d.daily_stats ?? [])
+      setAssistLinks(d.assist_links ?? [])
+      setShotTypes(d.shot_types ?? [])
+      // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
+      //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
+      if (initialGameId) {
+        const owner = gs.find(g => g.id === initialGameId || g.slot_ids?.includes(initialGameId))
+        if (owner && owner.id !== initialGameId) setExpandedGame(owner.id)
       }
+    } catch {
+      // 네트워크 실패 — 「경기가 없어요」로 보이면 안 된다(기록이 지워진 것처럼 읽힌다)
+      setError(true)
     } finally { setLoading(false) }
   }, [leagueId, date, initialGameId])
 
@@ -735,8 +752,8 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               disabled={savingImage}
               title="팀 카톡방 공유용 박스스코어 PNG 저장"
               aria-label="박스스코어 이미지 저장"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 disabled:opacity-50 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
-              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+              className="mm-press inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:opacity-50 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
             >
               {savingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
               <span className="hidden sm:inline">이미지 저장</span>
@@ -762,11 +779,11 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             <p className="text-xs sm:text-sm min-w-0 flex-1 flex items-center gap-1" style={{ color: 'var(--mm-ink-soft)' }}>
               <span className="shrink-0 whitespace-nowrap">
                 <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-                이날의 주인공 · <PlayerCardName id={hero.player_id} name={hero.name} className="font-black" hitArea={false} style={{ color: 'var(--mm-ink)' }} />
+                이날의 주인공 · <PlayerCardName id={hero.player_id} name={hero.name} className="font-bold" hitArea={false} style={{ color: 'var(--mm-ink)' }} />
               </span>
               {ddKinds.get(hero.player_id) && <span className="shrink-0"><DdChip kind={ddKinds.get(hero.player_id)!} /></span>}
               {hero.team_name && <span className="min-w-0 truncate" title={hero.team_name} style={{ color: 'var(--mm-muted)' }}>({hero.team_name})</span>}
-              <span className="shrink-0 font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
+              <span className="shrink-0 font-bold tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
             </p>
           </div>
         )
@@ -799,9 +816,23 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       )}
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
+        <BoxscoreSkeleton />
+      ) : error ? (
+        <EmptyState
+          icon={CloudOff}
+          title="기록을 불러오지 못했어요"
+          description="잠시 뒤 다시 시도해 주세요."
+          action={
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="mm-press inline-flex items-center min-h-11 px-4 text-sm font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
+            >다시 시도</button>
+          }
+        />
       ) : games.length === 0 ? (
-        <EmptyState icon={CalendarX} title="이 날 기록된 경기가 없습니다" />
+        <EmptyState icon={CalendarX} title="이 날 기록된 경기가 없어요" />
       ) : (
         <div>
 
@@ -879,8 +910,8 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     안 일어나므로, 이 안내가 **영영 안 떴다.** 접힌 카드에 셰브론 아이콘 하나뿐이라
                     맞대결 기록이 있는 줄도 몰랐다는 신고로 이어졌다(2026-09-18). 안내는 늘 띄운다. */}
                 <p className="text-xs -mt-1.5 mb-2.5" style={{ color: 'var(--mm-muted)' }}>
-                  {rolledUp && '쿼터별로 나눠 올린 경기는 한 경기로 묶어 보여줍니다. '}
-                  카드를 누르면 그 경기의 박스스코어가 열립니다.
+                  {rolledUp && '쿼터별로 나눠 올린 경기는 한 경기로 묶어 보여 줘요. '}
+                  카드를 누르면 그 경기의 박스스코어가 열려요.
                 </p>
 
                 {games.map(g => {
@@ -896,7 +927,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   return (
                     <div
                       key={g.id}
-                      className="overflow-hidden relative"
+                      className="mm-lift overflow-hidden relative"
                       style={{
                         background: !g.is_complete && g.is_started ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                         border: '1px solid var(--mm-rule)',
@@ -914,12 +945,11 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
                       {/* 경기 헤더 — 클릭하면 확장 */}
                       <button
-                        className="w-full text-left px-4 sm:px-5 py-3 sm:py-4 cursor-pointer transition-colors duration-200 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
+                        type="button"
+                        className="w-full text-left px-4 sm:px-5 py-3 sm:py-4 cursor-pointer transition-colors duration-200 min-h-11 hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset"
                         onClick={() => setExpandedGame(isExpanded ? null : g.id)}
                         aria-expanded={isExpanded}
                         aria-controls={`game-details-${g.id}`}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                       >
                         {/* 상단 라인: 슬롯 · 상태 배지 · YT · 화살표 */}
                         <div className="flex items-center gap-2 mb-2">
@@ -929,25 +959,25 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           </span>
                           {g.is_complete && (
                             <span
-                              className="text-xs font-black uppercase tracking-widest shrink-0"
-                              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', padding: '2px 6px' }}
+                              className="text-xs font-bold shrink-0"
+                              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', padding: '2px 8px', borderRadius: 'var(--mm-radius-chip)' }}
                             >완료</span>
                           )}
                           {!g.is_complete && g.is_started && (
                             <span
-                              className="text-xs font-black uppercase tracking-widest shrink-0"
-                              style={{ background: 'var(--mm-panel)', color: 'var(--mm-live)', border: '1px solid var(--mm-live)', padding: '1px 6px' }}
+                              className="text-xs font-bold shrink-0"
+                              style={{ background: 'var(--mm-panel)', color: 'var(--mm-live)', border: '1px solid var(--mm-live)', padding: '1px 8px', borderRadius: 'var(--mm-radius-chip)' }}
                             >진행 중</span>
                           )}
                           {!g.is_started && (
-                            <span className="text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: 'var(--mm-muted)' }}>예정</span>
+                            <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--mm-muted)' }}>예정</span>
                           )}
                           <div className="ml-auto flex items-center gap-2 shrink-0">
                             {videoList.length > 0 && <Youtube size={14} style={{ color: 'var(--mm-live)' }} aria-label="경기 영상 있음" />}
                             {/* 아이콘만으로는 눌러서 열 수 있다는 게 안 읽힌다 — 글자로 적는다.
                                 모바일에서 숨기지 않는다(이 화면을 실제로 보는 곳이 휴대폰이다).
                                 좁은 폭에서는 팀명 쪽이 truncate 되므로 이 글자가 밀어내지 않는다. */}
-                            <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+                            <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
                               {isExpanded ? '접기' : '박스스코어'}
                             </span>
                             {isExpanded
@@ -1069,7 +1099,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           <div className="px-4 sm:px-5 pb-4">
                             {g.players.length > 0
                               ? <GameBoxscore game={g} onPlayerPick={pickPlayer} />
-                              : <p className="text-sm text-center py-4" style={{ color: 'var(--mm-muted)' }}>기록된 선수 데이터가 없습니다</p>}
+                              : <p className="text-sm text-center py-4" style={{ color: 'var(--mm-muted)' }}>기록된 선수 데이터가 없어요</p>}
                           </div>
                         </div>
                       )}
@@ -1117,23 +1147,25 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   <button
                     onClick={() => setTeamFilter('all')}
                     aria-pressed={teamFilter === 'all'}
-                    className="px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    type="button"
+                    className="mm-press px-3 py-2 text-xs font-bold transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                     style={teamFilter === 'all'
-                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-                      : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+                      : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
                   >전체</button>
                   {teamList.map(t => (
                     <button
                       key={t.id}
                       onClick={() => setTeamFilter(t.id)}
                       aria-pressed={teamFilter === t.id}
-                      className="px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                      type="button"
+                      className="mm-press px-3 py-2 text-xs font-bold transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                       style={teamFilter === t.id
                         // 팀 컬러가 흰색 등 밝은 색이면 하드코딩 '#fff' 텍스트가 사라진다 →
                         // 배경 밝기에 맞춰 textOnBg 로 대비색 자동 결정 (2026-08-08 핫픽스).
                         // t.color 가 없어 mm-yellow 폴백일 땐 기존처럼 mm-black 유지.
-                        ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: t.color ? textOnBg(t.color) : 'var(--mm-black)' }
-                        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                        ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: t.color ? textOnBg(t.color) : 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+                        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
                     >{t.name}</button>
                   ))}
                 </div>
@@ -1153,7 +1185,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     {hasDd && <DdLegend />}
                   </>
                 )
-                : <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>집계된 스탯이 없습니다</p>}
+                : <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>집계된 스탯이 없어요</p>}
             </div>
             )
           })()}
@@ -1320,10 +1352,10 @@ function GameVideos({ videos, label }: { videos: { slot_num: number; quarter?: n
               role="tab"
               aria-selected={i === idx}
               onClick={() => setIdx(i)}
-              className="px-3 min-h-11 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              className="mm-press px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
               style={i === idx
-                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
-                : { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+                : { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
             >
               {quarterLabel(v.quarter ?? i + 1)}
             </button>
@@ -1357,6 +1389,38 @@ function GameVideos({ videos, label }: { videos: { slot_num: number; quarter?: n
   )
 }
 
+// 팀 색이 없는 팀의 비교 막대 색. accentOrInk 가 hex 만 파싱해서 CSS 변수를 못 넘긴다 —
+//   값은 globals.css 라이트 테마 토큰 그대로(--mm-live / --mm-dr). 토큰을 바꾸면 여기도 같이 고친다.
+const FALLBACK_COLOR_A = '#C4362B' // = --mm-live (light)
+const FALLBACK_COLOR_B = '#175278' // = --mm-dr (light)
+
+// 불러오는 동안의 자리 — 탭 바 · 팀 전적 카드 3장 · 경기 카드 4줄. 실제 화면과 같은 높이로 둬 그려질 때 튀지 않는다.
+function BoxscoreSkeleton() {
+  const block = (cls: string, radius = 'var(--mm-radius-ctl)') => (
+    <div className={`mm-shimmer ${cls}`} style={{ borderRadius: radius }} />
+  )
+  return (
+    <div role="status" aria-label="박스스코어 불러오는 중" aria-busy="true">
+      <div className="px-4 lg:px-6 py-2.5 flex gap-1.5 overflow-hidden" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+        {[0, 1, 2, 3, 4].map(i => <div key={i} className="shrink-0">{block('h-9 w-20', 'var(--mm-radius-chip)')}</div>)}
+      </div>
+      <div className="px-4 py-4 lg:px-6 lg:py-5 space-y-6">
+        <div>
+          {block('h-6 w-32 mb-2.5')}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {[0, 1, 2].map(i => <div key={i}>{block('h-[76px] w-full')}</div>)}
+          </div>
+        </div>
+        <div className="space-y-3">
+          {block('h-6 w-28')}
+          {[0, 1, 2, 3].map(i => <div key={i}>{block('h-[88px] w-full')}</div>)}
+        </div>
+      </div>
+      <span className="sr-only">불러오는 중이에요</span>
+    </div>
+  )
+}
+
 function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; games: GameData[] }) {
   void dailyStats  // games 기반 head-to-head 집계만 사용
   const teams = extractTeams(games)
@@ -1381,7 +1445,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
   if (pairs.length === 0) {
     return (
       <div className="text-center py-12" style={{ color: 'var(--mm-muted)' }}>
-        <p className="text-sm">이날 두 팀이 맞붙은 기록이 없습니다.</p>
+        <p className="text-sm">이날 두 팀이 맞붙은 기록이 없어요.</p>
       </div>
     )
   }
@@ -1392,17 +1456,19 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
   const h2h = aggregateHeadToHead(games, activePair.a, activePair.b, teamMeta)
   const A = h2h.A
   const B = h2h.B
-  const colorA = A.color ?? '#C4362B' // accentOrInk 가 hex 만 파싱한다 — 토큰 못 씀
-  const colorB = B.color ?? '#2563eb'
+  const colorA = A.color ?? FALLBACK_COLOR_A
+  const colorB = B.color ?? FALLBACK_COLOR_B
 
   return (
     <div className="space-y-4">
       {!allComplete && (
         <div
-          className="text-xs px-3 py-2 font-bold"
+          role="note"
+          className="flex items-start gap-1.5 text-xs px-3 py-2 font-medium"
           style={{ color: 'var(--mm-ink)', background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-ctl)' }}
         >
-          ⚠ 이 날의 일부 경기가 아직 마감되지 않았습니다 — 최종 수치는 마감 후 확정됩니다.
+          <AlertTriangle size={14} aria-hidden className="shrink-0 mt-px" style={{ color: 'var(--mm-yellow-strong)' }} />
+          <span>아직 마감 안 된 경기가 있어서, 숫자는 마감 뒤에 확정돼요.</span>
         </div>
       )}
 
@@ -1426,10 +1492,11 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
                 key={p.key}
                 onClick={() => setActivePairKey(p.key)}
                 aria-pressed={active}
-                className="px-3 py-2.5 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                type="button"
+                className="mm-press px-3 py-2.5 text-xs font-bold transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                 style={active
-                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-                  : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }
+                  : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
               >
                 <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colA }} />
                 <span className="truncate min-w-0" title={nameA}>{nameA}</span>
@@ -1448,9 +1515,9 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
             <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{A.name}</span>
             {' vs '}
             <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{B.name}</span>
-            {' — 이 날짜에 맞붙은 경기가 없습니다.'}
+            {', 이 날짜에 맞붙은 경기가 없어요.'}
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>두 팀이 실제 맞붙은 경기 기록만 집계됩니다.</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>두 팀이 실제로 맞붙은 경기 기록만 세요.</p>
         </div>
       ) : (
         // 팀 탭 「누적 맞대결」과 같이 폭을 묶어 가운데로 — PC 전폭이면 항목명과 양끝 숫자가 너무 멀다

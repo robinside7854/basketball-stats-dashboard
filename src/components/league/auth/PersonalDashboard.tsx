@@ -17,7 +17,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import {
   Trophy, Film, User as UserIcon, ChevronRight, IdCard, Flame, X, KeyRound,
-  CalendarCheck, Pin, Play,
+  CalendarCheck, Pin, Play, AlertCircle,
 } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
@@ -27,6 +27,7 @@ import GrowBar from '@/components/league/ui/GrowBar'
 import Avatar from '@/components/league/ui/Avatar'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
+import { DashboardCardsSkeleton } from './MePageSkeleton'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
 import { Ring } from '@/components/league/ui/viz'
@@ -83,8 +84,9 @@ interface Props {
   base?: string
 }
 
-const METRIC_COLOR: Record<Chaser['metric'], string> = {
-  pts: '#F59E0B', reb: '#F97316', ast: '#06B6D4', stl: '#10B981', blk: '#EF4444',
+// 지표 표시 점 — 차트 팔레트 토큰만 쓴다(글자색은 ink — 2026-10-16 Taste 리디자인)
+const METRIC_DOT: Record<Chaser['metric'], string> = {
+  pts: 'var(--mm-series-1)', reb: 'var(--mm-series-2)', ast: 'var(--mm-series-3)', stl: 'var(--mm-series-4)', blk: 'var(--mm-series-5)',
 }
 const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블락' }
 
@@ -99,6 +101,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
   const { user, loading: authLoading, refresh } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
   // 내 선수 카드 — 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext). 지금 분기로 연다.
   const openPlayerCard = useOpenPlayerCard()
   const { currentQuarter } = useLeagueQuarter()
@@ -115,9 +118,14 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
   const load = useCallback(async () => {
     if (!user) return
     setLoading(true)
+    setError(false)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/auth/dashboard`, { cache: 'no-store' })
-      if (r.ok) setData(await r.json())
+      if (!r.ok) throw new Error(String(r.status))
+      setData(await r.json())
+    } catch {
+      // 실패하면 「불러오는 중」에 멈추지 않고 다시 시도할 수 있게 알린다
+      setError(true)
     } finally { setLoading(false) }
   }, [leagueId, user])
 
@@ -163,9 +171,12 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
                   className="font-jersey font-black text-xl md:text-2xl truncate max-w-full"
                   style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}
                 />
-                <div className="text-xs md:text-sm font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-                  {user.number != null ? `#${user.number} · ` : ''}나의 기록
-                </div>
+                {/* 「나의 기록」은 페이지 제목(내 기록)과 겹쳐 뺐다 — 등번호만 남긴다 */}
+                {user.number != null && (
+                  <div className="text-xs md:text-sm font-medium mt-0.5 tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+                    #{user.number}
+                  </div>
+                )}
               </div>
             </header>
 
@@ -187,7 +198,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
                 <IdCard size={20} aria-hidden />
                 내 선수 카드 열기
               </button>
-              <p className="text-xs font-bold mt-2 text-center break-keep" style={{ color: 'var(--mm-muted)' }}>
+              <p className="text-xs font-medium mt-2 text-center break-keep" style={{ color: 'var(--mm-muted)' }}>
                 하루 평균 · 순위 · 슛 · 연속 기록 — {currentQuarter ? `${String(currentQuarter.year).slice(2)}.${currentQuarter.quarter}Q 기준으로 열려요` : '전체 기간으로 열려요'}
               </p>
             </div>
@@ -201,8 +212,8 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
                 <UserIcon size={14} aria-hidden />
                 <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
                 {user.is_default_password && (
-                  <span className="inline-flex items-center text-xs font-black px-1.5 py-0.5 rounded-sm"
-                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
+                  <span className="inline-flex items-center text-xs font-black px-1.5 py-0.5"
+                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
                     초기 비번
                   </span>
                 )}
@@ -210,8 +221,9 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
               <button
                 type="button"
                 onClick={() => setPwOpen(true)}
-                className="inline-flex items-center gap-1.5 min-h-[36px] max-sm:min-h-11 px-3 py-1.5 text-xs font-black rounded-sm cursor-pointer transition-colors"
+                className="mm-press inline-flex items-center gap-1.5 min-h-[36px] max-sm:min-h-11 px-3 py-1.5 text-xs font-black cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                 style={{
+                  borderRadius: 'var(--mm-radius-ctl)',
                   background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                   color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',
                   border: `1px solid ${user.is_default_password ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
@@ -225,10 +237,27 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
         </div>
 
         {/* ── 오른쪽: 나에게만 있는 것 ── */}
-        {!ready ? (
-          <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }} role="status">
-            로딩중…
-          </div>
+        {error && !loading ? (
+          <SectionCard variant="standalone" pad="none">
+            <EmptyState
+              variant="compact"
+              icon={AlertCircle}
+              title="기록을 불러오지 못했어요"
+              description="잠시 뒤 다시 시도해 주세요."
+              action={
+                <button
+                  type="button"
+                  onClick={() => { load() }}
+                  className="mm-press inline-flex items-center justify-center min-h-11 px-4 text-sm font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+                >
+                  다시 시도
+                </button>
+              }
+            />
+          </SectionCard>
+        ) : !ready ? (
+          <DashboardCardsSkeleton />
         ) : (
           <div className="min-w-0 space-y-4 lg:space-y-5">
             <AttendanceCard attendance={data.attendance} quarterLabel={data.quarter_label ?? null} />
@@ -267,7 +296,7 @@ function CardTitle({ icon: Icon, title, sub, right }: {
     <div className="flex items-center gap-1.5 flex-wrap mb-3">
       <Icon size={16} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
       <h3 className="font-black text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{title}</h3>
-      {sub && <span className="text-xs font-bold ml-1 break-keep" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
+      {sub && <span className="text-xs font-medium ml-1 break-keep" style={{ color: 'var(--mm-muted)' }}>{sub}</span>}
       {right && <span className="ml-auto">{right}</span>}
     </div>
   )
@@ -318,11 +347,11 @@ function AttendanceCard({ attendance, quarterLabel }: {
                 {periodName(period)} {denom(cur)}일 중 <b className="font-black">{cur.attended}</b>일
               </div>
               {joinedMid && joinedOn && (
-                <div className="text-xs font-bold tabular-nums break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
+                <div className="text-xs font-medium tabular-nums break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
                   첫 기록 {formatDate(joinedOn)}부터 셌어요 · 그 전 {cur.total - denom(cur)}일은 빼요
                 </div>
               )}
-              <div className="text-xs font-bold tabular-nums break-keep" style={{ color: 'var(--mm-muted)' }}>
+              <div className="text-xs font-medium tabular-nums break-keep" style={{ color: 'var(--mm-muted)' }}>
                 {periodName(otherPeriod)} {other.attended} / {denom(other)}일 · {pct(other.attended, denom(other))}%
               </div>
               {(attendance.current_streak >= 2 || attendance.longest_streak >= 2) && (
@@ -354,7 +383,7 @@ function AttendanceCard({ attendance, quarterLabel }: {
                   />
                 ))}
               </ul>
-              <div className="flex items-center gap-3 mt-2 text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+              <div className="flex items-center gap-3 mt-2 text-[11px] font-medium" style={{ color: 'var(--mm-muted)' }}>
                 <span className="inline-flex items-center gap-1">
                   <span aria-hidden className="inline-block w-2.5 h-2.5" style={{ borderRadius: 2, background: 'var(--mm-yellow-strong)' }} />출전
                 </span>
@@ -387,8 +416,8 @@ function BestShotsCard({ clips, playerName, allHref, weekly, recentHref }: {
           right={
             <Link
               href={allHref}
-              className="inline-flex items-center gap-0.5 min-h-[36px] text-xs font-bold cursor-pointer hover:underline"
-              style={{ color: 'var(--mm-ink-soft)' }}
+              className="mm-press inline-flex items-center gap-0.5 min-h-[36px] text-xs font-bold cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+              style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
             >
               전체 하이라이트 <ChevronRight size={14} aria-hidden />
             </Link>
@@ -479,7 +508,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
         {/* 블러 처리된 가짜 스탯 실루엣 (장식) */}
         <div aria-hidden className="hidden sm:grid grid-cols-5 gap-1.5 w-[220px] shrink-0" style={{ filter: 'blur(3px)', opacity: 0.5 }}>
           {[0, 1, 2, 3, 4].map(i => (
-            <div key={i} className="rounded-md border" style={{ background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', height: 72 }} />
+            <div key={i} className="border" style={{ background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', height: 72, borderRadius: 'var(--mm-radius-ctl)' }} />
           ))}
         </div>
         <div className="flex-1 min-w-0">
@@ -489,19 +518,21 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
             <br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
           </p>
           <button
+            type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-            className="mm-press mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
-            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
+            className="mm-press mt-3 inline-flex items-center gap-1.5 px-4 py-2 font-bold text-sm cursor-pointer hover:brightness-95 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             로그인 · 가입 신청 <ChevronRight size={16} />
           </button>
         </div>
         {onDismiss && (
           <button
+            type="button"
             onClick={onDismiss}
             aria-label="닫기"
-            className="absolute top-2 right-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded cursor-pointer transition-colors"
-            style={{ color: 'var(--mm-muted)' }}
+            className="mm-press absolute top-2 right-2 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+            style={{ color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             <X size={16} />
           </button>
@@ -519,7 +550,6 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
         borderTop: '1px solid var(--mm-rule)',
         background: available ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
         color: available ? 'var(--mm-black)' : 'var(--mm-muted)',
-        opacity: available ? 1 : 0.65,
       }}
     >
       <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
@@ -528,7 +558,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
           <div className="font-black text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
-          <div className="text-xs md:text-sm font-bold mt-0.5">
+          <div className="text-xs md:text-sm font-medium mt-0.5">
             {available ? `${formatDate(date)} 경기 기록 · 내 하이라이트 바로 보기` : '아직 참여 기록이 없어요'}
           </div>
         </div>
@@ -537,7 +567,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
     </div>
   )
   if (!available || !href) return content
-  return <Link href={href} className="mm-press block cursor-pointer transition-all hover:brightness-95">{content}</Link>
+  return <Link href={href} className="mm-press block cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]">{content}</Link>
 }
 
 function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: number | string | null }) {
@@ -580,12 +610,12 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
         <span className="font-black text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
-        <span className="text-xs font-bold ml-1" style={{ color: 'var(--mm-muted)' }}>
+        <span className="text-xs font-medium ml-1" style={{ color: 'var(--mm-muted)' }}>
           가까운 것부터
         </span>
       </div>
       {shown.length === 0 ? (
-        <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
+        <EmptyState variant="compact" icon={Trophy} title="아직 통계 데이터가 부족해요" />
       ) : (
         // PC 두 칸 — 오른쪽 칼럼 전폭이면 지표명과 「현재 / 목표」가 양 끝으로 벌어졌다
         <div className="space-y-2.5 md:space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-3">
@@ -594,9 +624,10 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
             return (
               <div key={c.metric}>
                 <div className="flex items-center justify-between text-xs md:text-sm mb-1">
-                  <span className="font-bold" style={{ color: METRIC_COLOR[c.metric] }}>
+                  <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: 'var(--mm-ink)' }}>
+                    <span aria-hidden className="inline-block w-2 h-2 shrink-0" style={{ borderRadius: 'var(--mm-radius-chip)', background: METRIC_DOT[c.metric] }} />
                     <b>{c.metricLabel}</b>
-                    <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
+                    <span style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
                   </span>
                   <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
                     {/* 누적 기록만 카운트업한다 — 목표치(nextThreshold)와 남은 수(-remaining)는

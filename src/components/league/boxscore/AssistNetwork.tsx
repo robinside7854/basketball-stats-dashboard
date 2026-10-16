@@ -47,13 +47,13 @@ const OPTIMIZABLE = /^https:\/\/[^/]+\.supabase\.(co|in)\//
 const nodePhotoHref = (src: string) => OPTIMIZABLE.test(src) ? `/_next/image?url=${encodeURIComponent(src)}&w=96&q=75` : src
 
 const chipStyle = (on: boolean): CSSProperties => on
-  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
-  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
+  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }
 
 type Edge = { from: string; to: string; count: number }
 type TeamNet = { key: string; name: string; color: string | null; edges: Edge[]; total: number }
 
-export default function AssistNetwork({ links, games, players, emptyTitle = '이날 기록된 어시스트가 없습니다.' }: {
+export default function AssistNetwork({ links, games, players, emptyTitle = '이날 기록된 어시스트가 없어요.' }: {
   links: AssistLink[]
   games: AssistGame[]
   players: Map<string, AssistPlayer>
@@ -101,7 +101,7 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
   return (
     <div className="space-y-5">
       <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-        누가 누구의 득점을 도왔는지 보여줍니다. 화살표는 패스한 선수 → 득점한 선수, 선이 굵을수록 자주 이어졌습니다.
+        누가 누구의 득점을 도왔는지 보여 줘요. 화살표는 패스한 선수에서 득점한 선수로 가고, 선이 굵을수록 자주 이어졌어요.
       </p>
 
       {/* 범위 — 전체 / 경기별 */}
@@ -111,7 +111,7 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
             type="button"
             onClick={() => setScope('all')}
             aria-pressed={scope === 'all'}
-            className="shrink-0 px-3 min-h-11 text-xs font-black tracking-wide cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+            className="mm-press shrink-0 px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
             style={chipStyle(scope === 'all')}
           >전체</button>
           {games.map(g => {
@@ -123,10 +123,10 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
                 type="button"
                 onClick={() => setScope(g.id)}
                 aria-pressed={on}
-                className="shrink-0 px-3 min-h-11 text-xs font-black tracking-wide whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                className="mm-press shrink-0 px-3 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                 style={{ ...chipStyle(on), opacity: has || on ? 1 : 0.6 }}
               >
-                {g.numLabel} <span className="font-bold">{g.homeName} vs {g.awayName}</span>
+                {g.numLabel} <span className="font-semibold">{g.homeName} vs {g.awayName}</span>
               </button>
             )
           })}
@@ -134,7 +134,7 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
       )}
 
       {teams.length === 0 ? (
-        <EmptyState variant="compact" framed title="이 경기에는 기록된 어시스트가 없습니다." />
+        <EmptyState variant="compact" framed title="이 경기에는 기록된 어시스트가 없어요." />
       ) : (
         <>
           {/* 베스트 콤비 */}
@@ -305,7 +305,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
       </svg>
 
       {hidden > 0 && (
-        <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>그림에는 많이 관여한 {MAX_NODES}명만 그렸습니다 (외 {hidden}명은 아래 목록에 있습니다).</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>그림에는 많이 관여한 {MAX_NODES}명만 그렸어요. 나머지 {hidden}명은 아래 목록에 있어요.</p>
       )}
 
       {/* 글 목록 — 그림과 같은 내용. 그림이 읽히지 않을 때의 대안이기도 하다. */}

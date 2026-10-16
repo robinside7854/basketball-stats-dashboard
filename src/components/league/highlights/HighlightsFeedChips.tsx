@@ -19,7 +19,7 @@
 //   · 최근 날짜 3개 — 날짜 시트를 열지 않고 한 번에. 나머지 날짜는 그대로 「날짜 ▾」 시트에 있다.
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { CalendarDays, ChevronDown, Pin, Search, Trophy, User, X, Medal } from 'lucide-react'
+import { CalendarDays, ChevronDown, Pin, Search, Trophy, User, X, Medal, RotateCw } from 'lucide-react'
 import { Avatar, Chip, Sheet } from '@/components/league/ui'
 import { formatFeedDate } from './feedFormat'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
@@ -60,6 +60,8 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   const [dateOpen, setDateOpen] = useState(false)
   const [playerOpen, setPlayerOpen] = useState(false)
   const [players, setPlayers] = useState<FeedPlayerLabel[] | null>(null)
+  // 목록을 못 받았을 때 — 빈 목록([])으로 두면 「맞는 선수가 없어요」로 읽혀 고장이 안 보인다
+  const [loadError, setLoadError] = useState(false)
   const [query, setQuery] = useState('')
   // 내 선수 id — 리그 로그인(회원)일 때만. 게이트 화면 등 프로바이더 밖이면 null(칩을 안 그린다)
   const myId = useOptionalCurrentUser()?.user?.player_id ?? null
@@ -69,10 +71,13 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   // 선수 목록 — 시트를 열 때, 또는 칩 이름을 서버가 모를 때(안쪽 필터에서 선수를 바꾼 경우)만 받는다
   const needPlayers = playerOpen || (!!playerId && knownPlayer?.id !== playerId)
   useEffect(() => {
-    if (!needPlayers || players) return
+    if (!needPlayers || players || loadError) return
     let cancelled = false
     fetch(`/api/leagues/${leagueId}/players`)
-      .then(r => (r.ok ? r.json() : []))
+      .then(r => {
+        if (!r.ok) throw new Error(`players ${r.status}`)
+        return r.json()
+      })
       .then((d: ApiPlayer[]) => {
         if (cancelled) return
         setPlayers(
@@ -82,9 +87,9 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
             .sort((a, b) => ((a.number ?? 999) - (b.number ?? 999)) || a.name.localeCompare(b.name, 'ko')),
         )
       })
-      .catch(() => { if (!cancelled) setPlayers([]) })
+      .catch(() => { if (!cancelled) setLoadError(true) })
     return () => { cancelled = true }
-  }, [needPlayers, players, leagueId])
+  }, [needPlayers, players, loadError, leagueId])
 
   const currentPlayer: FeedPlayerLabel | null = useMemo(() => {
     if (!playerId) return null
@@ -198,7 +203,7 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
                 <button
                   type="button"
                   onClick={() => { setDateOpen(false); go({ f: 'all', date: null }) }}
-                  className="w-full flex items-center gap-2 min-h-11 px-2 text-sm font-bold cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)]"
+                  className="mm-press w-full flex items-center gap-2 min-h-11 px-2 text-sm font-bold cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={{ color: 'var(--mm-muted)' }}
                 >
                   <X size={16} aria-hidden /> 날짜 해제
@@ -213,7 +218,7 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
                     type="button"
                     onClick={() => { setDateOpen(false); go({ f: 'all', date: d.date }) }}
                     aria-current={active || undefined}
-                    className="w-full flex items-center justify-between gap-3 min-h-11 px-2 text-sm cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)]"
+                    className="mm-press w-full flex items-center justify-between gap-3 min-h-11 px-2 text-sm cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                     style={active ? { background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' } : { color: 'var(--mm-ink)' }}
                   >
                     <span className="font-bold">{formatFeedDate(d.date, true)}</span>
@@ -245,14 +250,33 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
             <button
               type="button"
               onClick={() => { setPlayerOpen(false); go({ player: null }) }}
-              className="w-full flex items-center gap-2 min-h-11 px-2 text-sm font-bold cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)]"
+              className="mm-press w-full flex items-center gap-2 min-h-11 px-2 text-sm font-bold cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
               style={{ color: 'var(--mm-muted)' }}
             >
               <X size={16} aria-hidden /> 선수 해제
             </button>
           )}
-          {players == null ? (
-            <p className="text-sm py-4 text-center" style={{ color: 'var(--mm-muted)' }}>불러오는 중…</p>
+          {loadError ? (
+            <div role="alert" className="flex flex-col items-center gap-3 py-6 text-center">
+              <p className="text-sm font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>선수 목록을 불러오지 못했어요</p>
+              <button
+                type="button"
+                onClick={() => setLoadError(false)}
+                className="mm-press inline-flex items-center gap-1.5 min-h-11 px-4 text-sm font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+              >
+                <RotateCw size={14} aria-hidden /> 다시 시도
+              </button>
+            </div>
+          ) : players == null ? (
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1" aria-busy="true" aria-label="선수 목록 불러오는 중">
+              {Array.from({ length: 6 }, (_, i) => (
+                <li key={i} className="flex items-center gap-2.5 min-h-12 px-2" aria-hidden>
+                  <span className="mm-shimmer shrink-0 rounded-full" style={{ width: 32, height: 32 }} />
+                  <span className="mm-shimmer h-3.5 rounded-full" style={{ width: `${40 + ((i * 17) % 35)}%` }} />
+                </li>
+              ))}
+            </ul>
           ) : filteredPlayers.length === 0 ? (
             <p className="text-sm py-4 text-center" style={{ color: 'var(--mm-muted)' }}>맞는 선수가 없어요</p>
           ) : (
@@ -269,7 +293,7 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
                         go({ f: kind === 'best' ? 'best' : 'all', player: p.id })
                       }}
                       aria-current={active || undefined}
-                      className="w-full flex items-center gap-2.5 min-h-12 px-2 text-left cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)]"
+                      className="mm-press w-full flex items-center gap-2.5 min-h-12 px-2 text-left cursor-pointer rounded hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                       style={active ? { background: 'var(--mm-yellow-soft)' } : undefined}
                     >
                       <Avatar src={p.photo_url} name={p.name} size={32} decorative />
