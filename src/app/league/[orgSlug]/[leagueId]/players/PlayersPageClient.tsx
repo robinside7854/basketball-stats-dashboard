@@ -115,7 +115,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
                 <button
                   type="button"
                   onClick={() => setAddOpen(true)}
-                  className="inline-flex items-center gap-1 px-3 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-[filter] duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  className="mm-press inline-flex items-center gap-1 px-3 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-[filter] duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)' }}
                 >
                   <Plus size={16} aria-hidden />선수 등록
@@ -153,7 +153,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
       ) : !data ? (
         <CardGrid>
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="aspect-[4/5.6] animate-pulse" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }} />
+            <div key={i} className="aspect-[4/5.6] mm-shimmer" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }} />
           ))}
         </CardGrid>
       ) : list.length === 0 ? (
@@ -223,7 +223,7 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen }: {
       type="button"
       onClick={onOpen}
       disabled={!onOpen}
-      className="group text-left min-w-0 flex flex-col overflow-hidden cursor-pointer transition-[transform,border-color,box-shadow] duration-200 border border-[color:var(--mm-rule)] hover:-translate-y-0.5 hover:border-[color:var(--mm-yellow-strong)] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[color:var(--mm-yellow-strong)] active:translate-y-0 disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:border-[color:var(--mm-rule)] disabled:hover:shadow-none motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      className="group text-left min-w-0 flex flex-col overflow-hidden cursor-pointer transition-[translate,scale,border-color,box-shadow] duration-200 border border-[color:var(--mm-rule)] hover:-translate-y-0.5 hover:border-[color:var(--mm-yellow-strong)] shadow-[var(--mm-shadow-sm)] hover:shadow-[var(--mm-shadow-md)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[color:var(--mm-yellow-strong)] active:translate-y-0 disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:border-[color:var(--mm-rule)] disabled:hover:shadow-none motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       style={{ background: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-card)' }}
       aria-label={`${p.name} 선수 카드 열기`}
     >
@@ -237,7 +237,7 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen }: {
               fill
               sizes="(min-width:1280px) 20vw, (min-width:1024px) 25vw, (min-width:640px) 33vw, 50vw"
               preload={priority}
-              className="object-cover object-top transition-[filter] duration-200 group-hover:brightness-105"
+              className="object-cover object-top transition-[filter,scale] duration-300 ease-out group-hover:brightness-105 group-hover:scale-[1.03] motion-reduce:group-hover:scale-100"
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element -- 옵티마이저 허용 호스트가 아님(Avatar 와 같은 규칙)
@@ -364,7 +364,7 @@ function AddPlayerSheet({ open, onClose, leagueId, headers, onAdded }: {
           <button
             type="submit"
             disabled={saving || !name.trim()}
-            className="flex-1 inline-flex items-center justify-center gap-1 min-h-11 text-sm font-black cursor-pointer transition-[filter] duration-200 hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+            className="mm-press flex-1 inline-flex items-center justify-center gap-1 min-h-11 text-sm font-black cursor-pointer transition-[filter] duration-200 hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
             style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)' }}
           >
             {saving && <Loader2 size={14} className="animate-spin" aria-hidden />}등록

@@ -65,7 +65,7 @@ export default function Chip(props: ChipProps) {
     const { onClick, selected = false, disabled = false, ariaLabel } = props
     const sizeCls = size === 'sm' ? 'min-h-9 px-3 text-xs gap-1' : 'min-h-11 px-4 text-sm gap-1.5'
     const style: CSSProperties = selected
-      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }
+      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', boxShadow: 'var(--mm-shadow-sm)' }
       : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
     return (
       <button
@@ -75,7 +75,7 @@ export default function Chip(props: ChipProps) {
         aria-pressed={selected}
         aria-label={ariaLabel}
         title={title}
-        className={`inline-flex items-center justify-center shrink-0 whitespace-nowrap tabular-nums cursor-pointer transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1 focus-visible:ring-offset-[color:var(--mm-ground)] ${selected ? 'font-black' : 'font-semibold hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-muted)]'} ${sizeCls} ${className}`}
+        className={`mm-press inline-flex items-center justify-center shrink-0 whitespace-nowrap tabular-nums cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1 focus-visible:ring-offset-[color:var(--mm-ground)] ${selected ? 'font-black' : 'font-semibold hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-muted)]'} ${sizeCls} ${className}`}
         style={{ ...style, borderRadius: 'var(--mm-radius-chip)' }}
       >
         {iconEl}

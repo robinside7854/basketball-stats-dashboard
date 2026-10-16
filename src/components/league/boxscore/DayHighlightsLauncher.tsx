@@ -159,7 +159,7 @@ export default function DayHighlightsLauncher({
         onClick={toggle}
         aria-expanded={open}
         aria-controls="day-highlights-panel"
-        className="w-full inline-flex items-center justify-between sm:justify-center gap-2 min-h-11 px-3 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+        className="mm-press w-full inline-flex items-center justify-between sm:justify-center gap-2 min-h-11 px-3 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
         style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
       >
         <span className="inline-flex items-center gap-2">
@@ -216,7 +216,7 @@ export default function DayHighlightsLauncher({
                 // ⚠ 동기 호출 — Fullscreen API 는 이 탭(사용자 제스처) 안에서만 열린다
                 onClick={() => playerRef.current?.openImmersive()}
                 disabled={current.length === 0}
-                className="w-full inline-flex items-center justify-center gap-2 min-h-12 px-4 text-base font-black cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.99] disabled:opacity-40 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
+                className="mm-press w-full inline-flex items-center justify-center gap-2 min-h-12 px-4 text-base font-black cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.99] disabled:opacity-40 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}
                 aria-label={`${current.length}개 클립을 전체화면으로 이어서 재생`}
               >

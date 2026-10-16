@@ -713,7 +713,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
 
   return (
-    <div className="mm-brand overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
+    <div className="mm-brand overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)' }}>
       {/* 요약 서브헤더 — 경기 수 · 이미지 저장 버튼 */}
       <div
         className="shrink-0 px-4 lg:px-6 py-2.5 flex items-center justify-between gap-2"
@@ -1058,7 +1058,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                             <div className="px-4 sm:px-5 pt-3 flex justify-end">
                               <Link
                                 href={`/league/${orgSlug}/${leagueId}/record?date=${date}&game=${g.slot_ids?.[0] ?? g.id}&log=1`}
-                                className="inline-flex items-center gap-1.5 min-h-11 px-3 text-sm font-bold whitespace-nowrap hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                                className="mm-press inline-flex items-center gap-1.5 min-h-11 px-3 text-sm font-bold whitespace-nowrap hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                                 style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
                               >
                                 <PenLine size={14} aria-hidden />

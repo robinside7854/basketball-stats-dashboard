@@ -66,9 +66,9 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
     return (
       <div className="space-y-4" aria-hidden>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 lg:gap-3">
-          <div className="col-span-full h-28 rounded-[var(--mm-radius-card)] animate-pulse" style={{ background: 'var(--mm-panel-alt)' }} />
+          <div className="col-span-full h-28 rounded-[var(--mm-radius-card)] mm-shimmer" />
           {Array.from({ length: 12 }, (_, i) => (
-            <div key={i} className="h-44 rounded-[var(--mm-radius-card)] animate-pulse" style={{ background: 'var(--mm-panel-alt)' }} />
+            <div key={i} className="h-44 rounded-[var(--mm-radius-card)] mm-shimmer" />
           ))}
         </div>
       </div>
@@ -107,7 +107,7 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
       <div ref={detailRef} className="scroll-mt-20">
         <SectionCard variant="standalone" ariaLabel={`통산 ${def.label} 순위`} pad="none">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 pt-4 lg:px-6 lg:pt-5">
-            <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+            <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.015em' }}>
               통산 {def.label} 순위
             </h3>
             <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>상위 {BOARD_TOP}명</span>
@@ -138,7 +138,7 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
                       <button
                         type="button"
                         onClick={() => open(r)}
-                        className={`w-full flex items-center gap-2.5 px-2.5 text-left cursor-pointer transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] ${podium ? 'min-h-14 py-2' : 'min-h-11 py-1.5'}`}
+                        className={`mm-press w-full flex items-center gap-2.5 px-2.5 text-left cursor-pointer transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] ${podium ? 'min-h-14 py-2' : 'min-h-11 py-1.5'}`}
                         style={{
                           background: r.rank === 1 ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                           border: `1px solid ${r.rank === 1 ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
@@ -201,15 +201,19 @@ function LeaderCard({ label, unit, top, wide, selected, onSelect }: {
       onClick={onSelect}
       aria-pressed={selected}
       aria-label={aria}
-      className={`relative w-full h-full overflow-hidden text-left cursor-pointer transition-colors duration-200 hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] ${
+      className={`mm-lift relative w-full h-full overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] ${
         wide
           ? 'flex items-center gap-4 px-4 py-4 sm:px-5 lg:px-6'
           : 'flex flex-col items-center text-center gap-1.5 px-3 pt-5 pb-4'
       }`}
       style={{
-        background: selected ? 'var(--mm-yellow-soft)' : 'var(--mm-panel)',
+        // 큰 카드(첫 부문)는 오른쪽 위 노랑 빛으로 한 번 더 무게를 준다 — 홈 맨 위 카드와 같은 어휘
+        background: selected
+          ? 'var(--mm-yellow-soft)'
+          : wide ? 'radial-gradient(70% 180% at 100% 0%, var(--mm-yellow-soft), transparent 60%), var(--mm-panel)' : 'var(--mm-panel)',
         border: `1px solid ${selected ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
         borderRadius: 'var(--mm-radius-card)',
+        boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
         opacity: first ? 1 : 0.6,
       }}
     >

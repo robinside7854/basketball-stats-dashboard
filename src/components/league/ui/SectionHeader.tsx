@@ -29,7 +29,7 @@ export default function SectionHeader({
       style={divider ? { borderBottom: '1px solid var(--mm-rule)' } : undefined}
     >
       <div className="min-w-0">
-        <Tag id={id} className="flex items-center gap-2 font-black text-lg lg:text-xl break-keep" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em', lineHeight: 1.25 }}>
+        <Tag id={id} className="flex items-center gap-2 font-black text-lg lg:text-xl break-keep" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.015em', lineHeight: 1.25 }}>
           {icon && <span aria-hidden className="shrink-0 inline-flex" style={{ color: 'var(--mm-ink-soft)' }}>{icon}</span>}
           {title}
         </Tag>

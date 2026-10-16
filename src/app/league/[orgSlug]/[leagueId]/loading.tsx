@@ -1,7 +1,7 @@
 // 리그 홈 로딩 스켈레톤 — 캐시 미스(60s 경과 후 첫 방문·배포 직후·태그 무효화 직후) 시
 // 빈 화면 대신 즉시 뼈대를 보여줘 체감 대기를 줄인다. (하위 라우트들과 동일하게 홈에도 추가 · 2026-07-27)
 export default function LeagueHomeLoading() {
-  const box = 'rounded-md bg-[color:var(--mm-panel-alt)] animate-pulse'
+  const box = 'rounded-md mm-shimmer'
   return (
     <div className="space-y-4 lg:space-y-5" aria-hidden>
       {/* 헤더 — 실제 헤더(page.tsx)와 동일하게 테마 추종 카드로 (2026-08 캐주얼 전환) */}

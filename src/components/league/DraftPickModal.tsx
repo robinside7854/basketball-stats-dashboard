@@ -167,7 +167,7 @@ export default function DraftPickModal({
           onClick={onExtend}
           // 시계 시작 전 연장은 서버가 409 로 막는다 — 누를 수 있게 두면 실패 토스트만 뜬다
           disabled={extLeft === 0 || extending || inGrace || clockPending}
-          className="shrink-0 min-h-11 px-2.5 inline-flex items-center gap-1 rounded-md bg-[var(--mm-panel-alt)] hover:brightness-95 text-[var(--mm-ink)] border border-[var(--mm-rule)] text-xs sm:text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
+          className="mm-press shrink-0 min-h-11 px-2.5 inline-flex items-center gap-1 rounded-md bg-[var(--mm-panel-alt)] hover:brightness-95 text-[var(--mm-ink)] border border-[var(--mm-rule)] text-xs sm:text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
           aria-label={`픽 시간 ${EXTENSION_SECONDS}초 연장, ${extLeft}회 남음`}
         >
           <Clock size={14} aria-hidden />+{EXTENSION_SECONDS}s ({extensionsUsed}/{MAX_EXTENSIONS})

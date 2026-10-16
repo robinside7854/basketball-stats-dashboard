@@ -72,7 +72,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
           {orgSlug && leagueId && (
             <Link
               href={`/league/${orgSlug}/${leagueId}/teams`}
-              className="t-label inline-flex items-center gap-0.5 min-h-[44px] py-1.5 whitespace-nowrap cursor-pointer transition-colors hover:brightness-90"
+              className="mm-press t-label inline-flex items-center gap-0.5 min-h-[44px] py-1.5 whitespace-nowrap cursor-pointer transition-colors hover:brightness-90"
             >
               팀별 기록
               <ChevronRight size={14} aria-hidden />

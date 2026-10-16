@@ -461,11 +461,13 @@ export default async function LeagueDetailPage({
           세로 여백도 줄였다. 제목 문맥(스크린리더 헤딩 탐색)은 잃지 않도록 h1 은 sr-only 로 남긴다 —
           네비 브랜드는 모든 하위 화면에 공통이라 h1 으로 바꾸면 하위 화면 제목과 중복된다. */}
       <div
-        className="relative px-4 py-3 lg:px-5 lg:py-3.5"
+        className="relative overflow-hidden px-4 py-3.5 lg:px-6 lg:py-4"
         style={{
-          background: 'var(--mm-panel)',
+          // 오른쪽 위에서 비치는 노랑 빛 — 첫 화면 맨 위 카드가 아래 카드들과 같은 흰 면이라 「입구」로 안 읽혔다(Taste 리디자인 2026-10-16)
+          background: 'radial-gradient(80% 160% at 100% 0%, var(--mm-yellow-soft), transparent 62%), var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
           borderRadius: 'var(--mm-radius-card)',
+          boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
         }}
       >
         <h1 className="sr-only">{l.name}</h1>
@@ -474,7 +476,7 @@ export default async function LeagueDetailPage({
         {/* 2026-10-12 사용자 요청: 소개 문구 대신 팀 이름을 크게 — 줄바꿈 없이 한 줄(360px 에서도 들어가도록 vw 로 축소) */}
         <p
           className="font-jersey font-black whitespace-nowrap leading-tight"
-          style={{ color: 'var(--mm-ink)', fontSize: 'clamp(18px, 5.2vw, 30px)', letterSpacing: '-0.01em' }}
+          style={{ color: 'var(--mm-ink)', fontSize: 'clamp(19px, 5.4vw, 32px)', letterSpacing: '-0.02em' }}
         >
           목동 미라클모닝농구단
         </p>

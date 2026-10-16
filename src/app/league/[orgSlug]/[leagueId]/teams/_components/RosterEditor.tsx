@@ -711,7 +711,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                     {isEditMode ? (
                       <button
                         onClick={e => { e.stopPropagation(); togglePlusOne(p.id, p.plus_one) }}
-                        className={`shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-black whitespace-nowrap border transition-colors duration-200 cursor-pointer ${
+                        className={`mm-press shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-black whitespace-nowrap border transition-colors duration-200 cursor-pointer ${
                           p.plus_one
                             ? 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border-[var(--mm-ink-soft)] hover:brightness-95'
                             : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)] hover:border-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'
@@ -923,7 +923,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
             <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
             <button
               onClick={() => setShowForm(v => !v)}
-              className="inline-flex items-center gap-1 px-3 min-h-11 rounded-md text-sm font-black whitespace-nowrap bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 transition-colors duration-200 cursor-pointer"
+              className="mm-press inline-flex items-center gap-1 px-3 min-h-11 rounded-md text-sm font-black whitespace-nowrap bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 transition-colors duration-200 cursor-pointer"
             >
               <Plus size={14} className="mr-0.5" />선수 추가
             </button>
@@ -974,7 +974,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
             <button
               onClick={addPlayer}
               disabled={saving}
-              className="inline-flex items-center gap-1 px-3 min-h-11 rounded-md text-sm font-black whitespace-nowrap bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+              className="mm-press inline-flex items-center gap-1 px-3 min-h-11 rounded-md text-sm font-black whitespace-nowrap bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
             >
               {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : null}추가
             </button>
@@ -1218,7 +1218,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                     <button
                       onClick={() => runInherit(inheritPreview.target.quarter_id, false)}
                       disabled={inheriting || inheritPreview.candidates === 0}
-                      className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                      className="mm-press inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
                     >
                       {inheriting ? <Loader2 size={16} className="animate-spin" /> : '실행'}
                     </button>
@@ -1278,7 +1278,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                 <button
                   onClick={createQuarter}
                   disabled={savingQ}
-                  className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                  className="mm-press inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
                 >
                   {savingQ ? <Loader2 size={16} className="animate-spin" /> : '생성'}
                 </button>

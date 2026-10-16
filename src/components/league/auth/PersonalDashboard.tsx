@@ -181,7 +181,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
                 type="button"
                 onClick={openMyCard}
                 disabled={!openPlayerCard}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-base font-black min-h-[52px] cursor-pointer transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+                className="mm-press w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-base font-black min-h-[52px] cursor-pointer transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}
               >
                 <IdCard size={20} aria-hidden />
@@ -490,7 +490,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
+            className="mm-press mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
           >
             로그인 · 가입 신청 <ChevronRight size={16} />
@@ -537,7 +537,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
     </div>
   )
   if (!available || !href) return content
-  return <Link href={href} className="block cursor-pointer transition-all hover:brightness-95">{content}</Link>
+  return <Link href={href} className="mm-press block cursor-pointer transition-all hover:brightness-95">{content}</Link>
 }
 
 function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: number | string | null }) {

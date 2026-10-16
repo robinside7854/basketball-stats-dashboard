@@ -119,7 +119,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             // 재생은 박스스코어에서 한 번 더 눌러야 시작된다(iPhone 은 사용자 탭 안에서만 재생 — DayHighlightsLauncher)
             <Link
               href={`${base}/boxscore/${round.date}?hl=mine`}
-              className="inline-flex items-center gap-1 min-h-[44px] -my-2 px-2 -mr-2 text-xs font-black whitespace-nowrap hover:brightness-90"
+              className="mm-press inline-flex items-center gap-1 min-h-[44px] -my-2 px-2 -mr-2 text-xs font-black whitespace-nowrap hover:brightness-90"
               style={{ color: 'var(--mm-ink)' }}
             >
               내 하이라이트
@@ -139,7 +139,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Link
             href={`${base}/boxscore/${round.date}`}
-            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-sm font-black whitespace-nowrap hover:brightness-95"
+            className="mm-press inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-sm font-black whitespace-nowrap hover:brightness-95"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             <ClipboardList size={14} aria-hidden />
@@ -147,7 +147,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
           </Link>
           <Link
             href={`${base}/highlights/${round.date}`}
-            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-sm font-black whitespace-nowrap hover:brightness-95"
+            className="mm-press inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-sm font-black whitespace-nowrap hover:brightness-95"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             <PlayCircle size={14} aria-hidden />
@@ -171,7 +171,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             onClick={() => setOpen(o => !o)}
             aria-expanded={open}
             aria-controls={`day-games-${round.date}`}
-            className="w-full inline-flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-95"
+            className="mm-press w-full inline-flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-95"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             {open ? '경기별 결과 접기' : `경기별 결과 ${games.length}경기 보기${myCount > 0 ? ` · 내 경기 ${myCount}` : ''}`}
@@ -189,7 +189,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             return (
               <li
                 key={g.id}
-                className="relative min-w-0 flex flex-col px-2.5 pt-1.5 pb-2 hover:brightness-95"
+                className="mm-press relative min-w-0 flex flex-col px-2.5 pt-1.5 pb-2 hover:brightness-95"
                 style={{
                   background: isMine ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: `1px solid ${isMine ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
@@ -218,7 +218,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
                       href={video}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="relative z-[2] shrink-0 inline-flex items-center justify-center w-9 h-8 -mr-1.5 hover:brightness-90"
+                      className="mm-press relative z-[2] shrink-0 inline-flex items-center justify-center w-9 h-8 -mr-1.5 hover:brightness-90"
                       style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
                       aria-label={`${num}경기 영상 보기 (새 창)`}
                       title="영상 보기"
@@ -246,7 +246,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
       <div className="px-4 lg:px-5 pb-3" style={{ borderTop: games.length > 0 && open ? '1px solid var(--mm-rule)' : 'none' }}>
         <Link
           href={`${base}/schedule`}
-          className="flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-90"
+          className="mm-press flex items-center justify-center gap-1 min-h-[44px] text-sm font-black hover:brightness-90"
           style={{ color: 'var(--mm-ink-soft)' }}
         >
           전체 일정 보기

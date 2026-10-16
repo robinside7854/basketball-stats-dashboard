@@ -133,7 +133,7 @@ export default function VideoPanel({
                     aria-pressed={isTarget}
                     aria-label={`${q}쿼터로 이동 — 영상 재생·기록 대상`}
                     title={`${q}쿼터 영상을 재생하고 이 쿼터로 기록합니다`}
-                    className="flex-1 min-w-0 flex flex-col items-start justify-center px-2 py-1.5 min-h-[44px] text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    className="mm-press flex-1 min-w-0 flex flex-col items-start justify-center px-2 py-1.5 min-h-[44px] text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     style={{
                       background: isTarget ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
                       color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
@@ -167,7 +167,7 @@ export default function VideoPanel({
                       onClick={() => clearQuarterVideo(q)}
                       aria-label={`${q}쿼터 영상 해제`}
                       title={`${q}쿼터 영상 해제`}
-                      className="shrink-0 w-11 min-h-[44px] inline-flex items-center justify-center cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      className="mm-press shrink-0 w-11 min-h-[44px] inline-flex items-center justify-center cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                     >
                       <Trash2 size={14} aria-hidden />
@@ -197,7 +197,7 @@ export default function VideoPanel({
                       onClick={() => { setYtTargetQuarter(q); setYtPickerOpen(false) }}
                       aria-pressed={isTarget}
                       title={`${q}쿼터에 붙일 영상을 고릅니다`}
-                      className="inline-flex items-center gap-1 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      className="mm-press inline-flex items-center gap-1 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       style={{
                         background: isTarget ? 'var(--mm-yellow)' : 'transparent',
                         color: isTarget ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -225,7 +225,7 @@ export default function VideoPanel({
             onClick={toggleQuarterSides}
             aria-pressed={sidesFlipped}
             title={`${currentQuarter}쿼터에서만 화면의 왼쪽·오른쪽 팀 배치를 뒤집습니다 — 영상 속 코트 방향에 맞추는 용도입니다. 홈·원정과 기록·점수는 그대로입니다`}
-            className="inline-flex items-center gap-1.5 shrink-0 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="mm-press inline-flex items-center gap-1.5 shrink-0 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             style={{
               background: sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
               color: sidesFlipped ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
@@ -242,7 +242,7 @@ export default function VideoPanel({
           <button
             type="button"
             onClick={() => setQuarterSplitOpen(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="mm-press inline-flex items-center gap-1.5 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
           >
             <Plus size={14} strokeWidth={2.5} aria-hidden />쿼터별로 나눠 붙이기

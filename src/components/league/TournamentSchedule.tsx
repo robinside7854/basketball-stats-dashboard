@@ -225,7 +225,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
             type="button"
             onClick={() => setSortDesc(v => !v)}
             title="정렬 순서 변경"
-            className="inline-flex items-center gap-1.5 min-h-[44px] px-3 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-3 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
           >
             <ArrowUpDown size={14} aria-hidden />
@@ -235,7 +235,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
             <button
               type="button"
               onClick={() => setEditingT({ name: '', start_date: null, end_date: null, tournament_type: null, description: null })}
-              className="inline-flex items-center gap-1.5 min-h-[44px] px-4 text-sm font-black rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-4 text-sm font-black rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
             >
               <Plus size={16} aria-hidden />
@@ -245,7 +245,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
             <button
               type="button"
               onClick={openLogin}
-              className="inline-flex items-center gap-1.5 min-h-[44px] px-4 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95"
+              className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-4 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95"
               style={{ background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }}
             >
               <Lock size={14} aria-hidden />
@@ -409,7 +409,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                   <Link
                                     href={`${base}/boxscore/${g.date}?game=${g.id}`}
                                     aria-label={`${fmtDate(g.date)} vs ${v?.oppName ?? '상대'} 박스스코어`}
-                                    className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                                    className="mm-press inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                                     style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                                   >
                                     <BarChart2 size={14} aria-hidden />
@@ -419,7 +419,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                 <Link
                                   href={`${base}/record?date=${g.date}&game=${g.id}`}
                                   aria-label={`${fmtDate(g.date)} vs ${v?.oppName ?? '상대'} 기록하기`}
-                                  className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                                  className="mm-press inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                                 >
                                   <ClipboardList size={14} aria-hidden />
@@ -512,7 +512,7 @@ function Action({
       disabled={disabled}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick() }}
       aria-label={ariaLabel}
-      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      className="mm-press inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
       style={primary
         ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }
         : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}

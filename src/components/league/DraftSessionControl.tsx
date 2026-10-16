@@ -274,7 +274,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     })
     setActing(false)
     const d = await res.json()
-    if (res.ok) { toast.success('드래프트 시작!', { icon: <Trophy size={16} /> }); fetchData(true); onChanged?.() }
+    if (res.ok) { toast.success('드래프트를 시작했어요', { icon: <Trophy size={16} /> }); fetchData(true); onChanged?.() }
     else { toast.error(d.error ?? '시작 실패') }
   }
 

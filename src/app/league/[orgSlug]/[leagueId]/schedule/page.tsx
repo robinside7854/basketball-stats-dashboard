@@ -468,7 +468,7 @@ function ScheduleContent() {
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
-          borderRadius: 'var(--mm-radius-card)',
+          borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -626,7 +626,7 @@ function ScheduleContent() {
               style={{
                 background: 'var(--mm-panel)',
                 border: '1px solid var(--mm-rule)',
-                borderRadius: 'var(--mm-radius-card)',
+                borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
               }}
             >
               {/* 날짜 바로 옆에 박스스코어를 붙인다 — PC 2열에서 justify-between 이면 날짜와 버튼 사이가
@@ -765,7 +765,7 @@ function ScheduleContent() {
                             <li key={g.id}>
                               <Link
                                 href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}?game=${g.id}`}
-                                className="flex items-center gap-1.5 min-h-[44px] px-2.5 text-xs tabular-nums hover:brightness-95"
+                                className="mm-press flex items-center gap-1.5 min-h-[44px] px-2.5 text-xs tabular-nums hover:brightness-95"
                                 style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
                                 aria-label={`${num}경기 ${g.home} ${g.home_score} 대 ${g.away_score} ${g.away}${g.is_exhibition ? ' 친선전' : ''} 박스스코어`}
                               >

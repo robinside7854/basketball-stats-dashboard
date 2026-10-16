@@ -571,7 +571,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             <div className="relative flex-1 min-w-0 pt-3 sm:pt-4">
               {/* 현 소속팀 (2026-10-16) — 카드 머리에서 가장 먼저. 상세가 오기 전엔 자리만 잡아 둔다 */}
               {gated ? null : !detail && loading ? (
-                <div className="h-6 w-28 mb-2 rounded-sm animate-pulse" style={{ background: 'var(--mm-panel-alt)' }} aria-hidden />
+                <div className="h-6 w-28 mb-2 rounded-sm mm-shimmer" aria-hidden />
               ) : detail?.current_team ? (
                 <PlayerTeamLine team={detail.current_team} className="mb-2" />
               ) : null}
@@ -823,7 +823,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             <button
               type="button"
               onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('mm-open-login')) }}
-              className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-bold text-sm cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] min-h-[44px]"
+              className="mm-press mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-bold text-sm cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] min-h-[44px]"
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
             >
               <LogIn size={16} aria-hidden />
@@ -1562,17 +1562,16 @@ function CareerBlock({ title, total, rows }: {
 
 /** 상세를 받는 동안의 자리 — 머리(이름·사진·팀)는 이미 보이고 본문 모양만 미리 잡는다 (2026-10-16) */
 function DetailSkeleton() {
-  const block = { background: 'var(--mm-panel-alt)' }
   return (
     <div className="px-5 py-4 space-y-4" aria-busy="true" aria-label="선수 기록 불러오는 중">
       <div className="flex gap-1.5">
-        {[0, 1, 2, 3].map(i => <div key={i} className="h-11 w-16 rounded-sm animate-pulse" style={block} />)}
+        {[0, 1, 2, 3].map(i => <div key={i} className="h-11 w-16 rounded-sm mm-shimmer" />)}
       </div>
-      <div className="h-10 w-full rounded-sm animate-pulse" style={block} />
+      <div className="h-10 w-full rounded-sm mm-shimmer" />
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-        {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-24 rounded-sm animate-pulse" style={block} />)}
+        {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-24 rounded-sm mm-shimmer" />)}
       </div>
-      <div className="h-40 w-full rounded-sm animate-pulse" style={block} />
+      <div className="h-40 w-full rounded-sm mm-shimmer" />
     </div>
   )
 }

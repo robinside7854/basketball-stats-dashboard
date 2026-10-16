@@ -810,3 +810,100 @@
     animation: mm-view-enter var(--mm-motion-base) var(--mm-ease-out);
   }
 }
+
+/* ===== 리그 화면 질감·깊이·눌림 (Taste 리디자인, 2026-10-16) =====
+   점검 결과: 카드가 전부 「흰 면 + 1px 선」 하나라 화면에 위계(어디가 위에 있는가)가 없었고,
+   바탕은 단색이라 밋밋했고, 누르는 것들이 색만 바뀌어 손에 반응이 오지 않았다.
+   ⚠ 전부 `.mm-shell`(리그 레이아웃 바깥 상자) 아래로만 건다 — 파란날개(팀 화면)는 그대로 둔다.
+   그림자는 검정이 아니라 바탕 색(웜 아이보리)에 맞춘 갈색 기운으로 — 순검정 그림자는 종이 위에서 회색 얼룩으로 보인다. */
+:root {
+  --mm-shadow-sm: 0 1px 2px rgba(74, 56, 24, 0.05), 0 1px 1px rgba(74, 56, 24, 0.03);
+  --mm-shadow-md: 0 6px 18px -6px rgba(74, 56, 24, 0.14), 0 2px 4px rgba(74, 56, 24, 0.05);
+  --mm-shadow-lg: 0 18px 40px -12px rgba(74, 56, 24, 0.22), 0 4px 10px rgba(74, 56, 24, 0.06);
+  /* 다크에서 카드 윗변에 아주 옅은 빛 — 위에서 비추는 하나의 광원 */
+  --mm-edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --mm-glass: rgba(255, 255, 255, 0.78);
+  --mm-ground-glow: rgba(242, 181, 60, 0.10);
+  --mm-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+.dark {
+  --mm-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --mm-shadow-md: 0 8px 22px -8px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --mm-shadow-lg: 0 20px 44px -12px rgba(0, 0, 0, 0.7), 0 4px 10px rgba(0, 0, 0, 0.35);
+  --mm-edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --mm-glass: rgba(34, 31, 27, 0.80);
+  --mm-ground-glow: rgba(245, 201, 92, 0.06);
+  --mm-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+.mm-shell {
+  /* 종이 질감(노이즈 타일) + 위쪽 아주 옅은 노랑 빛 — 단색 바탕이 「덜 만든 화면」처럼 보이던 것.
+     별도 겹(::before)으로 두지 않고 배경 안에 넣는다 — 겹을 만들면 새 쌓임 맥락이 생겨 팝업 순서가 바뀐다. */
+  background:
+    var(--mm-grain),
+    radial-gradient(120% 60% at 50% -10%, var(--mm-ground-glow), transparent 60%),
+    var(--mm-ground);
+  background-size: 160px 160px, 100% 100%, auto;
+}
+.mm-shell ::selection { background: var(--mm-yellow-soft); color: var(--mm-ink); }
+.mm-shell :is(h1, h2, h3) { text-wrap: balance; }
+.mm-shell p { text-wrap: pretty; }
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.mm-shell) { scroll-behavior: smooth; }
+}
+
+/* 위·아래 고정 메뉴 — 반투명 유리. 스크롤하면 아래 내용이 흐리게 비친다(지금 어디쯤인지 감각).
+   1px 안쪽 빛 테두리로 가장자리를 세운다. */
+.mm-glass {
+  background: var(--mm-glass);
+  -webkit-backdrop-filter: saturate(1.5) blur(14px);
+  backdrop-filter: saturate(1.5) blur(14px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .mm-glass { background: var(--mm-panel); }
+}
+
+@layer utilities {
+  /* 누름 — 손가락이 닿는 순간 살짝 들어간다. 색 전환과 같이 쓴다(transition 을 덮어쓰지 않게 transform 만 따로). */
+  .mm-press {
+    transition-property: color, background-color, border-color, box-shadow, transform, filter;
+    transition-duration: var(--mm-motion-base);
+    transition-timing-function: var(--mm-ease-out);
+  }
+  .mm-press:active:not(:disabled) { transform: scale(0.97); transition-duration: var(--mm-motion-fast); }
+
+  /* 눌러서 열리는 카드 — PC 호버에서 살짝 뜨고 그림자가 짙어진다. 터치 기기엔 호버가 없으니 :active 만. */
+  .mm-lift {
+    transition-property: transform, box-shadow, border-color;
+    transition-duration: var(--mm-motion-base);
+    transition-timing-function: var(--mm-ease-out);
+  }
+  @media (hover: hover) {
+    .mm-lift:hover { transform: translateY(-2px); box-shadow: var(--mm-shadow-md); border-color: var(--mm-muted) !important; }
+  }
+  .mm-lift:active { transform: translateY(0) scale(0.99); }
+
+  /* 불러오는 중 — 깜빡임(pulse) 대신 빛이 지나가는 줄. 「멈춘 화면」이 아니라 「오는 중」으로 읽힌다. */
+  .mm-shimmer {
+    background: linear-gradient(100deg, var(--mm-rule) 30%, var(--mm-panel-alt) 50%, var(--mm-rule) 70%);
+    background-size: 250% 100%;
+    animation: mm-shimmer 1.4s var(--mm-ease-inout) infinite;
+  }
+  @keyframes mm-shimmer {
+    from { background-position: 100% 0; }
+    to   { background-position: -50% 0; }
+  }
+}
+/* 라이트 모드의 옛 「rounded-xl/2xl 에 검정 그림자」 보정을 리그 화면에서는 바탕색 그림자로 바꾼다.
+   (모달 쪽 .fixed.inset-0 보정은 더 구체적이라 그대로 이긴다) */
+:root:not(.dark) .mm-shell .rounded-xl,
+:root:not(.dark) .mm-shell .rounded-2xl {
+  box-shadow: var(--mm-shadow-sm);
+}
+/* 리그 화면 안 btn-press 의 검정 그림자도 바탕색 그림자로 */
+.mm-shell .btn-press:hover { box-shadow: var(--mm-shadow-md); }
+/* 포커스 링 기본값 — 따로 ring 을 준 곳(focus-visible:outline-none + ring)은 그쪽이 이긴다(:where 로 우선순위를 0 으로) */
+:where(.mm-shell) :where(a, button, [role="tab"], summary, input, select, textarea):focus-visible {
+  outline: 2px solid var(--mm-yellow-strong);
+  outline-offset: 2px;
+}

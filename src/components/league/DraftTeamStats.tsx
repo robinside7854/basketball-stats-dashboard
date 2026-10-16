@@ -63,7 +63,7 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
           <Lock size={16} className="text-amber-300 shrink-0" aria-hidden />
           <span className="text-sm text-[color:var(--mm-ink)]">로그인하면 지난 분기 성적이 보입니다</span>
           <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+            className="mm-press ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
             <LogIn size={16} aria-hidden /> 로그인
           </button>
         </div>

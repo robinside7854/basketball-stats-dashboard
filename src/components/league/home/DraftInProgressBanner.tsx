@@ -13,7 +13,7 @@ export default function DraftInProgressBanner({ orgSlug, leagueId }: { orgSlug: 
   return (
     <Link
       href={`/league/${orgSlug}/${leagueId}/draft`}
-      className="flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+      className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-card)' }}
     >
       <span className="inline-flex items-center gap-2 min-w-0">

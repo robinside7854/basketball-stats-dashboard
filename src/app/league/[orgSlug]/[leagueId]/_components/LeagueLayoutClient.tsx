@@ -137,7 +137,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   }, [pathname, showDraft, isEditMode, leagueName])
 
   return (
-    <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
+    <div className="sticky top-0 z-10 mm-glass border-b border-[color:var(--mm-rule)]">
       <div className="max-w-[1280px] mx-auto px-4 lg:px-6">
         <div className="flex items-center">
           {/* 좌측: 리그/팀 이름 — 홈 링크. 모바일에서 예전 '현재 페이지 제목' 자리를 대체하고,
@@ -373,7 +373,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
       <nav
         aria-label="주요 메뉴"
-        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)] border-t ${isEditMode ? 'border-[color:var(--mm-yellow-strong)]' : 'border-[color:var(--mm-rule)]'}`}
+        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 mm-glass border-t ${isEditMode ? 'border-[color:var(--mm-yellow-strong)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="relative flex items-stretch justify-around h-14">
           {/* 활성 인디케이터 — 탭마다 따로 그리지 않고 하나를 옮긴다.
@@ -391,7 +391,8 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 transition: 'transform var(--mm-motion-base) var(--mm-ease-out)',
               }}
             >
-              <span className="block w-8 h-0.5 rounded-b-full" style={{ background: 'var(--mm-yellow-strong)' }} />
+              {/* 아이콘 뒤 알약 — 2px 막대는 작아서 「지금 어디」가 한눈에 안 들어왔다(Taste 리디자인 2026-10-16) */}
+              <span className="block mt-[5px] w-12 h-[30px] rounded-full" style={{ background: 'var(--mm-yellow-soft)', boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--mm-yellow-strong) 22%, transparent)' }} />
             </span>
           )}
           {mainTabs.map(({ href, label, Icon, ariaLabel }) => {
@@ -403,7 +404,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 href={href}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 min-h-[56px] transition-colors ${
+                className={`mm-press relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 min-h-[56px] ${
                   active ? 'text-[color:var(--mm-ink)]' : 'text-[color:var(--mm-muted)] active:text-[color:var(--mm-ink)]'
                 }`}
               >
@@ -449,9 +450,9 @@ function RecordAwareContainer({
 
   // 경기기록은 더 촘촘하게, 나머지는 전체 너비
   if (isRecord) {
-    return <div key={pathname} className={`px-3 py-3 ${enter}`}>{children}</div>
+    return <main id="mm-main" tabIndex={-1} key={pathname} className={`px-3 py-3 outline-none ${enter}`}>{children}</main>
   }
-  return <div key={pathname} className={`max-w-[1280px] mx-auto px-4 lg:px-6 py-6 ${enter}`}>{children}</div>
+  return <main id="mm-main" tabIndex={-1} key={pathname} className={`max-w-[1280px] mx-auto px-4 lg:px-6 py-6 outline-none ${enter}`}>{children}</main>
 }
 
 /** 진행 중 드래프트 여부를 레이아웃 state 로 올려 준다 — 어드민(편집 모드)일 때만 조회(useActiveDraft) */
@@ -507,7 +508,15 @@ function LeagueLayout({
         카드 안 「로그인」 버튼은 카드를 닫은 뒤 로그인 모달을 열므로 둘이 겹치지 않는다. */}
     <PlayerCardProvider leagueId={leagueId}>
       <DraftProbe leagueId={leagueId} onChange={setShowDraft} />
-      <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
+      <div className="mm-shell min-h-dvh text-[color:var(--mm-ink-soft)]">
+        {/* 키보드 사용자용 — Tab 첫 번째에 나타나 위 메뉴를 건너뛴다 */}
+        <a
+          href="#mm-main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2.5 focus:text-sm focus:font-black"
+          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
+        >
+          본문 바로가기
+        </a>
         {/* 경기묶음 전환 — 탭 위 계층이라 탭 바(TabNav/BottomNav)보다 먼저 배치.
             데스크톱·모바일 어느 쪽에서 보든 이 지점이 공통이라 양쪽에서 닿는다.
             묶음이 1개뿐이면(현재 미라클 일반 회원) 컴포넌트가 null 을 반환해 화면이 지금과 동일하다.

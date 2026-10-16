@@ -588,7 +588,7 @@ export default function LeagueDraftPage() {
                 <button onClick={exitAuth} className="text-sm text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-live)] cursor-pointer font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] rounded-sm">해제</button>
               </>
             ) : (
-              <Button onClick={() => setShowCodeModal(true)} className="bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-sm sm:text-base font-bold min-h-[44px] px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
+              <Button onClick={() => setShowCodeModal(true)} className="mm-press bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-sm sm:text-base font-bold min-h-[44px] px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
                 <KeyRound size={16} className="mr-1.5" /> 코드 입력
               </Button>
             )}
@@ -652,7 +652,7 @@ export default function LeagueDraftPage() {
             {authError && <p className="text-[color:var(--mm-live)] text-sm mt-2 font-bold">{authError}</p>}
             <div className="flex gap-2 mt-4">
               <Button onClick={() => { setShowCodeModal(false); setCodeInput('') }} variant="outline" className="flex-1 text-base h-12 font-bold">취소</Button>
-              <Button onClick={submitCode} disabled={authing || !codeInput.trim()} className="flex-1 bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-base h-12 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
+              <Button onClick={submitCode} disabled={authing || !codeInput.trim()} className="mm-press flex-1 bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-base h-12 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
                 {authing ? '확인 중...' : '인증'}
               </Button>
             </div>
@@ -703,7 +703,7 @@ export default function LeagueDraftPage() {
           {isAuthed ? (
             <div className="flex flex-col items-center gap-3">
               <Button onClick={() => toggleReady(!myReady)} disabled={acting}
-                className={`px-10 text-lg sm:text-xl font-black h-14 sm:h-16 ${myReady ? 'bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)]' : 'bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)]'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]`}>
+                className={`mm-press px-10 text-lg sm:text-xl font-black h-14 sm:h-16 ${myReady ? 'bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)]' : 'bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)]'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]`}>
                 {myReady ? '준비 해제' : (<span className="inline-flex items-center gap-2"><Hand size={20} aria-hidden /> 준비 완료</span>)}
               </Button>
               {authedRole === 'supervisor' && (
@@ -793,7 +793,7 @@ export default function LeagueDraftPage() {
                       <span className="text-sm text-[color:var(--mm-ink-soft)] tabular-nums">추가 시간 {myUsed}/{MAX_EXTENSIONS} 사용</span>
                       {/* 시계 시작 전 연장은 서버가 409 로 막는다 */}
                       <Button onClick={extendTime} disabled={extending || myUsed >= MAX_EXTENSIONS || clockPending}
-                        className="bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-sm h-10 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
+                        className="mm-press bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-sm h-10 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
                         +{EXTENSION_SECONDS}초 추가 {myUsed >= MAX_EXTENSIONS ? '(소진)' : `(${MAX_EXTENSIONS - myUsed}회 남음)`}
                       </Button>
                     </div>
@@ -907,7 +907,7 @@ export default function LeagueDraftPage() {
                       : <>
                           <KeyRound size={24} className="mx-auto text-[color:var(--mm-yellow-strong)] mb-2" />
                           <p className="text-[color:var(--mm-ink)] font-bold text-lg mb-2">단장 코드를 입력하세요</p>
-                          <Button onClick={() => setShowCodeModal(true)} className="w-full bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] mt-2 text-base h-12 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">코드 입력</Button>
+                          <Button onClick={() => setShowCodeModal(true)} className="mm-press w-full bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] mt-2 text-base h-12 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">코드 입력</Button>
                         </>}
                   </div>
                 ) : isMyTurn ? (
@@ -984,7 +984,7 @@ export default function LeagueDraftPage() {
             style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             {selectedPickId ? (
               <button onClick={() => pickById(selectedPickId)} disabled={picking !== null}
-                className="flex-1 py-3 min-h-[52px] rounded-sm bg-[color:var(--mm-yellow)] hover:brightness-95 disabled:opacity-50 text-[color:var(--mm-black)] font-black text-base flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]">
+                className="mm-press flex-1 py-3 min-h-[52px] rounded-sm bg-[color:var(--mm-yellow)] hover:brightness-95 disabled:opacity-50 text-[color:var(--mm-black)] font-black text-base flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]">
                 <Check size={20} /> {state?.available_players.find(p => p.id === selectedPickId)?.name} 픽 확정
               </button>
             ) : (
@@ -996,7 +996,7 @@ export default function LeagueDraftPage() {
                   </button>
                 )}
                 <button onClick={() => document.getElementById('draft-stat-table')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="flex-1 py-3 min-h-[52px] rounded-sm bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]">
+                  className="mm-press flex-1 py-3 min-h-[52px] rounded-sm bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]">
                   <ChevronDown size={16} /> 성적표에서 선택
                 </button>
               </>

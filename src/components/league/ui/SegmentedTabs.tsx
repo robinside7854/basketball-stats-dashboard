@@ -95,13 +95,14 @@ export default function SegmentedTabs<K extends string>({
               tabIndex={on ? 0 : -1}
               disabled={t.disabled}
               onClick={() => select(t.key, false)}
-              className={`${fullWidth ? 'flex-1' : ''} shrink-0 inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset ${tabCls} ${
+              className={`mm-press ${fullWidth ? 'flex-1' : ''} shrink-0 inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset ${tabCls} ${
                 on ? 'font-black' : 'font-semibold hover:text-[color:var(--mm-ink)]'
               }`}
               style={{
                 borderRadius: 'var(--mm-radius-chip)',
                 background: on ? 'var(--mm-yellow)' : 'transparent',
                 color: on ? 'var(--mm-black)' : 'var(--mm-muted)',
+                boxShadow: on ? 'var(--mm-shadow-sm)' : undefined,
               }}
             >
               {t.label}

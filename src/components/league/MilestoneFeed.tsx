@@ -100,7 +100,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
-          borderRadius: 'var(--mm-radius-card)',
+          borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
         }}
       >
         마일스톤 스캔 중...

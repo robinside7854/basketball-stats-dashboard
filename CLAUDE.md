@@ -125,6 +125,11 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 사용자가 개방을 선택했다. 인증을 추가하지 말 것.
 (별개 축인 파일 형식·용량 검증은 아직 없음 — 필요해지면 그때 상의한다.)
 
+### 리그 화면 질감·깊이 (2026-10-16 Taste 리디자인)
+- 그림자는 `--mm-shadow-sm/md/lg` 만(바탕색 기운). `shadow-lg`·`rgba(0,0,0,…)` 그림자를 새로 쓰지 말 것.
+- 누르는 것은 `mm-press`, 눌러서 여는 카드는 `mm-lift`, 로딩 자리는 `mm-shimmer`. 정의는 `globals.css` 끝.
+- `.mm-shell`(리그 레이아웃)에만 건다 — 파란날개는 그대로. 질감은 배경 안에 넣는다(겹 금지 — 팝업 순서).
+
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`
   - UNIQUE INDEX `league_games_slot_unique` ON (league_id, date, slot_num) WHERE slot_num IS NOT NULL

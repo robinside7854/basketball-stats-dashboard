@@ -274,7 +274,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       {showMobileFab && (
         <button onClick={() => setOpen(true)}
           aria-label={unread > 0 ? `채팅 (읽지 않은 메시지 ${unread}건)` : '채팅 열기'}
-          className={`${pinned ? 'lg:hidden ' : ''}fixed right-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]`}
+          className={`mm-press ${pinned ? 'lg:hidden ' : ''}fixed right-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]`}
           // 390px 에서 bottom-4 는 운영 패널의 「팀장 지정」 select 위에 그대로 얹혔다(2026-09-18 실측).
           // 한 칸(5.5rem) 올려 폼 컨트롤과 겹치지 않게 한다.
           style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
@@ -323,7 +323,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         <span className="hidden sm:inline text-xs text-[var(--mm-muted)]">단장·총무</span>
         <span className={`${pinned ? 'lg:hidden ' : ''}text-sm text-[var(--mm-muted)] italic`}>← 밖을 탭해 닫기</span>
         {/* 닫기 버튼: PC 에서는 항상 고정이라 닫을 수 없게 숨김 */}
-        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className={`${pinned ? 'lg:hidden ' : ''}ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:brightness-95 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]`}>
+        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className={`mm-press ${pinned ? 'lg:hidden ' : ''}ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:brightness-95 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]`}>
           <X size={16} /><span className="text-xs font-bold">닫기</span>
         </button>
       </div>
@@ -390,7 +390,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           className="flex-1 bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-lg px-3 py-2 min-h-[44px] text-base text-[var(--mm-ink)] placeholder:text-[var(--mm-muted)] focus:outline-none focus:border-[var(--mm-yellow)] focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]"
         />
         <button onClick={send} disabled={sending || !input.trim()} aria-label="메시지 전송"
-          className="px-4 min-w-[44px] min-h-[44px] rounded-lg bg-[var(--mm-yellow)] hover:brightness-95 disabled:opacity-40 text-[var(--mm-black)] cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
+          className="mm-press px-4 min-w-[44px] min-h-[44px] rounded-lg bg-[var(--mm-yellow)] hover:brightness-95 disabled:opacity-40 text-[var(--mm-black)] cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
           <Send size={16} />
         </button>
       </div>

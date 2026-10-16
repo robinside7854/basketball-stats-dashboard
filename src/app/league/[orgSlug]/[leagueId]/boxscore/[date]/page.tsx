@@ -85,7 +85,7 @@ export default async function BoxscorePage({
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
-          borderRadius: 'var(--mm-radius-card)',
+          borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
         }}
       >
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">

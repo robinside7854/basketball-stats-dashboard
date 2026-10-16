@@ -259,14 +259,14 @@ export default function TournamentGameFormModal({
         >
           <button
             type="button" onClick={onClose} disabled={saving}
-            className="min-h-[44px] px-4 text-sm font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed"
+            className="mm-press min-h-[44px] px-4 text-sm font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
           >
             취소
           </button>
           <button
             type="button" onClick={save} disabled={saving}
-            className="min-h-[44px] px-5 text-sm font-black rounded-sm cursor-pointer inline-flex items-center gap-2 transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mm-press min-h-[44px] px-5 text-sm font-black rounded-sm cursor-pointer inline-flex items-center gap-2 transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
           >
             {saving && <Loader2 size={16} className="animate-spin" aria-hidden />}

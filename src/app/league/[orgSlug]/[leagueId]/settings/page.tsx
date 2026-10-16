@@ -303,7 +303,7 @@ export default function LeagueSettingsPage() {
         </div>
         <button
           onClick={openLogin}
-          className="px-6 py-2.5 min-h-11 whitespace-nowrap bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors hover:brightness-95"
+          className="mm-press px-6 py-2.5 min-h-11 whitespace-nowrap bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors hover:brightness-95"
         >
           어드민 로그인
         </button>
@@ -320,7 +320,7 @@ export default function LeagueSettingsPage() {
           명단은 이 화면이 아니라 팀 탭의 편집 모드(?edit=1)에 있어서 어드민이 「명단은 어디서 고치나」에서 멈췄다. */}
       <Link
         href={`/league/${orgSlug}/${leagueId}/teams?edit=1`}
-        className="flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)]"
+        className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)]"
         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
       >
         <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 추가 · 소속 · +1)</span>
@@ -405,7 +405,7 @@ export default function LeagueSettingsPage() {
         <Button
           onClick={() => save('status', { status })}
           disabled={saving === 'status' || status === league.status}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
+          className="mm-press w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
           size="sm"
         >
           {saving === 'status' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}상태 저장
@@ -472,7 +472,7 @@ export default function LeagueSettingsPage() {
         <Button
           onClick={() => save('schedule-settings', { match_day: matchDay, start_date: startDate, season_type: seasonType, games_per_round: gamesPerRound })}
           disabled={saving === 'schedule-settings'}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
+          className="mm-press w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
           size="sm"
         >
           {saving === 'schedule-settings' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}설정 저장
@@ -526,7 +526,7 @@ export default function LeagueSettingsPage() {
             default_capacity: defCapacity ? Number(defCapacity) : null,
           })}
           disabled={saving === 'default-venue'}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
+          className="mm-press w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
           size="sm"
         >
           {saving === 'default-venue' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}고정 대관 저장
@@ -557,7 +557,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={() => save('youtube', { youtube_channel: ytChannel.trim() || null })}
             disabled={saving === 'youtube'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
+            className="mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
             size="sm"
           >
             {saving === 'youtube' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
@@ -605,7 +605,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={addAlias}
             disabled={aliasSaving || aliasText.trim().length === 0 || !aliasTeamId}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none min-h-11"
+            className="mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none min-h-11"
             size="sm"
           >
             {aliasSaving ? <Loader2 size={14} className="animate-spin" /> : '추가'}
@@ -656,7 +656,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={() => save('plus_one_age', { plus_one_age: plusOneAge ? Number(plusOneAge) : null })}
             disabled={saving === 'plus_one_age'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
+            className="mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
             size="sm"
           >
             {saving === 'plus_one_age' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
@@ -729,7 +729,7 @@ export default function LeagueSettingsPage() {
                           size="sm"
                           onClick={() => saveQuarterTeamNames(q.id)}
                           disabled={savingQTeams}
-                          className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none min-h-11"
+                          className="mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none min-h-11"
                         >
                           {savingQTeams ? <Loader2 size={14} className="animate-spin" /> : '저장'}
                         </Button>
@@ -802,7 +802,7 @@ export default function LeagueSettingsPage() {
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => saveQuarterDates(q.id)}
                         disabled={savingQuarter === q.id}
-                        className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none max-sm:min-h-11">
+                        className="mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none max-sm:min-h-11">
                         {savingQuarter === q.id ? <Loader2 size={14} className="animate-spin" /> : '저장'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditingQuarter(null)}

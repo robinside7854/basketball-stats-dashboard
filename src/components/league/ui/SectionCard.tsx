@@ -42,7 +42,10 @@ export default function SectionCard({
         background,
         border: '1px solid var(--mm-rule)',
         borderRadius: 'var(--mm-radius-card)',
-        boxShadow: emphasized ? 'inset 0 3px 0 var(--mm-yellow-soft)' : undefined,
+        // 바탕보다 한 겹 위에 있다는 것을 아주 옅은 그림자 + 윗변 빛으로 (Taste 리디자인 2026-10-16)
+        boxShadow: emphasized
+          ? 'inset 0 3px 0 var(--mm-yellow-soft), var(--mm-shadow-sm)'
+          : 'var(--mm-edge-light), var(--mm-shadow-sm)',
         overflow: 'hidden',
       }}
     >
