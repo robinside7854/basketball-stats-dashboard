@@ -8,7 +8,7 @@ import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEdit
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { PlayerCardProvider } from '@/contexts/PlayerCardContext'
-import { Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon } from 'lucide-react'
+import { Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon, Users } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { Basketball } from '@/components/league/BasketballIcons'
 import type { Quarter } from '@/types/league'
@@ -95,7 +95,9 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
     { href: base, label: '홈', match: [] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
-    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/teams`] },
+    // 선수 명단 탭 부활(2026-10-16 사용자 요청) — 경기와 스탯 사이
+    { href: `${base}/players`, label: '선수', match: [`${base}/players`] },
+    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/teams`, `${base}/records`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     // 드래프트는 주장·운영진 전용 절차다(2026-10-12) — 일반 회원 탭 줄에는 띄우지 않는다.
     ...(showDraft && isEditMode ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
@@ -332,13 +334,14 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   const meLabel = user ? (user.name?.trim() || user.login_id) : '가입하기'
   const meAriaLabel = user ? `내 기록 — ${meLabel}` : '내 기록 — 가입하기'
 
-  // 5탭 고정 — 더보기 삭제(Task 4-C). 인스타그램처럼 계정/개인 화면은 맨 오른쪽.
+  // 6탭 — 더보기 삭제(Task 4-C), 「선수」 추가(2026-10-16). 인스타그램처럼 계정/개인 화면은 맨 오른쪽.
   // 선수 명단·팀 순위는 스탯 탭으로 이동(2026-08-08, 아래 isActive 참조) — 경기 탭은 원래대로 경기만.
   // 드래프트·설정은 하단 탭에 없다. 드래프트는 /me 「바로가기」(어드민)와 데스크톱 상단 탭으로,
   //   설정은 헤더의 톱니 버튼(어드민·CEO, 위 「어드민 설정 진입점」) 하나로만 닿는다 — /me 에는 설정 바로가기가 없다.
   const mainTabs: { href: string; label: string; Icon: typeof Home; ariaLabel?: string }[] = [
     { href: base,                  label: '홈',      Icon: Home },
     { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
+    { href: `${base}/players`,     label: '선수',     Icon: Users },
     { href: `${base}/stats`,       label: '스탯',     Icon: BarChart2 },
     { href: `${base}/highlights`,  label: '하이라이트', Icon: Newspaper },
     { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
@@ -355,7 +358,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   //   (인스타 카드 생성기 /social 은 2026-10-12 폐지)
   const isActive = (href: string) => {
     if (href === base) return pathname === base
-    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`)
+    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`) || pathname.startsWith(`${base}/records`)
     if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
     if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`)
     return pathname.startsWith(href)
@@ -376,7 +379,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
           {/* 활성 인디케이터 — 탭마다 따로 그리지 않고 하나를 옮긴다.
               따로 그리면 탭을 바꿀 때 한쪽이 사라지고 다른 쪽이 나타나 '점프'로 보인다.
               하나를 미끄러뜨리면 "어디에서 어디로 왔는지"가 남는다(연속성).
-              5개 탭이 flex-1 로 동일 폭이라 인덱스 × 100% 만으로 정확히 맞는다 —
+              6개 탭(2026-10-16 「선수」 추가)이 flex-1 로 동일 폭이라 인덱스 × 100% 만으로 정확히 맞는다 —
               탭 개수가 바뀌면 이 계산도 같이 봐야 한다. */}
           {activeTabIdx >= 0 && (
             <span
@@ -418,7 +421,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 )}
                 {/* 긴 이름이 5분할 탭(375px÷5=75px)을 깨뜨리지 않도록 내 기록 탭 라벨만 truncate.
                     나머지 탭은 고정 짧은 한글 라벨이라 그대로 둔다. */}
-                <span className={`text-xs leading-tight max-w-full ${isMeTab ? 'truncate px-0.5' : ''} ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                <span className={`text-[11px] sm:text-xs leading-tight max-w-full whitespace-nowrap ${isMeTab ? 'truncate px-0.5' : ''} ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
               </Link>
             )
           })}
