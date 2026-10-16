@@ -1,4 +1,4 @@
-// 스탯 우산 서브탭 — 리더보드 · 팀 (2개)
+// 스탯 우산 서브탭 — 리더보드 · 팀 · 기록실 (3개)
 // 페이지마다 인라인 배열을 들고 있으면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다
 // (2026-08-08, stats-umbrella-move 계획서 참고). 이 배열을 유일한 출처로 두고 각 페이지는
 // 자신의 active 키만 넘긴다.
@@ -11,13 +11,15 @@
 // 폴백 처리한다(이 파일은 더 이상 그 값을 만들지 않는다).
 // 2026-09-28 선수 명단은 팀 화면(/teams, 편집은
 // ?edit=1)으로 흡수했다. 옛 /awards·/roster 는 리다이렉트만 남아 있다.
+// 2026-10-16 기록실(통산 누적)을 스탯 페이지의 모드 칩에서 독립 서브탭(/records)으로 승격.
 import type { LeagueGroupTab } from './LeagueGroupTabs'
 
-export type StatsTabKey = 'leaderboard' | 'teams'
+export type StatsTabKey = 'leaderboard' | 'teams' | 'records'
 
 export function getStatsGroupTabs(base: string, active: StatsTabKey): LeagueGroupTab[] {
   return [
     { href: `${base}/stats`, label: '리더보드', active: active === 'leaderboard' },
     { href: `${base}/teams`, label: '팀', active: active === 'teams' },
+    { href: `${base}/records`, label: '기록실', active: active === 'records' },
   ]
 }

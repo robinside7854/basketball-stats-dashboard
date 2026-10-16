@@ -2,7 +2,7 @@
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
-import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowLeftRight } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
@@ -19,7 +19,6 @@ import EmptyState from '@/components/league/ui/EmptyState'
 import Avatar from '@/components/league/ui/Avatar'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
-import CareerLeadersBoard from '@/components/league/stats/CareerLeadersBoard'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import type { PlayerStat } from '@/types/league'
@@ -43,7 +42,7 @@ const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
 type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
-type StatMode = 'basic'|'shooting'|'advanced'|'records'
+type StatMode = 'basic'|'shooting'|'advanced'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
 const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
@@ -243,21 +242,13 @@ function LeagueStatsPageInner() {
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   const router = useRouter()
-  const pathname = usePathname()
-  // 기록실 모드는 URL(?mode=records)이 단일 진실 — 새로고침·뒤로가기·공유 링크가 모두 맞게 보인다.
-  // 표 모드(basic/shooting/advanced)는 기존처럼 로컬 상태로 둔다.
-  // (2026-10-14) 「기록실」(시즌 하이 8칸 · 통산 누적 순위)도 같은 방식(?mode=records) — 종전엔 표 모드 화면에서
-  //   필터 칩과 표 사이에 끼어 있어, 칩을 눌러도 바로 아래가 안 바뀌는 것처럼 보였다(사용자 지적).
-  const [tableMode, setTableMode] = useState<Exclude<StatMode, 'records'>>('basic')
-  const statMode: StatMode = searchParams.get('mode') === 'records' ? 'records' : tableMode
-  const isRecords = statMode === 'records'
-  function setStatMode(k: StatMode) {
-    const qs = new URLSearchParams(searchParams.toString())
-    if (k === 'records') qs.set('mode', k)
-    else { qs.delete('mode'); setTableMode(k) }
-    const q = qs.toString()
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
-  }
+  // 표 모드(basic/shooting/advanced)는 로컬 상태.
+  // (2026-10-16) 「기록실」은 스탯 서브탭(/records)으로 승격 — 옛 ?mode=records 링크는 그쪽으로 보낸다.
+  const [statMode, setStatMode] = useState<StatMode>('basic')
+  const legacyRecords = searchParams.get('mode') === 'records'
+  useEffect(() => {
+    if (legacyRecords) router.replace(`/league/${orgSlug}/${leagueId}/records`)
+  }, [legacyRecords, router, orgSlug, leagueId])
   const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
@@ -273,10 +264,6 @@ function LeagueStatsPageInner() {
   // TopFiveSlot 활성화 플래그 — 기본 true 로 두어 진입 즉시 기본 정렬(득점 PPG) TOP 5 를 노출.
   // 이후 컬럼 헤더 클릭으로 지표 전환 (2026-07-27: 기본 안내 화면 → 득점 TOP5 기본 표시로 변경)
   const [topFiveActive, setTopFiveActive] = useState(true)
-  // 통산 누적 보드(역대 N위) — 전체 기간 스탯. 「전체」를 보고 있으면 표 데이터를 그대로 쓰고,
-  //   분기를 보고 있을 때만 분기 없이 한 번 더 받는다(서버 캐시라 가볍다).
-  const [careerPlayers, setCareerPlayers] = useState<PlayerStat[]>([])
-  const [careerLoading, setCareerLoading] = useState(true)
   // "더 보기" 노출 상한 — 모바일 카드뷰와 데스크탑 표뷰가 **한 상태를 공유**한다.
   // 뷰마다 따로 두면 화면 폭이 바뀔 때(회전·창 크기) 보이는 인원이 튄다.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
@@ -327,17 +314,6 @@ function LeagueStatsPageInner() {
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId, quarterReady])
 
-  useEffect(() => {
-    if (!isRecords || !quarterReady || selectedQuarterId === 'all') return
-    if (careerPlayers.length > 0) return  // 전체 기간 값은 분기를 바꿔도 같다
-    setCareerLoading(true)
-    fetch(`/api/leagues/${leagueId}/stats`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { setCareerPlayers(d?.players ?? []); setCareerLoading(false) })
-      .catch(() => setCareerLoading(false))
-  }, [leagueId, selectedQuarterId, isRecords, quarterReady, careerPlayers.length])
-  const careerSource = selectedQuarterId === 'all' ? players : careerPlayers
-  const careerBoardLoading = selectedQuarterId === 'all' ? loading : careerLoading
 
   // 정렬 지표·정렬 방향·스탯 모드·평균/누적·분기를 바꾸면 늘려둔 노출 수를 초기값으로 되돌린다.
   // 안 되돌리면 "PPG 로 30명까지 펼쳐 둔 상태" 가 3P% 정렬에 그대로 남아, 보려던 상위권이 아니라
@@ -657,20 +633,18 @@ function LeagueStatsPageInner() {
   }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode])
 
   const base = `/league/${orgSlug}/${leagueId}`
-  // 리더보드·팀 2개 서브탭 (2026-09-28 — 명단은 팀 화면으로 흡수 · 어워즈는 2026-10-14 삭제).
+  // 리더보드·팀·기록실 3개 서브탭 (2026-09-28 명단 → 팀 화면 · 2026-10-14 어워즈 삭제 · 2026-10-16 기록실 승격).
   // 배열은 공유 헬퍼(statsTabs.ts)에서 가져온다 — 페이지마다 배열이
   // 복제되면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다.
   const groupTabs = getStatsGroupTabs(base, 'leaderboard')
 
-  // 기본 / 슈팅 / 고급 / 기록실 토글 — 헤더(분기 칩 아래)에 한 번만 둔다. 기록실은 표·로딩
-  // 게이트 바깥에서 렌더되므로 표 카드 안에 두면 기록실에서 표로 돌아갈 칩이 사라진다.
+  // 기본 / 슈팅 / 고급 토글 — 헤더(분기 칩 아래)에 한 번만 둔다.
   const modeChips = (
     <SegmentedTabs<StatMode>
       items={[
         { key: 'basic',    label: '기본' },
         { key: 'shooting', label: '슈팅' },
         { key: 'advanced', label: '고급' },
-        { key: 'records',  label: '기록실' },
       ]}
       value={statMode}
       onChange={setStatMode}
@@ -679,12 +653,12 @@ function LeagueStatsPageInner() {
   )
 
   if (gated) {
-    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·기록실은 가입 승인된 회원만 볼 수 있어요." />
+    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드는 가입 승인된 회원만 볼 수 있어요." />
   }
 
   return (
     <div className="mm-brand space-y-5">
-      {/* 스탯 우산 서브탭 — 리더보드 · 팀 */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 팀 · 기록실 */}
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
@@ -705,16 +679,7 @@ function LeagueStatsPageInner() {
         <div className="flex">{modeChips}</div>
       </SectionCard>
 
-      {/* 기록실 모드 — 표·TOP5 없이 통산 누적 보드만. 스탯 로딩과 무관하게 바로 렌더 */}
-      {statMode === 'records' ? (
-        // 기록실 = 통산 누적 순위만(늘 전체 기간 · 친선 제외) — 지표는 보드 안 칩으로 고른다.
-        //   (2026-10-14) 시즌 하이 8칸 · 어워즈는 사용자 결정으로 삭제.
-        <CareerLeadersBoard
-          players={careerSource}
-          loading={careerBoardLoading}
-          onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
-        />
-      ) : loading ? (
+      {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
       ) : players.length === 0 ? (
         <EmptyState
