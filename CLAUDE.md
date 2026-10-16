@@ -297,19 +297,15 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   친선 제외 · 정체성 키로 묶음 · 승률→득실 순)도 각각 한 벌이다. 화면에서 다시 세지 말 것.
 - 선수 맞대결·팀 누적 맞대결·팀 탭 전적은 「마감된 정규전」만(팀 탭도 2026-10-15 부터 진행 중 경기 제외 · 분기는 날짜 범위).
 
-### 역할 라벨 = 「플레이 스타일」 (2026-10-14) — 배지가 아니다
+### 역할 라벨(「플레이 스타일」)은 폐지 (2026-10-16) — 되살리지 말 것
 
-- 선수 카드 머리에 칩 **최대 2개**. 규칙·설명 문구 정본은 `src/lib/stats/roleLabels.ts`(테스트 `roleLabels.test.ts`).
-  ⚠ 배지 제도(2026-10-11 폐지)를 되살리는 것이 아니다 — 모으기·도감·트로피 아이콘 금지, 문구는 「플레이 스타일」.
-- 모집단 = 선수 카드 순위와 같다(`loadPeriodStats` 결과 `players`, 게스트 제외, `rankMinRounds` 자격). 카드에서 고른 기간을 따른다.
-- 「상위 10%」 = 자리 ≤ **ceil(N×0.10)**(올림, 동률은 같은 자리 1·2·2·4, 값 0 은 제외). 올라운더만 득점·리바·어시 모두 **상위 20%**.
-  슛 비중 라벨(3점 슈터·골밑 해결사·미드레인지 장인)은 야투 최소 시도(`eligibility.ts`) 충족자끼리. 3점 슈터·플레이메이커의
-  「리그 평균」은 모집단 합계 기준. 여럿이면 자리 백분율이 작은 2개, 올라운더는 들면 항상 포함, 없으면 「팀플레이어」.
-- **공개 스위치** `leagues.rules.role_labels_public`(JSON 키 하나 — 마이그레이션 없음). CEO 만
-  `/admin/leagues/[leagueId]/role-labels`(전원 미리보기 + 공개 버튼, `PATCH /api/admin/leagues/[id]/role-labels`)에서 바꾼다.
-  꺼져 있으면 detail 응답 `role_labels` 가 CEO 에게만 `preview:true` 로 실린다. rules 를 통째로 덮어쓰지 말 것(채점 룰이 같이 있다).
+- 선수 카드 칩·CEO 미리보기 `/admin/leagues/[leagueId]/role-labels`·그 API·`roleLabels.ts` 를 모두 지웠다. 아래 「폐지된 기능」 참고.
 - 캐시: `loadPeriodStats` 는 `lib/stats/cachedLeagueStats.ts`(unstable_cache, `league-{id}-games` 태그, 60초) 경유 —
   스탯 탭 `/stats` 라우트와 **같은 캐시 항목**을 쓴다. 키에 콜백 소스가 들어가므로 캐시 함수를 다른 곳에 또 만들지 말 것.
+- 선수 카드의 리그 전체 이벤트 재료(승률 순위·다이나믹 듀오)는 `lib/stats/leagueEventIndex.ts`(같은 태그·60초) 한 벌이다 —
+  detail 라우트에서 리그 전체 이벤트를 요청마다 다시 읽지 말 것(카드가 3초 걸린 원인, 2026-10-16).
+- 선수 카드 머리 = 현 소속팀(지금 분기 `pickCurrentQuarter`, 정체성 resolver) + 분기별 소속 한 줄(대회 분기 제외) — detail `current_team`·`team_history`.
+  「마지막 출전」은 최근 28일 안에 출전이 없을 때만(`lib/format/lastPlayed.ts` 의 `shouldShowLastPlayed`, 카드·/me 공용).
 
 ### 선수 6축 레이더 (2026-10-14) — 정본은 `src/lib/stats/hexRadar.ts`
 
@@ -547,6 +543,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - **AI 기능** — 파란날개 AI MVP/X-FACTOR/투혼상, 리그 AI 프로필 사진. SDK 2종 제거. `games.ai_mvp` 값은 보존.
 - **참여신청(RSVP)**, 어드민 콘솔 「일정 자동 생성」·`manage` 페이지.
 - **인스타 카드(`/social`)** (2026-10-12 리뉴얼 0단계). 드래프트는 팀 어드민 전용 · 대회 전환 스위치는 CEO 전용으로 숨겼다(대회 사실상 미사용).
+- **역할 라벨(「플레이 스타일」)** (2026-10-16) — 선수 카드 칩·CEO 미리보기·API·`roleLabels.ts` 전부. `leagues.rules.role_labels_public` 값은 보존(읽는 코드 없음).
 - **스탯 어워즈·시즌 하이 8칸** (2026-10-14) — 「기록실」은 통산 누적 순위(`CareerLeadersBoard`)만. 2026-10-16 부터 스탯 서브탭 `/records`(리더보드 · 팀 · **기록실**)로 독립 — 부문별 1위 카드 + 선택 부문 상위 10명. 옛 `/stats?mode=records` 는 리다이렉트.
 
 ### "지금 분기" 판정 — 정본은 `src/lib/league/currentQuarter.ts` (2026-10-10)

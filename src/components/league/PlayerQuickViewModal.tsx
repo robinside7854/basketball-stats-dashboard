@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ArrowLeftRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -17,11 +17,11 @@ import PlayerMiniTabs, { PLAYER_TABS, type PlayerTabKey } from '@/components/lea
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
-import type { LastPlayedData } from '@/lib/format/lastPlayed'
+import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
 import PercentileBars from '@/components/league/player/PercentileBars'
 import QuarterTable from '@/components/league/player/QuarterTable'
 import SimilarPlayers, { type SimilarPlayersData } from '@/components/league/player/SimilarPlayers'
-import RoleLabelChips, { type RoleLabelsData } from '@/components/league/player/RoleLabelChips'
+import PlayerTeamLine, { PlayerTeamHistory, type CurrentTeam, type TeamHistoryEntry } from '@/components/league/player/PlayerTeamLine'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
 import type { QuarterTableRow } from '@/lib/stats/quarterTable'
@@ -60,8 +60,10 @@ type Detail = {
   hex_radar?: HexRadarResult
   /** (2026-10-14) 비슷한 스타일 선수 — 같은 자격 집단·같은 기간 */
   similar_players?: SimilarPlayersData
-  /** (2026-10-14) 역할 라벨(플레이 스타일) 최대 2개 — 순위와 같은 모집단·기간. 공개 꺼짐이면 CEO 에게만(preview) */
-  role_labels?: RoleLabelsData
+  /** (2026-10-16) 현 소속팀 — 지금 분기(pickCurrentQuarter) 기준. 그 분기 소속이 없으면 null */
+  current_team?: CurrentTeam | null
+  /** (2026-10-16) 분기별 소속(리그 분기만, 오래된 순) */
+  team_history?: TeamHistoryEntry[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   // record = 그 라운드(하루)의 전 경기 합산 전적. result 는 그 합산의 종합 판정(W/L/D).
@@ -268,32 +270,35 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     return () => io.disconnect()
   }, [loading])
 
-  const load = useCallback(async () => {
+  // 네 요청을 따로 받는다 (2026-10-16 속도 개선) — 종전엔 Promise.all 로 넷(명단·상세·분기·통산)이 다
+  //   끝나야 본문을 그렸다. 머리(이름·사진·팀)는 이미 아는 값으로 바로 그리고, 본문은 상세가 오는 대로 연다.
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    try {
-      const [playersRes, detailRes, quartersRes, careerRes] = await Promise.all([
-        fetch(`/api/leagues/${leagueId}/players`),
-        fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`),
-        fetch(`/api/leagues/${leagueId}/quarters`),
-        // 리그 통산·대회 기록 — 리그 시즌이 1개뿐이면 통산은 안 보인다. 401(미승인 회원)은
-        // gated 상태(detailRes 401)로 이미 처리되므로 여기선 실패를 조용히 무시.
-        fetch(`/api/leagues/${leagueId}/players/${playerId}/career`),
-      ])
-      if (playersRes.ok) {
-        const all: PlayerInfo[] = await playersRes.json()
-        setPlayer(all.find(p => p.id === playerId) ?? null)
-      }
-      if (detailRes.status === 401) setGated(true)
-      if (detailRes.ok) setDetail(await detailRes.json())
-      if (quartersRes.ok) {
-        const qs: Quarter[] = await quartersRes.json()
-        setQuarters(qs)
-      }
-      if (careerRes.ok) setCareer(await careerRes.json())
-    } finally { setLoading(false) }
+    fetch(`/api/leagues/${leagueId}/players`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((all: PlayerInfo[] | null) => { if (!cancelled && all) setPlayer(all.find(p => p.id === playerId) ?? null) })
+      .catch(() => {})
+    fetch(`/api/leagues/${leagueId}/quarters`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((qs: Quarter[] | null) => { if (!cancelled && qs) setQuarters(qs) })
+      .catch(() => {})
+    // 리그 통산·대회 기록 — 리그 시즌이 1개뿐이면 통산은 안 보인다. 401(미승인 회원)은
+    // gated 상태(상세 401)로 이미 처리되므로 여기선 실패를 조용히 무시.
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/career`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((c: CareerSummary | null) => { if (!cancelled && c) setCareer(c) })
+      .catch(() => {})
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`)
+      .then(async r => {
+        if (cancelled) return
+        if (r.status === 401) setGated(true)
+        if (r.ok) { const d: Detail = await r.json(); if (!cancelled) setDetail(d) }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [leagueId, playerId])
-
-  useEffect(() => { load() }, [load])
   useEffect(() => {
     let cancelled = false
     fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterRows=only`)
@@ -564,6 +569,12 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
 
             {/* 이름 + 정보 (아바타 크기와 비례해 확대) — hero stagger reveal */}
             <div className="relative flex-1 min-w-0 pt-3 sm:pt-4">
+              {/* 현 소속팀 (2026-10-16) — 카드 머리에서 가장 먼저. 상세가 오기 전엔 자리만 잡아 둔다 */}
+              {gated ? null : !detail && loading ? (
+                <div className="h-6 w-28 mb-2 rounded-sm animate-pulse" style={{ background: 'var(--mm-panel-alt)' }} aria-hidden />
+              ) : detail?.current_team ? (
+                <PlayerTeamLine team={detail.current_team} className="mb-2" />
+              ) : null}
               {player?.number != null && (
                 <div
                   className="text-base font-mono mb-1 leading-none mm-rise-in"
@@ -639,13 +650,15 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               </div>
             </div>
           </div>
-          {/* 마지막 출전일 + 그 뒤 결장 경기일 (2026-10-14) — 아바타 옆 칸은 360px 에서 좁아 히어로 아래 전체 폭에 둔다.
-              detail 이 없으면(비회원 게이트·로딩) 그리지 않는다 — 「출전 기록 없음」으로 오해된다. */}
-          {detail && detail.last_played !== undefined && (
-            <LastPlayedLine lastPlayed={detail.last_played} className="relative mt-3" />
+          {/* 분기별 소속 (2026-10-16) — 「26.1Q 락다운 · 26.2Q 락다운 · 26.3Q 굿모닝」. 아바타 옆 칸은 360px 에서 좁아 전체 폭에 둔다 */}
+          {detail?.team_history && detail.team_history.length > 0 && (
+            <PlayerTeamHistory history={detail.team_history} currentQuarterId={detail.current_team?.quarter_id ?? null} className="relative mt-3" />
           )}
-          {/* 플레이 스타일 칩 (2026-10-14) — 카드에서 고른 기간을 따른다(activeDetail). 배지 아님 */}
-          <RoleLabelChips data={activeDetail?.role_labels} className="relative mt-2" />
+          {/* 마지막 출전일 + 그 뒤 결장 경기일 (2026-10-14) — **최근 28일 안에 출전이 없을 때만** 보인다(2026-10-16).
+              최근에 나온 사람에게는 의미 없는 줄이라 뺐다. detail 이 없으면(비회원 게이트·로딩) 그리지 않는다. */}
+          {detail && shouldShowLastPlayed(detail.last_played) && (
+            <LastPlayedLine lastPlayed={detail.last_played} className="relative mt-2" />
+          )}
         </div>
 
         {showEditPanel && isEditMode && (() => {
@@ -790,7 +803,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
         <div className="h-px w-full" style={{ background: 'var(--mm-yellow)' }} />
 
         {loading ? (
-          <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
+          <DetailSkeleton />
         ) : gated ? (
           /* 스탯 게이팅 — 프로필(이름·사진)은 공개, 상세 스탯은 승인 회원 전용 */
           <div className="flex flex-col items-center text-center px-6 py-12">
@@ -1543,6 +1556,23 @@ function CareerBlock({ title, total, rows }: {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/** 상세를 받는 동안의 자리 — 머리(이름·사진·팀)는 이미 보이고 본문 모양만 미리 잡는다 (2026-10-16) */
+function DetailSkeleton() {
+  const block = { background: 'var(--mm-panel-alt)' }
+  return (
+    <div className="px-5 py-4 space-y-4" aria-busy="true" aria-label="선수 기록 불러오는 중">
+      <div className="flex gap-1.5">
+        {[0, 1, 2, 3].map(i => <div key={i} className="h-11 w-16 rounded-sm animate-pulse" style={block} />)}
+      </div>
+      <div className="h-10 w-full rounded-sm animate-pulse" style={block} />
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+        {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-24 rounded-sm animate-pulse" style={block} />)}
+      </div>
+      <div className="h-40 w-full rounded-sm animate-pulse" style={block} />
     </div>
   )
 }

@@ -54,8 +54,6 @@ export type AuditAction =
   | 'league.update'
   | 'league.edit_pin.update'
   | 'league.visibility.update'
-  // 역할 라벨(플레이 스타일) 공개 스위치 — CEO 전용 (2026-10-14)
-  | 'league.role_labels.update'
   | 'league_team.delete'
   | 'team.delete'
   | 'team.update'

@@ -28,7 +28,7 @@ import Avatar from '@/components/league/ui/Avatar'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
-import type { LastPlayedData } from '@/lib/format/lastPlayed'
+import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
 import { Ring } from '@/components/league/ui/viz'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
@@ -170,8 +170,8 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
             </header>
 
             {/* 마지막 출전 + 그 뒤 결장 경기일 (2026-10-14) — 친선일 포함 · 출석 지표.
-                옛 응답(필드 없음)에서는 그리지 않는다 — 「출전 기록 없음」으로 오해된다. */}
-            {ready && data.last_played !== undefined && (
+                (2026-10-16) 최근 28일 안에 출전이 없을 때만 보인다 — 선수 카드와 같은 기준(shouldShowLastPlayed). */}
+            {ready && shouldShowLastPlayed(data.last_played) && (
               <LastPlayedLine lastPlayed={data.last_played} className="px-4 sm:px-5 pt-3" />
             )}
 

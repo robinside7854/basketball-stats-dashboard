@@ -40,6 +40,19 @@ export function relativeDaysLabel(days: number): string {
   return `${Math.max(1, Math.floor(days / 30))}개월 전`
 }
 
+/** 이만큼(일) 이상 출전이 없을 때만 「마지막 출전」을 보인다 (2026-10-16 사용자 피드백) */
+export const LAST_PLAYED_SHOW_AFTER_DAYS = 28
+
+/**
+ * 「마지막 출전」 줄을 보일지 — 최근 28일 안에 출전했으면 숨긴다(최근에 나온 사람에게는 의미 없는 줄).
+ *   출전 기록이 아예 없거나(null) 응답에 필드가 없으면(undefined) 그리지 않는다 — 「출전 기록 없음」은 새 회원에게 오해를 준다.
+ *   선수 카드 · /me 공용 — 기준을 두 벌로 두지 않으려고 여기 한 곳에.
+ */
+export function shouldShowLastPlayed(lp: LastPlayedData | null | undefined, today: string = todayKst()): lp is LastPlayedData {
+  if (!lp) return false
+  return dayDiff(lp.date, today) >= LAST_PLAYED_SHOW_AFTER_DAYS
+}
+
 export function formatLastPlayed(lp: LastPlayedData | null | undefined, today: string = todayKst()): LastPlayedLabel {
   if (!lp) return { text: '아직 출전 기록 없음', missedText: null, warn: false }
   const [, m, d] = lp.date.split('-').map(Number)
