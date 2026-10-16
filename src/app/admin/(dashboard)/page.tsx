@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/admin'
-import { Users, Trophy, Calendar, Building2, Medal, Shield, CheckSquare } from 'lucide-react'
+import { Users, Trophy, Calendar, Building2, Medal, Shield, CheckSquare, Download } from 'lucide-react'
 import Link from 'next/link'
 
 async function getStats() {
@@ -189,6 +189,42 @@ export default async function AdminDashboardPage() {
               </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* 이벤트 로그 내려받기 — 기록 자동화 학습용(2026-10-16). CEO 전용 API 를 그대로 링크한다(스트리밍 파일) */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Download size={16} className="text-[var(--mm-yellow-strong)]" aria-hidden="true" />
+          <h2 className="text-sm font-semibold text-[var(--mm-ink-soft)] uppercase tracking-wider">이벤트 로그 내려받기</h2>
+          <div className="flex-1 h-px bg-[var(--mm-rule)]" />
+        </div>
+        <p className="text-xs text-[var(--mm-muted)] leading-relaxed">
+          기록한 모든 이벤트를 한 줄에 하나씩 담은 파일입니다. 영상 주소·영상 안 시각(초)·선수·팀·경기 정보가 함께 들어 있습니다.
+          친선전·미마감 경기도 포함되니 <code>is_exhibition</code>·<code>is_complete</code> 열로 거르세요.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { source: 'league', title: '리그 시스템', desc: '미라클 리그 · 미라클 대회' },
+            { source: 'team', title: '팀 시스템', desc: '파란날개 청년부 · 장년부' },
+          ].map(x => (
+            <div key={x.source} className="p-4 rounded-xl border border-[var(--mm-rule)] bg-[var(--mm-panel)] space-y-3">
+              <div>
+                <p className="font-semibold text-sm text-[var(--mm-ink)]">{x.title}</p>
+                <p className="text-xs text-[var(--mm-muted)]">{x.desc}</p>
+              </div>
+              <div className="flex gap-2">
+                <a href={`/api/admin/export/events?source=${x.source}&format=csv`} download
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-lg text-sm font-semibold bg-[var(--mm-yellow)] text-[var(--mm-black)]">
+                  <Download size={14} aria-hidden="true" /> CSV (엑셀)
+                </a>
+                <a href={`/api/admin/export/events?source=${x.source}&format=jsonl`} download
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-lg text-sm font-semibold border border-[var(--mm-rule)] text-[var(--mm-ink)]">
+                  <Download size={14} aria-hidden="true" /> JSONL (학습용)
+                </a>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>
