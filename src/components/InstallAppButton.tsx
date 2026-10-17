@@ -79,10 +79,12 @@ export default function InstallAppButton() {
       <button
         type="button"
         onClick={handleClick}
-        className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-[var(--mm-radius-ctl)] border text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+        // 설치 가능해도 노랑으로 칠하지 않는다 — 이 화면의 채운 노랑은 「내 선수 카드 열기」 하나뿐이다(2026-10-17).
+        //   설치 가능 여부는 글자(「앱으로 설치」 / 「…하는 법」)로 이미 드러난다.
+        className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-[var(--mm-radius-ctl)] border text-sm font-bold cursor-pointer transition-colors hover:border-[color:var(--mm-ink-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
         style={
           promptReady
-            ? { borderColor: 'var(--mm-yellow)', background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+            ? { borderColor: 'var(--mm-rule)', background: 'var(--mm-panel)', color: 'var(--mm-ink)' }
             : { borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
         }
       >

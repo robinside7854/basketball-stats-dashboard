@@ -100,7 +100,7 @@ export default function AssistNetwork({ links, games, players, emptyTitle = '이
 
   return (
     <div className="space-y-5">
-      <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+      <p className="text-xs max-w-prose text-pretty" style={{ color: 'var(--mm-muted)' }}>
         누가 누구의 득점을 도왔는지 보여 줘요. 화살표는 패스한 선수에서 득점한 선수로 가고, 선이 굵을수록 자주 이어졌어요.
       </p>
 

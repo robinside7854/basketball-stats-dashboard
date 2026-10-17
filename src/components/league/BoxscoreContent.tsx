@@ -10,7 +10,7 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
 //   · 공격 유형(슛 유형별 비중·야투율) · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
@@ -406,10 +406,12 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
           )
         })}
       </div>}
+      {/* 카드 안의 카드가 세 겹이 되던 것 — 선수 줄은 배경 없이 얇은 구분선만 둔다(2026-10-17) */}
+      <div>
       {sorted.map(r => {
         const rr = r as PlayerRow & DailyStat
         return (
-          <div key={rr.player_id} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+          <div key={rr.player_id} className="py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Avatar src={rr.photo_url} name={rr.name} size={32} ringColor={ringOf(rr.team_color)} decorative />
@@ -436,7 +438,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
         )
       })}
       {total && (
-        <div className="p-3" style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+        <div className="py-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="flex items-baseline gap-2 min-w-0">
               <span className="text-base font-black truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</span>
@@ -450,6 +452,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
           <LineGrid r={total} />
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -504,7 +507,7 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
 
   return (
     <section aria-labelledby="daily-leaders-title">
-      <h3 id="daily-leaders-title" className="text-base lg:text-lg font-black mb-2.5" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>당일 스탯 리더</h3>
+      <h2 id="daily-leaders-title" className="text-base lg:text-lg font-black mb-2.5" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>당일 스탯 리더</h2>
       <div className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-4 xl:grid-cols-7 sm:overflow-visible">
         {leaders.map(({ Icon, label, p, val, sub }) => (
           <div
@@ -847,12 +850,12 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               {/* 팀별 일일 전적 요약 */}
               {teamRecords.length > 0 && (
                 <div>
-                  <h3
+                  <h2
                     className="text-base lg:text-lg font-black mb-2.5"
                     style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                   >팀별 일일 전적{dayRecord.exhibitionOnly && (
                     <span className="ml-2 align-middle text-xs font-bold px-1.5 py-0.5" style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>친선전</span>
-                  )}</h3>
+                  )}</h2>
                   {!dayRecord.exhibitionOnly && dayRecord.exhibitionGames > 0 && (
                     <p className="text-xs -mt-1.5 mb-2" style={{ color: 'var(--mm-muted)' }}>친선전 {dayRecord.exhibitionGames}경기는 전적에서 뺐어요.</p>
                   )}
@@ -900,16 +903,16 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
               {/* 경기별 스코어 카드 — 클릭 시 확장(하이라이트 + 경기별 박스스코어) */}
               <section className="space-y-3">
-                <h3
+                <h2
                   className="text-base lg:text-lg font-black"
                   style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-                >경기별 스코어</h3>
+                >경기별 스코어</h2>
 
                 {/* ⚠ "카드를 누르면 박스스코어가 열린다"는 안내가 rolledUp 일 때만 떴다.
                     정규전은 같은 대진이 연속될 수 없어(2연속 뛴 팀 강제 휴식) 롤업이 한 칸도
                     안 일어나므로, 이 안내가 **영영 안 떴다.** 접힌 카드에 셰브론 아이콘 하나뿐이라
                     맞대결 기록이 있는 줄도 몰랐다는 신고로 이어졌다(2026-09-18). 안내는 늘 띄운다. */}
-                <p className="text-xs -mt-1.5 mb-2.5" style={{ color: 'var(--mm-muted)' }}>
+                <p className="text-xs -mt-1.5 mb-2.5 max-w-prose text-pretty" style={{ color: 'var(--mm-muted)' }}>
                   {rolledUp && '쿼터별로 나눠 올린 경기는 한 경기로 묶어 보여 줘요. '}
                   카드를 누르면 그 경기의 박스스코어가 열려요.
                 </p>
@@ -922,7 +925,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   const homeWin = g.is_complete && g.home_score > g.away_score
                   const awayWin = g.is_complete && g.away_score > g.home_score
                   const draw = g.is_complete && g.home_score === g.away_score
-                  const winnerColor = homeWin ? (g.home_team?.color ?? 'var(--mm-yellow)') : awayWin ? (g.away_team?.color ?? 'var(--mm-yellow)') : 'transparent'
 
                   return (
                     <div
@@ -934,15 +936,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                         borderRadius: 'var(--mm-radius-ctl)',
                       }}
                     >
-                      {/* 승자 팀 좌측 4px 컬러 바 */}
-                      {g.is_complete && !draw && (
-                        <div
-                          className="absolute inset-y-0 left-0 pointer-events-none"
-                          style={{ width: '4px', background: winnerColor }}
-                          aria-hidden
-                        />
-                      )}
-
                       {/* 경기 헤더 — 클릭하면 확장 */}
                       <button
                         type="button"
@@ -1099,7 +1092,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           <div className="px-4 sm:px-5 pb-4">
                             {g.players.length > 0
                               ? <GameBoxscore game={g} onPlayerPick={pickPlayer} />
-                              : <p className="text-sm text-center py-4" style={{ color: 'var(--mm-muted)' }}>기록된 선수 데이터가 없어요</p>}
+                              : <EmptyState variant="compact" icon={UserX} title="기록된 선수 데이터가 없어요" />}
                           </div>
                         </div>
                       )}
@@ -1185,7 +1178,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     {hasDd && <DdLegend />}
                   </>
                 )
-                : <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>집계된 스탯이 없어요</p>}
+                : <EmptyState variant="compact" icon={UserX} title="집계된 스탯이 없어요" framed />}
             </div>
             )
           })()}
@@ -1226,7 +1219,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               aria-labelledby="daily-boxscore-tab-compare"
               className="px-4 py-4 lg:px-6 lg:py-5"
             >
-              <TeamComparePanel dailyStats={dailyStats} games={games} />
+              <TeamComparePanel games={games} />
             </div>
           )}
 
@@ -1421,8 +1414,7 @@ function BoxscoreSkeleton() {
   )
 }
 
-function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; games: GameData[] }) {
-  void dailyStats  // games 기반 head-to-head 집계만 사용
+function TeamComparePanel({ games }: { games: GameData[] }) {
   const teams = extractTeams(games)
   const teamMeta = new Map(teams.map(t => [t.id, { name: t.name, color: t.color }]))
 
@@ -1444,9 +1436,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
   if (pairs.length === 0) {
     return (
-      <div className="text-center py-12" style={{ color: 'var(--mm-muted)' }}>
-        <p className="text-sm">이날 두 팀이 맞붙은 기록이 없어요.</p>
-      </div>
+      <EmptyState variant="compact" icon={Swords} title="이날 두 팀이 맞붙은 기록이 없어요." framed />
     )
   }
 
@@ -1474,9 +1464,9 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
       {/* 조합 버튼 — 팀 3개면 3쌍이 자연스럽게 grid-cols-3 */}
       <div>
-        <h3 className="text-base lg:text-lg font-black mb-2" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+        <h2 className="text-base lg:text-lg font-black mb-2" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           이날 맞붙은 팀
-        </h3>
+        </h2>
         <div
           className="grid gap-1.5"
           style={{ gridTemplateColumns: `repeat(auto-fit, minmax(180px, 1fr))` }}
@@ -1510,15 +1500,18 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       </div>
 
       {h2h.gameCount === 0 ? (
-        <div className="text-center py-10 px-4" style={{ color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
-          <p className="text-sm">
-            <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{A.name}</span>
+        <EmptyState
+          variant="compact"
+          icon={Swords}
+          framed
+          title={<>
+            <span style={{ color: 'var(--mm-ink)' }}>{A.name}</span>
             {' vs '}
-            <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{B.name}</span>
+            <span style={{ color: 'var(--mm-ink)' }}>{B.name}</span>
             {', 이 날짜에 맞붙은 경기가 없어요.'}
-          </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>두 팀이 실제로 맞붙은 경기 기록만 세요.</p>
-        </div>
+          </>}
+          description="두 팀이 실제로 맞붙은 경기 기록만 세요."
+        />
       ) : (
         // 팀 탭 「누적 맞대결」과 같이 폭을 묶어 가운데로 — PC 전폭이면 항목명과 양끝 숫자가 너무 멀다
         <div className="max-w-3xl mx-auto">

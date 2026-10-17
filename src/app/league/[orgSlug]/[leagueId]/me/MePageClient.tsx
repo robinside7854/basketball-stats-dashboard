@@ -6,17 +6,17 @@
 //   바로가기: 드래프트(진행 중 · 어드민만) — 내 하이라이트는 대시보드 「내 베스트샷」 카드로(2026-10-12)
 //     — 선수 명단·팀 순위는 스탯 탭으로, 설정은 상단 바 어드민 버튼으로 이동했다(둘 다 여기서 제거,
 //       2026-08-08 stats-umbrella-move 기준 갱신).
-//   계정: 라이트/다크 · 로그아웃 — 둘러보기 버튼은 기능 자체가 삭제되어 함께 제거했다(Task 4-A).
+//   계정: 아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃을 AccountCard 한 장으로(2026-10-17 — 종전엔 프로필 카드
+//     아래와 페이지 맨 아래로 갈라져 있었다). 둘러보기 버튼은 기능 자체가 삭제되어 함께 제거했다(Task 4-A).
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
-import { LogOut, ChevronRight, ClipboardList } from 'lucide-react'
+import { ChevronRight, ClipboardList } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
-import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
+import PersonalDashboard, { LoginTeaser, AccountCard } from '@/components/league/auth/PersonalDashboard'
 import SectionCard from '@/components/league/ui/SectionCard'
-import InstallAppButton from '@/components/InstallAppButton'
 import MePageSkeleton from '@/components/league/auth/MePageSkeleton'
 
 interface Props {
@@ -31,7 +31,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // LeagueLayoutClient 와 공유하는 세그먼트 분해 함수로 — orgSlug/리그 slug 가 'me' 로 시작하면
   // /\/me.*$/ 가 앞쪽에서 먼저 매치돼 base 가 '/league' 로 잘리는 함정이 있었다 (Minor 3).
   const base = deriveLeagueBase(pathname, orgSlug, leagueId)
-  const { user, loading: authLoading, logout } = useCurrentUser()
+  const { user, loading: authLoading } = useCurrentUser()
 
   // 드래프트 바로가기 — 드래프트는 주장·어드민 전용이 됐다(2026-10-12) → 편집 모드(어드민 ∥ CEO)에게만,
   //   그리고 현재 분기에 진행 중인 세션이 있을 때만. 레이아웃 드래프트 탭과 같은 훅(useActiveDraft)으로 판정한다.
@@ -60,28 +60,10 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         </SectionCard>
       )}
 
-      {/* 계정 — 앱 설치 · 로그아웃.
-          라이트/다크 토글은 2026-08-15 에 헤더 우측 아이콘으로 옮겼다(`LeagueLayoutClient`).
-          여기 있으면 테마를 바꾸려고 개인 화면까지 들어와야 했다. 같은 설정을 두 곳에 두면
-          '설정 탭 vs 톱니바퀴'와 똑같은 중복이 되므로 이 자리에는 남기지 않는다. */}
-      <SectionCard variant="standalone" pad="base" className="lg:max-w-[380px]">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 앱 설치 — 브라우저 메뉴를 뒤지지 않도록 앱 안에 입구를 둔다.
-              설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다. */}
-          <InstallAppButton />
-          {user && (
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="mm-press inline-flex items-center gap-1.5 min-h-[44px] px-3.5 border text-sm font-bold cursor-pointer transition-colors hover:border-[color:var(--mm-ink-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-              style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
-            >
-              <LogOut size={16} />
-              로그아웃
-            </button>
-          )}
-        </div>
-      </SectionCard>
+      {/* 계정 — 아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃(비로그인이면 앱 설치만).
+          라이트/다크 토글은 2026-08-15 에 헤더 우측 아이콘으로 옮겼다(`LeagueLayoutClient`) — 같은 설정을
+          두 곳에 두지 않는다. 인증 확인 중에는 그리지 않는다(스켈레톤 아래 버튼이 먼저 튀어나오지 않게). */}
+      {!authLoading && <AccountCard leagueId={leagueId} className="lg:max-w-[380px]" />}
     </div>
   )
 }

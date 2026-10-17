@@ -2,6 +2,7 @@
 import type React from 'react'
 import { Trophy } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
+import SectionHeader from '@/components/league/ui/SectionHeader'
 
 // 5칸 TOP 5 슬롯 — 컬럼 헤더 클릭 시 해당 지표 TOP 5 표시
 // 애니메이션: 순수 CSS · 지표 변경 시 fade + slide-in (stagger 50ms)
@@ -15,7 +16,7 @@ export type TopFivePlayer = {
 }
 
 interface Props {
-  metricKey: string | null           // null = 초기 상태 (안내)
+  metricKey: string | null           // null = 선수 없음 · players 가 비면(기준 충족자 0명) 빈 상태 문구
   metricLabel: string | null         // 예: 'PPG', 'FG%'
   metricFullLabel: string | null     // 예: '득점', '야투율'
   players: TopFivePlayer[]           // 최대 5명 · 이미 정렬됨
@@ -72,29 +73,30 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
   const active = metricKey !== null && players.length > 0
 
   return (
-    <SectionCard variant="standalone" ariaLabel="TOP 5 리더 슬롯" pad="base">
-      {/* 헤더 */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-3">
-        <Trophy size={18} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
-        <h3
-          className="font-black text-lg lg:text-xl whitespace-nowrap"
-          style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-        >
-          TOP 5 리더
-        </h3>
-        {active && (
-          <span
-            className="basis-full sm:basis-auto sm:ml-2 min-w-0 font-bold text-base break-keep"
-            style={{ color: 'var(--mm-ink)' }}
-          >
-            {metricFullLabel ?? metricLabel}
-            <span className="ml-1.5 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', fontWeight: 500 }}>
-              ({metricLabel})
-            </span>
+    // pad="none" — 머리(SectionHeader)가 자기 패딩을 가진다. 본문만 아래에서 같은 폭으로 감싼다(이중 패딩 방지).
+    <SectionCard variant="standalone" ariaLabel="TOP 5 리더 슬롯" pad="none">
+      <SectionHeader
+        divider={false}
+        icon={<Trophy size={18} />}
+        title={
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
+            <span className="whitespace-nowrap">TOP 5 리더</span>
+            {active && (
+              <span
+                className="basis-full sm:basis-auto min-w-0 font-bold text-base break-keep"
+                style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+              >
+                {metricFullLabel ?? metricLabel}
+                <span className="ml-1.5 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', fontWeight: 500 }}>
+                  ({metricLabel})
+                </span>
+              </span>
+            )}
           </span>
-        )}
-      </div>
+        }
+      />
 
+      <div className="px-4 pb-4 lg:px-6 lg:pb-5">
       {controls}
 
       {!active ? (
@@ -103,7 +105,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
           style={{ color: 'var(--mm-muted)' }}
         >
           <p className="t-label">
-            표 머리를 누르면 그 지표의 TOP 5가 보여요
+            이 지표는 기준을 채운 선수가 아직 없어요
           </p>
         </div>
       ) : (
@@ -124,8 +126,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
               : rank === 3
               ? 'var(--mm-ink-soft)'
               : 'var(--mm-muted)'
-            // 1위만 3px 좌측 보더에 옐로우-strong 실색상 허용 (도미노 규칙 유일 예외)
-            const accent = isFirst ? 'var(--mm-yellow-strong)' : 'transparent'
+            // 1위 표시는 yellow-soft 바탕 + 노란 순위 배지 두 가지로 충분하다 — 윗변 3px 띠는 겹쳐서 뺐다(2026-10-17)
             return (
               <button
                 key={p.id}
@@ -136,7 +137,6 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                   borderRadius: 'var(--mm-radius-card)',
                   background: isFirst ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: '1px solid var(--mm-rule)',
-                  borderTop: `3px solid ${accent}`,
                   // stagger — 각 슬롯이 순차 등장
                   animation: 'topfiveIn 260ms ease-out backwards',  // backwards — 끝난 뒤 transform 을 붙잡지 않아 mm-lift 호버가 먹는다
                   animationDelay: `${i * 50}ms`,
@@ -194,6 +194,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
           })}
         </div>
       )}
+      </div>
 
       {/* Scoped keyframes — Framer Motion 없이 순수 CSS */}
       <style jsx>{`

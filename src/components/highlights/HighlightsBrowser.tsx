@@ -150,12 +150,12 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
         <button
           type="button"
           onClick={shareShort}
-          className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+          className="mm-press inline-flex items-center gap-1.5 min-h-11 px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
           style={{
             background: 'var(--mm-panel)',
             color: 'var(--mm-ink-soft)',
             border: '1px solid var(--mm-rule)',
-            borderRadius: '4px',
+            borderRadius: 'var(--mm-radius-ctl)',
           }}
           aria-label="현재 화면 짧은 링크 복사"
           title="짧은 공유 링크 복사"

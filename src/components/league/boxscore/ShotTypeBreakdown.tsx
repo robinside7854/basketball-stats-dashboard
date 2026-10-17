@@ -207,7 +207,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
 
   return (
     <div className="space-y-4">
-      <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+      <p className="text-xs max-w-prose text-pretty" style={{ color: 'var(--mm-muted)' }}>
         야투를 3점슛 · 미들슛 · 레이업 · 골밑슛으로 나눠, 어떤 슛을 얼마나 던졌고(시도 비중) 얼마나 넣었는지(야투율) 보여 줘요. 자유투는 빼요.
       </p>
 
@@ -314,7 +314,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
             })}
           </ul>
           {shownPlayers.length === 0 && (
-            <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 팀은 이 범위에서 기록된 야투가 없어요.</p>
+            <EmptyState variant="compact" icon={Target} title="이 팀은 이 범위에서 기록된 야투가 없어요." />
           )}
         </div>
       )}

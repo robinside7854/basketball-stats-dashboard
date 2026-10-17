@@ -15,7 +15,7 @@ interface Props {
   clips: HighlightClip[]
   currentIdx: number
   onSelect: (idx: number) => void
-  /** 목록 스크롤 영역 클래스 — 생략하면 종전 그대로(자체 스크롤 55vh/70vh). 리그 하이라이트 피드가 덮어쓴다 */
+  /** 목록 스크롤 영역 클래스 — 생략하면 종전 그대로(자체 스크롤 55dvh/70dvh). 리그 하이라이트 피드가 덮어쓴다 */
   scrollClassName?: string
 }
 
@@ -90,7 +90,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
   return (
     <div
       ref={listRef}
-      className={`${scrollClassName ?? 'max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]'}`}
+      className={`${scrollClassName ?? 'max-h-[55dvh] overflow-y-auto pr-1 lg:max-h-[70dvh]'}`}
       role="listbox"
       aria-label="선수 하이라이트 플레이리스트"
     >
@@ -110,7 +110,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
             >
               {formatDateHeader(group.date)}
             </span>
-            <span className="text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
               {group.items.length} 클립
             </span>
           </div>
@@ -130,15 +130,21 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
                   role="option"
                   aria-selected={active}
                   aria-label={c.is_clutch ? '클러치 슛' : undefined}
-                  className="flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors relative overflow-hidden"
+                  className="flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors relative overflow-hidden mm-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={{
                     background: active ? 'var(--mm-yellow-soft)' : 'var(--mm-panel)',
-                    border: `1px solid ${active ? 'var(--mm-yellow)' : (c.is_clutch ? '#ef4444' : 'var(--mm-rule)')}`,
+                    border: `1px solid ${active ? 'var(--mm-yellow)' : (c.is_clutch ? 'var(--mm-live)' : 'var(--mm-rule)')}`,
                     borderLeftWidth: c.is_clutch ? '3px' : '1px',
-                    borderLeftColor: c.is_clutch ? '#ef4444' : (active ? 'var(--mm-yellow)' : 'var(--mm-rule)'),
+                    borderLeftColor: c.is_clutch ? 'var(--mm-live)' : (active ? 'var(--mm-yellow)' : 'var(--mm-rule)'),
                     borderRadius: '4px',
                   }}
+                  tabIndex={0}
                   onClick={() => onSelect(idx)}
+                  onKeyDown={(e) => {
+                    // 안에 공유·복사 버튼이 있어 항목 자체를 button 으로 바꿀 수 없다 — 키보드로도 고를 수 있게
+                    if (e.target !== e.currentTarget) return
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(idx) }
+                  }}
                 >
                   <div className="relative shrink-0" style={{ width: '96px' }}>
                     <div className="w-full aspect-video overflow-hidden rounded" style={{ background: '#000' }}>
@@ -170,14 +176,14 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
                   <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span
-                        className="text-[10px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
+                        className="text-xs font-bold px-1.5 py-0.5"
                         style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
                       >
                         {SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type}
                       </span>
                       {c.points >= 3 && (
                         <span
-                          className="text-[10px] font-bold px-1.5 py-0.5"
+                          className="text-xs font-bold px-1.5 py-0.5"
                           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
                         >
                           +{c.points}
@@ -185,8 +191,8 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
                       )}
                       {c.is_clutch && (
                         <span
-                          className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
-                          style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
+                          className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5"
+                          style={{ background: 'var(--mm-live-bg)', color: '#fff', borderRadius: '3px' }}
                           aria-label="클러치 슛"
                           title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
                         >
@@ -194,12 +200,12 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
                           클러치
                         </span>
                       )}
-                      <span className="text-[11px] font-mono" style={{ color: 'var(--mm-muted)' }}>
+                      <span className="text-xs font-mono" style={{ color: 'var(--mm-muted)' }}>
                         {formatTimestamp(c.video_timestamp)}
                       </span>
                     </div>
                     {c.assist_player_name && (
-                      <div className="text-[11px] leading-tight" style={{ color: 'var(--mm-muted)' }}>
+                      <div className="text-xs leading-tight" style={{ color: 'var(--mm-muted)' }}>
                         <span className="font-bold" aria-hidden>A.</span>{' '}
                         <span style={{ color: 'var(--mm-ink-soft)' }}>
                           {c.assist_player_number ? `#${c.assist_player_number} ` : ''}{c.assist_player_name}
@@ -208,7 +214,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
                       </div>
                     )}
                     <div className="flex items-center justify-between gap-1.5">
-                      <span className="text-[11px] truncate" title={opponent ? `vs ${opponent}` : undefined} style={{ color: 'var(--mm-muted)' }}>
+                      <span className="text-xs truncate" title={opponent ? `vs ${opponent}` : undefined} style={{ color: 'var(--mm-muted)' }}>
                         {opponent ? <>vs <span style={{ color: 'var(--mm-ink-soft)' }}>{opponent}</span></> : ''}
                       </span>
                       <div className="flex items-center gap-0.5">

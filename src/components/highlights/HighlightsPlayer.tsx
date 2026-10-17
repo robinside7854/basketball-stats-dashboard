@@ -627,7 +627,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
               {clip.is_clutch && (
                 <span
                   className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 ml-0.5 sm:ml-1"
-                  style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
+                  style={{ background: 'var(--mm-live-bg)', color: '#fff', borderRadius: '3px' }}
                   aria-label="클러치 슛"
                 >
                   <HeartCrack size={14} aria-hidden />
@@ -673,7 +673,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           type="button"
           onClick={goPrev}
           disabled={currentIdx === 0}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-all duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-[transform,filter] duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
           aria-label="이전 클립"
         >
@@ -693,8 +693,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         <button
           type="button"
           onClick={togglePlay}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[52px] px-3 cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
-          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px', boxShadow: '0 2px 8px -3px rgba(0,0,0,0.35)' }}
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[52px] px-3 cursor-pointer transition-[transform,filter] duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
+          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px', boxShadow: 'var(--mm-shadow-sm)' }}
           aria-label="재생/정지"
         >
           <Play size={20} fill="currentColor" />
@@ -712,7 +712,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           type="button"
           onClick={goNext}
           disabled={currentIdx + 1 >= clips.length}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-all duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-[transform,filter] duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
           aria-label="다음 클립"
         >

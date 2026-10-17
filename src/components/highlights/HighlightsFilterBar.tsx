@@ -71,7 +71,7 @@ export default function HighlightsFilterBar({
     }
     return {
       background: active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-panel)',
-      color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+      color: active ? (hue ? '#fff' : 'var(--mm-black)') : 'var(--mm-ink-soft)',
       border: `1px solid ${active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-rule)'}`,
       borderRadius: '4px',
     }
@@ -103,7 +103,7 @@ export default function HighlightsFilterBar({
             <button
               type="button"
               onClick={() => onChange(EMPTY_FILTER)}
-              className="text-[11px] font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
+              className="text-xs font-bold px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
               style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
             >
               초기화 ({activeCount})
@@ -118,12 +118,12 @@ export default function HighlightsFilterBar({
       {/* 팀(또는 상대) 필터 */}
       {teams.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>{teamSectionLabel}</div>
+          <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{teamSectionLabel}</div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setTeam(null)}
-              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+              className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors"
               style={chip(filter.teamId === null)}
             >
               전체
@@ -138,7 +138,7 @@ export default function HighlightsFilterBar({
                   type="button"
                   disabled={off}
                   onClick={() => setTeam(active ? null : t.id)}
-                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
                   style={chip(active, t.color || undefined, off)}
                   aria-pressed={active}
                   aria-disabled={off}
@@ -146,7 +146,7 @@ export default function HighlightsFilterBar({
                 >
                   {t.color && <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: t.color }} />}
                   {t.name}
-                  <span className="text-[10px] opacity-80">{n}</span>
+                  <span className="text-xs opacity-80">{n}</span>
                 </button>
               )
             })}
@@ -156,12 +156,12 @@ export default function HighlightsFilterBar({
 
       {/* 슛 유형 필터 */}
       <div className="space-y-1.5">
-        <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>슛 유형</div>
+        <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>슛 유형</div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={() => setCategory(null)}
-            className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+            className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors"
             style={chip(filter.category === null)}
           >
             전체
@@ -176,14 +176,14 @@ export default function HighlightsFilterBar({
                 type="button"
                 disabled={off}
                 onClick={() => setCategory(active ? null : c.key)}
-                className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
                 style={chip(active, undefined, off)}
                 aria-pressed={active}
                 aria-disabled={off}
                 title={off ? offTitle : undefined}
               >
                 {c.label}
-                <span className="text-[10px] opacity-80">{n}</span>
+                <span className="text-xs opacity-80">{n}</span>
               </button>
             )
           })}
@@ -197,8 +197,8 @@ export default function HighlightsFilterBar({
                 type="button"
                 disabled={off}
                 onClick={() => setCategory(active ? null : 'clutch')}
-                className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1 ${off ? '' : 'cursor-pointer'}`}
-                style={chip(active, '#ef4444', off)}
+                className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1 ${off ? '' : 'cursor-pointer'}`}
+                style={chip(active, 'var(--mm-live-bg)', off)}
                 aria-pressed={active}
                 aria-disabled={off}
                 aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기'}
@@ -206,7 +206,7 @@ export default function HighlightsFilterBar({
               >
                 <HeartCrack size={14} aria-hidden />
                 클러치
-                <span className="text-[10px] opacity-80">{n}</span>
+                <span className="text-xs opacity-80">{n}</span>
               </button>
             )
           })()}
@@ -216,12 +216,12 @@ export default function HighlightsFilterBar({
       {/* 쿼터 필터 — 대회 전용 (리그는 game_quarter 미설정 → quarters 가 비어 섹션 자체가 안 보임) */}
       {quarters.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>쿼터</div>
+          <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터</div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setQuarter(null)}
-              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+              className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors"
               style={chip(filter.quarter === null)}
             >
               전체
@@ -236,14 +236,14 @@ export default function HighlightsFilterBar({
                   type="button"
                   disabled={off}
                   onClick={() => setQuarter(active ? null : q.quarter)}
-                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
                   style={chip(active, undefined, off)}
                   aria-pressed={active}
                   aria-disabled={off}
                   title={off ? offTitle : undefined}
                 >
                   {q.label}
-                  <span className="text-[10px] opacity-80">{n}</span>
+                  <span className="text-xs opacity-80">{n}</span>
                 </button>
               )
             })}
@@ -254,12 +254,12 @@ export default function HighlightsFilterBar({
       {/* 선수 필터 — 칩 (클립 수 많은 순 정렬) */}
       {players.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>선수</div>
+          <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>선수</div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setPlayer(null)}
-              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+              className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors"
               style={chip(filter.playerId === null)}
             >
               전체
@@ -281,7 +281,7 @@ export default function HighlightsFilterBar({
                   title={off ? offTitle : undefined}
                 >
                   {p.number != null ? `#${p.number} ` : ''}{p.name}
-                  <span className="text-[10px] opacity-80">{n}</span>
+                  <span className="text-xs opacity-80">{n}</span>
                 </button>
               )
             })}

@@ -196,12 +196,12 @@ export default function PlayerHighlightsBrowser({
         <button
           type="button"
           onClick={shareShort}
-          className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+          className="mm-press inline-flex items-center gap-1.5 min-h-11 px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
           style={{
             background: 'var(--mm-panel)',
             color: 'var(--mm-ink-soft)',
             border: '1px solid var(--mm-rule)',
-            borderRadius: '4px',
+            borderRadius: 'var(--mm-radius-ctl)',
           }}
           aria-label="현재 화면 짧은 링크 복사"
           title="짧은 공유 링크 복사"
@@ -229,7 +229,7 @@ export default function PlayerHighlightsBrowser({
               <button
                 type="button"
                 onClick={() => { setCategory(null); setQuarterId(null); setGameQuarter(null) }}
-                className="text-[11px] font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
+                className="text-xs font-bold px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
                 style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
               >
                 초기화 ({activeCount})
@@ -243,12 +243,12 @@ export default function PlayerHighlightsBrowser({
 
         {/* 공격유형 */}
         <div className="space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>공격 유형</div>
+          <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>공격 유형</div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setCategory(null)}
-              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+              className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors"
               style={chip(category === null)}
             >
               전체
@@ -263,14 +263,14 @@ export default function PlayerHighlightsBrowser({
                   type="button"
                   disabled={off}
                   onClick={() => setCategory(active ? null : c.key)}
-                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
                   style={chip(active, undefined, off)}
                   aria-pressed={active}
                   aria-disabled={off}
                   title={off ? offTitle : undefined}
                 >
                   {c.label}
-                  <span className="text-[10px] opacity-80">{n}</span>
+                  <span className="text-xs opacity-80">{n}</span>
                 </button>
               )
             })}
@@ -284,8 +284,8 @@ export default function PlayerHighlightsBrowser({
                   type="button"
                   disabled={off}
                   onClick={() => setCategory(active ? null : 'clutch')}
-                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1 ${off ? '' : 'cursor-pointer'}`}
-                  style={chip(active, '#ef4444', off)}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1 ${off ? '' : 'cursor-pointer'}`}
+                  style={chip(active, 'var(--mm-live-bg)', off)}
                   aria-pressed={active}
                   aria-disabled={off}
                   aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기'}
@@ -293,7 +293,7 @@ export default function PlayerHighlightsBrowser({
                 >
                   <HeartCrack size={14} aria-hidden />
                   클러치
-                  <span className="text-[10px] opacity-80">{n}</span>
+                  <span className="text-xs opacity-80">{n}</span>
                 </button>
               )
             })()}
@@ -303,12 +303,12 @@ export default function PlayerHighlightsBrowser({
         {/* 쿼터 — 대회 전용 (리그는 game_quarter 미설정 → 옵션이 비어 섹션 숨김) */}
         {gameQuarterOptions.length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>쿼터</div>
+            <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터</div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
                 onClick={() => setGameQuarter(null)}
-                className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+                className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors"
                 style={chip(gameQuarter === null)}
               >
                 전체
@@ -323,14 +323,14 @@ export default function PlayerHighlightsBrowser({
                     type="button"
                     disabled={off}
                     onClick={() => setGameQuarter(active ? null : q.quarter)}
-                    className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                    className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
                     style={chip(active, undefined, off)}
                     aria-pressed={active}
                     aria-disabled={off}
                     title={off ? offTitle : undefined}
                   >
                     {q.label}
-                    <span className="text-[10px] opacity-80">{n}</span>
+                    <span className="text-xs opacity-80">{n}</span>
                   </button>
                 )
               })}
@@ -341,12 +341,12 @@ export default function PlayerHighlightsBrowser({
         {/* 분기 */}
         {quarters.length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>{groupLabel}</div>
+            <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{groupLabel}</div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
                 onClick={() => setQuarterId(null)}
-                className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+                className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors"
                 style={chip(quarterId === null)}
               >
                 전체
@@ -361,14 +361,14 @@ export default function PlayerHighlightsBrowser({
                     type="button"
                     disabled={off}
                     onClick={() => setQuarterId(active ? null : q.id)}
-                    className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                    className={`px-3 py-1.5 min-h-[36px] text-xs font-bold transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
                     style={chip(active, undefined, off)}
                     aria-pressed={active}
                     aria-disabled={off}
                     title={off ? offTitle : undefined}
                   >
                     {q.label}
-                    <span className="text-[10px] opacity-80">{n}</span>
+                    <span className="text-xs opacity-80">{n}</span>
                   </button>
                 )
               })}

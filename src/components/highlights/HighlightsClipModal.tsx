@@ -62,8 +62,8 @@ export default function HighlightsClipModal({
     >
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       <div
-        className="relative z-10 w-full max-w-5xl bg-[color:var(--mm-panel)] shadow-[0_24px_60px_-16px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
-        style={{ borderRadius: 6, border: `1px solid ${border}` }}
+        className="relative z-10 w-full max-w-5xl bg-[color:var(--mm-panel)] shadow-[var(--mm-shadow-lg)] overflow-hidden"
+        style={{ borderRadius: 'var(--mm-radius-card)', border: `1px solid ${border}` }}
       >
         {/* 헤더 2줄 — 제목·번호는 윗줄, 지금 재생 중인 클립 정보는 아랫줄.
             한 줄에 몰아넣고 truncate 하면 뒤에 붙는 어시스트가 먼저 잘린다.
@@ -72,16 +72,16 @@ export default function HighlightsClipModal({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 min-w-0">
               {icon}
-              <span className="text-xs font-black uppercase tracking-[0.14em] truncate" style={{ color: 'var(--mm-ink)' }}>
+              <span className="text-xs font-black truncate" style={{ color: 'var(--mm-ink)' }}>
                 {title}
               </span>
-              <span className="text-[11px] shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+              <span className="text-xs shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                 {currentIdx + 1} / {clips.length}
               </span>
             </div>
             {current && (
               // 잘라내지 않고 줄바꿈시킨다 — 모바일에서 이름이 길어도 끝까지 읽혀야 한다.
-              <p className="text-[11px] mt-0.5 break-keep leading-snug" style={{ color: 'var(--mm-ink-soft)' }}>
+              <p className="text-xs mt-0.5 break-keep leading-snug" style={{ color: 'var(--mm-ink-soft)' }}>
                 <PlayerName id={current.player_id} name={current.player_name} hitArea={false} className="font-bold" />
                 {' · '}{SHOT_TYPE_LABEL[current.shot_type] ?? current.shot_type}
                 {/* 앤드원은 별도 클립이 아니라 이 슛에 흡수돼 있다 — 같은 장면이 두 번 재생되지 않게. */}

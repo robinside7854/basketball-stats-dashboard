@@ -13,6 +13,7 @@ import StatHeader from '@/components/league/StatHeader'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
+import SectionHeader from '@/components/league/ui/SectionHeader'
 import { ProgressBar } from '@/components/league/ui/viz'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
@@ -204,7 +205,6 @@ function MobileStatCard({
       style={{
         background: 'var(--mm-panel)',
         border: '1px solid var(--mm-rule)',
-        borderLeft: `3px solid ${ineligible ? 'var(--mm-rule)' : (rt.accent === 'transparent' ? 'var(--mm-rule)' : rt.accent)}`,
         borderRadius: 'var(--mm-radius-card)',
       }}>
       <div className="flex items-center gap-2.5">
@@ -287,9 +287,6 @@ function LeagueStatsPageInner() {
   // 이전엔 수동 입력 + '전체 선수' 토글이 있어 "왜 내 값이 안 먹지" 혼란 유발 → 자동 임계값 하나만 유지
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
-  // TopFiveSlot 활성화 플래그 — 기본 true 로 두어 진입 즉시 기본 정렬(득점 PPG) TOP 5 를 노출.
-  // 이후 컬럼 헤더 클릭으로 지표 전환 (2026-07-27: 기본 안내 화면 → 득점 TOP5 기본 표시로 변경)
-  const [topFiveActive, setTopFiveActive] = useState(true)
   // "더 보기" 노출 상한 — 모바일 카드뷰와 데스크탑 표뷰가 **한 상태를 공유**한다.
   // 뷰마다 따로 두면 화면 폭이 바뀔 때(회전·창 크기) 보이는 인원이 튄다.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
@@ -351,7 +348,6 @@ function LeagueStatsPageInner() {
   }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, shootSortKey, shootSortDir, selectedQuarterId, showAll])
 
   function handleSort(key: SortKey) {
-    if (!topFiveActive) setTopFiveActive(true)
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortKey(key); setSortDir('desc') }
   }
@@ -546,12 +542,10 @@ function LeagueStatsPageInner() {
   const hiddenCount = Math.max(0, filtered.length - visibleCount)
 
   function handleAdvSort(key: AdvKey) {
-    if (!topFiveActive) setTopFiveActive(true)
     if (key === advSortKey) setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setAdvSortKey(key); setAdvSortDir('desc') }
   }
   function handleShootSort(key: ShootingKey) {
-    if (!topFiveActive) setTopFiveActive(true)
     if (key === shootSortKey) setShootSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setShootSortKey(key); setShootSortDir('desc') }
   }
@@ -586,7 +580,7 @@ function LeagueStatsPageInner() {
   // TOP 5 슬롯용 데이터 — 현재 statMode + 해당 모드의 sortKey 로 상위 5명 산출
   // 리더는 항상 값이 큰 순 (사용자 sortDir 무시)
   const topFive = useMemo<{ key: string | null; label: string | null; fullLabel: string | null; players: TopFivePlayer[] }>(() => {
-    if (!topFiveActive || players.length === 0) {
+    if (players.length === 0) {
       return { key: null, label: null, fullLabel: null, players: [] }
     }
     const eligibleBase = players.filter(p => p.gp >= effectiveMinGP)
@@ -658,7 +652,7 @@ function LeagueStatsPageInner() {
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode])
+  }, [statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode])
 
   const base = `/league/${orgSlug}/${leagueId}`
   // 리더보드·팀·기록실 3개 서브탭 (2026-09-28 명단 → 팀 화면 · 2026-10-14 어워즈 삭제 · 2026-10-16 기록실 승격).
@@ -693,7 +687,7 @@ function LeagueStatsPageInner() {
       {/* 제목 · 분기 · 표 모드를 한 카드에 — 배경 위에 칩만 떠 있지 않게 (2026-10-13) */}
       <SectionCard variant="standalone" className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em', lineHeight: 1.15 }}>리그 스탯</h2>
+          <h2 className="font-black text-[28px] leading-[1.15] tracking-[-0.005em] text-[color:var(--mm-ink)]">리그 스탯</h2>
           {/* 「숫자 읽는 법」 — 하루 평균·+1·자유투 룰·친선 제외·최소 출전/시도 기준 (glossary.ts READING_GUIDE) */}
           <StatsGlossarySheet className="shrink-0" />
         </div>
@@ -798,13 +792,12 @@ function LeagueStatsPageInner() {
           {/* 전체 스탯 테이블 */}
           <SectionCard variant="standalone" pad="none">
             {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
-            <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <div className="flex items-center gap-2 shrink-0">
-                <TrendingUp size={18} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
-                <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>전체 스탯</h3>
-              </div>
-              {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
-              <div className="flex flex-wrap items-center gap-2 pb-0.5 sm:ml-auto">
+            {/* 폰: 컨트롤 묶음(actions)이 제목 아래 한 줄을 통째로 쓴다 — 버튼이 남는 폭을 나눠 채우게 */}
+            <SectionHeader
+              title="전체 스탯"
+              icon={<TrendingUp size={18} />}
+              className="[&>div:last-child]:w-full sm:[&>div:last-child]:w-auto"
+              actions={<>
                 {/* 누적/평균 토글 (Basic 모드에서만 의미 있음) */}
                 <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   {(['avg','total'] as ViewMode[]).map(m => (
@@ -850,8 +843,8 @@ function LeagueStatsPageInner() {
                   <ArrowLeftRight size={16} aria-hidden="true" />
                   선수 비교
                 </button>
-              </div>
-            </div>
+              </>}
+            />
 
             {(() => {
               const k = statMode === 'basic' ? basicPctKey : statMode === 'shooting' ? shootPctKey : null

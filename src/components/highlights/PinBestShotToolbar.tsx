@@ -87,10 +87,10 @@ export default function PinBestShotToolbar({
             />
           ))}
         </span>
-        <span className="text-xs font-black uppercase tracking-[0.14em] shrink-0" style={{ color: 'var(--mm-ink)' }}>
+        <span className="text-xs font-black shrink-0" style={{ color: 'var(--mm-ink)' }}>
           {playerName} 베스트샷
         </span>
-        <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>
+        <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>
           {pinnedEventIds.length}/{MAX_PINS}
           {currentSlot && ` · 현재 클립: ${currentSlot}번`}
         </span>
@@ -99,7 +99,7 @@ export default function PinBestShotToolbar({
         type="button"
         onClick={toggle}
         disabled={busy || (atCap && !isPinned)}
-        className="min-h-[36px] px-3 py-1.5 text-xs font-black uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="min-h-[36px] px-3 py-1.5 text-xs font-black cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           background: isPinned ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
           color: isPinned ? 'var(--mm-black)' : 'var(--mm-ink)',

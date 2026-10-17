@@ -83,10 +83,6 @@ export function ProfileCardSkeleton() {
         <Block className="h-[52px] w-full" round="chip" />
         <Block className="h-3 w-2/3 mx-auto" />
       </div>
-      <div className="px-4 md:px-5 py-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-        <Block className="h-3 w-28" />
-        <Block className="h-9 w-28" />
-      </div>
     </Card>
   )
 }

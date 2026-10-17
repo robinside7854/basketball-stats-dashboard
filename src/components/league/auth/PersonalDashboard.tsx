@@ -7,7 +7,8 @@ import PlayerName from '@/components/league/ui/PlayerName'
 //   다른 자격 규칙으로 따로 보여 줘 카드와 갈렸다(「선수 숫자는 한 벌」) → 그 블록들을 걷어내고
 //   맨 위에 「내 선수 카드 열기」 하나를 크게 둔다(지금 분기로 열린다).
 // 배치 (모바일 한 줄 · PC ≥lg 두 칸)
-//   왼쪽: 프로필 머리 · 마지막 출전(친선일 포함) · 「내 선수 카드 열기」 · 계정(비밀번호 변경)
+//   왼쪽: 프로필 머리 · 마지막 출전(친선일 포함) · 「내 선수 카드 열기」
+//   계정(아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃)은 페이지 아래 AccountCard 하나로 모았다(2026-10-17).
 //   오른쪽: 출석률(이번 분기 + 전체 · 분모는 내 첫 기록일부터) · 내 베스트샷(+ 최근 하이라이트) · 마일스톤 체이서
 //   숫자는 전부 auth/dashboard 하나가 준다(친선 제외 — 화면에서 다시 계산하지 않는다).
 //   ⚠ 평균·연속 단위는 「하루」다 — 「경기당」·「라운드」라 쓰지 말 것.
@@ -17,7 +18,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import {
   Trophy, Film, User as UserIcon, ChevronRight, IdCard, Flame, X, KeyRound,
-  CalendarCheck, Pin, Play, AlertCircle,
+  CalendarCheck, Pin, Play, AlertCircle, LogOut,
 } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
@@ -28,6 +29,7 @@ import Avatar from '@/components/league/ui/Avatar'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
 import { DashboardCardsSkeleton } from './MePageSkeleton'
+import InstallAppButton from '@/components/InstallAppButton'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
 import { Ring } from '@/components/league/ui/viz'
@@ -98,14 +100,13 @@ function proximityStyle(progressPct: number): { bg: string; fg: string } {
 }
 
 export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
-  const { user, loading: authLoading, refresh } = useCurrentUser()
+  const { user, loading: authLoading } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   // 내 선수 카드 — 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext). 지금 분기로 연다.
   const openPlayerCard = useOpenPlayerCard()
   const { currentQuarter } = useLeagueQuarter()
-  const [pwOpen, setPwOpen] = useState(false)
   // #1 비로그인 로그인 티저 — 30일 억제. 초기 true(플래시 방지) → 마운트 후 판정.
   const [teaserDismissed, setTeaserDismissed] = useState(true)
   useEffect(() => {
@@ -203,36 +204,6 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
               </p>
             </div>
 
-            {/* 계정 · 비밀번호 변경 (로그아웃은 /me MePageClient 의 계정 섹션 하나로 통합 — 중복 제거) */}
-            <div
-              className="flex items-center justify-between gap-2 flex-wrap px-4 md:px-5 py-3"
-              style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
-            >
-              <div className="flex items-center gap-2 min-w-0 text-xs" style={{ color: 'var(--mm-muted)' }}>
-                <UserIcon size={14} aria-hidden />
-                <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
-                {user.is_default_password && (
-                  <span className="inline-flex items-center text-xs font-black px-1.5 py-0.5"
-                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
-                    초기 비번
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setPwOpen(true)}
-                className="mm-press inline-flex items-center gap-1.5 min-h-[36px] max-sm:min-h-11 px-3 py-1.5 text-xs font-black cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                style={{
-                  borderRadius: 'var(--mm-radius-ctl)',
-                  background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                  color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',
-                  border: `1px solid ${user.is_default_password ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
-                }}
-              >
-                <KeyRound size={14} aria-hidden />
-                비밀번호 변경
-              </button>
-            </div>
           </SectionCard>
         </div>
 
@@ -274,9 +245,71 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
           </div>
         )}
       </div>
+    </>
+  )
+}
 
+// ─── 계정 ─────────────────────────────────────────────────────
+// 아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃을 한 카드에 모은다(2026-10-17 — 종전엔 프로필 카드 아래와
+//   페이지 맨 아래 두 곳으로 갈라져 있었다). 비로그인이면 앱 설치만 남는다.
+//   「초기 비번」 칩이 경고 신호다 — 버튼까지 노랗게 칠하면 「내 선수 카드 열기」와 노랑이 겹쳐 둘 다 약해진다.
+const NEUTRAL_BTN =
+  'mm-press inline-flex items-center gap-1.5 min-h-[44px] px-3.5 border text-sm font-bold cursor-pointer transition-colors hover:border-[color:var(--mm-ink-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]'
 
-      {pwOpen && (
+export function AccountCard({ leagueId, className = '' }: { leagueId: string; className?: string }) {
+  const { user, refresh, logout } = useCurrentUser()
+  const [pwOpen, setPwOpen] = useState(false)
+  return (
+    <SectionCard variant="standalone" pad="none" className={className}>
+      {user && (
+        <div className="px-4 md:px-5 pt-4">
+          <CardTitle icon={UserIcon} title="계정" />
+          <div className="flex items-center gap-2 min-w-0 text-sm" style={{ color: 'var(--mm-muted)' }}>
+            <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
+            {user.is_default_password && (
+              <span
+                className="shrink-0 inline-flex items-center text-xs font-black px-1.5 py-0.5"
+                style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-chip)' }}
+              >
+                초기 비번
+              </span>
+            )}
+          </div>
+          {user.is_default_password && (
+            <p className="text-xs font-medium mt-1 break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
+              처음 받은 비밀번호 그대로예요. 바꿔 두면 안전해요.
+            </p>
+          )}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 px-4 md:px-5 py-4">
+        {user && (
+          <button
+            type="button"
+            onClick={() => setPwOpen(true)}
+            className={NEUTRAL_BTN}
+            style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', background: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}
+          >
+            <KeyRound size={16} aria-hidden />
+            비밀번호 변경
+          </button>
+        )}
+        {/* 앱 설치 — 설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다 */}
+        <InstallAppButton />
+        {user && (
+          <button
+            type="button"
+            onClick={() => logout()}
+            className={`${NEUTRAL_BTN} sm:ml-auto`}
+            style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
+          >
+            <LogOut size={16} aria-hidden />
+            로그아웃
+          </button>
+        )}
+      </div>
+
+      {pwOpen && user && (
         <PasswordChangeModal
           leagueId={leagueId}
           isDefaultPassword={user.is_default_password}
@@ -284,7 +317,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
           onDone={() => { refresh() }}
         />
       )}
-    </>
+    </SectionCard>
   )
 }
 
@@ -505,12 +538,6 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
   return (
     <SectionCard variant="standalone" emphasized pad="none">
       <div className="relative flex items-center gap-4 px-4 md:px-5 py-4 md:py-5">
-        {/* 블러 처리된 가짜 스탯 실루엣 (장식) */}
-        <div aria-hidden className="hidden sm:grid grid-cols-5 gap-1.5 w-[220px] shrink-0" style={{ filter: 'blur(3px)', opacity: 0.5 }}>
-          {[0, 1, 2, 3, 4].map(i => (
-            <div key={i} className="border" style={{ background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', height: 72, borderRadius: 'var(--mm-radius-ctl)' }} />
-          ))}
-        </div>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
           <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
@@ -548,26 +575,26 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
       className="flex items-center justify-between gap-3 px-4 md:px-5 py-3.5 md:py-4"
       style={{
         borderTop: '1px solid var(--mm-rule)',
-        background: available ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
-        color: available ? 'var(--mm-black)' : 'var(--mm-muted)',
+        background: available ? 'var(--mm-panel)' : 'var(--mm-panel-alt)',
+        color: available ? 'var(--mm-ink)' : 'var(--mm-muted)',
       }}
     >
       <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
-        <Film size={20} className="shrink-0" />
+        <Film size={20} className="shrink-0" aria-hidden style={{ color: available ? 'var(--mm-yellow-strong)' : undefined }} />
         <div className="min-w-0">
           <div className="font-black text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
-          <div className="text-xs md:text-sm font-medium mt-0.5">
+          <div className="text-xs md:text-sm font-medium mt-0.5" style={{ color: available ? 'var(--mm-muted)' : undefined }}>
             {available ? `${formatDate(date)} 경기 기록 · 내 하이라이트 바로 보기` : '아직 참여 기록이 없어요'}
           </div>
         </div>
       </div>
-      {available && <ChevronRight size={20} />}
+      {available && <ChevronRight size={20} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />}
     </div>
   )
   if (!available || !href) return content
-  return <Link href={href} className="mm-press block cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]">{content}</Link>
+  return <Link href={href} className="mm-press block cursor-pointer transition-colors [&>div]:transition-colors hover:[&>div]:!bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]">{content}</Link>
 }
 
 function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: number | string | null }) {
@@ -605,15 +632,7 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
     <div className="p-4 md:p-5">
       {/* 폭죽은 화면 전체를 덮는 캔버스라 레이아웃에 영향을 주지 않는다. trigger 가 null 이면 비활성 */}
       <Confetti trigger={celebrate} />
-      <div className="flex items-center gap-1.5 mb-3">
-        <Trophy size={16} style={{ color: 'var(--mm-ink-soft)' }} />
-        <span className="font-black text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-          마일스톤 체이서
-        </span>
-        <span className="text-xs font-medium ml-1" style={{ color: 'var(--mm-muted)' }}>
-          가까운 것부터
-        </span>
-      </div>
+      <CardTitle icon={Trophy} title="마일스톤 체이서" sub="가까운 것부터" />
       {shown.length === 0 ? (
         <EmptyState variant="compact" icon={Trophy} title="아직 통계 데이터가 부족해요" />
       ) : (

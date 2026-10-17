@@ -13,7 +13,7 @@ interface Props {
   clips: HighlightClip[]
   currentIdx: number
   onSelect: (idx: number) => void
-  /** 목록 스크롤 영역 클래스 — 생략하면 종전 그대로(자체 스크롤 55vh/70vh). 리그 하이라이트 피드가 덮어쓴다 */
+  /** 목록 스크롤 영역 클래스 — 생략하면 종전 그대로(자체 스크롤 55dvh/70dvh). 리그 하이라이트 피드가 덮어쓴다 */
   scrollClassName?: string
 }
 
@@ -67,7 +67,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
   return (
     <div
       ref={listRef}
-      className={`space-y-1.5 ${scrollClassName ?? 'max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]'}`}
+      className={`space-y-1.5 ${scrollClassName ?? 'max-h-[55dvh] overflow-y-auto pr-1 lg:max-h-[70dvh]'}`}
       role="listbox"
       aria-label="하이라이트 플레이리스트"
     >
@@ -81,15 +81,21 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
             role="option"
             aria-selected={active}
             aria-label={c.is_clutch ? '클러치 슛' : undefined}
-            className="group flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors relative overflow-hidden"
+            className="group flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors relative overflow-hidden mm-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
             style={{
               background: active ? 'var(--mm-yellow-soft)' : 'var(--mm-panel)',
-              border: `1px solid ${active ? 'var(--mm-yellow)' : (c.is_clutch ? '#ef4444' : 'var(--mm-rule)')}`,
+              border: `1px solid ${active ? 'var(--mm-yellow)' : (c.is_clutch ? 'var(--mm-live)' : 'var(--mm-rule)')}`,
               borderLeftWidth: c.is_clutch ? '3px' : '1px',
-              borderLeftColor: c.is_clutch ? '#ef4444' : (active ? 'var(--mm-yellow)' : 'var(--mm-rule)'),
+              borderLeftColor: c.is_clutch ? 'var(--mm-live)' : (active ? 'var(--mm-yellow)' : 'var(--mm-rule)'),
               borderRadius: '4px',
             }}
+            tabIndex={0}
             onClick={() => onSelect(idx)}
+            onKeyDown={(e) => {
+              // 안에 공유·복사 버튼이 있어 항목 자체를 button 으로 바꿀 수 없다 — 키보드로도 고를 수 있게
+              if (e.target !== e.currentTarget) return
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(idx) }
+            }}
           >
             {/* 썸네일 (16:9, 96px 폭) */}
             <div className="relative shrink-0" style={{ width: '96px' }}>
@@ -112,13 +118,13 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
                   <Play size={20} style={{ color: 'var(--mm-yellow)' }} fill="currentColor" />
                 </span>
               ) : (
-                // 비활성 클립: 호버 시 주황 재생 아이콘 노출 (재생 가능 신호)
+                // 비활성 클립: 호버 시 노랑 재생 아이콘 노출 (재생 가능 신호)
                 <span
                   aria-hidden
                   className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   style={{ background: 'rgba(0,0,0,0.35)', borderRadius: '4px' }}
                 >
-                  <Play size={20} style={{ color: 'var(--color-hoop-orange-500)' }} fill="currentColor" />
+                  <Play size={20} style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" />
                 </span>
               )}
               {/* 팀 색상 표식 */}
@@ -136,14 +142,14 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
                   {c.player_number ? `#${c.player_number} ` : ''}{c.player_name}
                 </span>
                 <span
-                  className="text-[10px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
+                  className="text-xs font-bold px-1.5 py-0.5"
                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
                 >
                   {SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type}
                 </span>
                 {c.points >= 3 && (
                   <span
-                    className="text-[10px] font-bold px-1.5 py-0.5"
+                    className="text-xs font-bold px-1.5 py-0.5"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
                   >
                     +{c.points}
@@ -151,8 +157,8 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
                 )}
                 {c.is_clutch && (
                   <span
-                    className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
-                    style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
+                    className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5"
+                    style={{ background: 'var(--mm-live-bg)', color: '#fff', borderRadius: '3px' }}
                     aria-label="클러치 슛"
                     title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
                   >
@@ -162,7 +168,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
                 )}
               </div>
               {c.assist_player_name && (
-                <div className="text-[11px] leading-tight" style={{ color: 'var(--mm-muted)' }}>
+                <div className="text-xs leading-tight" style={{ color: 'var(--mm-muted)' }}>
                   <span className="font-bold" aria-hidden>A.</span>{' '}
                   <span style={{ color: 'var(--mm-ink-soft)' }}>
                     {c.assist_player_number ? `#${c.assist_player_number} ` : ''}{c.assist_player_name}
@@ -171,7 +177,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
                 </div>
               )}
               <div className="flex items-center justify-between gap-1.5">
-                <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>
+                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                   {formatTimestamp(c.video_timestamp)}
                   <span className="mx-1" aria-hidden>·</span>
                   <span className="opacity-75">{c.home_team_name} vs {c.away_team_name}</span>
