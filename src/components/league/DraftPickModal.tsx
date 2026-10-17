@@ -7,6 +7,7 @@ import ConfirmModal from '@/components/league/ConfirmModal'
 import { teamInk } from '@/lib/util/contrastColor'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
 import { POSITION_GROUP_ORDER, POSITION_META, primaryPosition, type PositionGroup } from '@/lib/draft/positions'
+import { positionLabelOf } from '@/lib/league/positionGroup'
 
 export interface PickModalPlayer {
   id: string
@@ -203,7 +204,7 @@ export default function DraftPickModal({
               className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-xs sm:text-sm text-[var(--mm-ink)]"
             >
               <span className="font-bold">{p.player_name}</span>
-              {p.player_position && <span className="text-[var(--mm-muted)] font-mono">{p.player_position}</span>}
+              {positionLabelOf(p.player_position) && <span className="text-[var(--mm-muted)]">{positionLabelOf(p.player_position)}</span>}
             </span>
           ))
         )}
@@ -277,7 +278,7 @@ export default function DraftPickModal({
                               ? { backgroundColor: 'rgba(0,0,0,0.18)', color: onColor }
                               : { backgroundColor: meta.color, color: meta.ink }}
                           >
-                            {p.position?.trim() || meta.label}
+                            {meta.label}
                           </span>
                         </button>
 
@@ -339,7 +340,7 @@ export default function DraftPickModal({
         title={`${confirmPlayer?.name ?? ''} 선수를 지명할까요?`}
         lines={[
           team?.name ?? '내 팀',
-          confirmPlayer?.position?.trim() || '포지션 미등록',
+          positionLabelOf(confirmPlayer?.position) || '포지션 미등록',
           '확정 후 되돌릴 수 없습니다',
         ]}
         danger

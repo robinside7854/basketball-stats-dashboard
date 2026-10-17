@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { seededShuffle } from '@/lib/draft/shuffle'
 import Confetti from './Confetti'
 import { teamInk, teamAccentOnDark } from '@/lib/util/contrastColor'
+import { positionLabelOf } from '@/lib/league/positionGroup'
 
 interface Team { id: string; name: string; color: string }
 interface Pick {
@@ -301,9 +302,9 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                             <span className="text-amber-300 font-mono font-bold w-8 shrink-0 text-xs sm:text-sm tabular-nums">#{p.player_number}</span>
                           )}
                           <span className="text-[#ffffff] font-bold text-sm sm:text-base truncate min-w-0 break-keep flex-1">{p.player_name}</span>
-                          {p.player_position && (
-                            <span className="text-sm text-[#e5e7eb] font-mono shrink-0">
-                              {p.player_position.split(',').map(s => s.trim()).join('·')}
+                          {positionLabelOf(p.player_position) && (
+                            <span className="text-sm text-[#e5e7eb] shrink-0">
+                              {positionLabelOf(p.player_position)}
                             </span>
                           )}
                         </div>

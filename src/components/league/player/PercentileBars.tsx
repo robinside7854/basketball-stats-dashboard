@@ -6,7 +6,8 @@
 import { ChevronRight } from 'lucide-react'
 import { divergingFill, percentileTone, MIN_ATTEMPTS_PER_DAY, type PercentileBarsResult } from '@/lib/stats/percentileBars'
 
-export default function PercentileBars({ data }: { data: PercentileBarsResult }) {
+/** scopeLabel — 비교 집단 이름(「가드 백분위」 등). 없으면 리그 전체 */
+export default function PercentileBars({ data, scopeLabel }: { data: PercentileBarsResult; scopeLabel?: string }) {
   if (data.groups.length === 0) return null
   return (
     // (2026-10-15) 접어 둔다 — 같은 탭의 순위 칩·6축 레이더와 같은 데이터라 처음부터 펼치면 같은 숫자를 세 번 보게 된다.
@@ -20,7 +21,7 @@ export default function PercentileBars({ data }: { data: PercentileBarsResult })
           세부 능력치
         </span>
         <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
-          리그 백분위 · 하루 평균 · 비교 {data.sample}명
+          {scopeLabel ?? '리그 백분위'} · 하루 평균 · 비교 {data.sample}명
         </span>
       </summary>
       {!data.qualified && (

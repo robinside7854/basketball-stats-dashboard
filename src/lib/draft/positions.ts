@@ -10,6 +10,7 @@
 
 import { Compass, Wind, Shield, Users, type LucideIcon } from 'lucide-react'
 import { contrastRatio } from '@/lib/util/contrastColor'
+import { positionGroupOf } from '@/lib/league/positionGroup'
 
 /** 선수 개인에게 붙는 포지션 코드 — 행 태그에 그대로 쓴다. */
 export const POSITION_CODES = ['PG', 'SG', 'SF', 'PF', 'C'] as const
@@ -23,10 +24,6 @@ export const OTHER = '기타'
 /** 화면에 세로 열/구역으로 세울 순서. 코드가 없거나 모르는 값은 전부 「기타」로 모은다. */
 export const POSITION_GROUP_ORDER = [GUARD, FORWARD, CENTER, OTHER] as const
 export type PositionGroup = (typeof POSITION_GROUP_ORDER)[number]
-
-const CODE_TO_GROUP: Record<PositionCode, PositionGroup> = {
-  PG: GUARD, SG: GUARD, SF: FORWARD, PF: FORWARD, C: CENTER,
-}
 
 /**
  * 색 위에 얹을 글자색 — 흰/검 중 **대비가 큰 쪽**을 고른다.
@@ -70,7 +67,8 @@ export function primaryCode(raw: string | null | undefined): PositionCode | null
 
 /** 선수를 세울 그룹. 이름은 옛 API 그대로 두되 반환값이 그룹이다. */
 export function primaryPosition(raw: string | null | undefined): PositionGroup {
-  const code = primaryCode(raw)
-  return code ? CODE_TO_GROUP[code] : OTHER
+  // 2026-10-17 부터 새 저장값은 G·F·C — lib/league/positionGroup 로 묶어 읽는다(옛 5코드도 같은 그룹)
+  const g = positionGroupOf(raw)
+  return g === 'G' ? GUARD : g === 'F' ? FORWARD : g === 'C' ? CENTER : OTHER
 }
 

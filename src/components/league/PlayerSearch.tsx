@@ -3,6 +3,7 @@ import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Search, X, User as UserIcon } from 'lucide-react'
 import type { LeaguePlayer } from '@/types/league'
+import { positionLabelOf } from '@/lib/league/positionGroup'
 
 
 // 헤더 선수 검색 (2026-10-10) — 리그 화면 어디서든 이름으로 선수를 찾아 선수 카드를 연다.
@@ -239,9 +240,9 @@ export default function PlayerSearch({ leagueId }: { leagueId: string }) {
                           <span className="block truncate text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
                             <Highlighted text={p.name} query={query} />
                           </span>
-                          {(p.position || p.is_active === false) && (
+                          {(positionLabelOf(p.position) || p.is_active === false) && (
                             <span className="block truncate text-xs" style={{ color: 'var(--mm-muted)' }}>
-                              {[p.position, p.is_active === false ? '탈퇴' : null].filter(Boolean).join(' · ')}
+                              {[positionLabelOf(p.position), p.is_active === false ? '탈퇴' : null].filter(Boolean).join(' · ')}
                             </span>
                           )}
                         </span>

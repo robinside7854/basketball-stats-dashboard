@@ -11,6 +11,7 @@ import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useMemo, useState, useEffect } from 'react'
 import { X, ChevronRight, ChevronDown } from 'lucide-react'
 import { MILESTONE_LADDER, MILESTONE_STEP } from '@/lib/stats/milestoneLadder'
+import { positionLabelOf } from '@/lib/league/positionGroup'
 
 // 선수카드 모달 · 상호작용 트리거 후에만 필요 (recharts 등 포함)
 
@@ -665,9 +666,9 @@ function PlayerMilestonePopover({
               {player.name}
             </button>
           </div>
-          {player.position && (
+          {positionLabelOf(player.position) && (
             <div className="text-xs font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>
-              {player.position}
+              {positionLabelOf(player.position)}
             </div>
           )}
         </div>

@@ -17,9 +17,13 @@ const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQui
 import SignupRateCard from '@/components/league/auth/SignupRateCard'
 import type { LeaguePlayer, LeagueTeam, Quarter } from '@/types/league'
 import type { Team } from '../_types'
+import { POSITION_GROUPS, positionGroupLabel, positionGroupOf, type PositionGroupCode } from '@/lib/league/positionGroup'
 
-const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
-const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C']
+// 포지션은 가드·포워드·센터 세 가지(2026-10-17). 옛 5코드는 positionGroupOf 로 묶어 읽는다.
+const POSITION_FILTER_OPTIONS: { code: PositionGroupCode | 'ALL'; label: string }[] = [
+  { code: 'ALL', label: '전체' },
+  ...POSITION_GROUPS,
+]
 
 
 /** POST …/players/inherit 응답. dryRun 이면 filled 가 0 이고 candidates 만 의미가 있다. */
@@ -38,9 +42,11 @@ type PlayerQuarterMap = Record<string, Record<string, { team_id: string | null; 
 type LeaderMap = Record<string, Record<string, string | null>>
 type SortKey = 'name' | 'attendance_desc'
 
-function parsePositions(pos: string | null): string[] {
-  if (!pos) return []
-  return pos.split(',').map(p => p.trim()).filter(Boolean)
+/** 엑셀 등에서 들어온 포지션 → 'G'|'F'|'C'. 모르는 값은 원문 그대로(빈 값은 null) */
+function normalizeImportedPosition(raw: string): string | null {
+  const t = raw.trim()
+  if (!t) return null
+  return positionGroupOf(t) ?? t
 }
 
 // ── 수정 1: BirthDateInput — 년도 텍스트 입력으로 변경 ──────────────────────
@@ -138,7 +144,7 @@ function PositionBadge({ pos }: { pos: string }) {
     <span
       className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap border bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border-[var(--mm-rule)]"
     >
-      {pos}
+      {positionGroupLabel(positionGroupOf(pos)) || pos}
     </span>
   )
 }
@@ -167,7 +173,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
   // Add form
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ name: '', position: [] as string[], birth_date: '' })
+  const [form, setForm] = useState({ name: '', position: null as PositionGroupCode | null, birth_date: '' })
 
   // Bulk
   const [bulkUploading, setBulkUploading] = useState(false)
@@ -199,7 +205,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
 
   // 수정 2: 정렬/필터 state
   const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [filterPosition, setFilterPosition] = useState<string>('ALL')
+  const [filterPosition, setFilterPosition] = useState<PositionGroupCode | 'ALL'>('ALL')
   // 참석율(라운드 참여율) — 참석율 정렬 · 카드 표시용
   const [attendance, setAttendance] = useState<{ totalRounds: number; perPlayer: Record<string, { rounds: number; rate: number }> }>({ totalRounds: 0, perPlayer: {} })
   useEffect(() => {
@@ -362,7 +368,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
       headers: leagueHeaders,
       body: JSON.stringify({
         name: form.name.trim(),
-        position: form.position.length > 0 ? form.position.join(',') : null,
+        position: form.position,
         birth_date: form.birth_date || null,
       }),
     })
@@ -379,7 +385,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
         ))
       }
       toast.success('선수 추가 완료 (비정규 등록)')
-      setForm({ name: '', position: [], birth_date: '' })
+      setForm({ name: '', position: null, birth_date: '' })
       setShowForm(false)
       load()
     } else {
@@ -389,16 +395,12 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
     setSaving(false)
   }
 
-  function togglePosition(pos: string, arr: string[], setArr: (v: string[]) => void) {
-    setArr(arr.includes(pos) ? arr.filter(p => p !== pos) : [...arr, pos])
-  }
-
   async function downloadTemplate() {
     const xlsx = await import('xlsx')
     const ws = xlsx.utils.aoa_to_sheet([
       ['이름', '포지션', '생년월일'],
-      ['홍길동', 'PG', '1995-03-15'],
-      ['김철수', 'SF,PF', '1998-07-22'],
+      ['홍길동', 'G', '1995-03-15'],
+      ['김철수', 'F', '1998-07-22'],
     ])
     ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 14 }]
     const wb = xlsx.utils.book_new()
@@ -423,7 +425,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
         .filter(r => String(r['이름'] ?? '').trim())
         .map(r => ({
           name: String(r['이름']).trim(),
-          position: String(r['포지션'] ?? '').trim() || null,
+          position: normalizeImportedPosition(String(r['포지션'] ?? '')),
           birth_date: String(r['생년월일'] ?? '').trim() || null,
           number: null as number | null,
         }))
@@ -619,7 +621,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
       // 게스트만 접이식에 넣는다. 필터에서 빼 버리면 운영진이 게스트 기록을 못 본다.
       if (onlyVerified && !p.has_account) return false
       if (filterPosition === 'ALL') return true
-      return parsePositions(p.position).includes(filterPosition)
+      return positionGroupOf(p.position) === filterPosition
     })
     .sort((a, b) => {
       const aIsGuest = isPlayerGuest(a)
@@ -647,7 +649,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
   // 선수 카드 렌더러 — 정회원 그리드와 게스트 접이식이 **같은 마크업**을 쓴다.
   // 복제하면 언젠가 한쪽만 고쳐진다.
   const renderPlayerCard = (p: LeaguePlayer) => {
-            const positions = parsePositions(p.position)
+            const posGroup = positionGroupOf(p.position)
             const isAnyLeader = displayQuarters.some(q => {
               const teamId = getCellTeamId(q.id, p.id)
               return teamId ? isLeader(q.id, teamId, p.id) : false
@@ -740,8 +742,8 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
 
                   {/* 포지션 배지 (한 줄) + 게스트 뱃지 */}
                   <div className="flex flex-wrap items-center gap-1 lg:gap-1.5 mb-1.5 lg:mb-2 min-h-[22px]">
-                    {positions.length > 0
-                      ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
+                    {posGroup
+                      ? <PositionBadge pos={posGroup} />
                       : <span className="t-label font-medium whitespace-nowrap">포지션 미지정</span>
                     }
                     {isPlayerGuest(p) && (
@@ -952,20 +954,21 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
             />
           </div>
           <div>
-            <p className="t-label font-medium mb-2">포지션 (복수 선택 가능)</p>
+            <p className="t-label font-medium mb-2">포지션 (선택)</p>
             <div className="flex flex-wrap gap-2">
-              {POSITIONS.map(pos => (
+              {POSITION_GROUPS.map(({ code, label }) => (
                 <button
-                  key={pos}
+                  key={code}
                   type="button"
-                  onClick={() => togglePosition(pos, form.position, v => setForm(f => ({ ...f, position: v })))}
+                  aria-pressed={form.position === code}
+                  onClick={() => setForm(f => ({ ...f, position: f.position === code ? null : code }))}
                   className={`px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap border transition-colors duration-200 cursor-pointer ${
-                    form.position.includes(pos)
+                    form.position === code
                       ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
                       : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-ink-soft)]'
                   }`}
                 >
-                  {pos}
+                  {label}
                 </button>
               ))}
             </div>
@@ -1018,17 +1021,17 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
           <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
             <span className="t-label font-medium whitespace-nowrap">포지션</span>
             <div className="flex flex-wrap gap-1">
-              {POSITION_FILTER_OPTIONS.map(pos => (
+              {POSITION_FILTER_OPTIONS.map(({ code, label }) => (
                 <button
-                  key={pos}
-                  onClick={() => setFilterPosition(pos)}
+                  key={code}
+                  onClick={() => setFilterPosition(code)}
                   className={`px-2.5 lg:px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer ${
-                    filterPosition === pos
+                    filterPosition === code
                       ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--mm-yellow-strong)]'
                       : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
                   }`}
                 >
-                  {pos}
+                  {label}
                 </button>
               ))}
             </div>

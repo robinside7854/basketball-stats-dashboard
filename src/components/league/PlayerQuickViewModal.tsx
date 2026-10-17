@@ -25,6 +25,9 @@ import PlayerTeamLine, { PlayerTeamHistory, type CurrentTeam, type TeamHistoryEn
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
 import type { QuarterTableRow } from '@/lib/stats/quarterTable'
+import MonthTable, { type MonthRow } from '@/components/league/player/MonthTable'
+import type { QuarterTotal } from '@/components/league/player/QuarterTable'
+import { positionGroupOf, positionGroupLabel, POSITION_GROUPS, type PositionGroupCode } from '@/lib/league/positionGroup'
 
 // 차트 4종 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿨다(수 KB).
 //   더 이상 따로 쪼개 늦게 받을 이유가 없어 바로 import 한다(모달 자체가 호출부에서 lazy 로드된다).
@@ -39,15 +42,18 @@ type PlayerInfo = {
 }
 
 type RankTotal = { rank: number; total: number }
+type Rankings = {
+  ppg: number; rpg: number; apg: number; spg: number; bpg: number
+  total: number; win_rate_rank?: number
+  // { rank, total } — 출전일은 전원(gp>=1), 성공률은 순위 자격 + 스탯 탭과 같은 최소 시도(2026-10-15)
+  gp?: RankTotal; fg_pct?: RankTotal; fg3_pct?: RankTotal; ft_pct?: RankTotal
+  /** 순위 자격 최소 출전일(leagueMinRounds) */
+  min_rounds?: number
+}
 type Detail = {
-  rankings: {
-    ppg: number; rpg: number; apg: number; spg: number; bpg: number
-    total: number; win_rate_rank?: number
-    // { rank, total } — 출전일은 전원(gp>=1), 성공률은 순위 자격 + 스탯 탭과 같은 최소 시도(2026-10-15)
-    gp?: RankTotal; fg_pct?: RankTotal; fg3_pct?: RankTotal; ft_pct?: RankTotal
-    /** 순위 자격 최소 출전일(leagueMinRounds) */
-    min_rounds?: number
-  }
+  rankings: Rankings
+  /** (2026-10-17) 같은 포지션(가드·포워드·센터) 안 순위 — 자격·기간·공동 순위 규칙은 rankings 와 같다. 포지션 없으면 null */
+  position_ranks?: { group: 'G' | 'F' | 'C'; label: string; rankings: Rankings; percentile_bars: PercentileBarsResult } | null
   /** 진행 중 연속 기록 — /me 와 같은 판정(lib/stats/dashboardBase.ts). 분기 없는 응답에만 실린다. 단위는 「일」 */
   active_streaks?: Array<{ key: string; label: string; count: number; unit: string }>
   dynamic_duo?: DuoEntry[]
@@ -83,10 +89,8 @@ type Detail = {
     pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
     fg_pct: number; fg3_pct: number; ft_pct: number
   } | null
-  monthly_stats?: Array<{
-    month: string; label: string; gp: number
-    ppg: number; rpg: number; apg: number; spg: number; bpg: number; fg_pct: number
-  }>
+  /** 월별 — 하루 평균. 성공률은 최소 시도 미달이면 null. best = 「최고의 달」(하루 평균 득점) */
+  monthly_stats?: MonthRow[]
 }
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
@@ -213,6 +217,10 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const [quarterLoading, setQuarterLoading] = useState(false)
   // 분기별 기록표 — 무거워서 본 응답과 따로 받는다(`detail?quarterRows=only`)
   const [quarterRows, setQuarterRows] = useState<QuarterTableRow[] | null>(null)
+  // 분기별 기록표의 「전체」·「합계」 줄 — 같은 요청에 실려 온다(전체 기간 정본 한 줄)
+  const [quarterTotal, setQuarterTotal] = useState<QuarterTotal | null>(null)
+  // 「분기·월별」 탭 안 보기 — 분기별 | 월별
+  const [periodView, setPeriodView] = useState<'quarter' | 'month'>('quarter')
   const [showEditPanel, setShowEditPanel] = useState(false)
   const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -303,7 +311,11 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     let cancelled = false
     fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterRows=only`)
       .then(r => (r.ok ? r.json() : null))
-      .then((d: { quarter_rows?: QuarterTableRow[] } | null) => { if (!cancelled) setQuarterRows(d?.quarter_rows ?? []) })
+      .then((d: { quarter_rows?: QuarterTableRow[]; quarter_total?: QuarterTotal | null } | null) => {
+        if (cancelled) return
+        setQuarterRows(d?.quarter_rows ?? [])
+        setQuarterTotal(d?.quarter_total ?? null)
+      })
       .catch(() => { if (!cancelled) setQuarterRows([]) })
     return () => { cancelled = true }
   }, [leagueId, playerId])
@@ -345,10 +357,18 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
 
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
 
+  // 순위 범위 — 「전체 | 같은 포지션」 (2026-10-17). 같은 포지션 순위는 서버가 같은 규칙으로 만든다(position_ranks).
+  //   포지션이 없는 선수는 position_ranks 가 null 이라 토글이 안 보이고 늘 전체다.
+  const [rankScope, setRankScope] = useState<'all' | 'pos'>('all')
+  const posRanks = (activeDetail ?? detail)?.position_ranks ?? null
+  const rankScopeOn = rankScope === 'pos' && !!posRanks
+  const rk: Rankings | undefined = rankScopeOn ? posRanks!.rankings : (activeDetail ?? detail)?.rankings
+  const shownBars = rankScopeOn ? posRanks!.percentile_bars : activeDetail?.percentile_bars
+
   // 데이터가 있는 탭만 노출 — 빈 탭 클릭 후 아무것도 안 나오는 상황 방지
   const availableTabs = useMemo(() => {
     const s = new Set<PlayerTabKey>(['season'])
-    if ((quarterRows?.length ?? 0) > 0) s.add('quarters')
+    if ((quarterRows?.length ?? 0) > 0 || (activeDetail?.monthly_stats?.length ?? 0) > 0) s.add('quarters')
     if ((detail?.dynamic_duo?.length ?? 0) > 0) s.add('duo')
     if ((activeDetail?.shot_breakdown?.total_fga ?? 0) > 0) s.add('shot')
     if (detail?.career_high && Object.keys(detail.career_high).length > 0) s.add('career')
@@ -375,7 +395,9 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   //   (종전엔 effect 로 activeTab 을 'season' 으로 덮어써, 첫 렌더에 기억해 둔 탭이 바로 지워졌다)
   const shownTab: PlayerTabKey = availableTabs.has(activeTab) ? activeTab : 'season'
 
-  const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
+  // 포지션은 세 그룹(가드·포워드·센터)으로만 보인다 — 옛 5코드(PG·SF…)로 저장된 선수도 읽을 때 묶는다(positionGroup.ts)
+  const positionGroup = positionGroupOf(player?.position)
+  const positionGroupName = positionGroupLabel(positionGroup)
 
   // 분기 탭 레이블
   const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
@@ -594,13 +616,12 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                 className="flex items-center gap-1.5 flex-wrap mm-rise-in"
                 style={{ animationDelay: '220ms', animationDuration: '400ms', animationFillMode: 'backwards' }}
               >
-                {positions.map(pos => (
+                {positionGroupName && (
                   <span
-                    key={pos}
-                    className="font-jersey text-sm font-black tracking-[0.16em] px-2.5 py-1 rounded-sm"
+                    className="text-sm font-black px-2.5 py-1 rounded-sm"
                     style={MM_POSITION_STYLE}
-                  >{pos}</span>
-                ))}
+                  >{positionGroupName}</span>
+                )}
                 {player?.plus_one && (
                   <span
                     className="text-sm font-black px-2.5 py-1 rounded-sm"
@@ -662,15 +683,11 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
         </div>
 
         {showEditPanel && isEditMode && (() => {
-          const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'] as const
-          const positionList = editForm.position
-            ? editForm.position.split(',').map(s => s.trim()).filter(Boolean)
-            : []
-          const togglePosition = (p: string) => {
-            const next = positionList.includes(p)
-              ? positionList.filter(x => x !== p)
-              : [...positionList, p]
-            setEditForm(f => ({ ...f, position: next.join(',') }))
+          // 포지션 단일 선택 — 가드(G)·포워드(F)·센터(C). 옛 5코드로 저장된 값도 그룹으로 읽어 선택 상태를 보인다.
+          //   같은 버튼을 다시 누르면 선택 해제(포지션 없음).
+          const selectedGroup = positionGroupOf(editForm.position)
+          const pickPosition = (code: PositionGroupCode) => {
+            setEditForm(f => ({ ...f, position: selectedGroup === code ? '' : code }))
           }
           const nameId = `player-edit-name-${playerId}`
           const positionId = `player-edit-position-${playerId}`
@@ -694,23 +711,23 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                 />
               </div>
               <div>
-                <label id={positionId} className="text-xs block mb-1 font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--mm-muted)' }}>포지션 (다중 선택)</label>
+                <label id={positionId} className="text-xs block mb-1 font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--mm-muted)' }}>포지션</label>
                 <div role="group" aria-labelledby={positionId} className="flex flex-wrap gap-1.5">
-                  {POSITIONS.map(p => {
-                    const active = positionList.includes(p)
+                  {POSITION_GROUPS.map(({ code, label }) => {
+                    const active = selectedGroup === code
                     return (
                       <button
-                        key={p}
+                        key={code}
                         type="button"
                         aria-pressed={active}
-                        onClick={() => togglePosition(p)}
+                        onClick={() => pickPosition(code)}
                         className="px-3 py-1.5 rounded-sm text-xs font-bold border transition-colors duration-200 cursor-pointer min-h-11 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                         style={active
                           ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                           : { background: 'var(--mm-panel)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
                         }
                       >
-                        {p}
+                        {label}
                       </button>
                     )
                   })}
@@ -722,7 +739,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   setSavingEdit(true)
                   const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
                     method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
-                    body: JSON.stringify({ name: editForm.name, position: editForm.position || null }),
+                    body: JSON.stringify({ name: editForm.name, position: positionGroupOf(editForm.position) ?? null }),
                   })
                   setSavingEdit(false)
                   if (!res.ok) {
@@ -730,6 +747,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     alert(err.error || '저장 실패')
                     return
                   }
+                  // 머리의 이름·포지션도 바로 바뀌게 — 명단을 다시 받기 전까지 화면이 옛 값으로 남지 않도록
+                  setPlayer(p => p ? { ...p, name: editForm.name, position: positionGroupOf(editForm.position) ?? null } : p)
                   onSaved?.(); setShowEditPanel(false)
                 }} disabled={savingEdit}
                   className="w-full py-2 rounded-sm text-xs font-black uppercase tracking-[0.16em] cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
@@ -876,17 +895,40 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
                 ) : (
                   <>
-                    <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>{selectedQuarterId ? '이 분기' : '전체 기간'} · 하루 평균</p>
+                    <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+                      <p className="text-xs uppercase tracking-[0.20em] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>{selectedQuarterId ? '이 분기' : '전체 기간'} · 하루 평균</p>
+                      {/* 순위 범위 (2026-10-17) — 같은 포지션끼리의 순위. 포지션이 없는 선수에게는 안 보인다 */}
+                      {posRanks && (
+                        <div role="group" aria-label="순위 범위" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
+                          {([['all', '전체'], ['pos', `같은 포지션(${posRanks.label})`]] as const).map(([key, label]) => {
+                            const on = (key === 'pos') === rankScopeOn
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => setRankScope(key)}
+                                className="px-2.5 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                                style={on
+                                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                                  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }
+                                }
+                              >{label}</button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
                         // 값은 하루(경기한 날) 평균. 순위도 값과 같은 기간(선택한 분기)의 순위를 쓴다 —
                         //   예전엔 분기를 골라도 순위만 전체 기간 기준이라 숫자와 순위가 어긋났다(2026-10-11).
-                        { label: '출전일', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: (activeDetail ?? detail)?.rankings.gp?.rank ?? 0, total: (activeDetail ?? detail)?.rankings.gp?.total ?? 0 },
-                        { label: '득점', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.ppg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
-                        { label: '리바', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.rpg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
-                        { label: '어시', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.apg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
-                        { label: '스틸', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.spg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
-                        { label: '블락', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: (activeDetail ?? detail)?.rankings.bpg ?? 0, total: (activeDetail ?? detail)?.rankings.total ?? 0 },
+                        { label: '출전일', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: rk?.gp?.rank ?? 0, total: rk?.gp?.total ?? 0 },
+                        { label: '득점', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: rk?.ppg ?? 0, total: rk?.total ?? 0 },
+                        { label: '리바', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: rk?.rpg ?? 0, total: rk?.total ?? 0 },
+                        { label: '어시', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: rk?.apg ?? 0, total: rk?.total ?? 0 },
+                        { label: '스틸', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: rk?.spg ?? 0, total: rk?.total ?? 0 },
+                        { label: '블락', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: rk?.bpg ?? 0, total: rk?.total ?? 0 },
                       ].map(({ label, value, decimals, rank, total }) => {
                         const isChamp = rank === 1
                         return (
@@ -924,7 +966,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     </div>
                     {/* 순위가 비어 있는 이유를 숫자로 — 자격은 리그 공통 규칙 하나(eligibility.ts leagueMinRounds) */}
                     {(() => {
-                      const r = (activeDetail ?? detail)?.rankings
+                      const r = rk
                       const gp = activeDetail?.player_stats?.gp ?? 0
                       if (!r?.min_rounds || gp <= 0 || gp >= r.min_rounds) return null
                       return (
@@ -936,9 +978,9 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       {[
                         // 슛 정확도 순위 — 순위 자격 + 스탯 탭과 같은 최소 시도(하루 평균 기준). 미달이면 순위 칸 없음
-                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0, rt: (activeDetail ?? detail)?.rankings.fg_pct },
-                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0, rt: (activeDetail ?? detail)?.rankings.fg3_pct },
-                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0, rt: (activeDetail ?? detail)?.rankings.ft_pct },
+                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0, rt: rk?.fg_pct },
+                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0, rt: rk?.fg3_pct },
+                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0, rt: rk?.ft_pct },
                       ].map(({ label, pct, m, a, rt }) => {
                         const rank = rt?.rank ?? 0
                         const total = rt?.total ?? 0
@@ -971,7 +1013,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                               </p>
                             )}
                             {/* 출전은 채웠는데 시도가 적어 순위에서 빠진 경우 — 스탯 탭의 「시도 부족」과 같은 말 */}
-                            {rank === 0 && a > 0 && (activeDetail?.player_stats?.gp ?? 0) >= ((activeDetail ?? detail)?.rankings.min_rounds ?? Infinity) && (
+                            {rank === 0 && a > 0 && (activeDetail?.player_stats?.gp ?? 0) >= (rk?.min_rounds ?? Infinity) && (
                               <p className="text-xs font-bold mt-1" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-muted)' }}>시도 부족</p>
                             )}
                           </div>
@@ -987,7 +1029,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     )}
 
                     {/* 세부 능력치 — 묶음별 백분위 막대 (선택한 기간 기준) */}
-                    {activeDetail?.percentile_bars && <PercentileBars data={activeDetail.percentile_bars} />}
+                    {shownBars && <PercentileBars data={shownBars} scopeLabel={rankScopeOn ? `${posRanks!.label} 백분위` : undefined} />}
 
                     {/* 비슷한 스타일 선수 — 같은 기간·같은 자격 집단 (줄을 누르면 그 선수 카드로) */}
                     {activeDetail?.similar_players && <SimilarPlayers data={activeDetail.similar_players} onOpen={onOpenPlayer} />}
@@ -995,7 +1037,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
                       const wl = activeDetail.win_loss!
-                      const total = ranked_total(activeDetail)
+                      const total = rk?.total ?? 0
                       // 최근 승패 닷은 제거(2026-08-09, 사용자 판단) — 한 라운드에 여러 경기를
                       //   하는 리그라 하루를 W/L 하나로 압축하면 "2승 4패" 같은 실제 전적이
                       //   사라져 오히려 오해를 만든다. 시즌 통산 전적과 승률만 남긴다.
@@ -1024,7 +1066,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                               {wl.win_rate}%
                             </span>
                             {total > 0 && (() => {
-                              const rank = computeWinRateRank(activeDetail)
+                              const rank = rk?.win_rate_rank ?? 0
                               return rank > 0 ? (
                                 <span
                                   className="text-xs font-bold px-1.5 py-0.5 rounded-sm"
@@ -1323,9 +1365,38 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             )}
 
             {/* ── 분기별 기록 (분기 선택과 무관 — 전 분기를 한 표로) ── */}
-            {shownTab === 'quarters' && quarterRows && quarterRows.length > 0 && (
-              <QuarterTable rows={quarterRows} />
-            )}
+            {shownTab === 'quarters' && (() => {
+              const hasQ = (quarterRows?.length ?? 0) > 0
+              const months = activeDetail?.monthly_stats ?? []
+              const hasM = months.length > 0
+              // 한쪽만 있으면 그쪽을 보인다(분기가 하나도 없는 묶음 등)
+              const view = !hasQ ? 'month' : !hasM ? 'quarter' : periodView
+              return (
+                <>
+                  {hasQ && hasM && (
+                    <div className="px-5 pt-4 -mb-2">
+                      <div role="group" aria-label="기록 단위" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
+                        {([['quarter', '분기별'], ['month', '월별']] as const).map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            aria-pressed={view === key}
+                            onClick={() => setPeriodView(key)}
+                            className="px-3 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                            style={view === key
+                              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                              : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }
+                            }
+                          >{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {view === 'quarter' && quarterRows && <QuarterTable rows={quarterRows} total={quarterTotal} />}
+                  {view === 'month' && <MonthTable rows={months} periodLabel={selectedQuarterId ? '이 분기' : '전체 기간'} />}
+                </>
+              )
+            })()}
 
             {/* ── 커리어 하이 ───────────────────────────── */}
             {/* Career High Day — 하루(같은 날의 여러 경기 합산) 기준 최고점 */}
@@ -1488,13 +1559,6 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   )
 }
 
-function ranked_total(detail: Detail | null): number {
-  return detail?.rankings?.total ?? 0
-}
-
-function computeWinRateRank(detail: Detail | null): number {
-  return detail?.rankings?.win_rate_rank ?? 0
-}
 
 // 리그 통산 · 대회 기록 블록 — 숫자는 묶음별 스탯 탭과 같은 정의(/career 라우트 머리 주석).
 //   total 이 null 이면 합계 칸을 그리지 않는다(대회는 서로도 더하지 않는다 — 대회마다 따로 본다).

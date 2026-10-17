@@ -11,6 +11,8 @@
 // 출전 자격은 따지지 않는다: 통산 누적은 「얼마나 쌓았나」라 오래 뛴 사람이 위에 오는 게 맞다.
 import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import Chip from '@/components/league/ui/Chip'
+import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
+import { POSITION_GROUPS, positionGroupOf, positionGroupLabel, type PositionGroupCode } from '@/lib/league/positionGroup'
 import Avatar from '@/components/league/ui/Avatar'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
@@ -43,13 +45,22 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
   const [key, setKey] = useState<CareerStatKey>(CAREER_STATS[0].key)
   const detailRef = useRef<HTMLDivElement>(null)
   const def = CAREER_STATS.find(s => s.key === key) ?? CAREER_STATS[0]
+  // 「전체 순위 | 같은 포지션」 (2026-10-17) — 같은 포지션이면 그 그룹만 모아 같은 규칙(careerTop)으로 다시 센다.
+  //   포지션이 없는 선수는 이 모드에서만 빠진다.
+  const [scope, setScope] = useState<'all' | 'pos'>('all')
+  const [posGroup, setPosGroup] = useState<PositionGroupCode>('G')
+  const pool = useMemo(
+    () => scope === 'pos' ? players.filter(p => positionGroupOf(p.position) === posGroup) : players,
+    [players, scope, posGroup],
+  )
+  const scopeLabel = scope === 'pos' ? `${positionGroupLabel(posGroup)} ` : ''
 
   // 부문별 1위(공동 포함) — 순위는 careerTop(withRanks) 한 곳에서만 매긴다
   const leaders = useMemo(
-    () => CAREER_STATS.map(s => ({ def: s, top: careerTop(players, valueOf(s.key), 1) as Ranked[] })),
-    [players],
+    () => CAREER_STATS.map(s => ({ def: s, top: careerTop(pool, valueOf(s.key), 1) as Ranked[] })),
+    [pool],
   )
-  const rows = useMemo(() => careerTop(players, valueOf(key), BOARD_TOP) as Ranked[], [players, key])
+  const rows = useMemo(() => careerTop(pool, valueOf(key), BOARD_TOP) as Ranked[], [pool, key])
   const hasAny = leaders.some(l => l.top.length > 0)
 
   const open = (p: { player_id: string; name: string }) =>
@@ -75,16 +86,46 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
     )
   }
 
+  const scopeControls = (
+    <div className="flex flex-wrap items-center gap-2">
+      <SegmentedTabs<'all' | 'pos'>
+        items={[
+          { key: 'all', label: '전체 순위' },
+          { key: 'pos', label: '같은 포지션' },
+        ]}
+        value={scope}
+        onChange={setScope}
+        ariaLabel="순위 범위"
+        size="sm"
+      />
+      {scope === 'pos' && (
+        <div className="flex gap-1.5" role="group" aria-label="포지션">
+          {POSITION_GROUPS.map(g => (
+            <Chip key={g.code} as="button" size="sm" selected={posGroup === g.code} onClick={() => setPosGroup(g.code)}>
+              {g.label}
+            </Chip>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   if (!hasAny) {
     return (
-      <SectionCard variant="standalone">
-        <p className="text-sm py-6 text-center" style={{ color: 'var(--mm-muted)' }}>아직 기록이 없어요</p>
-      </SectionCard>
+      <div className="space-y-4">
+        {scope === 'pos' && scopeControls}
+        <SectionCard variant="standalone">
+          <p className="text-sm py-6 text-center" style={{ color: 'var(--mm-muted)' }}>
+            {scope === 'pos' ? `${positionGroupLabel(posGroup)} 기록이 아직 없어요` : '아직 기록이 없어요'}
+          </p>
+        </SectionCard>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4 lg:space-y-5">
+      {scopeControls}
       {/* ① 부문별 1위 — 첫 부문은 줄 전체 큰 카드, 나머지 12장은 2/3/4/6열에서 끝줄이 꽉 찬다 */}
       <section aria-label="부문별 통산 1위">
         <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 lg:gap-3">
@@ -108,7 +149,7 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
         <SectionCard variant="standalone" ariaLabel={`통산 ${def.label} 순위`} pad="none">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 pt-4 lg:px-6 lg:pt-5">
             <h3 className="font-black text-lg lg:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.015em' }}>
-              통산 {def.label} 순위
+              {scopeLabel}통산 {def.label} 순위
             </h3>
             <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>상위 {BOARD_TOP}명</span>
           </div>

@@ -22,6 +22,7 @@ import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
+import { POSITION_GROUPS, positionGroupOf, positionGroupLabel, positionLabelOf, type PositionGroupCode } from '@/lib/league/positionGroup'
 import type { PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 import { calcUsg } from '@/lib/stats/advanced'
@@ -280,6 +281,10 @@ function LeagueStatsPageInner() {
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
   const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
+  // 「전체 순위 | 같은 포지션」 (2026-10-17) — 같은 포지션이면 그 그룹 선수만 모아 같은 규칙으로 순위를 다시 센다.
+  //   자격 커트라인(leagueMinRounds)은 리그 전체 기준 그대로 — 그룹마다 기준이 달라지면 「가드 1위」가 다른 잣대가 된다.
+  const [rankScope, setRankScope] = useState<'all' | 'pos'>('all')
+  const [posGroup, setPosGroup] = useState<PositionGroupCode>('G')
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
   const setQuickViewPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId: selectedQuarterId }) }
@@ -345,7 +350,7 @@ function LeagueStatsPageInner() {
   // 엉뚱한 구간이 이어서 보인다.
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE)
-  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, shootSortKey, shootSortDir, selectedQuarterId, showAll])
+  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, shootSortKey, shootSortDir, selectedQuarterId, showAll, rankScope, posGroup])
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -360,7 +365,12 @@ function LeagueStatsPageInner() {
   const autoMinGP = leagueMinRounds(totalRounds, players)
   const effectiveMinGP = autoMinGP
 
-  const { eligible, ineligible } = splitEligible(players, effectiveMinGP)
+  // 순위 모집단 — 같은 포지션 모드면 그 그룹만(포지션 없는 선수는 이 모드에서만 빠진다)
+  const rankPlayers = useMemo(
+    () => rankScope === 'pos' ? players.filter(p => positionGroupOf(p.position) === posGroup) : players,
+    [players, rankScope, posGroup],
+  )
+  const { eligible, ineligible } = splitEligible(rankPlayers, effectiveMinGP)
   const isIneligible = (p: PlayerStat) => p.gp < effectiveMinGP
   // 정렬은 자격·미달 구분 없이 한 줄로 — 미달자가 늘 아래에 깔리면 「정렬」이 거짓말이 된다.
   //   단, 성공률 정렬에서 **시도 부족**은 예외로 맨 아래(순위 없음)다 — 1개 던져 1개 넣은 100% 가
@@ -386,7 +396,7 @@ function LeagueStatsPageInner() {
   // 자격자(effectiveMinGP) 만 리더 후보
   const seasonLeaders = useMemo(() => {
     const leaders: Record<string, Set<string>> = {}
-    const pool = players.filter(p => p.gp >= effectiveMinGP)
+    const pool = rankPlayers.filter(p => p.gp >= effectiveMinGP)
     const STAT_KEYS: (keyof PlayerStat)[] = [
       'ppg','rpg','orp','drp','apg','spg','bpg','topg','pts','reb','oreb','dreb','ast','stl','blk','tov',
       'fgm','fga','fg3m','fg3a','ftm','fta','fg_pct','fg2_pct','fg3_pct','ft_pct','efg_pct','gp','minutes_est',
@@ -405,13 +415,13 @@ function LeagueStatsPageInner() {
       leaders[String(key)] = ids
     }
     return leaders
-  }, [players, effectiveMinGP])
+  }, [rankPlayers, effectiveMinGP])
 
   const isLeader = (p: PlayerStat, key: string) => seasonLeaders[key]?.has(p.player_id) ?? false
 
   // 모바일 카드 막대의 분모 = 자격자 중 1위 값. 성공률은 최소 시도를 채운 선수만 1위 후보(seasonLeaders 와 같은 기준) —
   //   1개 던져 1개 넣은 100% 가 분모가 되면 모든 막대가 바닥에 깔린다.
-  const leaderPool = players.filter(p => p.gp >= effectiveMinGP)
+  const leaderPool = rankPlayers.filter(p => p.gp >= effectiveMinGP)
   function leaderOf(get: (p: PlayerStat) => number | null, pctKey?: PctStatKey | null): number {
     let best = 0
     for (const p of leaderPool) {
@@ -580,10 +590,10 @@ function LeagueStatsPageInner() {
   // TOP 5 슬롯용 데이터 — 현재 statMode + 해당 모드의 sortKey 로 상위 5명 산출
   // 리더는 항상 값이 큰 순 (사용자 sortDir 무시)
   const topFive = useMemo<{ key: string | null; label: string | null; fullLabel: string | null; players: TopFivePlayer[] }>(() => {
-    if (players.length === 0) {
+    if (rankPlayers.length === 0) {
       return { key: null, label: null, fullLabel: null, players: [] }
     }
-    const eligibleBase = players.filter(p => p.gp >= effectiveMinGP)
+    const eligibleBase = rankPlayers.filter(p => p.gp >= effectiveMinGP)
 
     if (statMode === 'basic') {
       const col = (viewMode === 'avg' ? AVG_COLS : TOTAL_COLS).find(c => c.key === sortKey)
@@ -652,7 +662,7 @@ function LeagueStatsPageInner() {
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode])
+  }, [statMode, sortKey, shootSortKey, advSortKey, rankPlayers, effectiveMinGP, viewMode])
 
   const base = `/league/${orgSlug}/${leagueId}`
   // 리더보드·팀·기록실 3개 서브탭 (2026-09-28 명단 → 팀 화면 · 2026-10-14 어워즈 삭제 · 2026-10-16 기록실 승격).
@@ -699,6 +709,28 @@ function LeagueStatsPageInner() {
         />
         {/* 2줄: 표 모드 — 표 카드 안에 두면 375px 에서 4번째 칩이 잘려서, 모든 모드 공통 위치로 뺐다 */}
         <div className="flex">{modeChips}</div>
+        {/* 3줄: 순위 범위 — 같은 포지션이면 TOP 5·표 순위를 그 포지션 안에서 다시 센다 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedTabs<'all' | 'pos'>
+            items={[
+              { key: 'all', label: '전체 순위' },
+              { key: 'pos', label: '같은 포지션' },
+            ]}
+            value={rankScope}
+            onChange={setRankScope}
+            ariaLabel="순위 범위"
+            size="sm"
+          />
+          {rankScope === 'pos' && (
+            <div className="flex gap-1.5" role="group" aria-label="포지션">
+              {POSITION_GROUPS.map(g => (
+                <Chip key={g.code} as="button" size="sm" selected={posGroup === g.code} onClick={() => setPosGroup(g.code)}>
+                  {g.label}
+                </Chip>
+              ))}
+            </div>
+          )}
+        </div>
       </SectionCard>
 
       {loading ? (
@@ -730,9 +762,9 @@ function LeagueStatsPageInner() {
         <>
           {/* TOP 5 슬롯 — 테이블 컬럼 헤더 클릭 시 해당 지표 TOP 5 표시 */}
           <TopFiveSlot
-            metricKey={topFive.key}
+            metricKey={topFive.key && (rankScope === 'pos' ? `${topFive.key}:pos-${posGroup}` : topFive.key)}
             metricLabel={topFive.label}
-            metricFullLabel={topFive.fullLabel}
+            metricFullLabel={topFive.fullLabel && (rankScope === 'pos' ? `${positionGroupLabel(posGroup)} · ${topFive.fullLabel}` : topFive.fullLabel)}
             players={topFive.players}
             onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
             controls={<>
@@ -936,7 +968,7 @@ function LeagueStatsPageInner() {
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
-                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{positionLabelOf(p.position)}{p.number ? ` #${p.number}` : ''}</div>
                       </th>
                       {COLS.map(({ key }) => {
                         const leader = isLeader(p, key as string)
@@ -1121,7 +1153,7 @@ function LeagueStatsPageInner() {
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
-                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{positionLabelOf(p.position)}{p.number ? ` #${p.number}` : ''}</div>
                       </th>
                       <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
                       {SHOOTING_COLS.map(({ key }, idx) => {
@@ -1215,7 +1247,7 @@ function LeagueStatsPageInner() {
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
-                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{positionLabelOf(p.position)}{p.number ? ` #${p.number}` : ''}</div>
                       </th>
                       <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
                       {ADV_COLS.map(({ key }) => {

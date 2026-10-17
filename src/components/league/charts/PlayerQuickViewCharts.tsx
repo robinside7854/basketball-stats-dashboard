@@ -14,12 +14,18 @@ const MONTH_STATS = [
   { key: 'ppg', label: '득점' }, { key: 'rpg', label: '리바' },
   { key: 'apg', label: '어시' }, { key: 'spg', label: '스틸' },
   { key: 'bpg', label: '블록' }, { key: 'fg_pct', label: 'FG%' },
+  { key: 'fg3_pct', label: '3P%' },
 ] as const
+// 성공률 지표 — 그 달 시도가 최소 기준(하루 평균 × 출전일, eligibility.ts)에 못 미치면 서버가 null 을 준다
+const RATE_KEYS: ReadonlySet<MonthStatKey> = new Set(['fg_pct', 'fg3_pct'])
 type MonthStatKey = typeof MONTH_STATS[number]['key']
 
 export type MonthPoint = {
   month: string; label: string; gp: number
-  ppg: number; rpg: number; apg: number; spg: number; bpg: number; fg_pct: number
+  ppg: number; rpg: number; apg: number; spg: number; bpg: number
+  /** 성공률 — 최소 시도 미달이면 null(「–」) */
+  fg_pct: number | null
+  fg3_pct?: number | null
 }
 
 export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
@@ -41,11 +47,20 @@ export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
         </div>
       </div>
       <MiniBarChart
-        data={data.map(d => ({ label: d.label, value: d[monthStat] }))}
+        data={data.map(d => ({ label: d.label, value: d[monthStat] ?? 0 }))}
         valueLabel={MONTH_STATS.find(x => x.key === monthStat)?.label ?? ''}
         height={100}
         color="var(--mm-yellow)"
       />
+      {RATE_KEYS.has(monthStat) && (() => {
+        // 기준 미달 달은 막대를 비워 둔다 — 「0%」로 읽히지 않게 따로 적는다
+        const short = data.filter(d => d[monthStat] == null).map(d => d.label)
+        return short.length > 0 ? (
+          <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
+            {short.join('·')}은 시도가 적어 성공률을 비워 뒀어요
+          </p>
+        ) : null
+      })()}
     </div>
   )
 }

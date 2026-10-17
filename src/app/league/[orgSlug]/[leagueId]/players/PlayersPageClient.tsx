@@ -12,18 +12,17 @@ import { Chip, EmptyState, SectionCard, SegmentedTabs, Sheet } from '@/component
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import type { RosterCard, RosterCardsResponse } from '@/app/api/leagues/[leagueId]/roster-cards/route'
+import { POSITION_GROUPS, positionGroupLabel, positionGroupOf, type PositionGroupCode } from '@/lib/league/positionGroup'
 
 type Period = 'quarter' | 'all'
 type SortKey = 'attendance' | 'name'
 
-/** 앱 전체가 쓰는 포지션 값(팀 탭 RosterEditor·PlayerForm 과 같다) */
-const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'] as const
-const POSITION_ORDER = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F']
+// 포지션은 가드·포워드·센터 세 가지(2026-10-17). 옛 5코드(PG·SG…)는 positionGroupOf 로 묶어 읽는다.
 const OPTIMIZABLE = /^https:\/\/[^/]+\.supabase\.(co|in)\//
 
-function posRank(p: string): number {
-  const i = POSITION_ORDER.indexOf(p)
-  return i < 0 ? 99 : i
+/** 카드의 positions(저장 문자열을 쉼표로 쪼갠 것) → 그룹 하나 */
+function groupOfCard(p: RosterCard): PositionGroupCode | null {
+  return positionGroupOf(p.positions.join(','))
 }
 
 export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
@@ -33,7 +32,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const [error, setError] = useState(false)
   const [period, setPeriod] = useState<Period | null>(null)
   const [sort, setSort] = useState<SortKey>('attendance')
-  const [pos, setPos] = useState<string>('ALL')
+  const [pos, setPos] = useState<PositionGroupCode | 'ALL'>('ALL')
   const [onlyMembers, setOnlyMembers] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
 
@@ -60,9 +59,9 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const totalRounds = effPeriod === 'quarter' ? (data?.quarter?.total_rounds ?? 0) : (data?.all_total_rounds ?? 0)
 
   const positions = useMemo(() => {
-    const s = new Set<string>()
-    for (const p of data?.players ?? []) p.positions.forEach(x => s.add(x))
-    return [...s].sort((a, b) => posRank(a) - posRank(b) || a.localeCompare(b))
+    const s = new Set<PositionGroupCode>()
+    for (const p of data?.players ?? []) { const g = groupOfCard(p); if (g) s.add(g) }
+    return POSITION_GROUPS.filter(g => s.has(g.code))
   }, [data])
 
   const attOf = useCallback(
@@ -73,7 +72,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const list = useMemo(() => {
     const rows = (data?.players ?? []).filter(p => {
       if (onlyMembers && !p.has_account) return false
-      if (pos !== 'ALL' && !p.positions.includes(pos)) return false
+      if (pos !== 'ALL' && groupOfCard(p) !== pos) return false
       return true
     })
     const byName = (a: RosterCard, b: RosterCard) => a.name.localeCompare(b.name, 'ko')
@@ -133,8 +132,8 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
               {positions.length > 0 && (
                 <FilterRow label="포지션">
                   <Chip as="button" selected={pos === 'ALL'} onClick={() => setPos('ALL')}>전체</Chip>
-                  {positions.map(p => (
-                    <Chip key={p} as="button" selected={pos === p} onClick={() => setPos(p)}>{p}</Chip>
+                  {positions.map(g => (
+                    <Chip key={g.code} as="button" selected={pos === g.code} onClick={() => setPos(g.code)}>{g.label}</Chip>
                   ))}
                 </FilterRow>
               )}
@@ -253,15 +252,14 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen }: {
       <div className="flex flex-col gap-1.5 p-2.5 lg:p-3 min-w-0 flex-1">
         <p className="font-black text-[15px] lg:text-base leading-tight truncate" style={{ color: 'var(--mm-ink)' }}>{p.name}</p>
         <div className="flex flex-wrap gap-1 min-h-6">
-          {p.positions.map(x => (
+          {groupOfCard(p) && (
             <span
-              key={x}
               className="inline-flex items-center h-6 px-1.5 text-[11px] font-bold"
               style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
             >
-              {x}
+              {positionGroupLabel(groupOfCard(p))}
             </span>
-          ))}
+          )}
           {p.has_account
             ? <Chip tone="positive" icon={BadgeCheck}>가입</Chip>
             : <Chip tone="neutral">미가입</Chip>}
@@ -278,12 +276,12 @@ function AddPlayerSheet({ open, onClose, leagueId, headers, onAdded }: {
   open: boolean; onClose: () => void; leagueId: string; headers: Record<string, string>; onAdded: () => void
 }) {
   const [name, setName] = useState('')
-  const [picked, setPicked] = useState<string[]>([])
+  const [picked, setPicked] = useState<PositionGroupCode | null>(null)
   const [saving, setSaving] = useState(false)
 
   function close() {
     if (saving) return
-    setName(''); setPicked([])
+    setName(''); setPicked(null)
     onClose()
   }
 
@@ -296,7 +294,7 @@ function AddPlayerSheet({ open, onClose, leagueId, headers, onAdded }: {
       const res = await fetch(`/api/leagues/${leagueId}/players`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ name: clean, position: picked.length > 0 ? picked.join(',') : null }),
+        body: JSON.stringify({ name: clean, position: picked }),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => null) as { error?: string } | null
@@ -304,7 +302,7 @@ function AddPlayerSheet({ open, onClose, leagueId, headers, onAdded }: {
         return
       }
       toast.success(`${clean} 선수를 등록했어요`)
-      setName(''); setPicked([])
+      setName(''); setPicked(null)
       onClose()
       onAdded()
     } catch {
@@ -330,22 +328,22 @@ function AddPlayerSheet({ open, onClose, leagueId, headers, onAdded }: {
           />
         </label>
         <fieldset>
-          <legend className="text-xs font-bold mb-1.5" style={{ color: 'var(--mm-muted)' }}>포지션 (선택 · 여러 개 가능)</legend>
+          <legend className="text-xs font-bold mb-1.5" style={{ color: 'var(--mm-muted)' }}>포지션 (선택)</legend>
           <div className="flex flex-wrap gap-1.5">
-            {POSITIONS.map(x => {
-              const on = picked.includes(x)
+            {POSITION_GROUPS.map(({ code, label }) => {
+              const on = picked === code
               return (
                 <button
-                  key={x}
+                  key={code}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setPicked(v => (on ? v.filter(y => y !== x) : [...v, x]))}
+                  onClick={() => setPicked(on ? null : code)}
                   className="min-h-11 min-w-11 px-3 text-sm font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={on
                     ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-chip)' }
                     : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
                 >
-                  {x}
+                  {label}
                 </button>
               )
             })}
