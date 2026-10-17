@@ -8,11 +8,15 @@
 - 데이터 = Supabase `basketball-stats`(oqszhjmvcaoerqdcntbj) 미라클 리그. 경기 영상 = `league_games.youtube_url`
   + `league_game_events.video_timestamp`(장면 시각). 쿼터 영상이 있으면 `league_game_videos`.
 - 클라우드 환경에서 유튜브는 도메인 허용이 필요하다(www.youtube.com · youtubei.googleapis.com · *.googlevideo.com · i.ytimg.com).
+  ⚠ 허용해도 **영상 다운로드는 유튜브 봇 확인에 막힌다**(2026-10-17, yt-dlp 클라이언트 4종 모두 실패). 실제 장면은 사용자가 클립을 직접 주거나 그래픽으로 대체.
 - 목소리 생성은 `NODE_USE_ENV_PROXY=1 node …/voice.mjs <reel>` 로 실행(없으면 프록시 때문에 `fetch failed`).
 - ElevenLabs 는 같은 대본도 테이크마다 길이가 5초 이상 달라진다. 속도는 최대 1.3배(atempo) — 1분 맞춤은 결국 문장 길이로 한다.
 - 한국어 캐스터 톤 실측: 1.2배에서 대략 초당 6.3음절 + 쉼. 대본 단계에서 **공백 제외 약 330자 이하**면 1분 안에 든다(10/17: 391자 → 71초 @1.2배).
 - 브라우저: 스킬이 받는 크롬 버전이 없으면 `/opt/pw-browsers/chromium-1243/chrome-linux64` 을
-  `chromium-1194/chrome-linux` 로 연결(같은 방식으로 headless_shell 도).
+  `chromium-1194/chrome-linux` 로 연결, `chromium_headless_shell-1243/chrome-headless-shell-linux64` → `chromium_headless_shell-1194/chrome-linux`
+  + 그 안에 `chrome-headless-shell -> headless_shell` 링크. 컨테이너가 재시작되면 링크가 사라지므로 다시 건다.
+- 한글 폰트: `npm pack pretendard@1.3.9` 로 받아 reel 의 assets/fonts 에 넣는다(CDN 은 막혀 있음).
+- 화면 원본은 회차 폴더의 reel.html 하나. 다음 회차는 이걸 복사해 장면만 바꾸면 틀(헤더·자막·푸터·로고)이 그대로 유지된다.
 
 ## 화면 틀 (레퍼런스 5장, 2026-10-17)
 - 바탕 거의 검정(#1a1916 계열) · 강조 노랑(#f5b800) · 흰 글씨 · 옅은 코트 라인.

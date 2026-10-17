@@ -70,3 +70,11 @@ Not checked: STT(받아쓰기) 검사 — faster-whisper 없음. 발음·숫자 
 Decisions: 속도만으로는 1분 미만 불가(1.3배가 상한, 66.5초) → 사용자에게 문장 다듬기 여부 문의
 Needs from the owner: 1.2/1.3배 청취 후 속도 선택, 문장 다듬기 승인
 Requests to next stage: 확정 후 voice/ 고정, 그 타이밍에 장면 제작. 유튜브 다운로드는 동작 확인(yt-dlp 포맷 목록 OK)
+
+## Stage report: film (v1)
+Done: reel.html 16장면(데이터 그래픽) · 자막 상자(핵심 단어 노랑) · 헤더/푸터 브랜드 틀 · 효과음 23개 · 음악 bed. out/미라클리포트_1017_v1.mp4 (71.3초, 1080×1920, 9MB)
+Files left: reel.html - 유일한 화면 원본 / voice/ = 1.2배 take1 고정 / assets/fonts - Pretendard(OFL, npm pretendard@1.3.9) / out/final.mp4
+Checked: 장면 정지컷 25장 직접 확인(겹침 4곳 수정), verify 결정론 통과, 음량 -16.1 LUFS, 오디오·영상 길이 차 0.7ms, 검은 화면 0
+Not checked: 효과음·음악을 귀로 듣지 못함(수치만), 자동 받아쓰기 검사 없음, 멈춘 화면 판정 5구간(6.0~8.7초 자물쇠 장면 등) 남음 — 느린 줌만 있음
+Decisions: 유튜브가 클라우드 서버 다운로드를 봇 확인으로 차단 → 실제 영상 대신 코트 그래픽. 슛 위치 그림은 실제 위치 아님(개수만 정확)
+Needs from the owner: 실제 장면을 원하면 클립 5개(아래 영상 후보 시각) 직접 제공

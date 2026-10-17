@@ -1,0 +1,4186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>미라클 리포트 10월 17일</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; }
+  #stage { display: block; }
+  @font-face { font-family: 'Pretendard'; src: url('assets/fonts/Pretendard-Regular.otf'); font-weight: 400; font-style: normal; }
+  @font-face { font-family: 'Pretendard'; src: url('assets/fonts/Pretendard-Bold.otf'); font-weight: 700; font-style: normal; }
+  @font-face { font-family: 'Pretendard'; src: url('assets/fonts/Pretendard-ExtraBold.otf'); font-weight: 800; font-style: normal; }
+  @font-face { font-family: 'Pretendard'; src: url('assets/fonts/Pretendard-Black.otf'); font-weight: 900; font-style: normal; }
+
+</style>
+</head>
+<body>
+<canvas id="stage" width="1080" height="1920"></canvas>
+<script>
+/* ENGINE:BEGIN — scripts/engine/reel-engine.js, inlined by new-reel.mjs. Not scanned for banned tokens (verify.mjs only scans SCENE). */
+// Super Video Agent render engine — browser-side, no imports, no network, no wall-clock.
+// Every helper is a pure function of its explicit arguments (or of `t`).
+// Attaches everything under globalThis.Reel. Inlined verbatim into each reel.html.
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // hash + seeded RNG
+  // ---------------------------------------------------------------------
+
+  // 32-bit FNV-1a string hash. Deterministic, no Math.random.
+  function hash(str) {
+    let h = 0x811c9dc5;
+    const s = String(str);
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+  }
+
+  // mulberry32 PRNG seeded from a string key. Returns a function () => [0,1).
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // rng(key) → deterministic generator function bound to that key.
+  // Same key always produces the same sequence from call 0.
+  function rng(key) {
+    const gen = mulberry32(hash(key));
+    return function next() {
+      return gen();
+    };
+  }
+
+  // Draw n values from rng(key), used when a single bucket needs several
+  // independent-looking numbers (e.g. dx, dy, rot for one boil step).
+  function rngValues(key, n) {
+    const next = rng(key);
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) out[i] = next();
+    return out;
+  }
+
+  // ---------------------------------------------------------------------
+  // boil — stepped pose noise
+  // ---------------------------------------------------------------------
+
+  // boil(key, t, opts) -> {dx, dy, rot}
+  // Quantises t into buckets of 1/hz seconds; identical output within a
+  // bucket, reseeded (independent) at the next bucket. hz default 8,
+  // amp in px, rot in degrees. opts.moving (0..1, default 0) scales the
+  // jitter down: a static scene boils by default (moving=0); while an
+  // element moves, boil fades out (moving=1 -> exactly zero jitter) and
+  // returns once it settles — see `moving()` below for computing this
+  // from move intervals.
+  function boil(key, t, opts) {
+    const o = opts || {};
+    const hz = o.hz == null ? 8 : o.hz;
+    const amp = o.amp == null ? 1.2 : o.amp;
+    const rotAmp = o.rot == null ? 0.35 : o.rot;
+    const moving = o.moving == null ? 0 : o.moving;
+    const scale = 1 - moving;
+    const bucket = Math.floor(t * hz);
+    const [r1, r2, r3] = rngValues(key + ":" + bucket, 3);
+    return {
+      // `|| 0` turns a -0 result (negative jitter times scale=0) into a
+      // plain 0, so moving=1 gives exactly {dx:0, dy:0, rot:0}.
+      dx: (r1 * 2 - 1) * amp * scale || 0,
+      dy: (r2 * 2 - 1) * amp * scale || 0,
+      rot: (r3 * 2 - 1) * rotAmp * scale || 0,
+    };
+  }
+
+  // moving(t, intervals, opts) -> 0..1
+  // Pure function of t: 1 while t falls inside any {start, end} interval in
+  // `intervals` (an element is moving), 0 well outside all of them, ramping
+  // linearly over opts.settleSec (default 0.15s) on the way in and out of
+  // each interval — so boil fades out just before a move starts and fades
+  // back in just after it settles, instead of snapping. Feed the result
+  // straight into boil's `opts.moving`.
+  function moving(t, intervals, opts) {
+    const o = opts || {};
+    const settleSec = o.settleSec == null ? 0.15 : o.settleSec;
+    if (!intervals || !intervals.length) return 0;
+    let m = 0;
+    for (const iv of intervals) {
+      let v;
+      if (t >= iv.start && t <= iv.end) {
+        v = 1;
+      } else if (t < iv.start) {
+        const d = iv.start - t;
+        v = d >= settleSec ? 0 : 1 - d / settleSec;
+      } else {
+        const d = t - iv.end;
+        v = d >= settleSec ? 0 : 1 - d / settleSec;
+      }
+      if (v > m) m = v;
+    }
+    return clamp01(m);
+  }
+
+  // wobblePath(points, key, t, opts) -> new array of {x,y}
+  // Densifies the polyline (adds `step`-spaced interpolated points, default
+  // step=8px) then displaces each point by a boil sample keyed on its index,
+  // so the whole path steps together but each point offsets independently.
+  function wobblePath(points, key, t, opts) {
+    const o = opts || {};
+    const step = o.step == null ? 8 : o.step;
+    const dense = densify(points, step);
+    return dense.map((p, i) => {
+      const b = boil(key + ":" + i, t, o);
+      return { x: p.x + b.dx, y: p.y + b.dy };
+    });
+  }
+
+  function densify(points, step) {
+    if (!points || points.length < 2) return (points || []).slice();
+    const out = [points[0]];
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1];
+      const b = points[i];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      const n = Math.max(1, Math.round(len / step));
+      for (let k = 1; k <= n; k++) {
+        out.push({ x: a.x + (dx * k) / n, y: a.y + (dy * k) / n });
+      }
+    }
+    return out;
+  }
+
+  // hold(t, step) — quantise time to a step grid (e.g. on-twos: step = 2/fps).
+  function hold(t, step) {
+    if (!step) return t;
+    return Math.floor(t / step) * step;
+  }
+
+  // ---------------------------------------------------------------------
+  // easing
+  // ---------------------------------------------------------------------
+
+  function easeOutCubic(u) {
+    const x = clamp01(u);
+    return 1 - Math.pow(1 - x, 3);
+  }
+
+  function easeOutBack(u) {
+    const x = clamp01(u);
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  }
+
+  // settle(u) — ease in fast, small overshoot back, come to rest. u in [0,1].
+  function settle(u) {
+    const x = clamp01(u);
+    if (x < 0.7) return easeOutCubic(x / 0.7) * 1.06;
+    const t2 = (x - 0.7) / 0.3;
+    return 1.06 + (1 - 1.06) * easeOutCubic(t2);
+  }
+
+  function clamp01(x) {
+    return Math.max(0, Math.min(1, x));
+  }
+
+  // ---------------------------------------------------------------------
+  // clip blend (references/3d.md "Switching between clips")
+  // ---------------------------------------------------------------------
+
+  // clipBlend(switches, t, clips, opts) -> [{clip, weight, time}]
+  // switches: [{at, clip}] sorted by `at`. clips: {name: {duration, loop?}} with the loaded clip's real
+  // length (clip.duration), never a number typed into the page. A pure function of t, so any seek order
+  // gives the same pose: the current clip is the last switch with at <= t, the previous clip is the one
+  // before it, weight w = ease(clamp01((t - at) / blend)) for the current clip and 1 - w for the previous;
+  // the previous clip is left out once w is 1. `time` is the clip's own local time: a looping clip wraps
+  // at its length, any other holds its last pose. The first clip has no previous one: weight 1 throughout.
+  // opts: {blend: seconds, default 0.25 (a starting point for a body action; a slow one wants longer),
+  // ease: (u) => u, default linear}.
+  function clipBlend(switches, t, clips, opts) {
+    const o = opts || {};
+    const blend = o.blend == null ? 0.25 : o.blend;
+    const ease = o.ease || function (u) { return u; };
+    let cur = 0;
+    for (let i = 0; i < switches.length; i++) if (switches[i].at <= t) cur = i;
+    const localTime = function (sw) {
+      const c = clips[sw.clip];
+      if (!c || !(c.duration > 0)) throw new Error("clipBlend: clips[" + JSON.stringify(sw.clip) + "] needs a duration from the loaded clip");
+      const elapsed = Math.max(0, t - sw.at);
+      return c.loop ? elapsed % c.duration : Math.min(elapsed, c.duration);
+    };
+    const w = cur === 0 || !(blend > 0) ? 1 : clamp01(ease(clamp01((t - switches[cur].at) / blend)));
+    const out = [{ clip: switches[cur].clip, weight: w, time: localTime(switches[cur]) }];
+    if (cur > 0 && w < 1) out.push({ clip: switches[cur - 1].clip, weight: 1 - w, time: localTime(switches[cur - 1]) });
+    return out;
+  }
+
+  // ---------------------------------------------------------------------
+  // keyframe tracks
+  // ---------------------------------------------------------------------
+
+  // monotoneTrack(keys) -> (t) => number[]
+  // keys: [{t, v: number[] | number, ease?: "io"}], sorted by t. A monotone
+  // cubic (Fritsch-Carlson tangents, Brodlie's weighted harmonic mean)
+  // through every key, per dimension: smooth through the keys and never
+  // outside the range of the two keys around t, so a camera diving to a low
+  // key does not carry on below it. A Catmull-Rom track overshoots there.
+  // The end keys keep the speed of their own segment, so a shot can cut
+  // while moving. `ease: "io"` on a key eases in and out of the segment that
+  // ends at it (zero tangents). Pure function of t; clamps outside the keys.
+  function monotoneTrack(keys) {
+    if (!keys || !keys.length) throw new Error("monotoneTrack: at least one key is required");
+    const pts = keys.map(function (k) {
+      return { t: k.t, v: Array.isArray(k.v) ? k.v : [k.v], ease: k.ease };
+    });
+    const n = pts.length;
+    const dims = pts[0].v.length;
+    const tangents = monotoneTangents(pts, dims);
+    return function (t) {
+      if (n === 1 || t <= pts[0].t) return pts[0].v.slice();
+      if (t >= pts[n - 1].t) return pts[n - 1].v.slice();
+      let i = 0;
+      while (i < n - 2 && t > pts[i + 1].t) i++;
+      return hermiteSegment(pts[i], pts[i + 1], tangents[i], tangents[i + 1], t);
+    };
+  }
+
+  function monotoneTangents(pts, dims) {
+    const n = pts.length;
+    const m = pts.map(function () { return new Array(dims).fill(0); });
+    if (n < 2) return m;
+    for (let d = 0; d < dims; d++) {
+      const slope = [];
+      for (let i = 0; i < n - 1; i++) {
+        slope.push((pts[i + 1].v[d] - pts[i].v[d]) / ((pts[i + 1].t - pts[i].t) || 1));
+      }
+      m[0][d] = slope[0];
+      m[n - 1][d] = slope[n - 2];
+      for (let k = 1; k < n - 1; k++) {
+        const a = slope[k - 1];
+        const b = slope[k];
+        if (a * b <= 0) continue; // a turning point: flat, so no overshoot
+        const h0 = pts[k].t - pts[k - 1].t;
+        const h1 = pts[k + 1].t - pts[k].t;
+        const w1 = 2 * h1 + h0;
+        const w2 = h1 + 2 * h0;
+        m[k][d] = (w1 + w2) / (w1 / a + w2 / b);
+      }
+    }
+    return m;
+  }
+
+  function hermiteSegment(k1, k2, m1, m2, t) {
+    const h = k2.t - k1.t;
+    const io = k2.ease === "io";
+    let u = h > 0 ? (t - k1.t) / h : 1;
+    if (io) u = u * u * (3 - 2 * u);
+    const u2 = u * u;
+    const u3 = u2 * u;
+    const out = [];
+    for (let d = 0; d < k1.v.length; d++) {
+      const s1 = io ? 0 : m1[d] * h;
+      const s2 = io ? 0 : m2[d] * h;
+      out.push(
+        (2 * u3 - 3 * u2 + 1) * k1.v[d] + (u3 - 2 * u2 + u) * s1 +
+          (-2 * u3 + 3 * u2) * k2.v[d] + (u3 - u2) * s2
+      );
+    }
+    return out;
+  }
+
+  // inWindows(t, windows) -> boolean — t inside any [start, end) of
+  // `windows` ([{start, end}]). Null or empty windows -> false.
+  function inWindows(t, windows) {
+    if (!windows) return false;
+    for (const w of windows) {
+      if (t >= w.start && t < w.end) return true;
+    }
+    return false;
+  }
+
+  // ---------------------------------------------------------------------
+  // issues() sink — layout problems recorded by draw helpers
+  // ---------------------------------------------------------------------
+
+  const _issues = [];
+  function recordIssue(issue) {
+    _issues.push(issue);
+  }
+  function issues() {
+    return _issues.slice();
+  }
+  function clearIssues() {
+    _issues.length = 0;
+  }
+
+  // ---------------------------------------------------------------------
+  // captions on/off — for a picture-first render (dub.mjs, design.md
+  // "Picture first"): render.mjs --no-captions loads the page with
+  // ?captions=0 so the picture renders once with no caption baked in, and
+  // dub.mjs lays a caption layer + a language's voice over it afterwards.
+  // Read once from location.search at load, never inside seek(t), so
+  // seek stays a pure function of t.
+  // ---------------------------------------------------------------------
+  var _captionsOn = true;
+  try {
+    if (typeof location !== "undefined" && location.search) {
+      var _params = new URLSearchParams(location.search);
+      if (_params.get("captions") === "0") _captionsOn = false;
+    }
+  } catch (e) {
+    _captionsOn = true;
+  }
+  function captionsOn() {
+    return _captionsOn;
+  }
+  // For tools only: render.mjs turns captions off for one extra capture of a frame it already drew, so the
+  // caption's pixels can be told from the picture behind them (caption contrast). A page never calls this.
+  function setCaptionsOn(on) {
+    _captionsOn = !!on;
+  }
+
+  // ---------------------------------------------------------------------
+  // layer / dubCode — for dub.mjs's "let the reel draw its own captions"
+  // path (references/pipeline.md "Picture first"): ?layer=captions&dub=<code>
+  // tells a page that supports it (declares "captions" in __reel.layers) to
+  // load that dub's placed timings + plan instead of its own (layerFiles
+  // below), skip the picture, clear to transparent, and draw only its
+  // overlay (captions, titles, stickers). ?layer=captions with no dub draws
+  // the base language's overlay (review.mjs --scan --layer captions).
+  // Read once from location.search at load, never inside seek(t).
+  // ---------------------------------------------------------------------
+  var _layer = null;
+  var _dubCode = null;
+  try {
+    if (typeof location !== "undefined" && location.search) {
+      var _layerParams = new URLSearchParams(location.search);
+      _layer = _layerParams.get("layer") || null;
+      _dubCode = _layerParams.get("dub") || null;
+    }
+  } catch (e) {
+    _layer = null;
+    _dubCode = null;
+  }
+  function layer() {
+    return _layer;
+  }
+  function dubCode() {
+    return _dubCode;
+  }
+
+  // ---------------------------------------------------------------------
+  // picture strings — text drawn INTO the picture (not the caption layer)
+  // that changes per dub language. render.mjs --no-captions --lang <code>
+  // injects globalThis.__svaPicture = {lang, strings} before the page runs:
+  // `strings` is dub/<code>/plan.json meta.overlay.picture, `lang` is <code>
+  // (a base render injects the plan's own language and no strings). Read at
+  // call time, so a seek stays a pure function of t.
+  // pictureText(key, fallback) -> strings[key] when present, else fallback.
+  // ---------------------------------------------------------------------
+  function pictureState() {
+    var p = typeof globalThis !== "undefined" ? globalThis.__svaPicture : null;
+    return p && typeof p === "object" ? p : null;
+  }
+  function pictureTextFrom(strings, key, fallback) {
+    if (strings && typeof strings === "object" && Object.prototype.hasOwnProperty.call(strings, key)) {
+      var v = strings[key];
+      if (typeof v === "string" && v !== "") return v;
+    }
+    return fallback;
+  }
+  function pictureText(key, fallback) {
+    var p = pictureState();
+    var strings = p && p.strings;
+    var v = pictureTextFrom(strings, key, fallback);
+    // The language's own text is missing: the base text is drawn silently
+    // otherwise (item 43). Reported as a fact; a brand kept as is can be
+    // listed with the same value to say so. Never enumerates `strings`
+    // (render.mjs's string-read tracking would see "all keys").
+    if (v === fallback && _baseLang && p && p.lang && !samePrimaryLang(p.lang, _baseLang) && !hasOwnString(strings, key)) {
+      recordIssue({ type: "picture-string-missing", key: String(key), lang: String(p.lang) });
+    }
+    return v;
+  }
+  function hasOwnString(strings, key) {
+    if (!strings || typeof strings !== "object" || !Object.prototype.hasOwnProperty.call(strings, key)) return false;
+    return typeof strings[key] === "string" && strings[key] !== "";
+  }
+  // The film's own language (plan.meta.lang); a page sets it once so a
+  // missing translation is told from the base language drawing its own text.
+  var _baseLang = null;
+  function setBaseLang(lang) {
+    _baseLang = lang ? String(lang) : null;
+  }
+
+  // overlayText(overlay, key, fallback, {dub, base}) — a 2D caption-layer
+  // label in the language being drawn: overlay is dub/<code>/plan.json
+  // meta.overlay, the fallback the base language's string. A key the language
+  // lacks is recorded (overlay-text-missing) when dub names a language other
+  // than base; the base language itself never reports.
+  function overlayText(overlay, key, fallback, o) {
+    const v = pictureTextFrom(overlay, key, fallback);
+    const dub = o && o.dub;
+    const base = (o && o.base) || _baseLang;
+    if (v === fallback && dub && base && !samePrimaryLang(dub, base) && !hasOwnString(overlay, key)) {
+      recordIssue({ type: "overlay-text-missing", key: String(key), lang: String(dub) });
+    }
+    return v;
+  }
+  function pictureLang() {
+    var p = pictureState();
+    if (p && p.lang) return p.lang;
+    return _dubCode || (_layerParamsLang || null);
+  }
+  var _layerParamsLang = null;
+  try {
+    if (typeof location !== "undefined" && location.search) {
+      _layerParamsLang = new URLSearchParams(location.search).get("lang") || null;
+    }
+  } catch (e) {
+    _layerParamsLang = null;
+  }
+
+  function samePrimaryLang(a, b) {
+    if (!a || !b) return false;
+    return String(a).split("-")[0].toLowerCase() === String(b).split("-")[0].toLowerCase();
+  }
+
+  // layerFiles(baseLang, state?) -> {timings: [url...], plan: [url...]} —
+  // the files a page loads, first one that exists wins. A normal render, and
+  // the caption layer with no dub code, read the film's own voice/timings.json
+  // and plan.json. With ?dub=<code> the caption layer reads that dub's placed
+  // timings and plan; for the base language (same primary subtag as
+  // plan.meta.lang) the film's own files follow as a fallback, because
+  // dub/<base>/timings.placed.json exists only after a dub run. `state`
+  // ({layer, dub}) replaces the URL's values (tests).
+  function layerFiles(baseLang, state) {
+    const s = state || { layer: _layer, dub: _dubCode };
+    const own = { timings: ["voice/timings.json"], plan: ["plan.json"] };
+    if (s.layer !== "captions" || !s.dub) return own;
+    const dubTimings = "dub/" + s.dub + "/timings.placed.json";
+    const dubPlan = "dub/" + s.dub + "/plan.json";
+    if (samePrimaryLang(s.dub, baseLang)) {
+      return { timings: [dubTimings].concat(own.timings), plan: [dubPlan].concat(own.plan) };
+    }
+    return { timings: [dubTimings], plan: [dubPlan] };
+  }
+
+  // ---------------------------------------------------------------------
+  // safe area — where text stays clear of the platform's own buttons.
+  // Pictures may fill the whole frame; only text must sit inside.
+  // ---------------------------------------------------------------------
+
+  // Margins in px on a 1080×1920 frame, scaled to the canvas.
+  // "ads": YouTube's official vertical-ad overlay (measured: box x 48–887,
+  // y 288–1247), with TikTok's wider left edge. "shorts": organic Shorts and
+  // TikTok feeds — YouTube's right rail, TikTok's top tabs and bottom caption.
+  const SAFE_MARGINS_9x16 = {
+    shorts: { top: 200, bottom: 450, left: 80, right: 192 },
+    ads: { top: 288, bottom: 672, left: 80, right: 192 },
+  };
+  // Non-vertical frames: the 90% title-safe convention.
+  const SAFE_FRACTION_OTHER = 0.05;
+  let _safeKind = "shorts";
+
+  // setSafeArea("shorts" | "ads" | "none" | {top, bottom, left, right}).
+  // The presets are for platforms that draw buttons over the video. "none"
+  // frees the whole frame (a messenger, a TV, a site player, the film's own
+  // layout); an object sets the film's own margins in canvas px.
+  function setSafeArea(kind) {
+    if (kind && typeof kind === "object") {
+      const m = { top: kind.top || 0, bottom: kind.bottom || 0, left: kind.left || 0, right: kind.right || 0 };
+      if (![m.top, m.bottom, m.left, m.right].every((v) => Number.isFinite(v) && v >= 0)) {
+        throw new Error("safe area margins must be numbers >= 0");
+      }
+      _safeKind = m;
+      return;
+    }
+    if (kind !== "none" && !SAFE_MARGINS_9x16[kind]) throw new Error("unknown safe area: " + kind);
+    _safeKind = kind;
+    const note = safeAreaNote();
+    if (note && typeof console !== "undefined") console.info(note);
+  }
+
+  // With "none" the whole frame is safe, so checkSafe can never record an
+  // issue: a clean report then proves nothing. Says so (a fact, not a pass).
+  function safeAreaNote() {
+    return _safeKind === "none"
+      ? 'checked nothing: the safe area is "none", so no text can fall outside it (text-outside-safe-area is never recorded). Confirm this video needs this check; if it does, make a safe-area preset (not "none") and rerun only this check.'
+      : null;
+  }
+
+  // safeArea(width, height) -> {x, y, w, h} of the text-safe box.
+  function safeArea(width, height) {
+    if (_safeKind === "none") return { x: 0, y: 0, w: width, h: height };
+    if (typeof _safeKind === "object") {
+      const m = _safeKind;
+      return { x: m.left, y: m.top, w: width - m.left - m.right, h: height - m.top - m.bottom };
+    }
+    if (height > width * 1.5) {
+      const m = SAFE_MARGINS_9x16[_safeKind];
+      const sx = width / 1080;
+      const sy = height / 1920;
+      const x = Math.round(m.left * sx);
+      const y = Math.round(m.top * sy);
+      return { x, y, w: Math.round(width - m.right * sx) - x, h: Math.round(height - m.bottom * sy) - y };
+    }
+    const x = Math.round(width * SAFE_FRACTION_OTHER);
+    const y = Math.round(height * SAFE_FRACTION_OTHER);
+    return { x, y, w: width - 2 * x, h: height - 2 * y };
+  }
+
+  // centeredSafeArea(width, height) -> the widest box inside the safe area
+  // that shares the frame's centre line. The 9:16 safe box is off-centre
+  // (right margin 192 for the button column, left 80), so text centred on it
+  // sits left of the frame's middle; centred text uses this box instead.
+  function centeredSafeArea(width, height) {
+    const s = safeArea(width, height);
+    const inset = Math.max(s.x, width - (s.x + s.w));
+    return { x: inset, y: s.y, w: width - 2 * inset, h: s.h };
+  }
+
+  // transformedBBox(m, left, top, right, bottom) — the axis-aligned box (in
+  // the space `m` maps *into*) that contains a box's four corners after
+  // `m` (a DOMMatrix-shaped {a,b,c,d,e,f}) is applied. Pure: no ctx, no
+  // canvas — unit-testable on a plain matrix object.
+  function transformedBBox(m, left, top, right, bottom) {
+    const corners = [
+      [left, top],
+      [right, top],
+      [left, bottom],
+      [right, bottom],
+    ].map(([x, y]) => ({ x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f }));
+    const xs = corners.map((p) => p.x);
+    const ys = corners.map((p) => p.y);
+    return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+  }
+
+  // Records an issue when drawn text extends outside the safe area. `left`,
+  // `top`, `right`, `bottom` are in the *local* (pre-transform) coordinate
+  // space text was drawn in; ctx.getTransform() carries whatever
+  // rotate/scale/translate was active when it was drawn (a tilted sticker
+  // label, a scaled stamp), so the box is transformed into canvas space
+  // before it is tested against the safe area — otherwise a rotated or
+  // scaled label can sit outside the safe area with no issue recorded.
+  // opts.outline: the stroke width (px, local space) of an outline drawn
+  // around the text; a stroke reaches half its width past the glyph box on
+  // every side, so the box grows by outline / 2 before the test.
+  function checkSafe(ctx, text, left, top, right, bottom, width, height, opts) {
+    const cw = width || (ctx.canvas ? ctx.canvas.width : 1080);
+    const ch = height || (ctx.canvas ? ctx.canvas.height : 1920);
+    const s = safeArea(cw, ch);
+    const m = ctx.getTransform ? ctx.getTransform() : { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+    const pad = opts && opts.outline > 0 ? opts.outline / 2 : 0;
+    const box = transformedBBox(m, left - pad, top - pad, right + pad, bottom + pad);
+    if (box.left < s.x || box.top < s.y || box.right > s.x + s.w || box.bottom > s.y + s.h) {
+      recordIssue({
+        type: "text-outside-safe-area",
+        text: String(text).slice(0, 80),
+        drawn: { left: Math.round(box.left), top: Math.round(box.top), right: Math.round(box.right), bottom: Math.round(box.bottom) },
+        safe: s,
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // stroke drawing — wobbled path rendering
+  // ---------------------------------------------------------------------
+
+  function strokePoints(ctx, pts) {
+    if (pts.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+  }
+
+  // drawOn(ctx, path, u, key, t, opts) — reveals `path` (array of {x,y})
+  // progressively as u goes 0→1, in point order ("marks are made, in order").
+  // Returns the sub-path actually drawn (for chaining).
+  function drawOn(ctx, path, u, key, t, opts) {
+    const o = opts || {};
+    const uu = clamp01(u);
+    const dense = densify(path, o.step || 6);
+    const n = Math.max(1, Math.round(dense.length * uu));
+    const visible = dense.slice(0, n);
+    if (visible.length >= 2) {
+      const wobbled = key
+        ? visible.map((p, i) => {
+            const b = boil(key + ":drawOn:" + i, t, o);
+            return { x: p.x + b.dx, y: p.y + b.dy };
+          })
+        : visible;
+      ctx.save();
+      ctx.strokeStyle = o.color || "#111";
+      ctx.lineWidth = o.width == null ? 3 : o.width;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      strokePoints(ctx, wobbled);
+      ctx.restore();
+    }
+    return visible;
+  }
+
+  // imageCover(ctx, img, x,y,w,h) — draws img into the box, cropped to cover.
+  function imageCover(ctx, img, x, y, w, h) {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+    const scale = Math.max(w / iw, h / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = x + (w - dw) / 2;
+    const dy = y + (h - dh) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------------
+  // text — wrap + overflow detection. Reading text never boils.
+  // ---------------------------------------------------------------------
+
+  // ---- caption break rules (the automatic fallback; a writer's "|" always wins) ----
+  // One rule set, used by every caption path: row wrapping (wrapParts,
+  // captionRows) and word-by-word chunking (captionChunks). A "glue" array
+  // marks the places a caption must not break: glue[i] true = never between
+  // unit i and unit i+1.
+  //   - a number never parts from its unit ("10 kg", "30 %", "3 개")
+  //   - an article/preposition never ends a row (per-language short lists)
+  //   - ko: a determiner or numeral ("몇", "한", "그", "열두") never ends a row,
+  //     and a counter after one keeps the noun that follows ("열두 개 언어")
+  //   - ko: a dependent noun or particle token stays with the word before it
+  //     ("할 수 밖에 없다" is one piece)
+  //   - nothing breaks inside a short parenthesis or quote span
+  //   - CJK (ja, zh) wraps by characters, but a number+unit, a Latin word and
+  //     a closing/opening mark each stay whole (captionUnits), and no break
+  //     falls inside an Intl.Segmenter word (glueSegmentWords)
+  function wordSet(s) {
+    const o = Object.create(null);
+    s.split(/\s+/).forEach(function (w) { if (w) o[w] = true; });
+    return o;
+  }
+  const CAPTION_FUNCTION_WORDS = {
+    en: wordSet("a an the of to in on at by for with from into onto over under about as than"),
+    fr: wordSet("le la les un une des du de au aux à en dans sur sous avec pour par sans chez ce cet cette ces"),
+    es: wordSet("el la los las un una unos unas de del a al en con por para sin sobre entre"),
+    pt: wordSet("o a os as um uma uns umas de do da dos das em no na nos nas por para com sem sobre ao aos à às"),
+    it: wordSet("il lo la i gli le un uno una di del dello della dei degli delle a al allo alla ai agli alle da dal dalla in nel nella con su sul per tra fra"),
+    de: wordSet("der die das den dem des ein eine einen einem einer eines von zu zum zur mit in im an am auf aus bei nach für über unter vor durch gegen ohne um"),
+  };
+  // Korean tokens that attach to the word before them (dependent nouns,
+  // spaced particles, counters).
+  const CAPTION_KO_DEPENDENT = wordSet("수 것 줄 뿐 때문 따름 만큼 대로 듯 척 밖에 은 는 을 를 에 의 도 로 와 과 부터 까지 처럼 보다 에서 에게 한테 번 개 명 마리 원 분 시간 달 살 권 장 대");
+  // Per-language words that never end a row or chunk: a determiner or numeral
+  // (CAPTION_LEAD_WORDS), and a counter that follows one of them or a digit
+  // (CAPTION_LEAD_COUNTERS: "열두 개" keeps its noun).
+  const CAPTION_LEAD_WORDS = {
+    ko: wordSet("몇 한 두 세 네 다섯 여섯 일곱 여덟 아홉 열 열한 열두 스무 이 그 저 어떤 어느 모든 각 여러 새 첫"),
+  };
+  const CAPTION_LEAD_COUNTERS = {
+    ko: wordSet("개 명 마리 권 장 번 곳 가지 분 대 채 편"),
+  };
+  const CAPTION_UNIT_WORDS = wordSet(
+    "% percent kg g mg km m cm mm l ml s sec ms min h hr hrs mb gb tb kb kbps fps px usd eur gbp krw " +
+    "second seconds minute minutes hour hours day days week weeks month months year years dollars euros pounds " +
+    "secondes minutes heure heures jour jours semaines mois an ans euros segundos minutos hora horas día días semana semanas mes meses año años " +
+    "dia dias ano anos mês meses secondi minuti ora ore giorno giorni settimana settimane mese anno anni " +
+    "sekunden minuten stunde stunden tag tage woche wochen monat monate jahr jahre prozent " +
+    "개 명 원 번 살 시 분 초 년 월 일 퍼센트 배 마리 권 장 대 층 위 점 만 억 조 " +
+    "分钟 分鐘 分 秒 小时 小時 時間 时 時 天 日 年 月 个 個 本 人 円 元 块 塊 歳 岁 歲 回 次 倍 万 萬 億 亿 度"
+  );
+  const CAPTION_CJK_UNIT_ALT = "分钟|分鐘|小时|小時|時間|秒钟|秒鐘|个|個|年|月|日|号|號|天|周|週|岁|歲|歳|円|元|块|塊|人|回|次|倍|本|台|件|位|万|萬|億|亿|度|時|时|分|秒";
+  const CJK_CHAR_RE = /[぀-ヿㇰ-ㇿ㐀-䶿一-鿿豈-﫿]/;
+  const CJK_TOKEN_RE = new RegExp(
+    "\\d+(?:[.,]\\d+)*(?:%|％|[A-Za-z]+|" + CAPTION_CJK_UNIT_ALT + ")?|[A-Za-z][A-Za-z0-9'’\\-_]*|[\\uAC00-\\uD7A3]+|[\\s\\S]",
+    "g"
+  );
+  // marks that never start a row / never end a row (kinsoku)
+  const CJK_NO_START = "、。，．！？：；…）」』”’】》〉］｝ー々ゝゞゃゅょっぁぃぅぇぉゎャュョッァィゥェォヮ,.!?;:)]";
+  const CJK_NO_END = "（「『“‘【《〈［｛([";
+  const SPAN_OPENER_RE = /^[(\[（「『“‘«‹"]/;
+  const SPAN_CLOSER_RE = /[)\]）」』”’»›"][.,!?…;:]*$/;
+  const SPAN_CAP_WORDS = 6;
+  const SPAN_CAP_UNITS = 14;
+
+  function captionStripEdge(t) {
+    return String(t).replace(/^[("'“‘«\[（「『]+/, "").replace(/[)"'”’»\]）」』.,!?…:;，。！？]+$/, "");
+  }
+
+  // The language a caption is in: an explicit tag's primary subtag, else
+  // guessed from the script (Hangul -> ko, kana -> ja, Han -> zh).
+  function captionLang(lang, texts) {
+    const p = String(lang || "").split(/[-_]/)[0].toLowerCase();
+    if (p) return p;
+    const s = (texts || []).join(" ");
+    if (/[가-힣]/.test(s)) return "ko";
+    if (/[぀-ヿ]/.test(s)) return "ja";
+    if (CJK_CHAR_RE.test(s)) return "zh";
+    return "";
+  }
+
+  // One Intl.Segmenter per language (null where the runtime has none).
+  const wordSegmenters = {};
+  function wordSegmenter(lg) {
+    if (!(lg in wordSegmenters)) {
+      wordSegmenters[lg] = typeof Intl !== "undefined" && Intl.Segmenter
+        ? new Intl.Segmenter(lg, { granularity: "word" })
+        : null;
+    }
+    return wordSegmenters[lg];
+  }
+
+  // ja/zh write words without spaces, so a character boundary is not a word
+  // boundary: glue every boundary that falls strictly inside a segmenter word
+  // of up to SPAN_CAP_UNITS characters (a longer one could not fit a row
+  // anyway). A katakana run is one word too, even where the segmenter splits
+  // a loanword (ICU: ネット|フリ|ッ|クス); "・" ends a run. sp[i] (optional): a
+  // writer's space precedes texts[i]; no glue crosses it. Without
+  // Intl.Segmenter nothing is glued here.
+  const KATAKANA_RUN_RE = /[゠-ヺー-ヿ]+/g;
+  function glueSegmentWords(texts, lg, glue, sp) {
+    const seg = wordSegmenter(lg);
+    if (!seg) return;
+    const boundaryAt = new Map();
+    let joined = "";
+    for (let i = 0; i < texts.length; i++) {
+      if (i > 0 && sp && sp[i]) joined += " ";
+      joined += String(texts[i]);
+      if (i + 1 < texts.length) boundaryAt.set(joined.length, i);
+    }
+    function glueInside(from, to) {
+      if (to - from > SPAN_CAP_UNITS) return;
+      for (let at = from + 1; at < to; at++) {
+        if (boundaryAt.has(at)) glue[boundaryAt.get(at)] = true;
+      }
+    }
+    for (const s of seg.segment(joined)) {
+      if (s.isWordLike) glueInside(s.index, s.index + s.segment.length);
+    }
+    for (const m of joined.matchAll(KATAKANA_RUN_RE)) glueInside(m.index, m.index + m[0].length);
+  }
+
+  // captionGlue(texts, lang, opts) -> boolean[] — glue[i]: no break between
+  // texts[i] and texts[i+1]. opts.spanCap sets the longest parenthesis/quote
+  // span kept whole (a longer one could never fit a row). opts.sp[i]: a
+  // writer's space precedes texts[i] (captionUnits); ja/zh word glue never
+  // crosses it.
+  function captionGlue(texts, lang, opts) {
+    const n = texts.length;
+    const glue = new Array(n).fill(false);
+    const lg = captionLang(lang, texts);
+    if (lg === "ja" || lg === "zh") glueSegmentWords(texts, lg, glue, opts && opts.sp);
+    const fw = CAPTION_FUNCTION_WORDS[lg];
+    const lead = CAPTION_LEAD_WORDS[lg];
+    const leadCounters = CAPTION_LEAD_COUNTERS[lg];
+    const spanCap = (opts && opts.spanCap) || SPAN_CAP_WORDS;
+    for (let i = 0; i + 1 < n; i++) {
+      const t = String(texts[i]);
+      const nx = String(texts[i + 1]);
+      const pause = CAPTION_PHRASE_END.test(t);
+      if (/\d$/.test(t) && CAPTION_UNIT_WORDS[captionStripEdge(nx).toLowerCase()]) glue[i] = true;
+      else if (pause) continue;
+      else if (fw && fw[captionStripEdge(t).toLowerCase()]) glue[i] = true;
+      else if (lg === "fr" && /^[A-Za-z]{1,2}['’]$/.test(t)) glue[i] = true;
+      else if (lead && lead[captionStripEdge(t)]) glue[i] = true;
+      else if (leadCounters && leadCounters[captionStripEdge(t)] && i > 0 &&
+        (lead[captionStripEdge(String(texts[i - 1]))] || /\d$/.test(String(texts[i - 1])))) glue[i] = true;
+      else if (lg === "ko" && (CAPTION_KO_DEPENDENT[captionStripEdge(nx)] || (captionStripEdge(t) === "밖에" && /^없/.test(nx)))) glue[i] = true;
+    }
+    let open = -1;
+    for (let i = 0; i < n; i++) {
+      const t = String(texts[i]);
+      if (open < 0) {
+        if (SPAN_OPENER_RE.test(t) && !(t.length > 1 && SPAN_CLOSER_RE.test(t.slice(1)))) open = i;
+      } else if (SPAN_CLOSER_RE.test(t)) {
+        if (i - open <= spanCap) for (let k = open; k < i; k++) glue[k] = true;
+        open = -1;
+      } else if (i - open > spanCap) {
+        open = -1;
+      }
+    }
+    return glue;
+  }
+
+  // captionUnits(part, lang) -> {texts, sp, glue} — the break units of one
+  // caption part. A whitespace word is one unit, except a word holding Han or
+  // kana, which splits into characters (wrapping by character) while a
+  // number+unit, a Latin word and a Hangul run stay whole and closing /
+  // opening marks stay with their neighbour. sp[i]: a space precedes unit i.
+  function captionUnits(part, lang) {
+    const tokens = String(part || "").split(/\s+/).filter(function (t) { return t.length > 0; });
+    const texts = [];
+    const sp = [];
+    const own = [];
+    let anyCjk = false;
+    tokens.forEach(function (tok, ti) {
+      if (!CJK_CHAR_RE.test(tok)) {
+        texts.push(tok);
+        sp.push(ti > 0);
+        own.push(false);
+        return;
+      }
+      anyCjk = true;
+      const pieces = tok.match(CJK_TOKEN_RE) || [tok];
+      pieces.forEach(function (p, pi) {
+        const k = texts.length;
+        texts.push(p);
+        sp.push(pi === 0 && ti > 0);
+        own.push(false);
+        if (pi > 0 && CJK_NO_START.indexOf(p) >= 0) own[k - 1] = true;
+        if (CJK_NO_END.indexOf(p) >= 0) own[k] = true;
+      });
+    });
+    const glue = captionGlue(texts, lang, { spanCap: anyCjk ? SPAN_CAP_UNITS : SPAN_CAP_WORDS, sp: sp });
+    for (let i = 0; i < glue.length - 1; i++) glue[i] = glue[i] || own[i];
+    if (glue.length) glue[glue.length - 1] = false;
+    return { texts: texts, sp: sp, glue: glue };
+  }
+
+  // greedyFillRows(widths, spaceW, w, gaps) — packs word indices into rows,
+  // filling each row to w before starting the next (the plain wrap rule).
+  // A single word always starts its own row even if it alone exceeds w.
+  // gaps[i] (optional) replaces spaceW as the space before word i.
+  function greedyFillRows(widths, spaceW, w, gaps) {
+    const rows = [];
+    let cur = [];
+    let curW = 0;
+    for (let i = 0; i < widths.length; i++) {
+      const gap = gaps ? gaps[i] : spaceW;
+      const next = cur.length ? curW + gap + widths[i] : widths[i];
+      if (cur.length && next > w) {
+        rows.push(cur);
+        cur = [i];
+        curW = widths[i];
+      } else {
+        cur.push(i);
+        curW = next;
+      }
+    }
+    if (cur.length) rows.push(cur);
+    return rows;
+  }
+
+  function balanceRowsCore(widths, spaceW, maxW, gaps) {
+    if (!widths.length) return { rows: [], widths: [] };
+    const greedy = greedyFillRows(widths, spaceW, maxW, gaps);
+    const n = greedy.length;
+    const rowWidth = function (row) {
+      return row.reduce(function (sum, i, idx) {
+        return sum + widths[i] + (idx > 0 ? (gaps ? gaps[i] : spaceW) : 0);
+      }, 0);
+    };
+    if (n <= 1) return { rows: greedy, widths: greedy.map(rowWidth) };
+    const widestWord = Math.max.apply(null, widths);
+    let lo = widestWord;
+    let hi = maxW;
+    for (let iter = 0; iter < 30; iter++) {
+      const mid = (lo + hi) / 2;
+      const rows = greedyFillRows(widths, spaceW, mid, gaps);
+      if (rows.length <= n) hi = mid;
+      else lo = mid;
+    }
+    const balanced = greedyFillRows(widths, spaceW, hi, gaps);
+    return { rows: balanced, widths: balanced.map(rowWidth) };
+  }
+
+  // balanceRows(widths, spaceW, maxW, opts) -> {rows, widths} — same row count
+  // as a plain greedy fill at maxW, but rows are as even as possible instead
+  // of each one packed to the limit (which strands a short last word
+  // alone). Binary-searches the narrowest width, no narrower than the
+  // widest single word, that still greedy-fills to that same row count.
+  // opts.gaps[i]: the space before word i (0 inside a CJK run).
+  // opts.glue[i]: words i and i+1 never split across rows (captionGlue); a
+  // glued group wider than maxW falls back to splitting at its words.
+  function balanceRows(widths, spaceW, maxW, opts) {
+    const o = opts || {};
+    const gaps = o.gaps || null;
+    const glue = o.glue || null;
+    if (!glue || !glue.some(Boolean)) return balanceRowsCore(widths, spaceW, maxW, gaps);
+    const gapOf = function (i) { return gaps ? gaps[i] : spaceW; };
+    const atoms = [];
+    for (let i = 0; i < widths.length; i++) {
+      let j = i;
+      while (j + 1 < widths.length && glue[j]) j++;
+      let w = 0;
+      for (let k = i; k <= j; k++) w += widths[k] + (k > i ? gapOf(k) : 0);
+      if (j > i && w > maxW) {
+        for (let k = i; k <= j; k++) atoms.push({ from: k, to: k, w: widths[k] });
+      } else {
+        atoms.push({ from: i, to: j, w: w });
+      }
+      i = j;
+    }
+    const core = balanceRowsCore(
+      atoms.map(function (a) { return a.w; }),
+      spaceW,
+      maxW,
+      atoms.map(function (a) { return gapOf(a.from); })
+    );
+    const rows = core.rows.map(function (row) {
+      const out = [];
+      row.forEach(function (ai) { for (let k = atoms[ai].from; k <= atoms[ai].to; k++) out.push(k); });
+      return out;
+    });
+    const rowWidths = rows.map(function (row) {
+      return row.reduce(function (sum, i, idx) { return sum + widths[i] + (idx > 0 ? gapOf(i) : 0); }, 0);
+    });
+    return { rows: rows, widths: rowWidths };
+  }
+
+  // balanceParts(widths, spaceW, maxW, partSizes, opts) -> {rows, widths} —
+  // balanceRows over consecutive runs of words: partSizes[k] words form part
+  // k, and a part never shares a row with the next (a caption's own "\n").
+  // Row entries are indices into the full `widths` array. opts.gaps/opts.glue
+  // are full-length arrays (see balanceRows).
+  function balanceParts(widths, spaceW, maxW, partSizes, opts) {
+    const o = opts || {};
+    const rows = [];
+    const rowWidths = [];
+    let off = 0;
+    for (const n of partSizes) {
+      if (n > 0) {
+        const glue = o.glue ? o.glue.slice(off, off + n) : null;
+        if (glue) glue[n - 1] = false;
+        const r = balanceRows(widths.slice(off, off + n), spaceW, maxW, {
+          gaps: o.gaps ? o.gaps.slice(off, off + n) : null,
+          glue: glue,
+        });
+        r.rows.forEach(function (row, k) {
+          rows.push(row.map(function (i) { return i + off; }));
+          rowWidths.push(r.widths[k]);
+        });
+      }
+      off += n;
+    }
+    return { rows: rows, widths: rowWidths };
+  }
+
+  // A writer's "|" break marker, standalone or attached to a word on either
+  // side ("X| Y", "X |Y", "X|Y"), becomes a standalone " | " token, so every
+  // tokenizer below reads it as a marker and never as part of a word.
+  // lib/srt.mjs, lib/pronounce.mjs, lib/cue-check.mjs and lib/caption-breaks.mjs
+  // apply the same rule.
+  function normalizeCaptionBreaks(text) {
+    return String(text ?? "").replace(/\s*\|\s*/g, " | ").trim();
+  }
+
+  // The parts of a caption text: a "\n" or a "|" marker (a writer's own
+  // break) starts a new part. Each part wraps on its own rows.
+  function splitCaptionParts(text) {
+    return normalizeCaptionBreaks(text).split(/\n|(?:^|\s)\|(?=\s|$)/);
+  }
+
+  // captionRows(ctx, text, maxW, lang) -> {words, widths, gaps, spaceW, rows,
+  // rowWidths} for a film that draws its own caption (pills, per-word colour):
+  // the break units with "|" markers removed (a word, or a character inside a
+  // CJK run), each unit's width in ctx's current font, gaps[i] = the space
+  // before unit i (spaceW between words, 0 inside a CJK run), and balanced
+  // rows where a "\n" in `text` always starts a new row and the break rules
+  // above hold. Join a row's units with gaps[i] to draw it.
+  // The 4th argument is the language code, or an options object
+  // {lang, stroke}. stroke (optional): the outline width (px) the film draws
+  // around the caption; rows are fitted to maxW - stroke so the outline's
+  // half-width on each side stays inside maxW. Pass the same value to
+  // checkSafe's `outline`.
+  function captionRows(ctx, text, maxW, langOrOpts) {
+    const o = langOrOpts && typeof langOrOpts === "object" ? langOrOpts : { lang: langOrOpts };
+    const lang = o.lang;
+    const stroke = o.stroke > 0 ? o.stroke : 0;
+    const spaceW = ctx.measureText(" ").width;
+    const words = [];
+    const gaps = [];
+    const glue = [];
+    const sizes = [];
+    splitCaptionParts(text).forEach(function (part) {
+      const u = captionUnits(part, lang);
+      u.texts.forEach(function (t, i) {
+        words.push(t);
+        gaps.push(u.sp[i] ? spaceW : 0);
+        glue.push(u.glue[i]);
+      });
+      sizes.push(u.texts.length);
+    });
+    const widths = words.map(function (word) { return ctx.measureText(word).width; });
+    const b = balanceParts(widths, spaceW, maxW - stroke, sizes, { gaps: gaps, glue: glue });
+    return { words: words, widths: widths, gaps: gaps, spaceW: spaceW, rows: b.rows, rowWidths: b.widths, stroke: stroke };
+  }
+
+  // wrapParts(ctx, text, w, lang) — "\n" in `text` forces a break (a caption
+  // the automatic wrap would split badly); each part then wraps at its break
+  // units to fit w, balanced (balanceRows above) rather than packed to the
+  // limit. Returns one entry per part: its wrapped line strings and how many
+  // units landed on each row (textBlock's orphan check reads the latter;
+  // wrapLines below just flattens the former).
+  function wrapParts(ctx, text, w, lang) {
+    const spaceW = ctx.measureText(" ").width;
+    const parts = [];
+    for (const part of splitCaptionParts(text)) {
+      const u = captionUnits(part, lang);
+      if (!u.texts.length) continue;
+      const widths = u.texts.map(function (t) { return ctx.measureText(t).width; });
+      const gaps = u.sp.map(function (s) { return s ? spaceW : 0; });
+      const balanced = balanceRows(widths, spaceW, w, { gaps: gaps, glue: u.glue });
+      const lines = balanced.rows.map(function (row) {
+        return row.map(function (i, k) {
+          return (k > 0 && u.sp[i] ? " " : "") + u.texts[i];
+        }).join("");
+      });
+      parts.push({ lines: lines, rowWordCounts: balanced.rows.map(function (row) { return row.length; }) });
+    }
+    return parts;
+  }
+
+  // wrapLines(ctx, text, w) — the flat line strings from wrapParts, for
+  // callers that only need the wrapped text (height, drawing y-offsets).
+  function wrapLines(ctx, text, w) {
+    return wrapParts(ctx, text, w).reduce(function (all, part) {
+      return all.concat(part.lines);
+    }, []);
+  }
+
+  // Phrase-ending punctuation (half- and full-width): a caption chunk
+  // never splits a phrase mid-clause when it doesn't have to.
+  const CAPTION_PHRASE_END = /[,.!?…，。！？]$/;
+
+  function indexRange(from, to) {
+    const out = [];
+    for (let i = from; i <= to; i++) out.push(i);
+    return out;
+  }
+
+  // char length of a run of words as captionChunks would render it
+  // (word lengths + one separator char between each).
+  function phraseCharLen(idxs, words) {
+    let total = 0;
+    for (let j = 0; j < idxs.length; j++) {
+      total += String(words[idxs[j]].w).length;
+      if (j > 0) total += 1;
+    }
+    return total;
+  }
+
+  // Splits `idxs` into `k` contiguous groups as even as possible by word
+  // count (remainder words go to the earliest groups). Word-by-word
+  // captions read a chunk at a time, so an even split reads at a steady
+  // pace; a char-length-minimizing split can still strand a short last
+  // group (e.g. one long word pushes everything else forward one chunk).
+  // `glue` (optional, indexed by word index): a cut never lands where
+  // glue[idxs[p-1]] is set; the nearest allowed cut is used instead.
+  function splitEvenlyByCount(idxs, k, glue) {
+    const n = idxs.length;
+    const base = Math.floor(n / k);
+    let remainder = n % k;
+    const cuts = [];
+    let want = 0;
+    let prev = 0;
+    for (let g = 1; g < k; g++) {
+      want += base + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder -= 1;
+      const lo = prev + 1;
+      let cut = Math.min(Math.max(want, lo), n - (k - g));
+      if (glue) {
+        // glued words can leave fewer legal cuts than k-1: a cut with no
+        // legal place is dropped (a chunk longer than the even share) rather
+        // than made inside a glued pair
+        cut = -1;
+        for (let d = 0; d <= n && cut < 0; d++) {
+          const cands = d === 0 ? [want] : [want - d, want + d];
+          const ok = cands.filter(function (p) { return p >= lo && p <= n - 1 && !glue[idxs[p - 1]]; });
+          if (ok.length) cut = ok[0];
+        }
+        if (cut < 0) continue;
+      }
+      cuts.push(cut);
+      prev = cut;
+    }
+    const groups = [];
+    let at = 0;
+    cuts.concat([n]).forEach(function (c) {
+      groups.push(idxs.slice(at, c));
+      at = c;
+    });
+    return groups;
+  }
+
+  // captionChunks(words, maxChars, opts) -> array of chunks, each an array
+  // of indices into `words` ([{w, start, end}, ...]). The film's own
+  // word-by-word caption code (pipeline.md "Picture first") uses this to
+  // decide where a caption breaks, instead of a running char count that
+  // breaks wherever it happens to cross maxChars — that leaves a lone
+  // trailing word whenever the break lands one word short of the limit
+  // (references/craft.md; the owner's report: "다음 토큰은 뭘까? ...
+  // 답을 만들어" / "가!").
+  //   1. split at phrase-ending punctuation (CAPTION_PHRASE_END) or a
+  //      forced break (opts.breaks — captionBreaksFromText, a plan line's
+  //      own "|" marker) — a phrase runs through the word that carries the
+  //      punctuation or the forced break.
+  //   2. a phrase longer than maxChars splits into k = ceil(len/maxChars)
+  //      chunks, words distributed evenly by count (splitEvenlyByCount).
+  //      A forced-break phrase goes through this same step, so a long
+  //      "|"-delimited piece still balances instead of overflowing.
+  //   3. a one-word chunk merges into its neighbour (next if there is one,
+  //      else previous) when the word is <=3 characters (a lone connector,
+  //      e.g. "자,") or the joined chunk still fits maxChars.
+  // Fallback rules (captionGlue, opts.lang = BCP 47): a "|" segment that fits
+  // maxChars is not cut at a comma; no cut splits a number from its unit,
+  // follows an article/preposition, or falls inside a parenthesis/quote span.
+  // A writer's "|" always wins over all of them.
+  function captionChunks(words, maxChars, opts) {
+    const n = words.length;
+    if (!n) return [];
+    const forcedBreaks = (opts && opts.breaks) || [];
+    const isForcedBreak = {};
+    for (let i = 0; i < forcedBreaks.length; i++) isForcedBreak[forcedBreaks[i]] = true;
+
+    // Automatic fallback rules (captionGlue): a line that fits one chunk is
+    // not cut at a comma, and no cut falls inside a number+unit, after a
+    // short function word, or inside a parenthesis/quote span. A forced
+    // break ("|") overrides all of it.
+    const glue = captionGlue(words.map(function (x) { return String(x.w); }), opts && opts.lang);
+    // "fits one row" is judged per "|" segment: a piece the writer already cut
+    // that fits maxChars keeps its commas even when the whole line is longer.
+    const segmentFits = new Array(n);
+    for (let from = 0; from < n; ) {
+      let to = from;
+      while (to < n - 1 && !isForcedBreak[to]) to++;
+      const fits = phraseCharLen(indexRange(from, to), words) <= maxChars;
+      for (let k = from; k <= to; k++) segmentFits[k] = fits;
+      from = to + 1;
+    }
+
+    const phrases = [];
+    let cur = [];
+    for (let i = 0; i < n; i++) {
+      cur.push(i);
+      const punctEnd = !segmentFits[i] && !glue[i] && CAPTION_PHRASE_END.test(String(words[i].w));
+      if (punctEnd || isForcedBreak[i]) {
+        phrases.push(cur);
+        cur = [];
+      }
+    }
+    if (cur.length) phrases.push(cur);
+
+    let chunks = [];
+    for (const phrase of phrases) {
+      const len = phraseCharLen(phrase, words);
+      if (phrase.length <= 1 || len <= maxChars) {
+        chunks.push(phrase);
+        continue;
+      }
+      const k = Math.min(phrase.length, Math.max(1, Math.ceil(len / maxChars)));
+      chunks = chunks.concat(splitEvenlyByCount(phrase, k, glue));
+    }
+
+    // A writer's "|" always wins: a one-word chunk merges only across an
+    // automatic boundary, never across a forced one. A word of <= 3 chars
+    // always merges; a longer lone word merges when the joined chunk still
+    // fits maxChars (a single-word caption is a flash, not a phrase).
+    const endsForced = function (c) { return !!isForcedBreak[c[c.length - 1]]; };
+    const joinable = function (lone, other) {
+      return String(words[lone[0]].w).length <= 3 || phraseCharLen(lone.concat(other), words) <= maxChars;
+    };
+    for (let i = 0; i < chunks.length; i++) {
+      if (chunks[i].length !== 1) continue;
+      if (i + 1 < chunks.length && !endsForced(chunks[i]) && joinable(chunks[i], chunks[i + 1])) {
+        chunks[i] = chunks[i].concat(chunks[i + 1]);
+        chunks.splice(i + 1, 1);
+      } else if (i > 0 && !endsForced(chunks[i - 1]) && joinable(chunks[i], chunks[i - 1])) {
+        chunks[i - 1] = chunks[i - 1].concat(chunks[i]);
+        chunks.splice(i, 1);
+        i--;
+      }
+    }
+
+    // Balancing already made this rare; a chunk it still can't fix (the
+    // merge above only catches <=3-char remnants) is reported, not forced.
+    if (n >= 3) {
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const c = chunks[ci];
+        const forcedAround = endsForced(c) || (ci > 0 && endsForced(chunks[ci - 1]));
+        if (c.length === 1 && !forcedAround) {
+          recordIssue({
+            type: "caption-orphan",
+            text: words.map(function (x) { return x.w; }).join(" ").slice(0, 80),
+            lastRow: words[c[0]].w,
+          });
+        }
+      }
+    }
+
+    return chunks;
+  }
+
+  // A plan line's own "|" forces a caption-chunk break there, standalone or
+  // attached to a word (normalizeCaptionBreaks). "|" is never spoken
+  // (pronounce.mjs's stripCaptionBreaks removes it before TTS/STT and before a
+  // word-timing split) and never a word itself, so captionBreaksFromText(text)
+  // walks the same whitespace tokenization skipping "|" tokens, returning the
+  // index (into the real, marker-free words — the same indexing captionChunks'
+  // `words` and a word-timing split both use) after which the break falls.
+  function captionBreaksFromText(text) {
+    const tokens = normalizeCaptionBreaks(text).split(/\s+/).filter(function (t) { return t.length > 0; });
+    const breaks = [];
+    let idx = -1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] === "|") {
+        if (idx >= 0) breaks.push(idx);
+        continue;
+      }
+      idx++;
+    }
+    return breaks;
+  }
+
+  // Tokenizes `text` the same way, but as the words themselves (never
+  // counting a "|" marker as a word) — the fallback path for a word index
+  // derived straight from text (cue matching, proportional word-timing) when
+  // no measured per-word timing exists.
+  function textWordsExcludingBreaks(text) {
+    return normalizeCaptionBreaks(text).split(/\s+/).filter(function (t) { return t.length > 0 && t !== "|"; });
+  }
+
+  // `text` for the engine's default Reel.caption() box: every "|" marker
+  // becomes a "\n" (a writer's break starts a new row), so the marker is
+  // never shown and wrapParts never joins the two sides.
+  function stripCaptionBreaksForDisplay(text) {
+    return splitCaptionParts(text)
+      .map(function (part) {
+        return part.split(/\s+/).filter(function (t) { return t.length > 0; }).join(" ");
+      })
+      .join("\n");
+  }
+
+  // textBlock(ctx, text, x,y,w,h, opts) — wraps `text` inside the box.
+  // Records an issue if the wrapped lines overflow h. Never boils (still).
+  function textBlock(ctx, text, x, y, w, h, opts) {
+    const o = opts || {};
+    const font = o.font || "32px sans-serif";
+    const lineHeight = o.lineHeight == null ? 40 : o.lineHeight;
+    const align = o.align || "left";
+    const color = o.color || "#111";
+    ctx.save();
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textBaseline = "top";
+    const parts = wrapParts(ctx, text, w, o.lang);
+    const lines = parts.reduce(function (all, part) {
+      return all.concat(part.lines);
+    }, []);
+
+    const totalHeight = lines.length * lineHeight;
+    if (totalHeight > h) {
+      recordIssue({
+        type: "text-overflow",
+        text: String(text).slice(0, 80),
+        box: { x, y, w, h },
+        neededHeight: totalHeight,
+        lines: lines.length,
+      });
+    }
+
+    // A row balanced down to one word still happens when a part's other
+    // rows can't shrink further (references/craft.md — a caption row never
+    // holds one short word alone). Report it; balancing already made it
+    // rare, and this is a report, not an enforcement (tools report facts).
+    for (const part of parts) {
+      const n = part.rowWordCounts.length;
+      if (n < 2) continue;
+      const lastRowWords = part.rowWordCounts[n - 1];
+      const prevRowWords = part.rowWordCounts[n - 2];
+      if (lastRowWords === 1 && prevRowWords >= 3) {
+        recordIssue({
+          type: "caption-orphan",
+          text: String(text).slice(0, 80),
+          lastRow: part.lines[n - 1],
+        });
+      }
+    }
+
+    let left = Infinity;
+    let right = -Infinity;
+    const placed = lines.map((line) => {
+      let dx = x;
+      const lw = ctx.measureText(line).width;
+      if (align === "center") dx = x + (w - lw) / 2;
+      else if (align === "right") dx = x + (w - lw);
+      left = Math.min(left, dx);
+      right = Math.max(right, dx + lw);
+      return { line, dx };
+    });
+    if (lines.length && o.band) {
+      const padX = o.bandPadX == null ? lineHeight * 0.4 : o.bandPadX;
+      const padY = o.bandPadY == null ? lineHeight * 0.15 : o.bandPadY;
+      ctx.fillStyle = o.band;
+      ctx.fillRect(left - padX, y - padY, right - left + padX * 2, totalHeight + padY * 2);
+      ctx.fillStyle = color;
+    }
+    placed.forEach((p, i) => ctx.fillText(p.line, p.dx, y + i * lineHeight));
+    if (lines.length && !o.outsideSafeOk) checkSafe(ctx, text, left, y, right, y + totalHeight, o.width, o.height);
+    ctx.restore();
+    return { lines: lines.length, height: totalHeight, overflow: totalHeight > h };
+  }
+
+  // caption(ctx, line, t, opts) — draws the active caption text, still
+  // (no boil), centered near the bottom-safe area by default. Default font
+  // is 800 56px Pretendard; default lineHeight/boxH are sized to fit two
+  // wrapped lines of that font without overflowing (issues() still reports
+  // overflow past that).
+  // Reference is the 9:16 default: 56px caption text at 1920px canvas
+  // height. A 16:9 canvas (1080px tall) has far less vertical safe area per
+  // pixel of width, so the font scales down with height, floored at 48px
+  // (never above the 9:16 default of 56px) rather than growing with width.
+  const CAPTION_FONT_REF_HEIGHT = 1920;
+  const CAPTION_FONT_REF_PX = 56;
+  const CAPTION_FONT_MIN_PX = 48;
+  function captionFontSizePx(height) {
+    const px = Math.round((CAPTION_FONT_REF_PX * height) / CAPTION_FONT_REF_HEIGHT);
+    return Math.max(CAPTION_FONT_MIN_PX, Math.min(CAPTION_FONT_REF_PX, px));
+  }
+
+  // caption(ctx, line, t, opts) — draws the active caption text, still (no
+  // boil), at the bottom of the safe area by default. Font size and box
+  // width follow the canvas (captionFontSizePx above, safeArea); a
+  // landscape (16:9) canvas also caps the box at ~70% width so two
+  // wrapped lines fit the shorter frame. With no o.color the text is white on
+  // a dark translucent band (o.band, o.bandPadX, o.bandPadY; o.band = "" or a
+  // transparent colour turns the band off).
+  function caption(ctx, line, t, opts) {
+    if (!_captionsOn) return;
+    const o = opts || {};
+    if (!line || !line.text) return;
+    const width = o.width == null ? (ctx.canvas ? ctx.canvas.width : 1080) : o.width;
+    const height = o.height == null ? (ctx.canvas ? ctx.canvas.height : 1920) : o.height;
+    const fontPx = o.fontPx == null ? captionFontSizePx(height) : o.fontPx;
+    const lineHeight = o.lineHeight == null ? Math.round(fontPx * 1.25) : o.lineHeight;
+    const safe = centeredSafeArea(width, height);
+    const boxW = o.boxW == null ? (width > height ? Math.min(safe.w, width * 0.7) : safe.w) : o.boxW;
+    const boxH = o.boxH == null ? lineHeight * 2 + 20 : o.boxH;
+    const x = o.x == null ? safe.x + (safe.w - boxW) / 2 : o.x;
+    const y = o.y == null ? safe.y + safe.h - boxH - (o.marginBottom == null ? 0 : o.marginBottom) : o.y;
+    const family = captionFontFor(o.captionFonts, o.lang || pictureLang()) || "'Pretendard'";
+    const font = o.font == null ? "800 " + fontPx + "px " + family : o.font;
+    // Default look reads on any picture: light text on a dark translucent band.
+    // An explicit o.color is the page's own choice and draws no band unless o.band is given.
+    const look = o.color == null ? { color: "#fff", band: "rgba(0,0,0,0.62)" } : {};
+    const captionOpts = Object.assign({ align: "center", font: font, lineHeight: lineHeight, lang: pictureLang() || undefined }, look, o);
+    return drawingAs("caption", function () {
+      return textBlock(ctx, stripCaptionBreaksForDisplay(line.text), x, y, boxW, boxH, captionOpts);
+    });
+  }
+
+  // drawingAs(role, fn) — runs fn with globalThis.__svaDrawing = role. The text probe
+  // (scripts/lib/page-probe.mjs) tags each text draw with it, so a contrast check knows
+  // which draws are the caption layer without reading pixels.
+  function drawingAs(role, fn) {
+    const prev = globalThis.__svaDrawing;
+    globalThis.__svaDrawing = role;
+    try {
+      return fn();
+    } finally {
+      globalThis.__svaDrawing = prev;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // timeline(timings) — derives per-line and per-word time windows.
+  // ---------------------------------------------------------------------
+
+  function timeline(timings) {
+    const lines = (timings && timings.lines) || [];
+    function line(i) {
+      const l = lines[i];
+      if (!l) return null;
+      const start = l.start;
+      const end = l.end;
+      const dur = Math.max(1e-6, end - start);
+      return {
+        start,
+        end,
+        u: function (t) {
+          return clamp01((t - start) / dur);
+        },
+      };
+    }
+    function word(i, j) {
+      const l = lines[i];
+      if (!l) return null;
+      if (l.words && l.words[j]) {
+        return { start: l.words[j].start, end: l.words[j].end };
+      }
+      // proportional fallback within the measured line, by character count
+      const text = l.text || "";
+      const words = textWordsExcludingBreaks(text);
+      const w = words[j];
+      if (w == null) return null;
+      const totalChars = words.reduce((a, ww) => a + ww.length, 0) || 1;
+      let before = 0;
+      for (let k = 0; k < j; k++) before += words[k].length;
+      const dur = l.end - l.start;
+      const wStart = l.start + (before / totalChars) * dur;
+      const wDur = (w.length / totalChars) * dur;
+      return { start: wStart, end: wStart + wDur };
+    }
+    // phrase(i, substring) -> {start, end} window spanning the words that
+    // contain `substring` within line i's text, or null if the substring
+    // isn't in the line.
+    function phrase(i, substr) {
+      const l = lines[i];
+      if (!l || !substr) return null;
+      const text = l.text || "";
+      const charStart = text.indexOf(substr);
+      if (charStart === -1) return null;
+      const charEnd = charStart + substr.length; // exclusive
+      const words = textWordsExcludingBreaks(text);
+      if (!words.length) return null;
+      let cursor = 0;
+      let firstWordIdx = null;
+      let lastWordIdx = null;
+      for (let w = 0; w < words.length; w++) {
+        const wStart = text.indexOf(words[w], cursor);
+        if (wStart === -1) continue;
+        const wEnd = wStart + words[w].length;
+        cursor = wEnd;
+        if (wEnd > charStart && wStart < charEnd) {
+          if (firstWordIdx === null) firstWordIdx = w;
+          lastWordIdx = w;
+        }
+      }
+      if (firstWordIdx === null) return null;
+      const startWin = word(i, firstWordIdx);
+      const endWin = word(i, lastWordIdx);
+      if (!startWin || !endWin) return null;
+      return { start: startWin.start, end: endWin.end };
+    }
+    // lead: seconds of opening before the first story line (plan meta.lead); scene code draws
+    // it from t = 0 like any other span.
+    return { line, word, phrase, lead: (timings && timings.lead) || 0 };
+  }
+
+  // ---------------------------------------------------------------------
+  // asset library cues (design.md §2.5)
+  // ---------------------------------------------------------------------
+
+  // Index (within line.text's whitespace-split words) of the first word
+  // containing `substr`, or -1.
+  function firstWordIndexContaining(text, substr) {
+    const words = textWordsExcludingBreaks(text);
+    for (let i = 0; i < words.length; i++) {
+      if (words[i].indexOf(substr) !== -1) return i;
+    }
+    return -1;
+  }
+
+  // cueTime(cue, line, timings) -> absolute seconds (design.md §2.5).
+  // `at` is "start" | "end" | "word:<text>". word:<text> resolves to the
+  // start of the first word in `line.text` containing <text>, using the
+  // same timeline() word timings scene code draws from; an unresolvable
+  // word (not found, or line missing from timings) falls back to the
+  // line's start and records an issue instead of throwing, so a stale cue
+  // degrades the film rather than breaking the render.
+  function cueTime(cue, line, timings) {
+    const lines = (timings && timings.lines) || [];
+    const idx = lines.findIndex(function (l) {
+      return l.id === line.id;
+    });
+    let base = line.start;
+    const at = cue && cue.at;
+    if (at === "start") {
+      base = line.start;
+    } else if (at === "end") {
+      base = line.end;
+    } else if (typeof at === "string" && at.indexOf("word:") === 0) {
+      const text = at.slice(5);
+      const wordIdx = idx === -1 ? -1 : firstWordIndexContaining(line.text, text);
+      const tl = timeline(timings);
+      const win = wordIdx === -1 ? null : tl.word(idx, wordIdx);
+      if (win) {
+        base = win.start;
+      } else {
+        base = line.start;
+        recordIssue({ type: "cue-word-not-found", asset: cue && cue.asset, at: at, lineId: line.id });
+      }
+    } else {
+      base = line.start;
+      recordIssue({ type: "cue-bad-at", asset: cue && cue.asset, at: at, lineId: line.id });
+    }
+    const offsetSec = (cue && cue.offsetMs ? cue.offsetMs : 0) / 1000;
+    return base + offsetSec;
+  }
+
+  // clocks(captionTimings, baseTimings) — the two clocks of a dub. In
+  // ?layer=captions&dub=<code> the caption layer follows that language's
+  // voice (captionTimings = dub/<code>/timings.placed.json), while every other
+  // layer a film draws there (labels, beats, stickers, animations keyed to a
+  // word, sound cues) reads the base language's clock (baseTimings =
+  // voice/timings.json), unchanged from the original film.
+  //   .caption / .base            timeline() of each clock
+  //   .cueTime(cue, lineId)       a word/start/end cue in base-clock seconds
+  //   .baseLine(lineId)           the base clock's line {id, start, end, ...}
+  //   .word(lineId, text)         {start, end} of the first word containing
+  //                               `text` in the base language, base clock
+  // Line ids are shared by both clocks (dub lines keep their base line's id).
+  // With no baseTimings both clocks are captionTimings.
+  function clocks(captionTimings, baseTimings) {
+    const baseT = baseTimings || captionTimings;
+    const base = timeline(baseT);
+    const baseLines = (baseT && baseT.lines) || [];
+    function baseLine(lineId) {
+      return baseLines.find(function (l) { return l.id === lineId; }) || null;
+    }
+    return {
+      caption: timeline(captionTimings),
+      base: base,
+      baseTimings: baseT,
+      baseLine: baseLine,
+      cueTime: function (cue, lineId) {
+        const line = baseLine(lineId);
+        if (!line) {
+          recordIssue({ type: "cue-line-not-found", asset: cue && cue.asset, lineId: lineId });
+          return 0;
+        }
+        return cueTime(cue, line, baseT);
+      },
+      word: function (lineId, text) {
+        const idx = baseLines.findIndex(function (l) { return l.id === lineId; });
+        if (idx === -1) return null;
+        const wi = firstWordIndexContaining(baseLines[idx].text, text);
+        return wi === -1 ? null : base.word(idx, wi);
+      },
+    };
+  }
+
+  // registerClip/clipFrame — preloaded video-clip frames (design.md §2.5
+  // "Picture"). `frames` is an ordered array (image or any held value);
+  // clipFrame(id, tLocal) is a pure function of its local time within the
+  // clip: frame = floor(tLocal*fps), held on the last frame past the
+  // clip's end, so the same tLocal always returns the same frame.
+  const _clips = Object.create(null);
+  function registerClip(id, frames, fps) {
+    _clips[id] = { frames: frames || [], fps: fps || 1 };
+  }
+  function clipFrame(id, tLocal) {
+    const clip = _clips[id];
+    if (!clip || clip.frames.length === 0) return null;
+    const raw = Math.floor(Math.max(0, tLocal) * clip.fps);
+    const i = Math.max(0, Math.min(clip.frames.length - 1, raw));
+    return clip.frames[i];
+  }
+
+  // ---------------------------------------------------------------------
+  // corner notes (a term gloss in a corner of the frame) — drawn in the
+  // per-language caption layer. A plan line carries
+  //   notes: [{ at: "start" | "word:<text>", text, corner?: "tl"|"tr"|"bl"|"br", holdSec? }]
+  // The note's wording is that language's own plan line (same line id); the
+  // moment is the first word containing <text> in that language's own word
+  // times (its timings line), so a note follows its word in every language.
+  // ---------------------------------------------------------------------
+  const NOTE_HOLD_SEC = 3.5;
+  const NOTE_FADE_SEC = 0.2;
+  const NOTE_CORNERS = { tl: 1, tr: 1, bl: 1, br: 1 };
+
+  function planLinesById(plan) {
+    const byId = Object.create(null);
+    ((plan && plan.lines) || []).forEach(function (l) { byId[l.id] = l; });
+    return byId;
+  }
+
+  // The moment a note appears on that language's clock; a word the line does
+  // not contain falls back to the line start and is recorded.
+  function noteStart(note, idx, line, tl) {
+    const at = note.at == null ? "start" : note.at;
+    if (at === "start") return line.start;
+    if (typeof at === "string" && at.indexOf("word:") === 0) {
+      const wi = firstWordIndexContaining(line.text, at.slice(5));
+      const win = wi === -1 ? null : tl.word(idx, wi);
+      if (win) return win.start;
+    }
+    recordIssue({ type: "note-word-not-found", lineId: line.id, at: String(at) });
+    return line.start;
+  }
+
+  // cornerNotes({timings, plan, basePlan?}) -> [{id, lineId, text, corner, from, to}]
+  // Pure. `timings` is the language being drawn (dub timings.placed.json),
+  // `plan` that language's plan. A base note the language's line lacks is
+  // recorded (note-missing-in-language) — the note would silently vanish.
+  function cornerNotes(src) {
+    const timings = src && src.timings;
+    const lines = (timings && timings.lines) || [];
+    const tl = timeline(timings);
+    const own = planLinesById(src && src.plan);
+    const base = planLinesById(src && src.basePlan);
+    const duration = timings && Number.isFinite(timings.duration) ? timings.duration : Infinity;
+    const out = [];
+    lines.forEach(function (line, idx) {
+      const notes = (own[line.id] && own[line.id].notes) || [];
+      const baseNotes = (base[line.id] && base[line.id].notes) || [];
+      if (src.basePlan && src.plan !== src.basePlan && baseNotes.length > notes.length) {
+        recordIssue({ type: "note-missing-in-language", lineId: line.id, have: notes.length, base: baseNotes.length });
+      }
+      notes.forEach(function (note, k) {
+        if (!note || typeof note.text !== "string" || !note.text) {
+          recordIssue({ type: "note-text-missing", lineId: line.id, index: k });
+          return;
+        }
+        const from = noteStart(note, idx, line, tl);
+        const hold = note.holdSec > 0 ? note.holdSec : NOTE_HOLD_SEC;
+        out.push({
+          id: line.id + "#" + k,
+          lineId: line.id,
+          text: note.text,
+          corner: NOTE_CORNERS[note.corner] ? note.corner : "tr",
+          from: from,
+          to: Math.min(from + hold, duration),
+        });
+      });
+    });
+    return out;
+  }
+
+  // drawCornerNotes(ctx, notes, t, opts) — the notes showing at t, each in
+  // its corner of the safe area with a short fade; a pure function of t.
+  // opts: {width, height, lang, font, fontPx, color, panel}
+  function drawCornerNotes(ctx, notes, t, opts) {
+    const o = opts || {};
+    const width = o.width == null ? (ctx.canvas ? ctx.canvas.width : 1080) : o.width;
+    const height = o.height == null ? (ctx.canvas ? ctx.canvas.height : 1920) : o.height;
+    const fontPx = o.fontPx == null ? Math.max(24, Math.round(captionFontSizePx(height) * 0.55)) : o.fontPx;
+    const lineHeight = Math.round(fontPx * 1.3);
+    const pad = Math.round(fontPx * 0.5);
+    const safe = safeArea(width, height);
+    const boxW = Math.round(Math.min(safe.w * 0.45, width * 0.4));
+    const font = o.font || "700 " + fontPx + "px " + (captionFontFor(o.captionFonts, o.lang) || "'Pretendard'");
+    drawingAs("caption", function () {
+      (notes || []).forEach(drawOne);
+    });
+    function drawOne(n) {
+      if (t < n.from || t >= n.to) return;
+      const a = Math.min(1, (t - n.from) / NOTE_FADE_SEC, (n.to - t) / NOTE_FADE_SEC);
+      ctx.save();
+      ctx.font = font;
+      const lines = wrapLines(ctx, n.text, boxW - 2 * pad);
+      const h = lines.length * lineHeight + 2 * pad;
+      const x = n.corner.charAt(1) === "l" ? safe.x : safe.x + safe.w - boxW;
+      const y = n.corner.charAt(0) === "t" ? safe.y : safe.y + safe.h - h;
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = o.panel || "rgba(0,0,0,0.62)";
+      ctx.fillRect(x, y, boxW, h);
+      textBlock(ctx, n.text, x + pad, y + pad, boxW - 2 * pad, h - 2 * pad, {
+        font: font, lineHeight: lineHeight, color: o.color || "#fff", lang: o.lang, width: width, height: height,
+      });
+      ctx.restore();
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // page declarations — optional window.__reel fields a tool reads:
+  //   regions: [{id, kind: "key"|"label"|"overlay"|"reserve", box: [x0,y0,x1,y1], outline?, from?, to?}]
+  //   holds: [{from, to, id?, reason?}]
+  //   langSpans: [{start, end, in?: "layer"|"scene"}]
+  //   captionFonts: {"<lang>": "<css font-family list>", "*": "<fallback>"}
+  // A malformed entry is definitely wrong: the check throws and names it.
+  // ---------------------------------------------------------------------
+  const REGION_KINDS = { key: 1, label: 1, overlay: 1, reserve: 1 };
+  const CORNER_NAMES = ["tl", "tr", "bl", "br"];
+  const SPAN_PLACES = { layer: 1, scene: 1 };
+
+  function declared(name, list) {
+    if (list == null) return [];
+    if (!Array.isArray(list)) throw new Error("window.__reel." + name + " must be an array");
+    return list;
+  }
+  function finite(v) {
+    return typeof v === "number" && Number.isFinite(v);
+  }
+  function checkRegions(regions) {
+    const list = declared("regions", regions);
+    list.forEach(function (r, i) {
+      const at = "window.__reel.regions[" + i + "]";
+      if (!r || typeof r.id !== "string" || !r.id) throw new Error(at + ": id must be a non-empty string");
+      if (!REGION_KINDS[r.kind]) throw new Error(at + " (" + r.id + '): kind must be "key", "label", "overlay" or "reserve"');
+      const b = r.box;
+      if (!Array.isArray(b) || b.length !== 4 || !b.every(finite) || !(b[2] > b[0]) || !(b[3] > b[1])) {
+        throw new Error(at + " (" + r.id + "): box must be [x0, y0, x1, y1] in canvas px with x1 > x0 and y1 > y0");
+      }
+      if (r.outline != null && !(finite(r.outline) && r.outline >= 0)) throw new Error(at + " (" + r.id + "): outline must be a number >= 0");
+      checkWindow(at + " (" + r.id + ")", r.from, r.to, "from", "to");
+    });
+    return list;
+  }
+  // cornerRegions(corners) -> regions: plan.json meta.corners ({tl|tr|bl|br: {box: [x0,y0,x1,y1], label?}})
+  // as page regions of kind "reserve" (id "corner-<name>"), for `window.__reel.regions`. `label` is the
+  // text the corner's own label draws; state-checks.mjs does not report that text as an intruder.
+  function cornerRegions(corners) {
+    if (!corners) return [];
+    return CORNER_NAMES.filter(function (c) { return corners[c]; }).map(function (c) {
+      const r = { id: "corner-" + c, kind: "reserve", box: corners[c].box };
+      if (corners[c].label != null) r.text = String(corners[c].label);
+      return r;
+    });
+  }
+  function checkWindow(at, from, to, fromName, toName) {
+    if (from != null && !finite(from)) throw new Error(at + ": " + fromName + " must be seconds");
+    if (to != null && !finite(to)) throw new Error(at + ": " + toName + " must be seconds");
+    if (from != null && to != null && !(to > from)) throw new Error(at + ": " + toName + " must be after " + fromName);
+  }
+  function checkHolds(holds) {
+    const list = declared("holds", holds);
+    list.forEach(function (h, i) {
+      const at = "window.__reel.holds[" + i + "]";
+      if (!h || !finite(h.from) || !finite(h.to) || !(h.to > h.from)) throw new Error(at + ": {from, to} seconds with to > from");
+    });
+    return list;
+  }
+  function checkLangSpans(spans) {
+    const list = declared("langSpans", spans);
+    list.forEach(function (s, i) {
+      const at = "window.__reel.langSpans[" + i + "]";
+      if (!s || !finite(s.start) || !finite(s.end) || !(s.end > s.start)) throw new Error(at + ": {start, end} seconds with end > start");
+      if (s.in != null && !SPAN_PLACES[s.in]) throw new Error(at + ': in must be "layer" (drawn in the caption layer) or "scene" (text inside the picture)');
+    });
+    return list;
+  }
+
+  // captionFontFor(captionFonts, lang) -> the CSS font-family list for that
+  // language: its exact tag, then its primary subtag, then "*"; null when
+  // the map names none (the caller keeps its default).
+  function captionFontFor(map, lang) {
+    if (!map || typeof map !== "object") return null;
+    const keys = Object.keys(map);
+    const want = String(lang || "").toLowerCase();
+    const exact = keys.find(function (k) { return k.toLowerCase() === want; });
+    const primary = keys.find(function (k) { return k !== "*" && want && k.toLowerCase() === want.split(/[-_]/)[0]; });
+    const key = exact || primary || (map["*"] != null ? "*" : null);
+    return key && typeof map[key] === "string" && map[key] ? map[key] : null;
+  }
+
+  // ---------------------------------------------------------------------
+  // parallax — 2.5D: flat layers at different depths under one camera path
+  // ---------------------------------------------------------------------
+  // Depth convention: depth >= 1. depth 1 is the nearest layer and follows the camera 1:1; a layer
+  // at depth d moves 1/d as far and zooms (zoom - 1)/d as much, so a larger depth is farther away.
+  // Every output is a pure function of (spec, t): no state between frames, safe to seek.
+
+  const PARALLAX_EASES = {
+    linear: function (u) {
+      return u;
+    },
+    inOut: function (u) {
+      return u * u * (3 - 2 * u);
+    },
+    out: easeOutCubic,
+  };
+
+  function parallaxEase(ease) {
+    if (typeof ease === "function") return ease;
+    return PARALLAX_EASES[ease || "inOut"] || PARALLAX_EASES.inOut;
+  }
+
+  function parallaxKeyPose(k) {
+    return { x: k.x || 0, y: k.y || 0, zoom: k.zoom > 0 ? k.zoom : 1, rot: k.rot || 0 };
+  }
+
+  function parallaxMixPose(a, b, u) {
+    return {
+      x: a.x + (b.x - a.x) * u,
+      y: a.y + (b.y - a.y) * u,
+      zoom: a.zoom * Math.pow(b.zoom / a.zoom, u),
+      rot: a.rot + (b.rot - a.rot) * u,
+    };
+  }
+
+  function parallaxSortedKeys(camera) {
+    const keys = camera && Array.isArray(camera.keys) ? camera.keys.slice() : [];
+    if (!keys.length) keys.push({ t: 0 });
+    return keys.sort(function (a, b) {
+      return a.t - b.t;
+    });
+  }
+
+  // parallaxCamera(camera, t) -> {x, y, zoom, rot}: the camera at time t, held before the first key
+  // and after the last; zoom is mixed by ratio so a push-in has even speed. rot is in degrees.
+  function parallaxCamera(camera, t) {
+    const keys = parallaxSortedKeys(camera);
+    const first = keys[0];
+    const last = keys[keys.length - 1];
+    if (t <= first.t) return parallaxKeyPose(first);
+    if (t >= last.t) return parallaxKeyPose(last);
+    let i = 0;
+    while (keys[i + 1].t <= t) i++;
+    const u = parallaxEase(camera.ease)((t - keys[i].t) / (keys[i + 1].t - keys[i].t));
+    return parallaxMixPose(parallaxKeyPose(keys[i]), parallaxKeyPose(keys[i + 1]), u);
+  }
+
+  // parallaxPose(cam, depth, w, h) -> {tx, ty, zoom, rot}: where the frame centre lands for a layer
+  // at `depth` (tx, ty in px), the layer's zoom about it and its rotation in radians.
+  function parallaxPose(cam, depth, w, h) {
+    const k = 1 / Math.max(depth, 1);
+    return {
+      tx: w / 2 - cam.x * k,
+      ty: h / 2 - cam.y * k,
+      zoom: 1 + (cam.zoom - 1) * k,
+      rot: ((cam.rot * k) * Math.PI) / 180,
+    };
+  }
+
+  function parallaxCheckLayer(layer, i) {
+    const at = "parallax layers[" + i + "]";
+    if (!layer || !(layer.image || typeof layer.draw === "function")) throw new Error(at + ": needs image or draw(ctx, w, h)");
+    if (!(layer.depth >= 1) || !isFinite(layer.depth)) throw new Error(at + ": depth must be a number >= 1 (1 = nearest)");
+  }
+
+  // Layers back to front (deepest first); equal depths keep their array order.
+  function parallaxOrdered(spec) {
+    const layers = (spec && spec.layers) || [];
+    layers.forEach(parallaxCheckLayer);
+    return layers
+      .map(function (layer, index) {
+        return { layer: layer, index: index };
+      })
+      .sort(function (a, b) {
+        return b.layer.depth - a.layer.depth || a.index - b.index;
+      });
+  }
+
+  function parallaxSize(ctx, spec) {
+    const w = spec.width || (ctx.canvas && ctx.canvas.width);
+    const h = spec.height || (ctx.canvas && ctx.canvas.height);
+    if (!(w > 0) || !(h > 0)) throw new Error("parallax: spec.width and spec.height are needed when ctx.canvas has no size");
+    return { w: w, h: h };
+  }
+
+  // The layer's rest rectangle in frame px, before the camera: an image is cover-fitted to the frame
+  // (fit "natural" keeps its own size), a draw layer is w x h (default the frame), then scaled about
+  // the frame centre by layer.scale and spec.overscan and shifted by x, y.
+  function parallaxRect(layer, overscan, w, h) {
+    const src = layer.image;
+    const iw = src ? src.naturalWidth || src.width : layer.w || w;
+    const ih = src ? src.naturalHeight || src.height : layer.h || h;
+    const fit = src && layer.fit !== "natural" ? Math.max(w / iw, h / ih) : 1;
+    const s = fit * (layer.scale > 0 ? layer.scale : 1) * overscan;
+    const rw = iw * s;
+    const rh = ih * s;
+    return { x: w / 2 + (layer.x || 0) - rw / 2, y: h / 2 + (layer.y || 0) - rh / 2, w: rw, h: rh };
+  }
+
+  function parallaxBlurPx(layer, spec) {
+    if (layer.blur != null) return Math.max(0, layer.blur);
+    const focus = spec.focusDepth == null ? 1 : spec.focusDepth;
+    return Math.max(0, (spec.depthBlur || 0) * Math.abs(layer.depth - focus));
+  }
+
+  function drawParallaxLayer(ctx, layer, cam, spec, size) {
+    const pose = parallaxPose(cam, layer.depth, size.w, size.h);
+    const r = parallaxRect(layer, spec.overscan || 1, size.w, size.h);
+    const blur = parallaxBlurPx(layer, spec);
+    ctx.save();
+    ctx.translate(pose.tx, pose.ty);
+    if (pose.rot) ctx.rotate(pose.rot);
+    ctx.scale(pose.zoom, pose.zoom);
+    ctx.translate(-size.w / 2, -size.h / 2);
+    if (layer.opacity != null) ctx.globalAlpha = layer.opacity;
+    if (blur > 0) ctx.filter = "blur(" + blur + "px)";
+    if (layer.image) {
+      ctx.drawImage(layer.image, r.x, r.y, r.w, r.h);
+    } else {
+      ctx.translate(r.x, r.y);
+      layer.draw(ctx, r.w, r.h);
+    }
+    ctx.restore();
+  }
+
+  // parallax(ctx, t, spec) — draws the layers back to front under the camera at time t.
+  //   spec.layers[]  {image | draw(ctx, w, h), depth >= 1, x, y, scale, opacity, blur, fit, cover}
+  //   spec.camera    {keys: [{t, x, y, zoom, rot}], ease: "inOut" | "linear" | "out" | fn}
+  //   spec.focusDepth, spec.depthBlur   blur px per unit of depth from the focus (default focus 1)
+  //   spec.overscan  extra scale on every layer; spec.width / spec.height when ctx.canvas has no size
+  function parallax(ctx, t, spec) {
+    const size = parallaxSize(ctx, spec);
+    const cam = parallaxCamera(spec.camera, t);
+    parallaxOrdered(spec).forEach(function (o) {
+      drawParallaxLayer(ctx, o.layer, cam, spec, size);
+    });
+  }
+
+  function parallaxSampleTimes(keys, step) {
+    const t0 = keys[0].t;
+    const t1 = keys[keys.length - 1].t;
+    const times = [];
+    for (let t = t0; t < t1; t += step) times.push(t);
+    times.push(t1);
+    return times;
+  }
+
+  // The frame's four corners mapped back into the layer's rest space under the layer's pose.
+  function parallaxFrameInLayer(pose, w, h) {
+    const cos = Math.cos(-pose.rot);
+    const sin = Math.sin(-pose.rot);
+    return [
+      [0, 0],
+      [w, 0],
+      [w, h],
+      [0, h],
+    ].map(function (c) {
+      const dx = c[0] - pose.tx;
+      const dy = c[1] - pose.ty;
+      return { x: (dx * cos - dy * sin) / pose.zoom + w / 2, y: (dx * sin + dy * cos) / pose.zoom + h / 2 };
+    });
+  }
+
+  // The factor the layer's rect must grow by (about its centre) to hold the frame at one instant.
+  function parallaxNeedAt(layer, spec, cam, size) {
+    const pose = parallaxPose(cam, layer.depth, size.w, size.h);
+    const r = parallaxRect(layer, spec.overscan || 1, size.w, size.h);
+    const margin = parallaxBlurPx(layer, spec);
+    let need = 0;
+    parallaxFrameInLayer(pose, size.w, size.h).forEach(function (p) {
+      need = Math.max(need, (2 * (Math.abs(p.x - (r.x + r.w / 2)) + margin)) / r.w, (2 * (Math.abs(p.y - (r.y + r.h / 2)) + margin)) / r.h);
+    });
+    return need;
+  }
+
+  function parallaxSpans(times, step) {
+    const spans = [];
+    times.forEach(function (t) {
+      const open = spans[spans.length - 1];
+      if (open && t - open.to <= step * 1.5) open.to = t;
+      else spans.push({ from: t, to: t });
+    });
+    return spans;
+  }
+
+  function parallaxLayerCoverage(o, spec, times, size, step) {
+    const failing = [];
+    let need = 1;
+    times.forEach(function (t) {
+      const n = parallaxNeedAt(o.layer, spec, parallaxCamera(spec.camera, t), size);
+      if (n > 1 + 1e-9) failing.push(t);
+      need = Math.max(need, n);
+    });
+    if (!failing.length) return null;
+    return { layer: o.index, depth: o.layer.depth, overscan: Math.ceil(need * 1000) / 1000, spans: parallaxSpans(failing, step) };
+  }
+
+  // parallaxCoverage(spec, w, h, {step}) -> {ok, width, height, step, layers: [{layer, depth, overscan, spans}]}
+  // Walks the camera path every `step` s (default one 30 fps frame) and lists each layer whose rect
+  // leaves a frame edge bare, the spans in s where it does, and `overscan`: the factor to multiply that
+  // layer's scale by so the edge stays covered. A layer with cover: false is skipped. Blur is counted
+  // as lost margin. Only rect geometry is checked, not whether the pixels in it are opaque.
+  function parallaxCoverage(spec, w, h, opts) {
+    const step = (opts && opts.step) || 1 / 30;
+    const size = { w: w, h: h };
+    const times = parallaxSampleTimes(parallaxSortedKeys(spec.camera), step);
+    const layers = parallaxOrdered(spec)
+      .filter(function (o) {
+        return o.layer.cover !== false;
+      })
+      .map(function (o) {
+        return parallaxLayerCoverage(o, spec, times, size, step);
+      })
+      .filter(Boolean);
+    return { ok: layers.length === 0, width: w, height: h, step: step, layers: layers };
+  }
+
+  // ---- layers from one still ----
+
+  function parallaxCanvas(w, h, make) {
+    if (make) return make(w, h);
+    if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h);
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    return c;
+  }
+
+  function parallaxTrace(ctx, path) {
+    ctx.beginPath();
+    if (typeof path === "function") return path(ctx);
+    path.forEach(function (p, i) {
+      const x = Array.isArray(p) ? p[0] : p.x;
+      const y = Array.isArray(p) ? p[1] : p.y;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  }
+
+  // A white mask of the path, grown by `grow` px and softened by `feather` px of blur.
+  function parallaxMask(path, w, h, o) {
+    const mask = parallaxCanvas(w, h, o.makeCanvas);
+    const mctx = mask.getContext("2d");
+    if (o.feather > 0) mctx.filter = "blur(" + o.feather + "px)";
+    mctx.fillStyle = "#fff";
+    parallaxTrace(mctx, path);
+    mctx.fill();
+    if (o.grow > 0) {
+      mctx.strokeStyle = "#fff";
+      mctx.lineWidth = o.grow * 2;
+      mctx.lineJoin = "round";
+      mctx.stroke();
+    }
+    return mask;
+  }
+
+  function parallaxSourceSize(image, o) {
+    return { w: o.width || image.naturalWidth || image.width, h: o.height || image.naturalHeight || image.height };
+  }
+
+  // cutLayer(image, path, {feather, width, height, makeCanvas}) -> canvas the size of the image with
+  // only the pixels inside `path` ([{x,y}] or [[x,y]] points, or fn(ctx) that adds a path), the rest
+  // transparent. `feather` px of blur softens the edge, so a moving cut-out does not show a hard
+  // outline. Hold the result as an ImageBitmap before drawing it each frame (createImageBitmap).
+  function cutLayer(image, path, opts) {
+    const o = opts || {};
+    const size = parallaxSourceSize(image, o);
+    if (o.mask) parallaxAligned(o.mask, size, "cutLayer mask");
+    const out = parallaxCanvas(size.w, size.h, o.makeCanvas);
+    const octx = out.getContext("2d");
+    octx.drawImage(image, 0, 0, size.w, size.h);
+    octx.globalCompositeOperation = "destination-in";
+    if (o.mask && o.feather > 0) octx.filter = "blur(" + o.feather + "px)";
+    octx.drawImage(o.mask || parallaxMask(path, size.w, size.h, { feather: o.feather, makeCanvas: o.makeCanvas }), 0, 0);
+    return out;
+  }
+
+  function parallaxAligned(image, size, label) {
+    const actual = parallaxSourceSize(image, {});
+    if (actual.w !== size.w || actual.h !== size.h) throw new Error(label + ": dimensions must match the source");
+  }
+
+  // mixKeyPhoto draws an aligned base and a prepared alpha-masked key patch.
+  // Precompute the patch with cutLayer; no image decoding or canvas allocation occurs here.
+  function mixKeyPhoto(ctx, base, keyPatch, amount, opts) {
+    if (!Number.isFinite(amount) || amount < 0 || amount > 1) throw new Error("mixKeyPhoto: amount must be 0 to 1");
+    const o = opts || {};
+    const source = parallaxSourceSize(base, {});
+    parallaxAligned(keyPatch, source, "mixKeyPhoto key patch");
+    const size = parallaxSourceSize(base, o);
+    const opacity = ctx.globalAlpha == null ? 1 : ctx.globalAlpha;
+    ctx.save();
+    ctx.drawImage(base, 0, 0, size.w, size.h);
+    if (amount > 0) {
+      ctx.globalAlpha = opacity * amount;
+      ctx.drawImage(keyPatch, 0, 0, size.w, size.h);
+    }
+    ctx.restore();
+  }
+
+  // depthLayers partitions a same-size grayscale map once. White is near by default.
+  // The caller supplies a repaired far plate; these transparent bands do not fill holes.
+  function depthLayers(image, depthMap, opts) {
+    const o = opts || {};
+    const count = o.count == null ? 6 : o.count;
+    if (!Number.isInteger(count) || count < 5 || count > 8) throw new Error("depthLayers: count must be 5 to 8");
+    const size = parallaxSourceSize(image, {});
+    parallaxAligned(depthMap, size, "depthLayers map");
+    const reader = parallaxCanvas(size.w, size.h, o.makeCanvas).getContext("2d");
+    reader.drawImage(depthMap, 0, 0);
+    const pixels = reader.getImageData(0, 0, size.w, size.h).data;
+    const masks = Array.from({ length: count }, function () { return reader.createImageData(size.w, size.h); });
+    depthBandPixels(pixels, masks, o.nearWhite !== false);
+    return masks.map(function (data, index) {
+      const mask = parallaxCanvas(size.w, size.h, o.makeCanvas);
+      mask.getContext("2d").putImageData(data, 0, 0);
+      return { image: cutLayer(image, null, { mask: mask, makeCanvas: o.makeCanvas }), depth: index + 1, cover: false };
+    });
+  }
+
+  function depthBandPixels(pixels, masks, nearWhite) {
+    for (let i = 0; i < pixels.length; i += 4) {
+      const value = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / (3 * 255);
+      const far = nearWhite ? 1 - value : value;
+      const band = Math.min(masks.length - 1, Math.floor(far * masks.length));
+      const target = masks[band].data;
+      target[i] = target[i + 1] = target[i + 2] = 255;
+      target[i + 3] = pixels[i + 3];
+    }
+  }
+
+  function parallaxPatchShift(path, o) {
+    if (o.dx != null || o.dy != null) return { dx: o.dx || 0, dy: o.dy || 0 };
+    if (typeof path === "function") throw new Error("holePlate: pass opts.dx / opts.dy when path is a function");
+    const xs = path.map(function (p) {
+      return Array.isArray(p) ? p[0] : p.x;
+    });
+    const lo = Math.min.apply(null, xs);
+    const hi = Math.max.apply(null, xs);
+    const gap = hi - lo + 2 * (o.grow || 0);
+    return { dx: lo - gap >= 0 ? gap : -gap, dy: 0 };
+  }
+
+  // holePlate(image, path, {grow, feather, blur, dx, dy, makeCanvas}) -> canvas: the image with the
+  // region inside `path` (grown by `grow` px, default 4) painted over by the image shifted by dx, dy
+  // and blurred by `blur` px. Use it as the far layer behind a cut-out: the subject's old place shows
+  // neighbouring background, not a hole, when the layers separate. dx defaults to one path-width
+  // sideways; give dx / dy (or a clean plate you drew) when that lands on something else.
+  function holePlate(image, path, opts) {
+    const o = opts || {};
+    const size = parallaxSourceSize(image, o);
+    const grow = o.grow == null ? 4 : o.grow;
+    const shift = parallaxPatchShift(path, { dx: o.dx, dy: o.dy, grow: grow });
+    const patch = parallaxCanvas(size.w, size.h, o.makeCanvas);
+    const pctx = patch.getContext("2d");
+    if (o.blur > 0) pctx.filter = "blur(" + o.blur + "px)";
+    pctx.drawImage(image, shift.dx, shift.dy, size.w, size.h);
+    pctx.filter = "none";
+    pctx.globalCompositeOperation = "destination-in";
+    pctx.drawImage(parallaxMask(path, size.w, size.h, { feather: o.feather == null ? 2 : o.feather, grow: grow, makeCanvas: o.makeCanvas }), 0, 0);
+    const out = parallaxCanvas(size.w, size.h, o.makeCanvas);
+    const octx = out.getContext("2d");
+    octx.drawImage(image, 0, 0, size.w, size.h);
+    octx.drawImage(patch, 0, 0);
+    return out;
+  }
+
+  // ---------------------------------------------------------------------
+  // export
+  // ---------------------------------------------------------------------
+
+  globalThis.Reel = {
+    hash,
+    rng,
+    boil,
+    moving,
+    wobblePath,
+    hold,
+    drawOn,
+    imageCover,
+    textBlock,
+    balanceRows,
+    balanceParts,
+    captionRows,
+    captionChunks,
+    captionGlue,
+    captionUnits,
+    captionBreaksFromText,
+    normalizeCaptionBreaks,
+    caption,
+    captionsOn,
+    setCaptionsOn,
+    drawingAs,
+    // This engine tags its caption-layer draws (drawingAs above); render.mjs's contrast check reads the tags.
+    drawRoles: true,
+    layer,
+    dubCode,
+    layerFiles,
+    clocks,
+    pictureText,
+    pictureTextFrom,
+    overlayText,
+    setBaseLang,
+    cornerNotes,
+    drawCornerNotes,
+    checkRegions,
+    cornerRegions,
+    checkHolds,
+    checkLangSpans,
+    captionFontFor,
+    safeAreaNote,
+    get lang() {
+      return pictureLang();
+    },
+    safeArea,
+    centeredSafeArea,
+    setSafeArea,
+    checkSafe,
+    transformedBBox,
+    easeOutCubic,
+    easeOutBack,
+    clipBlend,
+    settle,
+    monotoneTrack,
+    inWindows,
+    timeline,
+    issues,
+    clearIssues,
+    recordIssue,
+    cueTime,
+    registerClip,
+    clipFrame,
+    parallax,
+    parallaxCamera,
+    parallaxPose,
+    parallaxCoverage,
+    cutLayer,
+    depthLayers,
+    mixKeyPhoto,
+    holePlate,
+  };
+})();
+
+/* ENGINE:END */
+</script>
+<script>
+/* AUDIO:BEGIN — scripts/engine/reel-audio.js, inlined by new-reel.mjs. Not scanned for banned tokens (verify.mjs only scans SCENE). */
+// Super Video Agent audio engine — browser-side, no imports, no network, no wall-clock.
+// Deterministic sample synthesis into Float32Array buffers. Every generator
+// is a pure function of its explicit arguments (or of a seed string), so the
+// same cue list renders identical audio on every run (design.md's
+// determinism contract, extended to sound). Attaches globalThis.ReelAudio.
+// Inlined verbatim into each reel.html by new-reel.mjs, next to reel-engine.js.
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // hash + seeded RNG (self-contained copy of reel-engine.js's algorithm —
+  // this file carries no imports, so it cannot reuse globalThis.Reel).
+  // ---------------------------------------------------------------------
+
+  function hashStr(str) {
+    let h = 0x811c9dc5;
+    const s = String(str);
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+  }
+
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function rngFor(seedKey) {
+    return mulberry32(hashStr(seedKey));
+  }
+
+  // ---------------------------------------------------------------------
+  // per-film character (every film's kit sounded the same — the first film
+  // was a basketball promo, and every later film's sounds carried that same
+  // character; measured across 34 reels: pop in 13, thud in 6, whoosh/tick/
+  // ding in 5 each — because every kind's default seed was the literal kind
+  // name. references/sound.md "Kit").
+  // setFilmKey(key), called once at page load, gives each kind's *default*
+  // seed a film-specific prefix and derives small deterministic offsets
+  // (pitch, decay, brightness/filter) per kind from that same key, so the
+  // same kind still sounds like itself but differs film to film. An
+  // explicit `seed` (or, for pop/ding, an explicit `freq`) from the caller
+  // is never touched: default-only, same film -> identical samples, same
+  // key across renders (seek is still a pure function of t).
+  // ---------------------------------------------------------------------
+  var filmKey = "";
+
+  function setFilmKey(key) {
+    filmKey = key == null ? "" : String(key);
+  }
+
+  function defaultSeed(kind) {
+    return filmKey ? filmKey + ":" + kind : kind;
+  }
+
+  var IDENTITY_CHARACTER = { pitchSemi: 0, decayMul: 1, brightMul: 1 };
+
+  // Deterministic per-(film, kind) offsets: pitch +-4 semitones, decay and
+  // brightness/filter each +-30%. No film key set (filmKey === "") ->
+  // identity, so behavior is unchanged for every existing render.
+  function filmCharacter(kind) {
+    if (!filmKey) return IDENTITY_CHARACTER;
+    var rng = rngFor(filmKey + ":char:" + kind);
+    return {
+      pitchSemi: (rng() * 2 - 1) * 4,
+      decayMul: 1 + (rng() * 2 - 1) * 0.3,
+      brightMul: 1 + (rng() * 2 - 1) * 0.3,
+    };
+  }
+
+  function semitoneRatio(semitones) {
+    return Math.pow(2, semitones / 12);
+  }
+
+  // Per-seed character for pop and ding: an explicit `seed` varies pitch (+-3 semitones), decay and
+  // brightness (+-25%) from the seed alone, so two seeds sound like two different hits and one seed
+  // always sounds the same. An explicit `freq` keeps its pitch exact; the seed then varies the timbre.
+  function seedCharacter(seed) {
+    var rng = rngFor("seed-char:" + seed);
+    return {
+      pitchSemi: (rng() * 2 - 1) * 3,
+      decayMul: 1 + (rng() * 2 - 1) * 0.25,
+      brightMul: 1 + (rng() * 2 - 1) * 0.25,
+    };
+  }
+
+  // The character a pitched effect (pop, ding) plays with: its seed's, else the film's for the kind
+  // (identity when the caller gave an explicit freq).
+  function pitchedCharacter(kind, o) {
+    if (o.seed != null) return seedCharacter(kind + ":" + o.seed);
+    return o.freq != null ? IDENTITY_CHARACTER : filmCharacter(kind);
+  }
+
+  // ---------------------------------------------------------------------
+  // buffer utilities
+  // ---------------------------------------------------------------------
+
+  // Linear-ramp the first `rampMs` of `buf` from 0 -> its own value, in
+  // place, and return it. Every sfx onset uses this: a hard sample jump at
+  // t=0 rings in the AAC codec (riso-windowseat "Mix and master").
+  function applyAttackRamp(buf, sampleRate, rampMs) {
+    const ms = rampMs == null ? 1.5 : rampMs;
+    const n = Math.max(1, Math.round((ms / 1000) * sampleRate));
+    const lim = Math.min(n, buf.length);
+    for (let i = 0; i < lim; i++) {
+      buf[i] = i === 0 ? 0 : buf[i] * (i / n); // avoid -0 when the raw sample is negative
+    }
+    return buf;
+  }
+
+  // Scale `buf` in place so its peak absolute sample equals `target` (0..1).
+  // Silent buffers are left untouched (no division by ~0).
+  function normalizePeak(buf, target) {
+    let peak = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const a = Math.abs(buf[i]);
+      if (a > peak) peak = a;
+    }
+    if (peak < 1e-9) return buf;
+    const g = target / peak;
+    for (let i = 0; i < buf.length; i++) buf[i] *= g;
+    return buf;
+  }
+
+  function scaleBuf(buf, g) {
+    const out = new Float32Array(buf.length);
+    for (let i = 0; i < buf.length; i++) out[i] = buf[i] * g;
+    return out;
+  }
+
+  function sumMono(buffers) {
+    let len = 0;
+    for (const b of buffers) if (b.length > len) len = b.length;
+    const out = new Float32Array(len);
+    for (const b of buffers) {
+      for (let i = 0; i < b.length; i++) out[i] += b[i];
+    }
+    return out;
+  }
+
+  function noiseBurst(seedKey, durSec, sampleRate) {
+    const rng = rngFor(seedKey);
+    const n = Math.max(1, Math.round(durSec * sampleRate));
+    const buf = new Float32Array(n);
+    for (let i = 0; i < n; i++) buf[i] = rng() * 2 - 1;
+    return buf;
+  }
+
+  // One struck-material resonator: a 2-pole filter whose impulse response is
+  // a decaying sinusoid at `freqHz` with time constant `tauSec` (sound.md
+  // "Material is the timbre" — exciter -> resonator -> body). `outLenSec` is
+  // the tail length rendered past the exciter.
+  function resonate(exciter, freqHz, tauSec, sampleRate, outLenSec) {
+    const outN = Math.max(exciter.length, Math.round(outLenSec * sampleRate));
+    const out = new Float32Array(outN);
+    const r = Math.exp(-1 / (tauSec * sampleRate));
+    const w = (2 * Math.PI * freqHz) / sampleRate;
+    const a1 = 2 * r * Math.cos(w);
+    const a2 = -r * r;
+    let y1 = 0;
+    let y2 = 0;
+    for (let i = 0; i < outN; i++) {
+      const x = i < exciter.length ? exciter[i] : 0;
+      const y = x + a1 * y1 + a2 * y2;
+      out[i] = y;
+      y2 = y1;
+      y1 = y;
+    }
+    return out;
+  }
+
+  // Finish a raw sfx buffer: normalize to `peak`, then apply the onset ramp.
+  // Shared tail for every sfx generator below.
+  function finishSfx(buf, sampleRate, peak, rampMs) {
+    normalizePeak(buf, peak == null ? 0.9 : peak);
+    applyAttackRamp(buf, sampleRate, rampMs == null ? 1.5 : rampMs);
+    return buf;
+  }
+
+  // ---------------------------------------------------------------------
+  // sfx kit — each returns a mono Float32Array
+  // ---------------------------------------------------------------------
+
+  function sfxClick(sampleRate, opts) {
+    const o = opts || {};
+    const explicitSeed = o.seed != null;
+    const seed = o.seed || defaultSeed("click");
+    const character = explicitSeed ? IDENTITY_CHARACTER : filmCharacter("click");
+    const exciter = noiseBurst(seed, 0.0005, sampleRate); // 0.5ms noise exciter
+    const freq = 2800 * semitoneRatio(character.pitchSemi);
+    const tau = 0.01 * character.decayMul;
+    const buf = resonate(exciter, freq, tau, sampleRate, 0.03); // short band-pass body
+    return finishSfx(buf, sampleRate, 0.9, 1.5);
+  }
+
+  function sfxType(sampleRate, opts) {
+    const o = opts || {};
+    const explicitSeed = o.seed != null;
+    const seed = o.seed || defaultSeed("type");
+    const character = explicitSeed ? IDENTITY_CHARACTER : filmCharacter("type");
+    const click = sfxClick(sampleRate, { seed: seed + ":click" });
+    const bodyExciter = noiseBurst(seed + ":body", 0.001, sampleRate);
+    const bodyFreq = 550 * semitoneRatio(character.pitchSemi);
+    const bodyTau = 0.02 * character.decayMul;
+    const body = scaleBuf(resonate(bodyExciter, bodyFreq, bodyTau, sampleRate, 0.05), 0.35);
+    return finishSfx(sumMono([click, body]), sampleRate, 0.85, 1.5);
+  }
+
+  function sfxThud(sampleRate, opts) {
+    const o = opts || {};
+    const explicitSeed = o.seed != null;
+    const seed = o.seed || defaultSeed("thud");
+    const character = explicitSeed ? IDENTITY_CHARACTER : filmCharacter("thud");
+    const exciter = noiseBurst(seed, 0.02, sampleRate); // 20ms low exciter, the "쾅"
+    const freq = 95 * semitoneRatio(character.pitchSemi); // 80-120Hz body
+    const tau = 0.14 * character.decayMul;
+    const buf = resonate(exciter, freq, tau, sampleRate, 0.35);
+    return finishSfx(buf, sampleRate, 0.95, 1.5);
+  }
+
+  function sfxWhoosh(sampleRate, opts) {
+    const o = opts || {};
+    const explicitSeed = o.seed != null;
+    const seed = o.seed || defaultSeed("whoosh");
+    const character = explicitSeed ? IDENTITY_CHARACTER : filmCharacter("whoosh");
+    const durSec = o.durSec || 0.28;
+    const rng = rngFor(seed);
+    const n = Math.round(durSec * sampleRate);
+    const buf = new Float32Array(n);
+    let lp = 0;
+    for (let i = 0; i < n; i++) {
+      const u = i / n;
+      const cutoffHz = (250 + u * 2600) * character.brightMul; // sweeps upward through the burst
+      const a = Math.exp((-2 * Math.PI * cutoffHz) / sampleRate);
+      const x = rng() * 2 - 1;
+      lp = (1 - a) * x + a * lp;
+      buf[i] = lp * Math.sin(Math.PI * u); // rise-then-fall envelope, no drone
+    }
+    return finishSfx(buf, sampleRate, 0.8, 1.5);
+  }
+
+  function pluckBuf(freq, vel, sampleRate, opts) {
+    const o = opts || {};
+    const v = vel == null ? 1 : vel;
+    const decayMul = o.decayMul == null ? 1 : o.decayMul;
+    const tau = 0.45 * Math.sqrt(440 / freq) * decayMul; // music-box recipe
+    const durSec = Math.max(0.25, tau * 6);
+    const n = Math.round(durSec * sampleRate);
+    const buf = new Float32Array(n);
+    const pingTau = 0.012; // strike ping dies in ~60ms (5 time constants)
+    const partials = o.partials || [1, 2, 3];
+    const partialGains = o.partialGains || [1.0, 0.35, 0.12];
+    const pingGain = o.pingGain == null ? 0.08 : o.pingGain;
+    for (let i = 0; i < n; i++) {
+      const t = i / sampleRate;
+      let body = 0;
+      for (let p = 0; p < partials.length; p++) {
+        body += partialGains[p] * Math.sin(2 * Math.PI * freq * partials[p] * t);
+      }
+      const bodyEnv = Math.exp(-t / tau);
+      const ping = pingGain * Math.sin(2 * Math.PI * freq * 5.4 * t) * Math.exp(-t / pingTau);
+      buf[i] = (body * bodyEnv + ping) * v;
+    }
+    return finishSfx(buf, sampleRate, 0.9, 2); // 2ms linear attack per recipe
+  }
+
+  function sfxPop(sampleRate, opts) {
+    const o = opts || {};
+    const character = pitchedCharacter("pop", o);
+    const pitchSemi = o.freq != null ? 0 : character.pitchSemi;
+    const freq = (o.freq || 700) * semitoneRatio(pitchSemi);
+    return pluckBuf(freq, o.vel == null ? 0.5 : o.vel, sampleRate, {
+      pingGain: 0.05 * (o.seed != null ? character.brightMul : 1),
+      decayMul: character.decayMul,
+    });
+  }
+
+  function sfxTick(sampleRate, opts) {
+    const o = opts || {};
+    const explicitSeed = o.seed != null;
+    const seed = o.seed || defaultSeed("tick");
+    const character = explicitSeed ? IDENTITY_CHARACTER : filmCharacter("tick");
+    const exciter = noiseBurst(seed, 0.0004, sampleRate);
+    const freq = 4200 * semitoneRatio(character.pitchSemi);
+    const tau = 0.004 * character.decayMul;
+    const buf = resonate(exciter, freq, tau, sampleRate, 0.015);
+    return finishSfx(buf, sampleRate, 0.5, 1.5);
+  }
+
+  function partialTone(freq, ratios, gains, tau, sampleRate, durSec) {
+    const n = Math.round(durSec * sampleRate);
+    const buf = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / sampleRate;
+      let s = 0;
+      for (let p = 0; p < ratios.length; p++) {
+        s += gains[p] * Math.sin(2 * Math.PI * freq * ratios[p] * t);
+      }
+      buf[i] = s * Math.exp(-t / tau);
+    }
+    return buf;
+  }
+
+  function sfxDing(sampleRate, opts) {
+    const o = opts || {};
+    const character = pitchedCharacter("ding", o);
+    const pitchSemi = o.freq != null ? 0 : character.pitchSemi;
+    const freq = (o.freq || 523.2511) * semitoneRatio(pitchSemi); // C5
+    const tau = 1.2 * character.decayMul;
+    const bright = o.seed != null ? character.brightMul : 1; // a seed also tilts the upper partials
+    const buf = partialTone(freq, [1, 2, 3, 4.2], [1.0, 0.4 * bright, 0.2 * bright, 0.1 * bright], tau, sampleRate, tau * 5);
+    return finishSfx(buf, sampleRate, 0.85, 2);
+  }
+
+  // sfxPluck(sampleRate, opts) — same call shape as every other kit effect
+  // (sampleRate first, an opts object second: {freq, vel, ...pluckBuf's
+  // decayMul/partials/partialGains/pingGain}). The old positional shape,
+  // sfxPluck(freq, vel, sampleRate), is still accepted for backward
+  // compatibility: a numeric third argument means the old shape was used.
+  function sfxPluck(a, b, c) {
+    if (typeof c === "number") {
+      return pluckBuf(a, b, c, {}); // old shape: (freq, vel, sampleRate)
+    }
+    const sampleRate = a;
+    const o = b || {};
+    const freq = o.freq == null ? 440 : o.freq;
+    const vel = o.vel == null ? 1 : o.vel;
+    return pluckBuf(freq, vel, sampleRate, o);
+  }
+
+  // ---------------------------------------------------------------------
+  // mix — the sample buffer a whole reel's sfx + bed are written into
+  // ---------------------------------------------------------------------
+
+  // mix(duration, sampleRate) -> {L, R, add, addStereo, sampleRate, duration}.
+  // `L`/`R` are exactly round(duration*sampleRate) samples — the length
+  // render.mjs writes into the muxed wav, so the reel's audio track is
+  // always exactly `duration` seconds regardless of what onsets land near
+  // the end.
+  function mix(duration, sampleRate) {
+    const n = Math.max(0, Math.round(duration * sampleRate));
+    const L = new Float32Array(n);
+    const R = new Float32Array(n);
+
+    function add(buffer, atSec, gain, pan) {
+      const g = gain == null ? 1 : gain;
+      const p = pan == null ? 0 : pan; // -1 (left) .. 1 (right), equal-power
+      const angle = ((p + 1) * Math.PI) / 4;
+      const gL = Math.cos(angle);
+      const gR = Math.sin(angle);
+      const start = Math.round((atSec || 0) * sampleRate);
+      for (let i = 0; i < buffer.length; i++) {
+        const idx = start + i;
+        if (idx < 0 || idx >= n) continue;
+        L[idx] += buffer[i] * g * gL;
+        R[idx] += buffer[i] * g * gR;
+      }
+    }
+
+    // addStereo(stereoBuf, atSec, gain) — mixes a {L,R} buffer (e.g. a
+    // musicBed) in directly, no panning (the bed is already centred).
+    function addStereo(stereoBuf, atSec, gain) {
+      const g = gain == null ? 1 : gain;
+      const start = Math.round((atSec || 0) * sampleRate);
+      const len = Math.min(stereoBuf.L.length, stereoBuf.R.length);
+      for (let i = 0; i < len; i++) {
+        const idx = start + i;
+        if (idx < 0 || idx >= n) continue;
+        L[idx] += stereoBuf.L[i] * g;
+        R[idx] += stereoBuf.R[i] * g;
+      }
+    }
+
+    return { L, R, add, addStereo, sampleRate, duration };
+  }
+
+  // ---------------------------------------------------------------------
+  // musicBed — quiet music-box bed, no sustained tones (music-recipe.md)
+  // ---------------------------------------------------------------------
+
+  const KEY_OFFSETS = { C: 0, G: 7, D: 2 };
+  const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
+  const PENTATONIC_DEGREES = [0, 1, 2, 4, 5]; // scale indices for 1 2 3 5 6
+  const CHORD_DEGREES = [0, 3, 4, 0]; // I IV V I, one per bar of a 4-bar phrase
+  const ARP_OFFSETS = [0, 7, 4, 7]; // 1-5-3-5, semitones from the chord root
+
+  function noteFreq(semitoneFromC4) {
+    return 261.6255653005986 * Math.pow(2, semitoneFromC4 / 12);
+  }
+
+  // musicBed(duration, sampleRate, {bpm=120, key="C", gain}) -> stereo mix
+  // object (same shape as mix()). Major key, I-IV-V-I one chord per bar,
+  // triplet-eighth 1-5-3-5 arpeggio, pentatonic melody in 4-bar
+  // question/answer pairs (question ends on the 5th, answer resolves on the
+  // root). Every note is a pluck: attack + pure exponential decay, so the
+  // bed never holds a sustained tone (music-recipe.md's central ban).
+  function musicBed(duration, sampleRate, opts) {
+    const o = opts || {};
+    const bpm = o.bpm || 120;
+    const key = o.key && KEY_OFFSETS[o.key] != null ? o.key : "C";
+    const keyOffset = KEY_OFFSETS[key];
+    const bedGain = o.gain == null ? 0.22 : o.gain;
+    const beatSec = 60 / bpm;
+    const barSec = beatSec * 4;
+    const tripletSec = beatSec / 3;
+    const barCount = Math.max(1, Math.ceil(duration / barSec));
+    const m = mix(duration, sampleRate);
+
+    for (let bar = 0; bar < barCount; bar++) {
+      const phraseBar = bar % 4;
+      const chordDeg = CHORD_DEGREES[phraseBar];
+      const chordRoot = MAJOR_SCALE[chordDeg] + keyOffset;
+      const barStart = bar * barSec;
+
+      const bassFreq = noteFreq(chordRoot - 24);
+      const bassBuf = pluckBuf(bassFreq, 0.5, sampleRate, {
+        partials: [1, 2],
+        partialGains: [1.0, 0.35],
+        pingGain: 0,
+      });
+      m.add(bassBuf, barStart, bedGain, 0);
+
+      for (let k = 0; k < 12; k++) {
+        const t = barStart + k * tripletSec;
+        const semis = chordRoot + ARP_OFFSETS[k % 4];
+        const vel = k % 3 === 0 ? 1.0 : 0.7; // strong beats vs the rest
+        const buf = pluckBuf(noteFreq(semis), vel, sampleRate, {});
+        m.add(buf, t, bedGain * 0.55, 0);
+      }
+
+      for (let beat = 0; beat < 4; beat++) {
+        const t = barStart + beat * beatSec;
+        const idxInPhrase = phraseBar * 4 + beat; // 0..15 across the 4-bar phrase
+        let degIdx;
+        if (idxInPhrase === 7) degIdx = 3; // question ends on the 5th (over V)
+        else if (idxInPhrase === 15) degIdx = 0; // answer resolves on the root (over I)
+        else {
+          const rng = rngFor("sva-bed-melody:" + bar + ":" + beat);
+          degIdx = PENTATONIC_DEGREES[Math.floor(rng() * PENTATONIC_DEGREES.length)];
+        }
+        const semis = MAJOR_SCALE[degIdx] + keyOffset + 12;
+        const buf = pluckBuf(noteFreq(semis), 0.8, sampleRate, {});
+        m.add(buf, t, bedGain * 0.75, 0);
+      }
+    }
+
+    return m;
+  }
+
+  // ---------------------------------------------------------------------
+  // master + duck
+  // ---------------------------------------------------------------------
+
+  // master(mixObj, {peakDb=-3, refPeak=0.35}) — tanh soft-clip with a FIXED drive of 1 / refPeak, then
+  // one fixed gain: a sample whose pre-master level is `refPeak` comes out at `peakDb`, a louder one is
+  // soft-clipped (at most 2.4 dB above `peakDb`), a quieter one stays proportionally lower. The drive does
+  // not depend on the mix, so adding or removing a hit never changes the level of any other hit. 0.35 is a music-box bed's own peak. Set `refPeak` to the pre-master peak of the
+  // mix you want mastered to `peakDb` (measure it once), and keep it when the cue list changes.
+  // Mutates and returns mixObj.L/R.
+  const DEFAULT_MASTER_REF_PEAK = 0.35;
+  function master(mixObj, opts) {
+    const o = opts || {};
+    const peakDb = o.peakDb == null ? -3 : o.peakDb;
+    const refPeak = o.refPeak == null ? DEFAULT_MASTER_REF_PEAK : o.refPeak;
+    if (!(refPeak > 0)) throw new Error("ReelAudio.master: refPeak must be a number > 0");
+    const drive = 1 / refPeak;
+    const finalGain = Math.pow(10, peakDb / 20) / Math.tanh(1);
+    for (const c of [mixObj.L, mixObj.R]) {
+      for (let i = 0; i < c.length; i++) c[i] = Math.tanh(c[i] * drive) * finalGain;
+    }
+    return mixObj;
+  }
+
+  // duck(bed, narrationWindows, {depthDb=-10, rampMs=120}) — lowers `bed`'s
+  // L/R in place under each {start,end} window (narration seconds), with a
+  // linear ramp in/out so the gain change is inaudible as a jump. Mutates
+  // and returns `bed`.
+  function duck(bed, narrationWindows, opts) {
+    const o = opts || {};
+    const depthDb = o.depthDb == null ? -10 : o.depthDb;
+    const rampMs = o.rampMs == null ? 120 : o.rampMs;
+    const sampleRate = bed.sampleRate;
+    const duckGain = Math.pow(10, depthDb / 20);
+    const rampN = Math.max(1, Math.round((rampMs / 1000) * sampleRate));
+    const n = bed.L.length;
+    const gainCurve = new Float32Array(n).fill(1);
+
+    for (const win of narrationWindows || []) {
+      const s = Math.max(0, Math.round(win.start * sampleRate));
+      const e = Math.min(n, Math.round(win.end * sampleRate));
+      for (let i = s; i < e; i++) gainCurve[i] = Math.min(gainCurve[i], duckGain);
+      for (let i = 1; i <= rampN; i++) {
+        const idx = s - i;
+        if (idx < 0) break;
+        const u = 1 - i / rampN;
+        gainCurve[idx] = Math.min(gainCurve[idx], 1 + (duckGain - 1) * u);
+      }
+      for (let i = 0; i < rampN; i++) {
+        const idx = e + i;
+        if (idx >= n) break;
+        const u = i / rampN;
+        gainCurve[idx] = Math.min(gainCurve[idx], duckGain + (1 - duckGain) * u);
+      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      bed.L[i] *= gainCurve[i];
+      bed.R[i] *= gainCurve[i];
+    }
+    return bed;
+  }
+
+  // ---------------------------------------------------------------------
+  // sfxPool — several sounds per effect kind, so a kind that returns many times does not repeat
+  // ---------------------------------------------------------------------
+
+  function peakOf(buf) {
+    let p = 0;
+    for (let i = 0; i < buf.length; i++) p = Math.max(p, Math.abs(buf[i]));
+    return p;
+  }
+
+  // `src` played at `rate` (above 1 = higher and shorter), linear interpolation.
+  function resample(src, rate) {
+    if (rate === 1) return src;
+    const n = Math.max(1, Math.floor(src.length / rate));
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = i * rate;
+      const j = Math.floor(x);
+      const f = x - j;
+      out[i] = (src[j] || 0) * (1 - f) + (src[j + 1] || 0) * f;
+    }
+    return out;
+  }
+
+  const variantId = (kind, i, v) => (v.file ? v.file : kind + "-" + i);
+
+  // sfxPool(pools, {seed}) -> {assign(cues), buffer(cue, sampleRate, files)}
+  // `pools` maps an effect kind to its variants: {gen, seed?, rate?} (the kit synth `gen`, run with `seed`,
+  // default the variant's id such as "pop-2", and played at pitch `rate`, 1 = as made) or {file, like} (a library file, levelled to the peak of the
+  // kit's own `like` effect so it sits with the rest of the kind). Both kinds mix in one pool.
+  //   assign(cues)  cues = [{kind, at, ...}] in any order. In time order each cue of a pooled kind gets
+  //                 `variant` (the pool index) and `sound` (an id): the least-used variant of its kind that
+  //                 is not the one just before it of that kind, and, among equals, not the one before that;
+  //                 ties go round-robin from a start index derived from `seed` and the kind (same seed,
+  //                 same assignment). A kind without a pool is left alone. A cue with
+  //                 `pin: {variant, holds, holdsKind?}` takes pool variant `variant` of its own kind and
+  //                 takes the place of variant `holds` of `holdsKind` (default its own kind) in the
+  //                 rotation, so every other cue keeps the sound it had before the cue was changed.
+  //   buffer(cue, sampleRate, files)  the cue's samples (cached per sound and rate); `files` maps a
+  //                 variant's file name to {rate, data: Float32Array} the page loaded. null when the cue has
+  //                 no assigned variant (the caller falls back to ReelAudio.sfx[kind]).
+  function sfxPool(pools, opts) {
+    const poolSeed = opts && opts.seed != null ? String(opts.seed) : "";
+    const cache = {};
+
+    function assign(cues) {
+      const used = {};
+      const last = {};
+      // A pinned cue keeps the sound it was given and counts as the held variant in the rotation,
+      // so replacing one hit does not change the sound of the cues after it.
+      function pinCue(c) {
+        const pin = c.pin;
+        const own = pools[c.kind];
+        if (own && own[pin.variant]) {
+          c.variant = pin.variant;
+          c.sound = variantId(c.kind, pin.variant, own[pin.variant]);
+        }
+        const heldKind = pin.holdsKind || c.kind;
+        const held = pools[heldKind];
+        if (!held || !held[pin.holds]) return;
+        const id = variantId(heldKind, pin.holds, held[pin.holds]);
+        used[id] = (used[id] || 0) + 1;
+        last[heldKind] = [id, (last[heldKind] || [null])[0]];
+      }
+      cues
+        .map((c, i) => ({ c, i }))
+        .sort((a, b) => a.c.at - b.c.at || a.i - b.i)
+        .forEach(({ c }) => {
+          if (c.pin) return pinCue(c);
+          const pool = pools[c.kind];
+          if (!pool || !pool.length) return;
+          const prev = last[c.kind] || [null, null];
+          const best = pickVariant(c.kind, pool, used, prev);
+          c.variant = best;
+          c.sound = variantId(c.kind, best, pool[best]);
+          used[c.sound] = (used[c.sound] || 0) + 1;
+          last[c.kind] = [c.sound, prev[0]];
+        });
+      return cues;
+    }
+
+    function pickVariant(kind, pool, used, prev) {
+      const n = pool.length;
+      const start = hashStr(poolSeed + ":" + kind) % n;
+      let best = -1;
+      let bestScore = Infinity;
+      pool.forEach((v, i) => {
+        const id = variantId(kind, i, v);
+        if (id === prev[0] && n > 1) return;
+        const score = (used[id] || 0) * 10 + (id === prev[1] ? 5 : 0) + ((i - start + n) % n) * 0.01;
+        if (score < bestScore) {
+          bestScore = score;
+          best = i;
+        }
+      });
+      return best;
+    }
+
+    function buffer(cue, sampleRate, files) {
+      const pool = pools[cue.kind];
+      const v = pool && cue.variant >= 0 ? pool[cue.variant] : null;
+      if (!v) return null;
+      const key = cue.sound + "@" + sampleRate;
+      if (!cache[key]) cache[key] = v.file ? fileBuffer(v, sampleRate, files) : synthBuffer(v, sampleRate, cue.sound);
+      return cache[key];
+    }
+
+    // A synth variant without its own seed takes its id ("pop-2"), so variants of one kind differ.
+    function synthBuffer(v, sampleRate, id) {
+      const made = Float32Array.from(sfxKinds[v.gen](sampleRate, { seed: v.seed || id }));
+      return resample(made, v.rate || 1);
+    }
+
+    function fileBuffer(v, sampleRate, files) {
+      const f = files && files[v.file];
+      if (!f) throw new Error("ReelAudio.sfxPool: no loaded file \"" + v.file + "\"");
+      const raw = resample(f.data, f.rate / sampleRate);
+      const ref = peakOf(sfxKinds[v.like](sampleRate, { seed: v.like + ":ref" }));
+      return scaleBuf(raw, ref / (peakOf(raw) || 1));
+    }
+
+    return { assign, buffer };
+  }
+
+  // ---------------------------------------------------------------------
+  // export
+  // ---------------------------------------------------------------------
+
+  const sfxKinds = {
+    click: sfxClick,
+    type: sfxType,
+    thud: sfxThud,
+    stamp: sfxThud,
+    whoosh: sfxWhoosh,
+    pop: sfxPop,
+    tick: sfxTick,
+    ding: sfxDing,
+    pluck: sfxPluck,
+  };
+
+  globalThis.ReelAudio = {
+    mix,
+    master,
+    duck,
+    musicBed,
+    applyAttackRamp,
+    normalizePeak,
+    setFilmKey,
+    sfxPool,
+    sfx: sfxKinds,
+  };
+})();
+
+/* AUDIO:END */
+</script>
+<script>
+/* SCENE:BEGIN */
+(function () {
+  "use strict";
+  var WIDTH = 1080;
+  var HEIGHT = 1920;
+  var FPS = 30;
+  var HAS_HANDWRITING = false;
+
+  var canvas = document.getElementById("stage");
+  var ctx = canvas.getContext("2d");
+
+  var timings = null;
+  var tl = null;
+  var shots = [];
+  var libManifest = null; // assets/lib/manifest.json, or null when absent
+  var libCues = []; // assets/lib/cues.json's cues, or [] when absent
+
+  // Reel.layer()/Reel.dubCode() (references/pipeline.md "Picture first"):
+  // ?layer=captions[&dub=<code>] asks this page to draw only its overlay
+  // (captions and any text), skipping the picture — for dub.mjs and for
+  // review.mjs --scan --layer captions. __reel.layers below declares that
+  // this scaffold supports it — dub.mjs falls back to its own default
+  // caption look for a page that doesn't. Reel.layerFiles picks the files.
+  var layer = Reel.layer();
+  var dubCode = Reel.dubCode();
+  var isCaptionLayer = layer === "captions";
+  var basePlan = null; // plan.json
+  var files = null; // Reel.layerFiles(plan.meta.lang), set once plan.json is read
+  var dubPlan = null; // that language's plan, loaded only in caption-layer mode
+
+  // Optional declarations a tool reads from window.__reel (a malformed entry
+  // throws, naming it). Fill what the film has; leave the rest empty.
+  var REGIONS = []; // [{id, kind: "key"|"label"|"overlay", box: [x0, y0, x1, y1] (canvas px), outline?, from?, to?}]
+  var HOLDS = []; // [{from, to, id?, reason?}] seconds the film holds or slows on purpose
+  var CAPTION_FONTS = {}; // {"<lang>": "<css font-family list>", "*": "<fallback>"} the caption font per language
+  var LANG_SPANS = []; // [{start, end, in?: "layer" | "scene"}] seconds that draw language-dependent text
+  // Corner notes (a term gloss): plan line `notes: [{at: "start" | "word:<text>", text, corner?, holdSec?}]`,
+  // drawn in the language's caption layer from that language's plan and word times.
+  var cornerNoteList = [];
+
+  // The one allowed network call in scene code (design.md §2.1 exception):
+  // loading local JSON as part of building `ready`. `required` files
+  // (timings.json) throw when missing; optional ones (the asset library's
+  // manifest/cues, design.md §2.5) resolve to null so a reel with no
+  // assets/lib/ folder works exactly as before.
+  function loadJSON(url, required) {
+    return fetch(url).then(function (res) {
+      if (!res.ok) {
+        if (required) throw new Error(url + " not found — run voice.mjs first");
+        return null;
+      }
+      return res.json();
+    });
+  }
+
+  // The first of `urls` that exists; a base-language caption layer falls
+  // back from dub/<base>/ to the film's own files (Reel.layerFiles).
+  function loadFirstJSON(urls, required) {
+    var i = 0;
+    function next() {
+      if (i >= urls.length) {
+        if (required) throw new Error(urls.join(" or ") + " not found — run voice.mjs (or dub.mjs) first");
+        return null;
+      }
+      return loadJSON(urls[i++], false).then(function (data) {
+        return data == null ? next() : data;
+      });
+    }
+    return Promise.resolve().then(next);
+  }
+
+  // plan.json: meta.lang picks the layer files; meta.filmKey/meta.title/
+  // meta.id -> ReelAudio.setFilmKey (reel-audio.js: gives this film's kit
+  // sfx a character of their own — references/sound.md "Kit"). Optional: a
+  // reel with no plan.json (should not happen) falls back to "film" rather
+  // than failing ready.
+  function loadBasePlan() {
+    return loadJSON("plan.json", false).catch(function () {
+      return null;
+    }).then(function (plan) {
+      basePlan = plan;
+      var meta = (plan && plan.meta) || {};
+      ReelAudio.setFilmKey(meta.filmKey || meta.title || meta.id || "film");
+      Reel.setBaseLang(meta.lang || null);
+      files = Reel.layerFiles(meta.lang || "ko-KR");
+    });
+  }
+
+  // The notes this language shows, built once both its timings and plan are loaded.
+  function buildNotes() {
+    cornerNoteList = Reel.cornerNotes({ timings: timings, plan: dubPlan || basePlan, basePlan: basePlan });
+  }
+
+  // Two clocks in a dub (references/pipeline.md "Dubbing"): `timings`/`tl`
+  // follow the language being drawn and are what drawCaptions reads; `clk`
+  // (Reel.clocks) adds the base language's clock from the film's own
+  // voice/timings.json, which every non-caption layer — a label, a beat, an
+  // animation keyed to a word — reads through clk.base / clk.cueTime /
+  // clk.word, so it lands where it did in the original film. A render with no
+  // dub has one clock and clk.base === tl.
+  var baseTimings = null;
+  var clk = null;
+
+  function loadTimings() {
+    return loadFirstJSON(files.timings, true).then(function (data) {
+      timings = data;
+      tl = Reel.timeline(timings);
+      return isCaptionLayer && dubCode ? loadJSON("voice/timings.json", false) : null;
+    }).then(function (base) {
+      baseTimings = base || timings;
+      clk = Reel.clocks(timings, baseTimings);
+      // Shot i spans from line i's start (the first shot from 0) to line
+      // i+1's start (the last shot to the timeline duration), so shots
+      // tile the whole film — including any gapMs silence between lines
+      // — instead of leaving a blank, un-owned scene in each gap.
+      // readAt stays the midpoint of the spoken line, not the shot span.
+      var lines = timings.lines || [];
+      shots = lines.map(function (l, i) {
+        var start = i === 0 ? 0 : l.start;
+        var end = i === lines.length - 1 ? timings.duration : lines[i + 1].start;
+        return { id: l.id, start: start, end: end, readAt: (l.start + l.end) / 2 };
+      });
+      buildSfxCues();
+    });
+  }
+
+  // dub/<code>/plan.json (plan.json for the base language) — that
+  // language's per-line fields (e.g. an `emphasis` word list) and its
+  // meta.overlay text for a film's own overlay code to key off, keeping pace
+  // with the dub text rather than the base language's. Only loaded in
+  // caption-layer mode.
+  function loadDubPlan() {
+    if (!isCaptionLayer) return Promise.resolve();
+    return loadFirstJSON(files.plan, true).then(function (data) {
+      dubPlan = data;
+    });
+  }
+
+  // ---- asset library (design.md §2.5): manifest + cues, then preload
+  // every video clip's frames so clipFrame(id, tLocal) is instant during
+  // seek(t). Absent files (no assets/lib/) leave libManifest null and
+  // libCues empty — nothing else here changes behavior in that case.
+  function loadAssetLibrary() {
+    return Promise.all([
+      loadJSON("assets/lib/manifest.json", false),
+      loadJSON("assets/lib/cues.json", false),
+    ]).then(function (results) {
+      libManifest = results[0];
+      libCues = (results[1] && results[1].cues) || [];
+      return preloadClipFrames();
+    });
+  }
+
+  function frameFileName(index) {
+    var s = String(index);
+    while (s.length < 5) s = "0" + s;
+    return "frame-" + s + ".jpg";
+  }
+
+  // Resolves once the image is decoded, not just loaded: `onload` alone
+  // lets the first seek draw an image that is still decoding, so a cold
+  // first frame differs from a warm one.
+  function loadImage(src) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        img.decode().then(
+          function () { resolve(img); },
+          function () { resolve(img); }
+        );
+      };
+      img.onerror = function () {
+        Reel.recordIssue({ type: "clip-frame-load-failed", src: src });
+        resolve(null);
+      };
+      img.src = src;
+    });
+  }
+
+  function preloadClipFrames() {
+    if (!libManifest || !libManifest.assets) return Promise.resolve();
+    var ids = Object.keys(libManifest.assets);
+    return Promise.all(
+      ids.map(function (id) {
+        var meta = libManifest.assets[id];
+        if (meta.kind !== "video") return null;
+        var frameUrls = [];
+        for (var i = 0; i < meta.frameCount; i++) {
+          frameUrls.push(meta.frameDir + "/" + frameFileName(i));
+        }
+        return Promise.all(frameUrls.map(loadImage)).then(function (frames) {
+          Reel.registerClip(id, frames, meta.fps);
+        });
+      })
+    );
+  }
+
+  // Optional per-cue fade fields render.mjs passes on to the mix (references/sound.md "Fades");
+  // the same list as CUE_FADE_KEYS in scripts/lib/cues.mjs.
+  var SOUND_FADE_FIELDS = ["fadeInSec", "fadeOutSec", "crossfadeSec", "endsAtCut", "track"];
+
+  // soundCues() -> [{file, at, gainDb, maxSec, ...fade fields}] for every library cue whose
+  // resolved `play` is "sound" or "both" (design.md §2.5). render.mjs reads
+  // this through the page and mixes each `file` at its cue time itself —
+  // this page never plays audio.
+  function soundCues() {
+    if (!libManifest || libCues.length === 0 || !timings) return [];
+    var out = [];
+    libCues.forEach(function (cue) {
+      if (cue.play !== "sound" && cue.play !== "both") return;
+      var line = null;
+      for (var i = 0; i < timings.lines.length; i++) {
+        if (timings.lines[i].id === cue.lineId) {
+          line = timings.lines[i];
+          break;
+        }
+      }
+      var meta = libManifest.assets[cue.asset];
+      if (!line || !meta) return;
+      var file = meta.kind === "audio" ? meta.file : meta.audio;
+      if (!file) return; // e.g. a silent video clip cued for sound
+      var item = {
+        file: file,
+        at: Reel.cueTime(cue, line, timings),
+        gainDb: cue.gainDb == null ? 0 : cue.gainDb,
+        maxSec: cue.maxSec,
+        // Sound-only files may start with silence; render.mjs skips it so the
+        // sound lands on the cue. A clip's sound keeps its lead to stay on its picture.
+        soundOnly: meta.kind === "audio",
+      };
+      SOUND_FADE_FIELDS.forEach(function (k) { if (cue[k] != null) item[k] = cue[k]; });
+      out.push(item);
+    });
+    return out;
+  }
+
+  // drawLibCues(t) — draws the frame of any picture cue ("picture"|"both")
+  // whose clip window [cueTime, cueTime+durationSec) contains t, on top of
+  // the active scene. A pure function of t: which clip and which of its
+  // frames follow only from the cued asset's own duration and cueTime.
+  function drawLibCues(t) {
+    if (!libManifest || libCues.length === 0 || !timings) return;
+    libCues.forEach(function (cue) {
+      if (cue.play !== "picture" && cue.play !== "both") return;
+      var line = null;
+      for (var i = 0; i < timings.lines.length; i++) {
+        if (timings.lines[i].id === cue.lineId) {
+          line = timings.lines[i];
+          break;
+        }
+      }
+      var meta = libManifest.assets[cue.asset];
+      if (!line || !meta || meta.kind !== "video") return;
+      var at = Reel.cueTime(cue, line, timings);
+      var durationSec = cue.maxSec ? Math.min(cue.maxSec, meta.durationSec) : meta.durationSec;
+      if (t < at || t >= at + durationSec) return;
+      var frame = Reel.clipFrame(cue.asset, t - at);
+      if (frame) Reel.imageCover(ctx, frame, 0, 0, WIDTH, HEIGHT);
+    });
+  }
+
+  // ---- audio: SFX_CUES + renderSfx -----------------------------------
+  // SFX_CUES times should be derived from the measured timeline (tl.line /
+  // tl.phrase), not hardcoded constants, so retiming a line moves its cue
+  // with it. Cue shape: {at, kind, gain, pan, sync}.
+  var SFX_CUES = [];
+  function buildSfxCues() {
+    SFX_CUES = [];
+  }
+
+  // renderSfx(sampleRate) -> [Float32Array, Float32Array], one per channel,
+  // exactly duration*sampleRate samples (mix()'s length contract). Builds a
+  // ducked music-box bed plus the SFX_CUES onsets, then masters it.
+  // Typed arrays, never plain Arrays: a 5-minute film as plain numbers ran
+  // Node out of heap in render.mjs; Playwright passes typed arrays back as
+  // they are.
+  function renderSfx(sampleRate) {
+    var duration = timings ? timings.duration : 0;
+    var m = ReelAudio.mix(duration, sampleRate);
+    var bed = ReelAudio.musicBed(duration, sampleRate, { bpm: 124, key: "A", gain: 0.16 });
+    var narrationWindows = (timings && timings.lines ? timings.lines : []).map(function (l) {
+      return { start: l.start, end: l.end };
+    });
+    ReelAudio.duck(bed, narrationWindows, { depthDb: -10, rampMs: 120 });
+    m.addStereo(bed, 0, 1);
+    SFX_CUES.forEach(function (cue) {
+      var gen = ReelAudio.sfx[cue.kind];
+      if (!gen) return;
+      var buf = gen(sampleRate, { seed: cue.kind + ":" + cue.at });
+      m.add(buf, cue.at, cue.gain == null ? 1 : cue.gain, cue.pan == null ? 0 : cue.pan);
+    });
+    // master() normalizes to a PEAK, not a loudness — with no SFX_CUES (the
+    // unedited scaffold), this mix is just the ducked bed, and peakDb: -3
+    // pushed the bed itself up to near-clipping: a promo session measured
+    // the resulting music ending up as loud as the voice after render.mjs's
+    // final mastering. -15 here (12dB lower) keeps the bed well under a
+    // -16 LUFS voice by default (references/sound.md "Mix"): about -28 LUFS
+    // short-term during narration windows, on top of the -10dB duck above.
+    // A real signature effect (a `sync:true` cue) is a much shorter,
+    // punchier signal than the bed alone and will not be pinned this quiet.
+    ReelAudio.master(m, { peakDb: -15 });
+    return [m.L, m.R];
+  }
+
+  // sfxStems(sampleRate) -> Promise<[{id, at, L, R}]> — each SFX_CUES kit
+  // effect rendered alone at its cue's gain (no bed, no other cues, no master gain), for
+  // scripts/sfx-cards.mjs's `measure` (references/sound.md "Sound cards").
+  // Optional: a page that never calls this still works with everything
+  // else; sfx-cards.mjs then falls back to measuring library cue files
+  // directly and reports which cards it could not measure. `id` is the
+  // cue's own `id` when SFX_CUES sets one (recommended, so it matches a
+  // sound card's id exactly); otherwise "<kind>@<at>".
+  // Only cues flagged `card: true` are rendered (all of them when none is
+  // flagged), so a film with hundreds of cues does not hand hundreds of
+  // stems to sfx-cards.mjs.
+  function sfxStems(sampleRate) {
+    var flagged = SFX_CUES.filter(function (cue) { return cue.card === true; });
+    var out = (flagged.length ? flagged : SFX_CUES).map(function (cue) {
+      var gen = ReelAudio.sfx[cue.kind];
+      if (!gen) return null;
+      var buf = gen(sampleRate, { seed: cue.kind + ":" + cue.at });
+      var arr = Float32Array.from(buf);
+      var g = cue.gain == null ? 1 : cue.gain;
+      for (var i = 0; i < arr.length; i++) arr[i] *= g;
+      return { id: cue.id || (cue.kind + "@" + cue.at), at: cue.at, L: arr, R: arr };
+    }).filter(Boolean);
+    return Promise.resolve(out);
+  }
+
+  // document.fonts.ready alone only guarantees a @font-face has been
+  // *parsed*, not fetched — a font that is only ever used on canvas (never
+  // in DOM text) is never triggered to load by the browser, so ctx.fillText
+  // silently falls back to a system font. Explicitly .load() every
+  // declared face before resolving `ready`; a face that fails to load is
+  // reported through issues() (not a hang, not a thrown rejection) so a
+  // missing/broken font file shows up in review instead of hanging capture.
+  function loadDeclaredFonts() {
+    var faces = Array.from(document.fonts); // FontFaceSet is set-like; slice.call gives []
+    return Promise.all(
+      faces.map(function (face) {
+        return face.load().catch(function (err) {
+          Reel.recordIssue({
+            type: "font-load-failed",
+            family: face.family,
+            weight: face.weight,
+            style: face.style,
+            message: String((err && err.message) || err),
+          });
+          return null;
+        });
+      })
+    ).then(function () {
+      return document.fonts.ready;
+    });
+  }
+
+  // ORDER TRAP: `ready` starts its loaders right here, before the scene
+  // block below has run. A loader you add (images, a paper texture) may
+  // call a function from that block — functions are hoisted — but a `var`
+  // it reads there (an image-name list, a config object) is still
+  // `undefined` at this point, and the throw leaves window.__reel unset.
+  // Declare such values above this line, or start the loader one tick later
+  // (Promise.resolve().then(loadMyImages)).
+  var ready = Promise.all([
+    loadDeclaredFonts(),
+    loadBasePlan().then(function () {
+      return isCaptionLayer ? Promise.all([loadTimings(), loadDubPlan()]) : loadTimings().then(loadAssetLibrary);
+    }),
+  ]).then(function () { buildNotes(); });
+
+  // ---- scene ---------------------------------------------------------
+  // 미라클 리포트 10/17 — 사용자 브랜드 틀(레퍼런스 5장): 위 헤더 띠 · 가운데 데이터 장면 · 자막 상자 · 아래 ONBALL 띠.
+  // 모든 숫자는 FILM.md "사실" 절(Supabase 2026-10-17 정규전 9경기)에서 왔다.
+  var BG = "#1a1916", PANEL = "#2b2a26", PANEL2 = "#34322d", YEL = "#f5b800", WHITE = "#ffffff",
+    GREY = "#8d8a82", DIM = "#5b5953", RED = "#ff5a4e", LINE = "rgba(255,255,255,0.07)";
+  var FONT = "Pretendard";
+  var TEAM = { "락다운": "#ffea00", "빅현욱": "#ffffff", "챗지피지기": "#ff3b30" };
+  var CX = 540;
+
+  function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
+  function lerp(a, b, u) { return a + (b - a) * u; }
+  function prog(t, a, d) { return clamp((t - a) / d, 0, 1); }
+  function oc(u) { u = clamp(u, 0, 1); return 1 - Math.pow(1 - u, 3); }
+  function ob(u) { u = clamp(u, 0, 1); var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2); }
+  function font(px, w) { return (w || 700) + " " + px + "px " + FONT; }
+
+  function text(str, x, y, px, w, color, align, alpha) {
+    ctx.save();
+    ctx.globalAlpha *= alpha == null ? 1 : alpha;
+    ctx.font = font(px, w);
+    ctx.fillStyle = color || WHITE;
+    ctx.textAlign = align || "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(str, x, y);
+    ctx.restore();
+  }
+  function spaced(str, x, y, px, w, color, gap, alpha) {
+    ctx.save();
+    ctx.globalAlpha *= alpha == null ? 1 : alpha;
+    ctx.font = font(px, w);
+    ctx.fillStyle = color;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    var total = 0, i;
+    for (i = 0; i < str.length; i++) total += ctx.measureText(str[i]).width + (i < str.length - 1 ? gap : 0);
+    var cx = x - total / 2;
+    for (i = 0; i < str.length; i++) { ctx.fillText(str[i], cx, y); cx += ctx.measureText(str[i]).width + gap; }
+    ctx.restore();
+  }
+  function rrect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function panel(x, y, w, h, r, fill, stroke, lw) {
+    rrect(x, y, w, h, r);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 3; ctx.stroke(); }
+  }
+  function pill(str, x, y, px, fg, bg, stroke, alpha, scale) {
+    ctx.save();
+    ctx.globalAlpha *= alpha == null ? 1 : alpha;
+    ctx.translate(x, y);
+    var s = scale == null ? 1 : scale;
+    ctx.scale(s, s);
+    ctx.font = font(px, 800);
+    var w = ctx.measureText(str).width + px * 1.4, h = px * 1.9;
+    panel(-w / 2, -h / 2, w, h, h / 2, bg, stroke, 3);
+    text(str, 0, 2, px, 800, fg);
+    ctx.restore();
+  }
+  function teamChip(name, x, y, alpha) {
+    ctx.save();
+    ctx.globalAlpha *= alpha == null ? 1 : alpha;
+    ctx.font = font(40, 800);
+    var w = ctx.measureText(name).width + 96, h = 72;
+    panel(x - w / 2, y - h / 2, w, h, 36, PANEL, "rgba(255,255,255,0.12)", 2);
+    ctx.beginPath(); ctx.arc(x - w / 2 + 38, y, 11, 0, Math.PI * 2); ctx.fillStyle = TEAM[name] || YEL; ctx.fill();
+    text(name, x + 16, y + 2, 40, 800, WHITE);
+    ctx.restore();
+  }
+  // 등장: 아래에서 살짝 올라오며 나타남
+  function enter(t, a, d, dy) {
+    var u = oc(prog(t, a, d || 0.35));
+    ctx.globalAlpha *= u;
+    ctx.translate(0, (1 - u) * (dy == null ? 40 : dy));
+    return u;
+  }
+  function countUp(t, a, d, from, to) { return Math.round(lerp(from, to, oc(prog(t, a, d)))); }
+
+  // 이 줄에서 sub 를 포함한 첫 단어의 시작 시각(없으면 줄 시작)
+  function wt(line, sub) {
+    var ws = line.words || [];
+    for (var i = 0; i < ws.length; i++) if (ws[i].w.indexOf(sub) >= 0) return ws[i].start;
+    return line.start;
+  }
+  function lineById(id) {
+    for (var i = 0; i < timings.lines.length; i++) if (timings.lines[i].id === id) return timings.lines[i];
+    return null;
+  }
+
+  // ---- 고정 틀 ----------------------------------------------------------
+  function drawCourtBg(t) {
+    ctx.save();
+    ctx.strokeStyle = LINE;
+    ctx.lineWidth = 4;
+    var drift = Math.sin(t * 0.35) * 6;
+    ctx.beginPath(); ctx.arc(CX, 960 + drift, 250, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(CX, 960 + drift, 80, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 960 + drift); ctx.lineTo(1080, 960 + drift); ctx.stroke();
+    ctx.beginPath(); ctx.arc(CX, 1900 + drift, 620, Math.PI, 2 * Math.PI); ctx.stroke();
+    ctx.restore();
+  }
+  function drawHeader(alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    spaced("<MIRACLE REPORT>", CX, 150, 34, 800, YEL, 6);
+    text("10월 17일 경기 리포트,", CX, 232, 76, 900, WHITE);
+    // 둘째 줄: "세 팀 나란히 3승" — '3승' 만 노랑+밑줄
+    ctx.font = font(76, 900);
+    var a = "세 팀 나란히 ", b = "3승";
+    var wa = ctx.measureText(a).width, wb = ctx.measureText(b).width, x0 = CX - (wa + wb) / 2;
+    text(a, x0, 322, 76, 900, WHITE, "left");
+    text(b, x0 + wa, 322, 76, 900, YEL, "left");
+    ctx.fillStyle = YEL;
+    ctx.fillRect(x0 + wa, 368, wb, 6);
+    ctx.fillStyle = "rgba(245,184,0,0.45)";
+    ctx.fillRect(0, 418, 1080, 2);
+    ctx.restore();
+  }
+  function drawLogo(cx, cy, s, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.translate(cx, cy);
+    ctx.scale(s, s);
+    ctx.font = font(64, 900);
+    var tw = ctx.measureText("ONBALL").width;
+    var R = 30, gap = 18, total = R * 2 + gap + tw, x0 = -total / 2;
+    var bx = x0 + R;
+    ctx.strokeStyle = YEL; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(bx, 0, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - R, 0); ctx.lineTo(bx + R, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, -R); ctx.lineTo(bx, R); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx - R * 1.25, 0, R * 0.85, -0.9, 0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx + R * 1.25, 0, R * 0.85, Math.PI - 0.9, Math.PI + 0.9); ctx.stroke();
+    text("ONBALL", x0 + R * 2 + gap, 3, 64, 900, WHITE, "left");
+    ctx.fillStyle = YEL;
+    ctx.fillRect(x0 + R * 2 + gap * 0.3, R + 8, tw + gap * 0.9, 6);
+    ctx.restore();
+  }
+  function drawFooter(alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "rgba(245,184,0,0.45)";
+    ctx.fillRect(0, 1690, 1080, 2);
+    drawLogo(CX, 1775, 0.82, alpha);
+    ctx.globalAlpha = alpha;
+    text("미라클모닝리그 · 10월 17일 경기 리포트", CX, 1868, 30, 700, GREY);
+    ctx.restore();
+  }
+
+  // ---- 자막: 검은 둥근 상자, 핵심 단어만 노랑 ------------------------------
+  var EMPH = {
+    hook: ["3승", "1월 31일"], ld1: ["이름값", "꽁꽁", "19개"], ld2: ["14개", "가장 적었습니다"],
+    ld3: ["8방", "42%", "32점"], ld4: ["단독 선두"], bh1: ["안팎", "29점"],
+    bh2: ["쓸어담았습니다", "28개", "커리어 하이"], bh3: ["리딩", "11개", "배달"],
+    cg1: ["에이스", "23점", "체면"], cg2: ["옥에 티", "가장 많았습니다"], cg3: ["12개", "더블더블"],
+    cg4: ["반년 만에"], cg5: ["역전 레이업", "1승"], cg6: ["커리어 두 번째 트리플더블", "18개"],
+    cg7: ["아쉬움"], outro: ["온볼"],
+  };
+  function captionLayout(id, str) {
+    var flat = str.replace(/\n/g, " ");
+    var mask = new Array(flat.length).fill(false);
+    (EMPH[id] || []).forEach(function (ph) {
+      var k = flat.indexOf(ph);
+      if (k >= 0) for (var j = 0; j < ph.length; j++) mask[k + j] = true;
+    });
+    var words = [], i = 0;
+    flat.split(" ").forEach(function (w) {
+      var hot = false;
+      for (var j = 0; j < w.length; j++) if (mask[i + j]) hot = true;
+      words.push({ w: w, hot: hot });
+      i += w.length + 1;
+    });
+    return words;
+  }
+  function drawCaptionBox(line, alpha) {
+    if (!line || alpha <= 0) return;
+    var px = 46, maxW = 860, lh = 64;
+    ctx.save();
+    ctx.font = font(px, 800);
+    var sp = ctx.measureText(" ").width;
+    var words = captionLayout(line.id, line.text);
+    var rows = [[]], rw = [0];
+    words.forEach(function (o) {
+      var w = ctx.measureText(o.w).width;
+      var cur = rows.length - 1;
+      var add = (rows[cur].length ? sp : 0) + w;
+      if (rows[cur].length && rw[cur] + add > maxW) { rows.push([]); rw.push(0); cur++; add = w; }
+      rows[cur].push({ w: o.w, hot: o.hot, width: w });
+      rw[cur] += add;
+    });
+    var boxW = Math.max.apply(null, rw) + 76, boxH = rows.length * lh + 44;
+    var cy = 1560, y0 = cy - boxH / 2;
+    ctx.globalAlpha = alpha;
+    panel(CX - boxW / 2, y0, boxW, boxH, 26, "rgba(14,13,11,0.92)", "rgba(255,255,255,0.06)", 2);
+    rows.forEach(function (row, r) {
+      var x = CX - rw[r] / 2, y = y0 + 22 + lh * r + lh / 2;
+      row.forEach(function (o, k) {
+        ctx.fillStyle = o.hot ? YEL : WHITE;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(o.w, x, y + 2);
+        x += o.width + sp;
+      });
+    });
+    ctx.restore();
+  }
+  function captionLineAt(t) {
+    if (!timings) return null;
+    var idx = activeShotIndex(t);
+    return idx >= 0 ? timings.lines[idx] : null;
+  }
+
+  // ---- 장면들 (s = 이 장면 안의 시각, L = 이 줄, sh = 장면 구간) -------------------
+  function scHook(t, L) {
+    var teams = ["락다운", "빅현욱", "챗지피지기"], xs = [220, 540, 860];
+    var base = 1270, per = 175, t3 = wt(L, "3승");
+    var tBadge = wt(L, "1월");
+    teams.forEach(function (name, i) {
+      ctx.save();
+      enter(t, 0.15 + i * 0.12, 0.4);
+      teamChip(name, xs[i], 560);
+      ctx.restore();
+      for (var k = 0; k < 3; k++) {
+        var a = 0.55 + k * 0.42 + i * 0.1;
+        var u = ob(prog(t, a, 0.32));
+        if (u <= 0) continue;
+        var h = per - 14, y = base - per * (k + 1) + 7;
+        ctx.save();
+        ctx.translate(xs[i], y + h / 2);
+        ctx.scale(1, u);
+        panel(-80, -h / 2, 160, h, 18, k === 2 ? YEL : PANEL2, null);
+        text("W", 0, 4, 64, 900, k === 2 ? BG : YEL);
+        ctx.restore();
+      }
+      var done = prog(t, t3, 0.3);
+      if (done > 0) {
+        ctx.save();
+        ctx.globalAlpha *= done;
+        text("3승", xs[i], base - per * 3 - 50 - 10 * Math.sin(prog(t, t3, 0.5) * Math.PI), 54, 900, YEL);
+        ctx.restore();
+      }
+    });
+    // 같은 높이를 잇는 점선
+    var lu = oc(prog(t, t3 + 0.2, 0.5));
+    if (lu > 0) {
+      ctx.save();
+      ctx.setLineDash([16, 14]);
+      ctx.strokeStyle = YEL; ctx.lineWidth = 4; ctx.globalAlpha *= 0.8;
+      ctx.beginPath(); ctx.moveTo(110, base - per * 3 - 4); ctx.lineTo(110 + 860 * lu, base - per * 3 - 4); ctx.stroke();
+      ctx.restore();
+    }
+    var bu = prog(t, tBadge - 0.05, 0.35);
+    if (bu > 0) pill("2026.01.31 이후 처음", CX, 1355, 40, YEL, "rgba(245,184,0,0.12)", YEL, oc(bu), ob(bu));
+  }
+
+  function drawLock(x, y, closed, s) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.strokeStyle = YEL; ctx.lineWidth = 16; ctx.lineCap = "round";
+    var lift = (1 - closed) * 46;
+    ctx.beginPath();
+    ctx.moveTo(-44, -10 - lift); ctx.lineTo(-44, -60 - lift);
+    ctx.arc(0, -60 - lift, 44, Math.PI, 0);
+    ctx.lineTo(44, -10 - lift * (1 - closed) - (closed < 1 ? 0 : 0));
+    ctx.stroke();
+    panel(-74, -14, 148, 120, 22, YEL, null);
+    ctx.beginPath(); ctx.arc(0, 36, 14, 0, Math.PI * 2); ctx.fillStyle = BG; ctx.fill();
+    ctx.fillRect(-6, 40, 12, 34);
+    ctx.restore();
+  }
+  function dotGrid(n, cols, cx, cy, gap, r, colorAt, appear) {
+    for (var i = 0; i < n; i++) {
+      var row = Math.floor(i / cols), col = i % cols;
+      var rowCount = Math.min(cols, n - row * cols);
+      var x = cx + (col - (rowCount - 1) / 2) * gap, y = cy + row * gap;
+      var a = appear(i);
+      if (a <= 0) continue;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(a, a);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = colorAt(i); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(0, r); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  function scLd1(t, L) {
+    ctx.save(); enter(t, L.start - 0.05, 0.35); teamChip("락다운", CX, 520); ctx.restore();
+    var tLock = wt(L, "꽁꽁"), tSt = wt(L, "스틸");
+    var closed = oc(prog(t, tLock, 0.25));
+    var shake = closed > 0 && closed < 1 ? Math.sin(t * 90) * 4 : 0;
+    ctx.save(); enter(t, L.start + 0.1, 0.4);
+    drawLock(CX + shake, 720, closed, 1);
+    ctx.restore();
+    var n = countUp(t, tSt, 1.3, 0, 19);
+    var nu = prog(t, tSt - 0.1, 0.3);
+    if (nu > 0) {
+      text(String(n), CX, 1000, 230, 900, YEL, "center", oc(nu));
+      spaced("STEALS", CX, 1125, 40, 800, WHITE, 10, oc(nu));
+    }
+    dotGrid(19, 10, CX, 1225, 82, 30, function () { return YEL; }, function (i) {
+      return ob(prog(t, tSt + i * (1.3 / 19), 0.22));
+    });
+  }
+  var TOV = [["락다운", 13], ["빅현욱", 20], ["챗지피지기", 33]];
+  function tovChart(t, a, hot, hotColor, order, label) {
+    var x0 = 300, maxW = 600, y0 = 690, gap = 150;
+    ctx.save(); enter(t, a, 0.35);
+    text("팀 턴오버", CX, 560, 48, 900, WHITE);
+    ctx.restore();
+    order.forEach(function (k, r) {
+      var row = TOV[k], y = y0 + r * gap, isHot = row[0] === hot;
+      var u = oc(prog(t, a + 0.15 + r * 0.12, 0.6));
+      ctx.save();
+      ctx.globalAlpha *= clamp(u * 2, 0, 1);
+      text(row[0], x0 - 30, y, 40, 800, isHot ? WHITE : GREY, "right");
+      panel(x0, y - 38, maxW, 76, 16, "rgba(255,255,255,0.05)", null);
+      panel(x0, y - 38, Math.max(30, maxW * (row[1] / 33) * u), 76, 16, isHot ? hotColor : PANEL2, null);
+      text(String(Math.round(row[1] * u)), x0 + Math.max(30, maxW * (row[1] / 33) * u) - 24, y + 2, 42, 900, isHot ? BG : WHITE, "right");
+      ctx.restore();
+    });
+    var pu = prog(t, a + 0.9, 0.3);
+    if (pu > 0) {
+      var ri = order.indexOf(TOV.findIndex(function (r) { return r[0] === hot; }));
+      pill(label, CX, y0 + 3 * gap - 10, 38, hotColor, "rgba(255,255,255,0.04)", hotColor, oc(pu), ob(pu));
+    }
+  }
+  function scLd2(t, L) {
+    var tTeam = wt(L, "팀");
+    var out = oc(prog(t, tTeam - 0.25, 0.3));
+    if (out < 1) {
+      ctx.save();
+      ctx.globalAlpha *= 1 - out;
+      var tk = L.start;
+      dotGrid(19, 5, CX, 620, 104, 38, function (i) {
+        var lit = prog(t, tk + 0.2 + (i < 8 ? i * 0.06 : 0.5 + (i - 8) * 0.06), 0.2);
+        if (i < 8) return lit > 0 ? YEL : DIM;
+        if (i < 14) return lit > 0 ? "#ffd65c" : DIM;
+        return DIM;
+      }, function () { return 1; });
+      var u1 = prog(t, tk + 0.25, 0.3), u2 = prog(t, tk + 0.75, 0.3);
+      if (u1 > 0) pill("김로빈 8", 330, 1110, 40, BG, YEL, null, oc(u1), ob(u1));
+      if (u2 > 0) pill("구범준 6", 750, 1110, 40, BG, "#ffd65c", null, oc(u2), ob(u2));
+      var u3 = prog(t, wt(L, "14"), 0.3);
+      if (u3 > 0) {
+        text("14", CX - 60, 1260, 150, 900, YEL, "center", oc(u3));
+        text("/ 19", CX + 110, 1280, 64, 800, GREY, "center", oc(u3));
+      }
+      ctx.restore();
+    }
+    if (out > 0) tovChart(t, tTeam - 0.1, "락다운", YEL, [0, 1, 2], "세 팀 중 가장 적음");
+  }
+
+  // 반 코트(골대 위)
+  var HOOP = { x: CX, y: 560 };
+  function halfCourt(alpha) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 4;
+    ctx.strokeRect(CX - 130, 470, 260, 330);
+    ctx.beginPath(); ctx.arc(CX, 800, 100, 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(120, 470); ctx.lineTo(120, 640);
+    ctx.arc(CX, 600, 420, Math.PI - 0.32, 0.32, true);
+    ctx.lineTo(960, 470); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(80, 470); ctx.lineTo(1000, 470); ctx.stroke();
+    ctx.strokeStyle = YEL; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(HOOP.x, HOOP.y - 40, 24, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  function shotMark(x, y, made, u) {
+    if (u <= 0) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(ob(u), ob(u));
+    if (made) {
+      ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.fillStyle = YEL; ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, 36, 0, Math.PI * 2); ctx.strokeStyle = "rgba(245,184,0,0.35)"; ctx.lineWidth = 6; ctx.stroke();
+    } else {
+      ctx.strokeStyle = GREY; ctx.lineWidth = 7; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-14, -14); ctx.lineTo(14, 14); ctx.moveTo(14, -14); ctx.lineTo(-14, 14); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // 변원식 3점 19개: 아크 바깥 결정론적 위치, 성공 8 (위치는 그림 — 실제 슛 위치 아님)
+  var THREES = (function () {
+    var r = Reel.rng("byun-threes"), out = [], madeIdx = [1, 3, 6, 8, 11, 13, 15, 17];
+    for (var i = 0; i < 19; i++) {
+      var ang = lerp(Math.PI - 0.15, 0.15, i / 18) + (r() - 0.5) * 0.12;
+      var rad = 450 + r() * 50;
+      out.push({ x: CX + Math.cos(ang) * rad, y: 600 + Math.sin(ang) * rad * 0.72, made: madeIdx.indexOf(i) >= 0 });
+    }
+    return out;
+  })();
+  function scLd3(t, L) {
+    ctx.save(); enter(t, L.start - 0.05, 0.3);
+    halfCourt(1);
+    ctx.restore();
+    ctx.save(); enter(t, L.start, 0.3); pill("변원식 · 락다운", CX, 1060, 38, WHITE, PANEL, "rgba(255,255,255,0.12)"); ctx.restore();
+    var a = wt(L, "3점");
+    var order = [0, 18, 9, 4, 14, 2, 16, 7, 11, 5, 13, 1, 17, 8, 3, 15, 10, 6, 12];
+    var made = 0;
+    order.forEach(function (k, j) {
+      var at = a + j * 0.13, u = prog(t, at, 0.2);
+      shotMark(THREES[k].x, THREES[k].y, THREES[k].made, u);
+      if (u > 0 && THREES[k].made) made++;
+    });
+    var tP = wt(L, "42%"), tPts = wt(L, "32점");
+    var boxes = [["3점", made + "/19", a], ["성공률", "42%", tP], ["득점", String(countUp(t, tPts, 0.6, 0, 32)), tPts]];
+    boxes.forEach(function (b, i) {
+      var u = prog(t, b[2] - 0.05, 0.3);
+      if (u <= 0) return;
+      var x = 210 + i * 330;
+      ctx.save();
+      ctx.globalAlpha *= oc(u);
+      ctx.translate(0, (1 - oc(u)) * 30);
+      panel(x - 140, 1140, 280, 200, 24, PANEL, i === 2 ? YEL : null, 4);
+      text(b[0], x, 1190, 34, 700, GREY);
+      text(b[1], x, 1275, 84, 900, i === 2 ? YEL : WHITE);
+      ctx.restore();
+    });
+  }
+  function scLd4(t, L) {
+    ctx.save(); enter(t, L.start - 0.1, 0.3); text("이날 득점 순위", 100, 545, 48, 900, WHITE, "left"); ctx.restore();
+    var rows = [["1", "변원식", "락다운", 32], ["2", "김성현", "빅현욱", 29], ["3", "김로빈 · 정경윤", "공동", 23]];
+    rows.forEach(function (r, i) {
+      var y = 690 + i * 175, u = oc(prog(t, L.start + i * 0.12, 0.35));
+      ctx.save();
+      ctx.globalAlpha *= u;
+      ctx.translate((1 - u) * 60, 0);
+      var top = i === 0;
+      panel(90, y - 70, 900, 140, 26, top ? "rgba(245,184,0,0.10)" : PANEL, top ? YEL : null, 5);
+      text(r[0], 150, y + 2, 56, 900, top ? YEL : GREY);
+      text(r[1], 220, y - 14, 46, 900, WHITE, "left");
+      text(r[2], 220, y + 34, 28, 700, GREY, "left");
+      var bw = 300 * (r[3] / 32) * oc(prog(t, L.start + 0.2 + i * 0.12, 0.6));
+      panel(560, y - 16, bw, 32, 16, top ? YEL : DIM, null);
+      text(r[3] + "점", 950, y + 2, 46, 900, top ? YEL : WHITE, "right");
+      ctx.restore();
+    });
+    var su = prog(t, wt(L, "단독"), 0.25);
+    if (su > 0) {
+      ctx.save();
+      ctx.translate(840, 548);
+      ctx.rotate(-0.08);
+      var sc = lerp(1.8, 1, oc(su));
+      ctx.scale(sc, sc);
+      ctx.globalAlpha *= oc(su);
+      panel(-150, -44, 300, 88, 14, null, YEL, 6);
+      text("단독 선두", 0, 3, 46, 900, YEL);
+      ctx.restore();
+    }
+  }
+  function scBh1(t, L) {
+    ctx.save(); enter(t, L.start - 0.1, 0.3); halfCourt(1); ctx.restore();
+    ctx.save(); enter(t, L.start, 0.3); pill("김성현 · 빅현욱", CX, 1075, 38, WHITE, PANEL, "rgba(255,255,255,0.12)"); ctx.restore();
+    var tIn = wt(L, "안팎");
+    var outerU = prog(t, tIn, 0.5), innerU = prog(t, tIn + 0.55, 0.5);
+    var pulse = 0.5 + 0.5 * Math.sin(t * 6);
+    if (outerU > 0) {
+      ctx.save();
+      ctx.globalAlpha *= 0.18 * oc(outerU) * (innerU > 0 ? 0.6 : 1) + 0.05 * pulse;
+      ctx.fillStyle = YEL;
+      ctx.beginPath(); ctx.arc(CX, 600, 560, Math.PI - 0.5, 0.5, true); ctx.arc(CX, 600, 420, 0.32, Math.PI - 0.32, false); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      [[190, 790], [300, 1000], [890, 790]].forEach(function (p, i) { shotMark(p[0], p[1], true, prog(t, tIn + 0.1 + i * 0.12, 0.2)); });
+    }
+    if (innerU > 0) {
+      ctx.save();
+      ctx.globalAlpha *= 0.22 * oc(innerU);
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(CX - 130, 470, 260, 330);
+      ctx.restore();
+      for (var i = 0; i < 9; i++) {
+        var gx = CX - 80 + (i % 3) * 80, gy = 560 + Math.floor(i / 3) * 80;
+        shotMark(gx, gy, true, prog(t, tIn + 0.6 + i * 0.07, 0.2));
+      }
+    }
+    var cu = prog(t, tIn + 0.2, 0.3);
+    if (cu > 0) {
+      pill("3점 3개", 330, 1175, 40, YEL, PANEL, YEL, oc(cu), ob(cu));
+      pill("2점 9개", 750, 1175, 40, WHITE, PANEL, "rgba(255,255,255,0.3)", oc(prog(t, tIn + 0.7, 0.3)), ob(prog(t, tIn + 0.7, 0.3)));
+    }
+    var tp = wt(L, "29점"), pu = prog(t, tp - 0.1, 0.3);
+    if (pu > 0) {
+      text(String(countUp(t, tp - 0.1, 0.6, 0, 29)), CX - 40, 1330, 150, 900, YEL, "center", oc(pu));
+      text("점", CX + 90, 1350, 64, 900, WHITE, "center", oc(pu));
+    }
+  }
+  var PHW = [13, 9, 16, 23, 12, 19, 14, 14, 10, 14, 19, 15, 14, 14, 15, 13, 18, 12, 15, 12, 12, 13, 15, 20, 12, 16, 20, 14, 14, 25, 23, 12, 28];
+  function scBh2(t, L) {
+    ctx.save(); enter(t, L.start - 0.1, 0.3); pill("박현욱 · 빅현욱", CX, 520, 38, WHITE, PANEL, "rgba(255,255,255,0.12)"); ctx.restore();
+    var x0 = 100, x1 = 980, base = 1250, H = 560, n = PHW.length, bw = (x1 - x0) / n;
+    var y25 = base - H * 25 / 28;
+    var a = L.start + 0.1;
+    for (var i = 0; i < n; i++) {
+      var last = i === n - 1;
+      var u = oc(prog(t, last ? wt(L, "무려") - 0.1 : a + i * 0.035, last ? 0.6 : 0.3));
+      var h = H * PHW[i] / 28 * u;
+      ctx.fillStyle = last ? YEL : (PHW[i] === 25 ? "#9b958a" : PANEL2);
+      ctx.fillRect(x0 + i * bw + 3, base - h, bw - 6, h);
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(x0, base, x1 - x0, 3);
+    var lu = oc(prog(t, a + 0.9, 0.5));
+    if (lu > 0) {
+      ctx.save();
+      ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x0, y25); ctx.lineTo(x0 + (x1 - x0) * lu, y25); ctx.stroke();
+      ctx.restore();
+      text("이전 최고 25 (9/12)", x0, y25 - 30, 30, 700, GREY, "left", lu);
+    }
+    text("1월", x0, base + 36, 28, 700, GREY, "left");
+    text("10/17", x1, base + 36, 28, 800, YEL, "right");
+    var tn = wt(L, "무려"), nu = prog(t, tn, 0.3);
+    if (nu > 0) {
+      text(String(countUp(t, tn, 0.6, 0, 28)), 820, base - H - 40, 110, 900, YEL, "center", oc(nu));
+      text("리바운드", 820, base - H + 40, 34, 800, WHITE, "center", oc(nu));
+    }
+    var su = prog(t, wt(L, "커리어"), 0.25);
+    if (su > 0) {
+      ctx.save();
+      ctx.translate(360, 1030);
+      ctx.rotate(-0.12);
+      var sc = lerp(2.0, 1, oc(su));
+      ctx.scale(sc, sc);
+      ctx.globalAlpha *= oc(su);
+      panel(-210, -56, 420, 112, 16, "rgba(26,25,22,0.85)", YEL, 7);
+      spaced("CAREER HIGH", 0, 4, 54, 900, YEL, 3);
+      ctx.restore();
+    }
+  }
+  var HAN = [["김성현", 7, -2.2], ["박현욱", 2, -0.6], ["김용운", 1, 0.55], ["이대원", 1, 1.6]];
+  function scBh3(t, L) {
+    var c = { x: CX, y: 930 };
+    var tDel = wt(L, "어시스트");
+    HAN.forEach(function (h, i) {
+      var ang = h[2], rad = 330;
+      var p = { x: c.x + Math.cos(ang) * rad * 1.05, y: c.y + Math.sin(ang) * rad };
+      var u = oc(prog(t, L.start + 0.1 + i * 0.1, 0.4));
+      ctx.save();
+      ctx.globalAlpha *= u;
+      ctx.strokeStyle = i === 0 ? "rgba(245,184,0,0.7)" : "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 4 + h[1] * 2;
+      ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(lerp(c.x, p.x, u), lerp(c.y, p.y, u)); ctx.stroke();
+      panel(p.x - 110, p.y - 50, 220, 100, 50, PANEL, i === 0 ? YEL : null, 3);
+      text(h[0], p.x, p.y - 12, 34, 800, WHITE);
+      text(h[1] + "개", p.x, p.y + 26, 28, 800, i === 0 ? YEL : GREY);
+      ctx.restore();
+    });
+    // 공 11개 배달 — 받는 사람마다 순서대로
+    var seq = [];
+    HAN.forEach(function (h, i) { for (var k = 0; k < h[1]; k++) seq.push(i); });
+    var delivered = 0;
+    seq.forEach(function (hi, j) {
+      var a = tDel + j * 0.17, u = prog(t, a, 0.4);
+      if (u <= 0) return;
+      if (u >= 1) { delivered++; return; }
+      var h = HAN[hi], p = { x: c.x + Math.cos(h[2]) * 330 * 1.05, y: c.y + Math.sin(h[2]) * 330 };
+      var e = oc(u);
+      ctx.beginPath(); ctx.arc(lerp(c.x, p.x, e), lerp(c.y, p.y, e) - Math.sin(e * Math.PI) * 40, 16, 0, Math.PI * 2);
+      ctx.fillStyle = "#ff8a1f"; ctx.fill();
+    });
+    ctx.save(); enter(t, L.start - 0.1, 0.3);
+    ctx.beginPath(); ctx.arc(c.x, c.y, 120, 0, Math.PI * 2); ctx.fillStyle = YEL; ctx.fill();
+    text("한우평", c.x, c.y - 26, 40, 900, BG);
+    text(delivered + " AST", c.x, c.y + 30, 44, 900, BG);
+    ctx.restore();
+    var ru = prog(t, wt(L, "배달"), 0.3);
+    if (ru > 0) pill("오늘 어시스트 1위", CX, 1360, 38, YEL, "rgba(245,184,0,0.1)", YEL, oc(ru), ob(ru));
+  }
+  function scCg1(t, L) {
+    ctx.save(); enter(t, L.start - 0.1, 0.3); teamChip("챗지피지기", CX, 520); ctx.restore();
+    ctx.save(); enter(t, wt(L, "에이스") - 0.05, 0.3); text("에이스 정경윤", CX, 640, 54, 900, WHITE); ctx.restore();
+    var t8 = wt(L, "8점"), t23 = wt(L, "23점");
+    var u8 = prog(t, t8 - 0.15, 0.3);
+    if (u8 > 0) {
+      ctx.save(); ctx.globalAlpha *= oc(u8);
+      panel(110, 760, 380, 420, 30, PANEL, null);
+      text("지난주 10/10", 300, 830, 34, 700, GREY);
+      text("8", 300, 1010, 220, 900, GREY);
+      text("점", 300, 1130, 40, 800, GREY);
+      ctx.restore();
+    }
+    var u23 = prog(t, t23 - 0.1, 0.3);
+    if (u23 > 0) {
+      var au = oc(prog(t, t23 - 0.2, 0.4));
+      ctx.save();
+      ctx.strokeStyle = YEL; ctx.lineWidth = 10; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(500, 970); ctx.lineTo(500 + 80 * au, 970); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(560 * au + 20 * (1 - au), 940); ctx.lineTo(585 * au, 970); ctx.lineTo(560 * au + 20 * (1 - au), 1000); ctx.stroke();
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha *= oc(u23);
+      var s = ob(u23);
+      ctx.translate(790, 970); ctx.scale(s, s); ctx.translate(-790, -970);
+      panel(600, 760, 380, 420, 30, "rgba(245,184,0,0.10)", YEL, 5);
+      text("이번 주 10/17", 790, 830, 34, 800, YEL);
+      text(String(countUp(t, t23 - 0.1, 0.6, 8, 23)), 790, 1010, 220, 900, YEL);
+      text("점", 790, 1130, 40, 800, WHITE);
+      ctx.restore();
+      var pu = prog(t, t23 + 0.5, 0.3);
+      if (pu > 0) pill("+15", CX, 1290, 46, BG, YEL, null, oc(pu), ob(pu));
+    }
+  }
+  function scCg2(t, L) {
+    var tTeam = wt(L, "팀");
+    var out = oc(prog(t, tTeam - 0.25, 0.3));
+    if (out < 1) {
+      ctx.save();
+      ctx.globalAlpha *= 1 - out;
+      ctx.save(); enter(t, L.start - 0.1, 0.3); pill("정경윤", CX, 560, 40, WHITE, PANEL, null); ctx.restore();
+      var tu = prog(t, wt(L, "턴오버"), 0.3);
+      if (tu > 0) {
+        var shake = tu < 1 ? Math.sin(t * 80) * 10 * (1 - tu) : 0;
+        var flash = 0.75 + 0.25 * Math.sin(t * 8);
+        ctx.save(); ctx.globalAlpha *= oc(tu) * flash;
+        text("10", CX + shake, 900, 280, 900, RED);
+        ctx.restore();
+        text("TURNOVERS", CX, 1080, 46, 900, WHITE, "center", oc(tu));
+      }
+      var ou = prog(t, wt(L, "옥에"), 0.3);
+      if (ou > 0) pill("옥에 티", CX, 1200, 40, RED, "rgba(255,90,78,0.1)", RED, oc(ou), ob(ou));
+      ctx.restore();
+    }
+    if (out > 0) tovChart(t, tTeam - 0.1, "챗지피지기", RED, [2, 1, 0], "세 팀 중 최다");
+  }
+  function scCg3(t, L) {
+    ctx.save(); enter(t, L.start - 0.1, 0.3); pill("천반야마 천세원 · 챗지피지기", CX, 520, 36, WHITE, PANEL, "rgba(255,255,255,0.12)"); ctx.restore();
+    var c = { x: CX, y: 880 }, r = 210;
+    var to = wt(L, "공격"), td = to + 0.6;
+    var uo = oc(prog(t, to, 0.7)), ud = oc(prog(t, td, 0.6));
+    ctx.save();
+    ctx.lineWidth = 64; ctx.lineCap = "butt";
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = YEL;
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * uo); ctx.stroke();
+    ctx.strokeStyle = "#d9d4c7";
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, Math.PI / 2, Math.PI / 2 + Math.PI * ud); ctx.stroke();
+    ctx.restore();
+    var total = Math.round(12 * uo + 12 * ud);
+    text(String(total), c.x, c.y - 10, 150, 900, WHITE);
+    text("리바운드", c.x, c.y + 80, 34, 800, GREY);
+    if (uo > 0) pill("공격 12", 250, 1180, 38, BG, YEL, null, uo, 1);
+    if (ud > 0) pill("수비 12", 830, 1180, 38, BG, "#d9d4c7", null, ud, 1);
+    var du = prog(t, wt(L, "더블더블"), 0.3);
+    if (du > 0) pill("DOUBLE-DOUBLE  15점 · 24리바", CX, 1300, 38, YEL, "rgba(245,184,0,0.1)", YEL, oc(du), ob(du));
+    var bu = prog(t, L.start + 0.6, 0.3);
+    if (bu > 0 && du <= 0) pill("9경기 · 24초 사이 공격 리바운드 4개", CX, 1300, 32, WHITE, PANEL2, null, oc(bu), 1);
+  }
+  function scoreboard(t, y, hs, as, flipAt, alpha) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    panel(90, y - 90, 900, 180, 28, PANEL, null);
+    text("빅현욱", 230, y + 2, 44, 800, GREY);
+    text("챗지피지기", 850, y + 2, 44, 800, GREY);
+    text(String(hs), 420, y + 4, 110, 900, WHITE);
+    text(":", CX, y, 80, 900, GREY);
+    var f = flipAt == null ? 0 : prog(t, flipAt, 0.25);
+    if (f > 0 && f < 1) {
+      ctx.save(); ctx.translate(660, y + 4); ctx.scale(1, Math.abs(Math.cos(f * Math.PI))); text(String(f < 0.5 ? 13 : as), 0, 0, 110, 900, f < 0.5 ? WHITE : YEL); ctx.restore();
+    } else text(String(f >= 1 ? as : 13), 660, y + 4, 110, 900, f >= 1 ? YEL : WHITE);
+    ctx.restore();
+  }
+  function scCg4(t, L) {
+    ctx.save(); enter(t, L.start - 0.1, 0.3);
+    pill("6경기 · 막판", CX, 472, 32, WHITE, PANEL2, null);
+    scoreboard(t, 625, 14, 13, null, 1);
+    ctx.restore();
+    var du = oc(prog(t, L.start + 0.3, 0.4));
+    panel(90, 745, 900, 56, 16, "rgba(255,255,255,0.05)", null);
+    panel(CX - 120 * du, 745, 120 * du, 56, 0, "rgba(255,90,78,0.75)", null);
+    text("-1", CX - 140, 773, 36, 900, RED, "right", du);
+    text("점수 차", 970, 773, 26, 700, GREY, "right");
+    ctx.save(); ctx.translate(0, 340); halfCourt(0.6); ctx.restore();
+    // 홍상진 점: 오른쪽 윙에서 골밑으로 파고들 준비
+    var bob = Math.sin(t * 5) * 6;
+    ctx.beginPath(); ctx.arc(860, 1300 + bob, 34, 0, Math.PI * 2); ctx.fillStyle = TEAM["챗지피지기"]; ctx.fill();
+    var hu = prog(t, wt(L, "반년"), 0.3);
+    if (hu > 0) pill("홍상진 · 4/25 이후 첫 출전", 690, 1400, 34, YEL, "rgba(26,25,22,0.9)", YEL, oc(hu), ob(hu));
+  }
+  function scCg5(t, L) {
+    pill("6경기 · 막판", CX, 472, 32, WHITE, PANEL2, null);
+    scoreboard(t, 625, 14, 16, wt(L, "레이업"), 1);
+    panel(90, 745, 900, 56, 16, "rgba(255,255,255,0.05)", null);
+    var flipped = prog(t, wt(L, "레이업"), 0.25) >= 1;
+    var du = flipped ? oc(prog(t, wt(L, "레이업") + 0.25, 0.4)) : 1;
+    if (!flipped) panel(CX - 120, 745, 120, 56, 0, "rgba(255,90,78,0.75)", null);
+    else panel(CX, 745, 240 * du, 56, 0, "rgba(245,184,0,0.85)", null);
+    text(flipped ? "+2 역전" : "-1", flipped ? CX + 260 : CX - 140, 773, 36, 900, flipped ? YEL : RED, flipped ? "left" : "right");
+    ctx.save(); ctx.translate(0, 340); halfCourt(0.6); ctx.restore();
+    // 드라이브 → 레이업 궤적
+    var a = L.start, tl2 = wt(L, "레이업");
+    var dU = oc(prog(t, a, tl2 - a));
+    var px = lerp(860, CX + 70, dU), py = lerp(1300, 980, dU);
+    ctx.beginPath(); ctx.arc(px, py, 34, 0, Math.PI * 2); ctx.fillStyle = TEAM["챗지피지기"]; ctx.fill();
+    var bU = prog(t, tl2 - 0.1, 0.45);
+    if (bU > 0 && bU < 1) {
+      var bx = lerp(px, HOOP.x, bU), by = lerp(py, HOOP.y + 300, bU) - Math.sin(bU * Math.PI) * 120;
+      ctx.beginPath(); ctx.arc(bx, by, 20, 0, Math.PI * 2); ctx.fillStyle = "#ff8a1f"; ctx.fill();
+    }
+    var wu = prog(t, tl2 + 0.35, 0.3);
+    if (wu > 0) {
+      ctx.save();
+      var s = lerp(1.6, 1, oc(wu));
+      ctx.translate(CX, 1110); ctx.rotate(-0.05); ctx.scale(s, s);
+      ctx.globalAlpha *= oc(wu);
+      ctx.fillStyle = YEL; ctx.fillRect(-560, -80, 1120, 160);
+      text("WINNING SHOT", 0, 6, 104, 900, BG);
+      ctx.restore();
+    }
+    var ou = prog(t, wt(L, "1승"), 0.3);
+    if (ou > 0) pill("챗지피지기 +1승", CX, 1290, 40, BG, YEL, null, oc(ou), ob(ou));
+  }
+  function scCg6(t, L) {
+    ctx.save(); enter(t, L.start - 0.1, 0.3); pill("문버럭 문상혁 · 챗지피지기", CX, 520, 36, WHITE, PANEL, "rgba(255,255,255,0.12)"); ctx.restore();
+    var tr = wt(L, "리바운드");
+    var dim = oc(prog(t, tr - 0.2, 0.4));
+    ctx.save();
+    var s = lerp(1, 0.78, dim);
+    ctx.translate(CX, lerp(820, 700, dim)); ctx.scale(s, s);
+    ctx.globalAlpha *= lerp(1, 0.45, dim) * oc(prog(t, L.start, 0.35));
+    panel(-420, -170, 840, 340, 30, PANEL, YEL, 4);
+    text("지난주 10/10", 0, -115, 32, 700, GREY);
+    spaced("TRIPLE-DOUBLE", 0, -50, 60, 900, YEL, 3);
+    [["12", "점"], ["11", "리바"], ["10", "어시"]].forEach(function (v, i) {
+      var x = -260 + i * 260;
+      text(v[0], x, 40, 90, 900, WHITE);
+      text(v[1], x, 110, 30, 700, GREY);
+    });
+    ctx.restore();
+    var cu = prog(t, wt(L, "두"), 0.3);
+    if (cu > 0 && dim < 0.5) pill("커리어 2번째", CX, 1030, 38, BG, YEL, null, oc(cu) * (1 - dim * 2), ob(cu));
+    var u = prog(t, tr, 0.35);
+    if (u > 0) {
+      ctx.save(); ctx.globalAlpha *= oc(u);
+      var sc = ob(u);
+      ctx.translate(CX, 1080); ctx.scale(sc, sc);
+      text("18", -60, 0, 230, 900, YEL);
+      text("리바운드", 170, 50, 46, 900, WHITE);
+      ctx.restore();
+    }
+  }
+  function scCg7(t, L) {
+    ctx.save(); ctx.globalAlpha *= 0.35;
+    ctx.translate(CX, 700); ctx.scale(0.78, 0.78);
+    text("18", -60, 0, 230, 900, YEL); text("리바운드", 170, 50, 46, 900, WHITE);
+    ctx.restore();
+    [["2", "득점", L.start + 0.05], ["2", "어시스트", L.start + 0.5]].forEach(function (v, i) {
+      var u = prog(t, v[2], 0.35);
+      if (u <= 0) return;
+      var x = 330 + i * 420;
+      var drop = (1 - oc(u)) * -160;
+      var sag = Math.sin(prog(t, v[2] + 0.35, 1.2) * Math.PI) * 6;
+      ctx.save(); ctx.globalAlpha *= oc(u);
+      panel(x - 170, 900 + drop, 340, 300, 28, PANEL, null);
+      text(v[0], x, 1020 + drop + sag, 160, 900, GREY);
+      text(v[1], x, 1140 + drop, 36, 800, GREY);
+      ctx.restore();
+    });
+  }
+  function scOutro(t, L) {
+    var tm = wt(L, "미라클모닝리그");
+    var qOut = oc(prog(t, tm - 0.25, 0.3));
+    if (qOut < 1) {
+      ctx.save(); ctx.globalAlpha *= 1 - qOut;
+      ctx.save(); enter(t, L.start - 0.1, 0.35);
+      text("다음 주 주인공은?", CX, 700, 72, 900, WHITE);
+      ctx.restore();
+      ["락다운", "빅현욱", "챗지피지기"].forEach(function (n, i) {
+        ctx.save(); enter(t, L.start + 0.15 + i * 0.12, 0.35);
+        teamChip(n, CX, 880 + i * 120);
+        ctx.restore();
+      });
+      ctx.restore();
+    }
+    if (qOut > 0) {
+      ctx.save();
+      ctx.globalAlpha *= qOut;
+      ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(CX, 900, 330 + Math.sin(t * 1.2) * 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 900); ctx.lineTo(1080, 900); ctx.stroke();
+      ctx.restore();
+      var lu = prog(t, tm - 0.1, 0.5);
+      drawLogo(CX, 820, lerp(1.35, 1.6, oc(lu)), oc(lu));
+      spaced("ONBALL SCOUTING REPORT", CX, 990, 36, 900, YEL, 4, oc(prog(t, tm + 0.3, 0.4)));
+      spaced("<MIRACLE REPORT>", CX, 1050, 28, 700, GREY, 6, oc(prog(t, tm + 0.45, 0.4)));
+      text("미라클모닝리그 기록은 온볼에서", CX, 1160, 50, 900, WHITE, "center", oc(prog(t, wt(L, "기록은"), 0.4)));
+    }
+  }
+
+  var SCENE_BY_ID = { hook: scHook, ld1: scLd1, ld2: scLd2, ld3: scLd3, ld4: scLd4, bh1: scBh1, bh2: scBh2, bh3: scBh3,
+    cg1: scCg1, cg2: scCg2, cg3: scCg3, cg4: scCg4, cg5: scCg5, cg6: scCg6, cg7: scCg7, outro: scOutro };
+
+  function currentLineIndex(t) {
+    if (!timings) return -1;
+    for (var i = 0; i < timings.lines.length; i++) {
+      var l = timings.lines[i];
+      if (t >= l.start && t < l.end) return i;
+    }
+    if (timings.lines.length && t >= timings.lines[timings.lines.length - 1].end) return timings.lines.length - 1;
+    return -1;
+  }
+  function activeShotIndex(t) {
+    if (!shots.length) return -1;
+    for (var i = 0; i < shots.length; i++) if (t >= shots[i].start && t < shots[i].end) return i;
+    return shots.length - 1;
+  }
+
+  // 자막 상자 투명도: 줄이 바뀔 때 0.12초 페이드, 엔딩 로고가 뜨면 사라짐
+  function captionAlpha(t, line) {
+    if (!line) return 0;
+    if (line.id === "outro") {
+      var tm = wt(line, "미라클모닝리그");
+      return 1 - oc(prog(t, tm - 0.25, 0.3));
+    }
+    var idx = activeShotIndex(t), sh = shots[idx];
+    return oc(prog(t, sh.start, 0.12));
+  }
+  function drawCaptions(t) {
+    if (!Reel.captionsOn()) return;
+    var line = captionLineAt(t);
+    drawCaptionBox(line, captionAlpha(t, line));
+  }
+  function drawNotes(t, lang) {}
+
+  function seek(t) {
+    if (isCaptionLayer) {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+      drawCaptions(t);
+      return;
+    }
+    ctx.save();
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.restore();
+    drawCourtBg(t);
+    var idx = activeShotIndex(t);
+    var line = idx >= 0 ? timings.lines[idx] : null;
+    var outro = lineById("outro");
+    var frameA = 1;
+    if (outro) frameA = 1 - oc(prog(t, wt(outro, "미라클모닝리그") - 0.25, 0.3));
+    if (frameA > 0) { drawHeader(frameA); drawFooter(frameA); }
+    if (line && SCENE_BY_ID[line.id]) {
+      ctx.save();
+      // 장면마다 아주 느린 줌 — 멈춘 프레임이 없게
+      var sh = shots[idx], zu = clamp((t - sh.start) / Math.max(0.5, sh.end - sh.start), 0, 1);
+      var z = 1 + 0.045 * zu;
+      ctx.translate(CX, 940); ctx.scale(z, z); ctx.translate(-CX, -940);
+      SCENE_BY_ID[line.id](t, line, shots[idx]);
+      ctx.restore();
+    }
+    drawCaptions(t);
+  }
+
+  // 효과음: 측정된 단어 시각에 붙는다(보이는 사건마다 하나)
+  buildSfxCues = function () {
+    SFX_CUES = [];
+    if (!timings) return;
+    function L(id) { return lineById(id); }
+    function add(at, kind, gain, id) { SFX_CUES.push({ at: Math.max(0, at), kind: kind, gain: gain, id: id }); }
+    var h = L("hook");
+    if (h) { for (var k = 0; k < 3; k++) add(0.55 + k * 0.42, "tick", 0.5, "hook-w" + k); add(wt(h, "1월"), "pop", 0.7, "hook-badge"); }
+    var l1 = L("ld1"); if (l1) { add(wt(l1, "꽁꽁"), "stamp", 0.8, "lock"); add(wt(l1, "스틸"), "whoosh", 0.4, "steals"); }
+    var l2 = L("ld2"); if (l2) { add(wt(l2, "14"), "pop", 0.6, "ld2-14"); add(wt(l2, "팀") - 0.1, "whoosh", 0.35, "ld2-chart"); }
+    var l3 = L("ld3"); if (l3) { add(wt(l3, "3점"), "whoosh", 0.35, "ld3-in"); add(wt(l3, "32점"), "ding", 0.55, "ld3-32"); }
+    var l4 = L("ld4"); if (l4) add(wt(l4, "단독"), "stamp", 0.8, "ld4-stamp");
+    var b1 = L("bh1"); if (b1) { add(wt(b1, "안팎"), "whoosh", 0.4, "bh1-in"); add(wt(b1, "29점"), "ding", 0.5, "bh1-29"); }
+    var b2 = L("bh2"); if (b2) add(wt(b2, "커리어"), "stamp", 0.85, "career-high");
+    var b3 = L("bh3"); if (b3) add(wt(b3, "배달"), "pop", 0.6, "bh3-first");
+    var c1 = L("cg1"); if (c1) add(wt(c1, "23점"), "ding", 0.55, "cg1-23");
+    var c2 = L("cg2"); if (c2) { add(wt(c2, "턴오버"), "thud", 0.7, "cg2-tov"); add(wt(c2, "팀") - 0.1, "whoosh", 0.35, "cg2-chart"); }
+    var c3 = L("cg3"); if (c3) add(wt(c3, "더블더블"), "pop", 0.6, "cg3-dd");
+    var c4 = L("cg4"); if (c4) add(wt(c4, "반년"), "pop", 0.55, "cg4-tag");
+    var c5 = L("cg5"); if (c5) { add(wt(c5, "레이업"), "whoosh", 0.5, "cg5-layup"); add(wt(c5, "레이업") + 0.35, "stamp", 0.9, "winning-shot"); }
+    var c6 = L("cg6"); if (c6) add(wt(c6, "리바운드"), "pop", 0.55, "cg6-18");
+    var c7 = L("cg7"); if (c7) { add(c7.start + 0.05, "thud", 0.45, "cg7-a"); add(c7.start + 0.5, "thud", 0.45, "cg7-b"); }
+    var o = L("outro"); if (o) add(wt(o, "미라클모닝리그") - 0.1, "ding", 0.6, "logo");
+  };
+
+  window.__reel = {
+    get width() { return WIDTH; },
+    get height() { return HEIGHT; },
+    get fps() { return FPS; },
+    get duration() { return timings ? timings.duration : 0; },
+    ready: ready,
+    seek: seek,
+    get shots() { return shots; },
+    get layers() { return ["captions"]; },
+    get regions() { return Reel.checkRegions(REGIONS); },
+    get holds() { return Reel.checkHolds(HOLDS); },
+    get captionFonts() { return CAPTION_FONTS; },
+    get langSpans() { return Reel.checkLangSpans(LANG_SPANS); },
+    issues: function () { return Reel.issues(); },
+    audio: { narration: "voice/narration.wav", renderSfx: renderSfx },
+    sfxStems: sfxStems,
+    soundCues: soundCues,
+    get marks() {
+      return SFX_CUES.map(function (c) {
+        return { at: c.at, kind: c.kind, sync: !!c.sync };
+      });
+    },
+  };
+})();
+/* SCENE:END */
+</script>
+</body>
+</html>
