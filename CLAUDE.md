@@ -40,6 +40,16 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
   - MCP가 없거나 실패 시 사용자가 SQL Editor에서 수동 실행 (채팅에 SQL 붙여넣기 금지 — 파일 경로만 안내)
 - **`.env.local` 직접 편집 금지** (PreToolUse hook으로 차단됨 — 사용자가 직접 수정)
 
+## 연결 확인 먼저 (2026-10-17 사용자 지시) ⚠
+
+- **「연결이 없다 / 새 세션에서 연결하라」고 말하기 전에, 지금 세션에서 먼저 직접 시험한다.**
+  커넥터(MCP)는 세션 도중에 연결해도 바로 붙는 경우가 있다 — 안내 문서의 "세션 시작 때만 읽힌다"를 믿고
+  확인 없이 "새 세션이 필요해요"라고 했다가 실제로는 그대로 됐다(2026-10-17).
+- 방법: `ToolSearch` 로 `+supabase` 등 서비스 이름을 검색 → 도구가 나오면 읽기 전용 호출(`list_projects` 등)로 실제 응답까지 확인 →
+  그래도 없을 때만 연결 방법을 안내한다.
+- Supabase MCP 는 2026-10-17 부터 연결돼 있다. 이 프로젝트 = `basketball-stats`(project_ref `oqszhjmvcaoerqdcntbj`).
+  미라클 리그 `league_id` = `8eda8257-8907-4bf3-a7de-e5e7fde54a89`. 쓰기 SQL 은 아래 가드레일 그대로.
+
 ## Supabase MCP 사용 규칙 ⚠
 
 - **이 프로젝트의 Supabase project_ref**: `.env.local`의 `NEXT_PUBLIC_SUPABASE_URL` 에서 추출 (`https://<REF>.supabase.co`)
