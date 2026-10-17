@@ -122,6 +122,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
+  // 영상 한 편 = 한 쿼터인 경기 (2026-10-17 사용자 — 미라클 정규전이 「경기 1편 = 1쿼터짜리」로 올라온다).
+  //   대표 영상만 있고 쿼터별 영상이 없으면 쿼터를 나눌 일이 없으므로 쿼터 선택·쿼터 표기를 감춘다.
+  //   기록은 1쿼터로 그대로 저장된다. 영상이 아예 없는 날(4쿼터를 손으로 넘기는 날)과 대회는 그대로 보인다.
+  //   이미 2쿼터 이상으로 넘겨 둔 경우엔 되돌릴 수 있게 보인다.
+  const singleSegment = !isTournament && !showQuarterUi && !!selectedSlot?.youtube_url && currentQuarter === 1
+
   // ── 대회는 "우리 한 팀" 이다 ────────────────────────────────────────
   //   리그는 양 팀 모두 우리 동호회 사람이라 홈·어웨이를 나란히 기록한다.
   //   대회는 상대가 외부 동호회다 — 상대 선수는 명단조차 알 수 없고, 우리 통계에 섞이면 안 된다.
@@ -433,6 +439,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         homeRoster={homeRoster}
                         awayRoster={awayRoster}
                         currentQuarter={currentQuarter}
+                        hideQuarterLabel={singleSegment}
                         leftSide={leftSide}
                         rightSide={rightSide}
                         sideView={sideView}
@@ -444,8 +451,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         setShowBoxscoreModal={setShowBoxscoreModal}
                       />
 
-                      {/* 쿼터 선택 — 기록 중에는 항상 보인다 */}
-                      <QuarterSelector currentQuarter={currentQuarter} setCurrentQuarter={setCurrentQuarter} />
+                      {/* 쿼터 선택 — 영상 한 편이 곧 한 경기(한 쿼터)인 경기에서는 감춘다(singleSegment) */}
+                      {!singleSegment && <QuarterSelector currentQuarter={currentQuarter} setCurrentQuarter={setCurrentQuarter} />}
 
                       {/* 입력 패드 · 상대 점수 안내(대회) · 게스트·임시 선수 · 타팀 임시 출전 */}
                       <RecordingTools

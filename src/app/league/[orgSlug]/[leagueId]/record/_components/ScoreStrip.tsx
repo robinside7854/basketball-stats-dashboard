@@ -6,13 +6,15 @@ import type { GameSlot, RosterPlayer, Setter } from '../_lib/types'
 
 // 컴팩트 스코어 스트립 (기록 중) — 점수 · 기록 내역 · +1 · 교체 · 스탯 + 지금 쿼터 팀파울
 export default function ScoreStrip({
-  selectedSlot, homeRoster, awayRoster, currentQuarter, leftSide, rightSide, sideView, teamFoulsOf,
+  selectedSlot, homeRoster, awayRoster, currentQuarter, hideQuarterLabel = false, leftSide, rightSide, sideView, teamFoulsOf,
   setShowGameLog, setPlusOneConflict, setShowPlusOneModal, setShowSubModal, setShowBoxscoreModal,
 }: {
   selectedSlot: GameSlot
   homeRoster: RosterPlayer[]
   awayRoster: RosterPlayer[]
   currentQuarter: number
+  /** 영상 한 편 = 한 쿼터인 경기 — 팀파울 옆 「1Q」 표기를 감춘다 */
+  hideQuarterLabel?: boolean
   leftSide: 'home' | 'away'
   rightSide: 'home' | 'away'
   sideView: (side: 'home' | 'away') => SideView
@@ -108,7 +110,7 @@ export default function ScoreStrip({
                 : n === 4
                 ? { color: 'var(--mm-yellow)' }
                 : { color: 'var(--mm-muted)' }}
-              title={bonus ? `${v.team.name} 팀파울 ${n}개 — 상대 보너스(자유투) 구간` : `${v.team.name} 팀파울 ${n}개 (${qLabel})`}
+              title={bonus ? `${v.team.name} 팀파울 ${n}개 — 상대 보너스(자유투) 구간` : `${v.team.name} 팀파울 ${n}개${hideQuarterLabel ? '' : ` (${qLabel})`}`}
             >
               팀파울 {n}{bonus && <span>· 보너스</span>}
             </span>
@@ -117,7 +119,7 @@ export default function ScoreStrip({
         return (
           <div className="flex items-center justify-between gap-2 px-3 py-1 border-t border-[color:var(--mm-rule)]">
             {chip(leftSide, 'left')}
-            <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{qLabel}</span>
+            {!hideQuarterLabel && <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{qLabel}</span>}
             {chip(rightSide, 'right')}
           </div>
         )

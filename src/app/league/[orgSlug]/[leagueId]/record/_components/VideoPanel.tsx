@@ -234,7 +234,7 @@ export default function VideoPanel({
             }}
           >
             <ArrowLeftRight size={14} strokeWidth={2.5} aria-hidden />
-            {`${currentQuarter}쿼터 화면만 좌우 반전`}{sidesFlipped ? ' · 켜짐' : ''}
+            {showQuarterUi ? `${currentQuarter}쿼터 화면만 좌우 반전` : '화면 좌우 반전'}{sidesFlipped ? ' · 켜짐' : ''}
           </button>
         )}
         {/* 되돌아올 길 — 쿼터 영상이 없는 날도 나중에 쿼터별로 쪼갠 영상을 붙일 수 있어야 한다 */}
