@@ -60,3 +60,13 @@ Not checked: 유튜브 클립 실제 화면(다운로드 전), "커리어 2번�
 Decisions: 문상혁 리바운드 18로 수정, "속공" 제외, 김로빈 8스틸 추가
 Needs from the owner: 대본 승인, 유튜브 허용
 Requests to next stage: 승인 후 목소리 1회 생성, 클립 다운로드 시험
+12. (r2) 결과물은 직접 내려받는 mp4 — 사이트 배포·master 없음, 세션에서 상의 — 기록함
+
+## Stage report: voice (1차)
+Done: ElevenLabs(기본 모델 eleven_multilingual_v2, 환경 변수 voice id) 2회 합성. take1 원본 78.8초 · take2 84.4초(같은 대본도 테이크마다 길이가 다름)
+Files left: voice-v1-rate1.2/ (take1 @1.2배, 71.3초) · voice-v2-take2/ (take2 @1.3배) · voice-take1-1.3/ (take1 원본을 1.3배로 늘인 줄별 wav) · voice/ = take1 @1.3배 설치본 66.5초 · listen/*.m4a (사용자 청취용)
+Checked: 길이 실측, 무음 게이트 통과(1초 넘는 의도치 않은 공백 없음)
+Not checked: STT(받아쓰기) 검사 — faster-whisper 없음. 발음·숫자 읽기는 사용자 청취로 확인 필요
+Decisions: 속도만으로는 1분 미만 불가(1.3배가 상한, 66.5초) → 사용자에게 문장 다듬기 여부 문의
+Needs from the owner: 1.2/1.3배 청취 후 속도 선택, 문장 다듬기 승인
+Requests to next stage: 확정 후 voice/ 고정, 그 타이밍에 장면 제작. 유튜브 다운로드는 동작 확인(yt-dlp 포맷 목록 OK)
