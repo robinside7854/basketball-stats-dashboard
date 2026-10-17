@@ -786,8 +786,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                 {player?.plus_one ? '+1 ON' : '+1 OFF'}
               </button>
             </div>
-            {/* Delete */}
-            {!confirmDelete ? (
+            {/* Delete — 지울 곳(onDeleted)을 넘긴 화면(팀 명단 편집기)에서만. 전역 카드에서는 포지션·이름 수정만 (2026-10-17) */}
+            {!onDeleted ? null : !confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
                 className="w-full py-2 rounded-sm text-xs font-bold uppercase tracking-[0.14em] cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"

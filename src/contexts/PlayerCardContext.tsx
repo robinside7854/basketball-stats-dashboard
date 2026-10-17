@@ -8,12 +8,14 @@
 // - 모달 코드는 처음 열 때 받는다(next/dynamic) — 열지 않는 화면은 비용 0.
 // - 프로바이더 밖(비공개 리그 게이트·리그 트리 바깥)에서는 `useOpenPlayerCard()` 가 null —
 //   `<PlayerName>` 은 그때 평범한 글자로 그린다.
-// - 편집 전용 카드(팀 명단 편집기 — isEditMode·저장 콜백)는 이 전역 카드가 아니라 그 화면 자기 모달을 쓴다.
+// - (2026-10-17) 어드민·CEO 는 이 전역 카드에서도 「편집」(이름·포지션·사진·+1)이 열린다 — 삭제는 팀 명단 편집기에서만.
 // - (2026-10-15) 카드는 **연 화면의 분기**로 열린다(quarterId) — 스탯 탭에서 4분기를 보다 이름을 누르면 카드도 4분기.
 //   없거나 'all' 이면 전체 기간. 카드 안 「나와 비교」는 카드를 닫고 이 프로바이더가 비교 시트를 띄운다
 //   (카드 안에 겹쳐 띄우면 두 창이 Esc·Tab 을 서로 빼앗는다 — Sheet 의 usePlayerCardOpen 주석).
 import { createContext, useCallback, useContext, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import type { PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
@@ -37,6 +39,8 @@ const OpenStateContext = createContext(false)
 
 export function PlayerCardProvider({ leagueId, children }: { leagueId: string; children: React.ReactNode }) {
   const [current, setCurrent] = useState<{ id: string; name: string; quarterId: string | null; tab?: PlayerTabKey } | null>(null)
+  const { isEditMode, leagueHeaders } = useLeagueEditMode()
+  const router = useRouter()
   const [compare, setCompare] = useState<{ ids: [string, string]; quarterId: string | null } | null>(null)
   const open = useCallback((args: OpenPlayerCardArgs) => {
     if (!args.playerId) return
@@ -58,6 +62,9 @@ export function PlayerCardProvider({ leagueId, children }: { leagueId: string; c
             initialQuarterId={current.quarterId}
             initialTab={current.tab}
             onClose={() => setCurrent(null)}
+            isEditMode={isEditMode}
+            leagueHeaders={leagueHeaders}
+            onSaved={() => router.refresh()}
             onCompare={(ids, quarterId) => { setCurrent(null); setCompare({ ids, quarterId }) }}
           />
         </div>
