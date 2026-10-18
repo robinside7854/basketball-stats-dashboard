@@ -538,7 +538,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         aria-live="polite"
         aria-label={captionOverride
           ? `${captionOverride.primary}, ${currentIdx + 1}/${clips.length}`
-          : `${clip.player_name} — ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}, ${currentIdx + 1}/${clips.length}`}
+          : `${clip.player_name} — ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}${clip.assist_player_name ? `, ${clip.assist_player_name} 어시스트` : ''}, ${currentIdx + 1}/${clips.length}`}
       >
         <div ref={containerRef} className="w-full h-full" />
         {/* 스코어보드 오버레이 (option A — 상단 · 항상 표시 · pointer-events-none 로 클릭 통과) */}
@@ -646,8 +646,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           title={captionOverride
             ? captionOverride.primary
             : `${clip.player_number ? `#${clip.player_number} ` : ''}${clip.player_name} · ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}`}
+          // 어시스트는 둘째 줄 맨 앞 — 첫 줄은 폰에서 잘리기 쉬워 「내 기록」의 어시스트 클립이 왜 내 것인지 안 보였다
           subtitle={captionOverride?.secondary
-            ?? ([clip.home_team_name, clip.away_team_name].filter(Boolean).join(' vs ') || undefined)}
+            ?? ([clip.assist_player_name ? `${clip.assist_player_name} 어시스트` : null, [clip.home_team_name, clip.away_team_name].filter(Boolean).join(' vs ') || null].filter(Boolean).join(' · ') || undefined)}
           index={currentIdx}
           total={clips.length}
           showRotateHint={rotateHint}
@@ -741,6 +742,13 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
                 <PlayerName id={clip.player_id} name={clip.player_name} hitArea={false} />
                 <span className="mx-1.5" aria-hidden>·</span>
                 {SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}
+                {/* 어시스트한 선수 — 「내 기록」에 어시스트 클립이 섞여 있어도 왜 내 클립인지 보이게 (2026-10-18) */}
+                {clip.assist_player_name && (
+                  <>
+                    <span className="mx-1.5" aria-hidden>·</span>
+                    <PlayerName id={clip.assist_player_id ?? null} name={clip.assist_player_name} hitArea={false} /> 어시스트
+                  </>
+                )}
               </>
             )}
             <span className="mx-1.5" aria-hidden>·</span>
