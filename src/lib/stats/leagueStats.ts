@@ -256,6 +256,8 @@ export async function computeLeagueStats(
 
   // 출전 시간 추정 재료 — 선수별·경기별 이벤트 시각과, 경기별 마지막 이벤트 시각(영상 길이 대용)
   const evTimes: Record<string, Record<string, number[]>> = {}
+  /** 선수별 「이 조회에 걸린 이벤트가 있는 경기」 — 팀 필터에서 출전시간 행을 거르는 데 쓴다 */
+  const teamEventGames: Record<string, Set<string>> = {}
   const gameSpan: Record<string, number> = {}
 
   // 경기 길이(= 마지막 이벤트 시각)는 아래 집계 필터와 무관하게 전체 이벤트에서 구한다.
@@ -273,6 +275,8 @@ export async function computeLeagueStats(
     const pid = e.league_player_id
     const s = ensure(pid)
     const gId = e.league_game_id
+    if (!teamEventGames[pid]) teamEventGames[pid] = new Set()
+    teamEventGames[pid].add(gId)
 
     // 교체(sub_in/out)도 코트에 있었다는 증거라 출전 구간 재료에는 포함한다
     const vts = e.video_timestamp
@@ -384,6 +388,8 @@ export async function computeLeagueStats(
     if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
       const as = ensure(e.related_player_id)
       as.ast++
+      if (!teamEventGames[e.related_player_id]) teamEventGames[e.related_player_id] = new Set()
+      teamEventGames[e.related_player_id].add(gId)
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
       gpMap[e.related_player_id].add(gameToDate[gId] ?? gId)
       if (e.team_id) {
@@ -416,6 +422,10 @@ export async function computeLeagueStats(
     if (!m.league_player_id) continue
     const s = statsMap[m.league_player_id]
     if (!s) continue
+    // ⚠ 팀 필터(teamId)일 때 출전시간 행은 「이 팀으로 기록이 남은 경기」만 센다 (2026-10-18).
+    //   league_player_minutes 에는 팀이 없어서, 거르지 않으면 그 선수가 **다른 팀으로** 뛴 날까지
+    //   이 팀의 출전일(R)에 들어갔다 — 팀 탭 「팀별 선수」에서 빅현욱 소속 김로빈 R 이 5 → 26 으로 보였다.
+    if (teamId && !teamEventGames[m.league_player_id]?.has(m.league_game_id)) continue
     if (!gpMap[m.league_player_id]) gpMap[m.league_player_id] = new Set()
     gpMap[m.league_player_id].add(gameToDate[m.league_game_id] ?? m.league_game_id)
     // 명단 행이 있는 (선수, 경기) 는 아래 이벤트 추정으로 덮지 않는다 — 어느 쪽이든 여기서 처리했다
