@@ -2,7 +2,7 @@
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import PlayerName from '@/components/league/ui/PlayerName'
 import HeadToHeadSection from '@/components/league/HeadToHeadSection'
-import TeamInsightsSection from '@/components/league/TeamInsightsSection'
+import TeamInsightView, { useTeamInsights } from '@/components/league/TeamInsightsSection'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
@@ -20,6 +20,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
+import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import TeamFormLine from '@/components/league/nba/TeamFormLine'
@@ -1180,6 +1181,9 @@ function LeagueTeamsPageInner() {
   // 사용자가 고른 팀은 유지하되, 분기를 바꿔 그 팀이 사라지면 다시 1위로 폴백한다
   // (별도 effect 없이 파생값으로 처리 — setState 루프가 생기지 않는다).
   const [statsTeamKey, setStatsTeamKey] = useState<string | null>(null)
+  // 같은 팀 탭 아래에서 무엇을 볼지 — 선수 기록 / 어시스트 / 공격 유형 (2026-10-18 두 섹션 합침)
+  const [teamView, setTeamView] = useState<'players' | 'assist' | 'shots'>('players')
+  const insights = useTeamInsights(leagueId, selectedQId, teamView !== 'players')
   const activeStatsTeamKey =
     statsTeamKey && standings.some(s => s.identityKey === statsTeamKey)
       ? statsTeamKey
@@ -1445,8 +1449,7 @@ function LeagueTeamsPageInner() {
         {/* ── 섹션 1.5: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
         <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} myTeamKey={myIdentityKey} />
 
-        {/* ── 섹션 1.6: 시즌 어시스트 · 공격 유형 (2026-10-12) — 날짜별 박스스코어의 두 탭을 분기·전체로 쌓은 것 ── */}
-        <TeamInsightsSection leagueId={leagueId} quarterId={selectedQId} teamOrder={standings.map(s => s.identityKey)} />
+        {/* 「시즌 어시스트 · 공격 유형」 섹션은 2026-10-18 아래 「팀별 선수」의 보기로 합쳤다 — 팀 필터가 두 벌이었다 */}
 
         {/* ── 섹션 2: 팀별 선수 ── */}
         <div className="space-y-3">
@@ -1454,9 +1457,22 @@ function LeagueTeamsPageInner() {
           <SectionCard variant="standalone" pad="none" ariaLabel="팀별 선수">
           <SectionHeader
             title="팀별 선수"
-            description="이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시"
+            description="팀을 고르고 선수 기록 · 어시스트 · 공격 유형을 바꿔 봐요"
           />
           <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-3">
+            {/* 무엇을 볼지 — 팀 탭은 아래 하나만 쓴다 */}
+            <SegmentedTabs
+              ariaLabel="팀별 보기"
+              value={teamView}
+              onChange={setTeamView}
+              fullWidth
+              items={[
+                { key: 'players', label: '선수 기록' },
+                { key: 'assist', label: '어시스트' },
+                { key: 'shots', label: '공격 유형' },
+              ] as const}
+            />
+            {teamView === 'players' && (<>
             {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
                 묶음 단위로 줄바꿈하게 두고 버튼은 44px 터치 높이·줄바꿈 금지. */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1513,6 +1529,7 @@ function LeagueTeamsPageInner() {
               {/* 「숫자 읽는 법」 — 스탯 탭과 같은 시트(glossary.ts READING_GUIDE 하나). 종전 팀 탭 전용 접힘 상자는 없앴다(2026-10-15) */}
               <StatsGlossarySheet className="shrink-0" />
             </div>
+            </>)}
 
 
           {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).
@@ -1600,6 +1617,14 @@ function LeagueTeamsPageInner() {
                   <span className="text-xs font-bold tracking-wider ml-1" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
                 </div>
                 <div className="px-4 py-3 pl-5 lg:px-6 lg:py-4">
+                  {teamView !== 'players' ? (
+                    <TeamInsightView
+                      data={insights}
+                      teamKey={s.identityKey}
+                      view={teamView}
+                      scopeText={selectedQId === 'all' ? '시즌 전체' : '이 분기'}
+                    />
+                  ) : (<>
                   {/* 2026-08-10: "팀 순위 화면 사진 0건" 피드백 대응 — 로스터의 4:5 사진 + 팀컬러
                       스트립 패턴을 그대로 재사용(새 패턴 만들지 않음). 표 위에 얹되 기본 접힘
                       (<details>, 로 세로 증가 0 — 스탯 읽는 법 안내와 동일한 검증된 패턴 재사용).
@@ -1660,6 +1685,7 @@ function LeagueTeamsPageInner() {
                     viewMode={viewMode}
                     statMode={statMode}
                   />
+                  </>)}
                 </div>
               </SectionCard>
               </div>
@@ -1668,7 +1694,7 @@ function LeagueTeamsPageInner() {
         </div>
 
         {/* ── 섹션 3: 비정규 선수 스탯 ── */}
-        {showIrregular && irregularStats.length > 0 && (
+        {teamView === 'players' && showIrregular && irregularStats.length > 0 && (
           <div>
             <SectionCard variant="standalone" pad="none" ariaLabel="비정규 선수">
               <SectionHeader
