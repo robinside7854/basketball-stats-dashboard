@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
-import { AlertTriangle, Check, CircleCheckBig, PlayCircle, Trash2, Undo2 } from 'lucide-react'
+import { AlertTriangle, Check, CircleCheckBig, FileUp, PlayCircle, Trash2, Undo2 } from 'lucide-react'
 import { sortJerseyNum } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -10,6 +10,7 @@ import EventInputPad from '@/components/record/EventInputPad'
 import SubstitutionPanel from '@/components/record/SubstitutionPanel'
 import LiveStatsPanel from '@/components/record/LiveStatsPanel'
 import EventLogPanel from '@/components/record/EventLogPanel'
+import AutoImportPanel from '@/components/record/AutoImportPanel'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import { useEditMode } from '@/contexts/EditModeContext'
@@ -102,6 +103,9 @@ function RecordPageInner() {
   const [newPlayerNum, setNewPlayerNum] = useState('')
   const [newPlayerName, setNewPlayerName] = useState('')
   const [addingPlayer, setAddingPlayer] = useState(false)
+
+  // 자동 기록(hoops-autostat) 검토 패널
+  const [showAutoImport, setShowAutoImport] = useState(false)
 
   const { currentGame, currentQuarter, setCurrentGame, setCurrentQuarter, ytPlayer } = useGameStore()
   const { onCourt, setLineup, resetLineup } = useLineupStore()
@@ -777,6 +781,15 @@ function RecordPageInner() {
                   <span className="text-[var(--mm-muted)] text-xs">코트:{onCourt.length}</span>
                 </div>
               )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAutoImport(true)}
+                className="h-11 min-h-11 gap-1 text-xs border-[var(--mm-rule)] text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] px-2.5 cursor-pointer"
+              >
+                <FileUp size={16} aria-hidden />
+                자동 기록 불러오기
+              </Button>
               {gameComplete ? (
                 <span className="inline-flex items-center gap-1 text-green-400 text-sm font-semibold">
                   <Check size={16} aria-hidden />
@@ -811,6 +824,16 @@ function RecordPageInner() {
           )}
         </div>
       </div>
+
+      {showAutoImport && currentGame && (
+        <AutoImportPanel
+          gameId={currentGame.id}
+          youtubeUrl={currentGame.youtube_url}
+          players={activePlayers}
+          onClose={() => setShowAutoImport(false)}
+          onSaved={handleEventSaved}
+        />
+      )}
 
       {currentGame ? (
         <div className="lg:grid lg:grid-cols-3 lg:gap-4">
