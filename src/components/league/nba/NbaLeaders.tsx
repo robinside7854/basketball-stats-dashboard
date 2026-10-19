@@ -1,6 +1,6 @@
 'use client'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
-// 미라클모닝 브랜드 — 리그 리더 (7카테고리 top3 · 자유투는 2026-10-13 뺐다)
+// 미라클모닝 브랜드 — 리그 리더 (6카테고리 top3 · 자유투 2026-10-13 · 3점 2026-10-19 뺐다)
 // 팔레트: 노랑/검정/화이트 (mm-* 변수)
 // 각 카드: 카테고리 라벨 + Top3 (프로필 사진 + 이름 + 값 모두 크게)
 // 1위(top): 노랑 배경 + 검정 잉크 하이라이트
@@ -13,7 +13,6 @@ import { BarChart3 } from 'lucide-react'
 // 리더 카드 클릭 시에만 열리는 모달 — 초기 홈 번들에서 분리
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import SectionCard from '@/components/league/ui/SectionCard'
-import { ProgressBar } from '@/components/league/ui/viz'
 import type { PlayerStat } from '@/types/league'
 import { leaderMinRounds } from '@/lib/stats/eligibility'
 import Chip from '@/components/league/ui/Chip'
@@ -49,11 +48,11 @@ interface CategoryDef {
 const CATEGORIES: CategoryDef[] = [
   { key: 'ppg',    term: '득점',     label: '득점',       format: v => v.toFixed(1) },
   { key: 'rpg',    term: '리바',     label: '리바운드',   format: v => v.toFixed(1) },
+  // 공격 리바운드는 리바운드 바로 옆, 3점 성공은 뺐다(운영진 2026-10-19 — 칩이 한 줄에 다 안 들어갔다)
+  { key: 'orp',    term: '공격리바', label: '공격 리바운드', format: v => v.toFixed(1) },
   { key: 'apg',    term: '어시',     label: '어시스트',   format: v => v.toFixed(1) },
-  { key: 'fg3m',   term: '3점',      label: '3점 성공',   format: v => v.toFixed(1), get: p => (p.gp > 0 ? p.fg3m / p.gp : 0) },
   { key: 'spg',    term: '스틸',     label: '스틸',       format: v => v.toFixed(1) },
   { key: 'bpg',    term: '블락',     label: '블락',       format: v => v.toFixed(1) },
-  { key: 'orp',    term: '공격리바', label: '공격 리바운드', format: v => v.toFixed(1) },
   // 자유투 성공률 카드는 2026-10-13 사용자 요청으로 홈에서 뺐다(subFormat·minAttempts 는 백분율 카드용으로 남겨 둠).
 ]
 
@@ -122,8 +121,9 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
           <EmptyState variant="compact" icon={BarChart3} title="아직 기록된 스탯이 없습니다" />
         ) : (
           <>
-            {/* 모바일 전용 카테고리 chip 필터 · sm+ 는 그리드로 전체 노출 */}
-            <div className="sm:hidden flex overflow-x-auto scrollbar-hide gap-1.5 px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+            {/* 모바일 전용 카테고리 chip 필터 · sm+ 는 그리드로 전체 노출.
+                가로 스크롤 없이 3칸 × 2줄로 다 보이게 한다(2026-10-19) */}
+            <div className="sm:hidden grid grid-cols-3 gap-1.5 px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               {CATEGORIES.map(cat => {
                 const active = cat.key === selectedCatKey
                 return (
@@ -141,7 +141,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
             </div>
           {/* PC 폭(1280)에서 2열이면 카드 안 이름과 값 사이가 텅 비었다 → lg 3열 · xl 4열.
               카드 폭이 ~260px 까지 좁아지므로 lg+ 에서 사진·글자를 한 단계 줄인다. */}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 ${narrow ? '' : 'lg:grid-cols-3 xl:grid-cols-4'} gap-3 p-4 sm:gap-4 sm:p-5 lg:p-6`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${narrow ? '' : 'lg:grid-cols-3'} gap-3 p-4 sm:gap-4 sm:p-5 lg:p-6`}>
             {CATEGORIES.map(cat => {
               const eligible = players.filter(p => {
                 if (p.gp < effectiveMinGP) return false
@@ -175,12 +175,9 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                     </h4>
                   </div>
 
-                  {/* Top3 — 이름과 값 사이를 「1위 대비 막대」로 채운다(2026-10-12).
-                      종전엔 이름은 왼쪽 끝, 값은 오른쪽 끝이라 그 사이 빈칸이 아무 뜻이 없었다.
-                      막대 길이 = 값 / 1위 값 → 1~3위 격차가 한눈에 보인다. */}
+                  {/* Top3 — 「1위 대비 막대」는 2026-10-19 운영진 요청으로 뺐다(이름 아래 출전일만) */}
                   <div className="p-1.5 sm:p-2">
                     {(() => {
-                      const topVal = valueOf(cat, top3[0])
                       return top3.map((p, i) => {
                       const isTop = i === 0
                       const photo = photoMap[p.player_id]
@@ -237,7 +234,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                             )}
                           </span>
 
-                          {/* 이름 + (1위 대비 막대 · 라운드 수) */}
+                          {/* 이름 + 출전일 */}
                           <span className="min-w-0">
                             {/* 선수명은 본문체 — 유니폼체(좁음) + 한글에 무효한 uppercase 제거 */}
                             <span
@@ -247,17 +244,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                             >
                               {p.name}
                             </span>
-                            <span className="flex items-center gap-2 mt-1.5">
-                              <ProgressBar
-                                value={v}
-                                max={topVal}
-                                height={5}
-                                color={isTop ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)'}
-                                className="flex-1 min-w-0"
-                                label={`1위 대비 ${topVal > 0 ? Math.round((v / topVal) * 100) : 0}%`}
-                              />
-                              <span className="t-label font-medium shrink-0 whitespace-nowrap">{p.gp}일</span>
-                            </span>
+                            <span className="block t-label font-medium mt-1 whitespace-nowrap">{p.gp}일 출전</span>
                           </span>
 
                           {/* 값 큰 숫자 + FT% 같은 subFormat (성공/시도) */}

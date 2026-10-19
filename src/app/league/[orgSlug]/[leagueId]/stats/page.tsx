@@ -43,7 +43,16 @@ const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
 type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'
-type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
+type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'ts_pct'|'shot_mix'
+/** 모바일 정렬 칩 묶음 — 세 모드(기본·슈팅·고급)의 열 key 를 한 표로. 여기 없는 열은 「기타」 줄로 간다 */
+const CHIP_GROUPS: { title: string; keys: string[] }[] = [
+  { title: '공격', keys: ['ppg', 'pts', 'apg', 'ast', 'topg', 'tov', 'fgm', 'fg3m', 'ftm'] },
+  { title: '리바운드', keys: ['rpg', 'reb', 'orp', 'oreb', 'drp', 'dreb'] },
+  { title: '수비', keys: ['spg', 'stl', 'bpg', 'blk'] },
+  { title: '성공률', keys: ['fg_pct', 'fg2_pct', 'fg3_pct', 'ft_pct'] },
+  { title: '효율', keys: ['efg_pct', 'ts_pct', 'shot_mix', 'at_ratio', 'a1_total'] },
+  { title: '비중', keys: ['trb_pct', 'usg_pct'] },
+]
 type StatMode = 'basic'|'shooting'|'advanced'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
@@ -442,8 +451,8 @@ function LeagueStatsPageInner() {
     { key: 'gp', label: '출전', term: 'R' }, { key: 'ppg', label: '득점', term: '득점' },
     { key: 'rpg', label: '리바', term: '리바' }, { key: 'orp', label: '공리', term: '공리' }, { key: 'drp', label: '수리', term: '수리' },
     { key: 'apg', label: '어시', term: '어시' }, { key: 'spg', label: '스틸', term: '스틸' }, { key: 'bpg', label: '블락', term: '블락' },
-    { key: 'topg', label: '턴오버', term: '턴오버' }, { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' },
-    { key: 'ft_pct', label: '자유투율', term: 'FT%' }, { key: 'efg_pct', label: '유효야투', term: 'eFG%' },
+    { key: 'topg', label: '턴오버', term: '턴오버' },
+    // 성공률(야투·3점·자유투·eFG)은 「슈팅」 탭에만 둔다 — 기본과 슈팅에 같은 열이 겹쳤다(운영진 2026-10-19)
   ]
   const TOTAL_COLS: { key: SortKey; label: string; term: string }[] = [
     { key: 'gp', label: '출전', term: 'R' }, { key: 'pts', label: '득점', term: 'PTS' },
@@ -451,7 +460,6 @@ function LeagueStatsPageInner() {
     { key: 'ast', label: '어시', term: 'AST' }, { key: 'stl', label: '스틸', term: 'STL' }, { key: 'blk', label: '블락', term: 'BLK' },
     { key: 'tov', label: '턴오버', term: 'TOV' },
     { key: 'fgm', label: '야투', term: 'FGM' }, { key: 'fg3m', label: '3점', term: '3PM' }, { key: 'ftm', label: '자유투', term: 'FTM' },
-    { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' }, { key: 'ft_pct', label: '자유투율', term: 'FT%' },
     // MIN 은 누적 뷰에만 둔다 — 교체 기록이 거의 없어 이벤트 시각으로 추정한 값이라
     // 하루 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
     { key: 'minutes_est', label: '시간', term: 'MIN' },
@@ -467,6 +475,7 @@ function LeagueStatsPageInner() {
     { key: 'fg2_pct',  label: '2점률',    term: '2P%', desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
     { key: 'fg3_pct',  label: '3점률',    term: '3P%', desc: '3점 야투 성공률 · 3PM/3PA' },
     { key: 'ft_pct',   label: '자유투율', term: 'FT%', desc: '자유투 성공률 · FTM/FTA' },
+    { key: 'efg_pct',  label: '유효야투', term: 'eFG%', desc: '유효 야투율 · (FGM+0.5×3PM)/FGA' },
     { key: 'ts_pct',   label: '진실야투', term: 'TS%', desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
     { key: 'shot_mix', label: '슛 분포',  term: '3P share', desc: '골밑 · 레이업 · 미들 · 3점 시도 비중 막대 (정렬은 3점 비중)' },
   ]
@@ -497,6 +506,7 @@ function LeagueStatsPageInner() {
       fg2_pct:     p.fg2_pct ?? 0,
       fg3_pct:     p.fg3_pct ?? 0,
       ft_pct:      p.ft_pct ?? 0,
+      efg_pct:     p.efg_pct ?? 0,
       ts_pct:      (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
       // shot_mix 정렬용 프록시 = 3점 비중 (내부적으로 스택 막대는 DS/LU/MD/3P 모두 렌더)
       shot_mix:    p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
@@ -537,6 +547,7 @@ function LeagueStatsPageInner() {
     fg2_pct: p => p.fga - p.fg3a,
     fg3_pct: p => p.fg3a,
     ft_pct: p => p.fta,
+    efg_pct: p => p.fga,
     ts_pct: p => p.fga + p.fta,
     shot_mix: p => p.fga,
   }
@@ -778,16 +789,28 @@ function LeagueStatsPageInner() {
               : statMode === 'shooting'
               ? { cols: SHOOTING_COLS.map(c => ({ key: c.key as string, label: c.label })), active: shootSortKey as string, dir: shootSortDir, onPick: (k: string) => handleShootSort(k as typeof shootSortKey) }
               : { cols: ADV_COLS.map(c => ({ key: c.key as string, label: c.label })), active: advSortKey as string, dir: advSortDir, onPick: (k: string) => handleAdvSort(k as typeof advSortKey) }
+            // 부문을 공격·리바운드·수비… 로 묶어 줄마다 보인다 — 한 줄 가로 스크롤에 15칸이 늘어서 있었다(운영진 2026-10-19)
+            const groups = CHIP_GROUPS
+              .map(g => ({ title: g.title, cols: chipRow.cols.filter(c => g.keys.includes(c.key)) }))
+              .filter(g => g.cols.length > 0)
+            const grouped = new Set(groups.flatMap(g => g.cols.map(c => c.key)))
+            const rest = chipRow.cols.filter(c => !grouped.has(c.key))
+            if (rest.length > 0) groups.push({ title: '기타', cols: rest })
             return (
-              <div className="md:hidden -mx-1 px-1 mb-2 overflow-x-auto" role="group" aria-label="정렬 기준 (TOP 5 함께 바뀜)">
-                <div className="flex gap-1.5 whitespace-nowrap pb-1">
-                  {chipRow.cols.map(({ key, label }) => (
-                    <Chip key={key} as="button" size="sm" onClick={() => chipRow.onPick(key)}
-                      selected={chipRow.active === key}>
-                      <span className="inline-flex items-center gap-0.5">{label}{chipRow.active === key && (chipRow.dir === 'desc' ? <ArrowDown size={14} aria-label="내림차순" /> : <ArrowUp size={14} aria-label="오름차순" />)}</span>
-                    </Chip>
-                  ))}
-                </div>
+              <div className="md:hidden mb-2 space-y-1.5" role="group" aria-label="정렬 기준 (TOP 5 함께 바뀜)">
+                {groups.map(g => (
+                  <div key={g.title} className="flex items-start gap-2">
+                    <span className="shrink-0 w-12 pt-2 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{g.title}</span>
+                    <div className="flex flex-wrap gap-1.5 min-w-0">
+                      {g.cols.map(({ key, label }) => (
+                        <Chip key={key} as="button" size="sm" onClick={() => chipRow.onPick(key)}
+                          selected={chipRow.active === key}>
+                          <span className="inline-flex items-center gap-0.5">{label}{chipRow.active === key && (chipRow.dir === 'desc' ? <ArrowDown size={14} aria-label="내림차순" /> : <ArrowUp size={14} aria-label="오름차순" />)}</span>
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )
           })()}
@@ -895,8 +918,8 @@ function LeagueStatsPageInner() {
                 // 보조 4칸은 고정 우선순위로 고른다 — 표 순서대로 앞 4칸을 쓰면 득점순일 때
                 //   리바운드만 세 번 나오고 어시스트가 빠졌다(2026-10-11). 출전일은 이름 아래에 있다.
                 const subPref: SortKey[] = viewMode === 'avg'
-                  ? ['ppg', 'rpg', 'apg', 'fg_pct', 'spg', 'fg3_pct', 'bpg']
-                  : ['pts', 'reb', 'ast', 'fg_pct', 'stl', 'fg3m', 'blk']
+                  ? ['ppg', 'rpg', 'apg', 'spg', 'bpg', 'topg']
+                  : ['pts', 'reb', 'ast', 'stl', 'fg3m', 'blk']
                 const items: CardItem[] = subPref
                   .filter(k => k !== sortKey)
                   .slice(0, 4)

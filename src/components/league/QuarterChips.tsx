@@ -21,7 +21,7 @@ export function QuarterChips({
         type="button"
         onClick={() => onChange(id)}
         aria-pressed={active}
-        className="shrink-0 px-3.5 py-2 text-sm font-semibold transition-colors cursor-pointer mm-press min-h-[44px] whitespace-nowrap tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+        className="min-w-0 px-1 sm:px-3.5 py-2 text-sm font-semibold transition-colors cursor-pointer mm-press min-h-[44px] whitespace-nowrap tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
         style={active
           ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-chip)' }
           : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }
@@ -40,7 +40,9 @@ export function QuarterChips({
   }
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+    // 가로 스크롤 없이 한 줄에 같은 폭으로 — 칸이 모자라면 다음 줄로 넘어간다(운영진 2026-10-19).
+    //   375px 에서 「전체」+ 분기 4개(5칸)가 한 줄에 들어간다. 넓은 화면은 칸을 늘리지 않고 줄바꿈만 한다.
+    <div className="grid gap-1.5 sm:flex sm:flex-wrap sm:gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(58px, 1fr))' }}>
       {chip('all', allLabel)}
       {quarters.map(q => chip(q.id, q.label, q.isCurrent))}
     </div>

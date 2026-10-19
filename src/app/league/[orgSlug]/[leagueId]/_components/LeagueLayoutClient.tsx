@@ -391,8 +391,8 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 transition: 'transform var(--mm-motion-base) var(--mm-ease-out)',
               }}
             >
-              {/* 아이콘 뒤 알약 — 2px 막대는 작아서 「지금 어디」가 한눈에 안 들어왔다(Taste 리디자인 2026-10-16) */}
-              <span className="block mt-[5px] w-12 h-[30px] rounded-full" style={{ background: 'var(--mm-yellow-soft)', boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--mm-yellow-strong) 22%, transparent)' }} />
+              {/* 아이콘 + 글자를 함께 감싸는 칸 — 아이콘만 감싸면 글자가 밖으로 삐져나와 보였다(운영진 2026-10-19) */}
+              <span className="block mt-1 h-12 rounded-2xl" style={{ width: 'min(60px, calc(100% - 6px))', background: 'var(--mm-yellow-soft)', boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--mm-yellow-strong) 22%, transparent)' }} />
             </span>
           )}
           {mainTabs.map(({ href, label, Icon, ariaLabel }) => {
