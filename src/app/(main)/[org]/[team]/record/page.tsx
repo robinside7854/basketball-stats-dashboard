@@ -781,7 +781,8 @@ function RecordPageInner() {
                   <span className="text-[var(--mm-muted)] text-xs">코트:{onCourt.length}</span>
                 </div>
               )}
-              <Button
+              {/* 마감된 경기에 불러오면 저장된 최종 점수와 어긋난다 — 「이어서 기록하기」 후에만 보인다 */}
+              {!gameComplete && <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setShowAutoImport(true)}
@@ -789,7 +790,7 @@ function RecordPageInner() {
               >
                 <FileUp size={16} aria-hidden />
                 자동 기록 불러오기
-              </Button>
+              </Button>}
               {gameComplete ? (
                 <span className="inline-flex items-center gap-1 text-green-400 text-sm font-semibold">
                   <Check size={16} aria-hidden />

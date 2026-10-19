@@ -142,7 +142,8 @@ export default function AutoImportPanel({ gameId, youtubeUrl, players, onClose, 
   }
 
   function seek(r: ImportRow) {
-    seekTo(r.ts)
+    // 득점 시각(스코어보드 반영)은 슛보다 늦다 — 5초 앞에서 보여 줘야 슛 장면이 보인다
+    seekTo(Math.max(0, r.ts - 5))
     try { ytPlayer?.playVideo() } catch {}
   }
 
@@ -226,7 +227,10 @@ export default function AutoImportPanel({ gameId, youtubeUrl, players, onClose, 
                       {POINTS[r.kind] > 0 && <span>+{POINTS[r.kind]}점</span>}
                       <span className={low ? 'inline-flex items-center gap-1 font-bold text-amber-500' : 'text-[var(--mm-ink-soft)]'}>
                         {low && <AlertTriangle size={16} aria-hidden />}
-                        확신도 {r.confidence == null ? '-' : `${Math.round(r.confidence * 100)}%`}{low && ' (낮음)'}
+                        {/* 득점 자체는 스코어보드로 확실하다 — 0 은 「해설에서 선수 이름을 못 찾음」이라는 뜻 */}
+                        {POINTS[r.kind] > 0 && r.confidence === 0
+                          ? '선수 못 찾음'
+                          : <>{POINTS[r.kind] > 0 ? '선수 확신도' : '확신도'} {r.confidence == null ? '-' : `${Math.round(r.confidence * 100)}%`}{low && ' (낮음)'}</>}
                       </span>
                       {r.source && <span className="text-sm text-[var(--mm-ink-soft)]">출처 {r.source}</span>}
                     </div>
