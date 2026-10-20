@@ -237,7 +237,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[color:var(--mm-ground)] border-0 sm:border border-[color:var(--mm-rule)] rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[88vh] flex flex-col z-10 shadow-2xl mm-modal-in">
+      <div role="dialog" aria-modal="true" aria-label="기록 내역" className="relative bg-[color:var(--mm-ground)] border-0 sm:border border-[color:var(--mm-rule)] rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[88vh] flex flex-col z-10 shadow-2xl mm-modal-in">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-[color:var(--mm-rule)] shrink-0">
@@ -259,7 +259,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 전체 초기화
               </button>
             )}
-            <button onClick={onClose} className="rounded-lg hover:bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+            <button type="button" onClick={onClose} aria-label="닫기" className="rounded-lg hover:bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
               <X size={20} />
             </button>
           </div>

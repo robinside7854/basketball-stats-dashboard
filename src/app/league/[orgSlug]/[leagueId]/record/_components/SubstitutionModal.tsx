@@ -1,6 +1,7 @@
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
 import type { LeaguePlayer } from '@/types/league'
 import type { GameSlot, MinRow, RosterPlayer, Setter } from '../_lib/types'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 // 교체 모달 (호출부가 showSubModal 일 때만 그린다)
 export default function SubstitutionModal({
@@ -22,10 +23,11 @@ export default function SubstitutionModal({
   setHomeRoster: Setter<RosterPlayer[]>
   setAwayRoster: Setter<RosterPlayer[]>
 }) {
+  useEscapeKey(() => setShowSubModal(false))
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowSubModal(false)}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-4 shadow-2xl"
+      <div role="dialog" aria-modal="true" aria-label="선수 교체" className="relative w-full max-w-lg bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl p-4 shadow-2xl"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-black text-[color:var(--mm-ink)]">선수 교체</h3>

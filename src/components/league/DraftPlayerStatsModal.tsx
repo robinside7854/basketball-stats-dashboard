@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { X, BarChart3 } from 'lucide-react'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 export interface DraftStatRow {
   player_id: string
@@ -67,9 +68,10 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
 
   const list = tab === 'avg' ? AVERAGE : CUMULATIVE
 
+  useEscapeKey(onClose)
   return (
     <div className="fixed inset-0 z-[58] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="지난 분기 기록" className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3 border-b border-[color:var(--mm-rule)] flex items-center gap-2">
           <BarChart3 size={16} className="text-blue-400" />
           <div className="flex-1 min-w-0">
@@ -78,7 +80,7 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
             </p>
             <p className="text-xs text-[color:var(--mm-muted)]">{prevQuarterLabel ? `${prevQuarterLabel} 기록` : '지난 분기 기록'} · 드래프트 풀 내 랭킹</p>
           </div>
-          <button onClick={onClose} className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer"><X size={20} /></button>
+          <button type="button" onClick={onClose} aria-label="닫기" className="inline-flex items-center justify-center min-h-11 min-w-11 text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer"><X size={20} aria-hidden /></button>
         </div>
 
         {!row || row.gp <= 0 ? (
