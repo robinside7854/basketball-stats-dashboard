@@ -26,6 +26,9 @@ import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
 import type { QuarterTableRow } from '@/lib/stats/quarterTable'
 import MonthTable, { type MonthRow } from '@/components/league/player/MonthTable'
+import PlayerFormCard from '@/components/league/player/PlayerFormCard'
+import DailyLogTable from '@/components/league/player/DailyLogTable'
+import type { PlayerForm } from '@/lib/stats/playerForm'
 import type { QuarterTotal } from '@/components/league/player/QuarterTable'
 import { positionGroupOf, positionGroupLabel, POSITION_GROUPS, type PositionGroupCode } from '@/lib/league/positionGroup'
 
@@ -76,7 +79,9 @@ type Detail = {
   //   예전엔 result 가 '그날 첫 경기' 결과였다 — 스탯은 하루 합산인데 승패만 한 경기라
   //   어긋났다(2026-08-09 김로빈 8/8: 실제 2승4패인데 첫 경기 승이라 W 로 표시).
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; record?: { wins: number; losses: number; draws: number; games: number }; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
-  game_log?: Array<{ date: string; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
+  /** 요즘 흐름(2026-10-24) — lib/stats/playerForm.ts */
+  form?: PlayerForm | null
+  game_log?: Array<{ date: string; games?: number; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
   win_loss?: {
     // draws — 짧은 쿼터 경기라 동점이 실제로 난다. 예전엔 무를 패로 세서
     //   전적과 승률이 둘 다 틀렸다(2026-08-09). 승률 분모에서는 제외한다.
@@ -221,6 +226,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const [quarterTotal, setQuarterTotal] = useState<QuarterTotal | null>(null)
   // 「분기·월별」 탭 안 보기 — 분기별 | 월별
   const [periodView, setPeriodView] = useState<'quarter' | 'month'>('quarter')
+  // 최근 트렌드 하위 탭 — 요즘 흐름(기본) / 일별 기록 (2026-10-24)
+  const [trendView, setTrendView] = useState<'form' | 'log'>('form')
   const [showEditPanel, setShowEditPanel] = useState(false)
   const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -1461,56 +1468,48 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                 </div>
               )
             })()}
-            {/* ── 최근 트렌드 (월별 성장지표 + 게임 트렌드 + 최근 5R) ── */}
-            {/* 월별 성장지표 */}
-            {shownTab === 'trend' && activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
-              <MonthlyStatsChart data={activeDetail.monthly_stats} />
-            )}
-
-            {/* 게임별 트렌드 라인 — 최소 3경기 이상일 때만 표시 */}
-            {shownTab === 'trend' && activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
-              <GameTrendChart log={activeDetail.game_log} />
-            )}
-
-            {/* 최근 5R (R = 라운드 단위, 같은 날 여러 경기는 합산. 단일 상대 개념 없음) */}
-            {shownTab === 'trend' && detail && detail.recent_games.length > 0 && (
-              <div className="px-5 py-4">
-                <p className="t-label font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>최근 5R</p>
-                <div className="overflow-x-auto">
-                  {/* 셀 크기는 globals.css 의 t-th / t-td 가 정본(가독성 업그레이드 2026-09-18).
-                      모달이 좁아 첫 열은 sticky — 가로로 밀어도 날짜가 남는다. */}
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                        {['날짜','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
-                          <th key={h} className={`t-th ${h === '날짜' ? 'text-left sticky left-0' : 'text-right'}`} style={h === '날짜' ? { color: 'var(--mm-muted)', background: 'var(--mm-panel)' } : { color: 'var(--mm-muted)' }}>{h}</th>
+            {/* ── 최근 트렌드 — 하위 탭: 요즘 흐름(기본) / 일별 기록(월별 성장 + 게임 트렌드 + 일별 표) ── */}
+            {shownTab === 'trend' && (() => {
+              const form = activeDetail?.form ?? null
+              const view = form ? trendView : 'log'
+              return (
+                <>
+                  {form && (
+                    <div className="px-5 pt-4 -mb-2">
+                      <div role="group" aria-label="최근 트렌드 보기" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
+                        {([['form', '요즘 흐름'], ['log', '일별 기록']] as const).map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            aria-pressed={view === key}
+                            onClick={() => setTrendView(key)}
+                            className="px-3 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                            style={view === key
+                              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                              : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }
+                            }
+                          >{label}</button>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.recent_games.map((g, i) => {
-                        const r = g as typeof g & { stl?: number; blk?: number; fg3m?: number; fg3a?: number }
-                        const fgPct  = g.fga > 0 ? Math.round(g.fgm / g.fga * 100) : null
-                        const fg3Pct = (r.fg3a ?? 0) > 0 ? Math.round((r.fg3m ?? 0) / (r.fg3a ?? 1) * 100) : null
-                        return (
-                        <tr key={i} style={{ borderBottom: '1px solid var(--mm-rule)' }} className="last:border-0">
-                          <td className="t-td text-left pr-2 sticky left-0" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}>{g.date?.slice(5) ?? '—'}</td>
-                          <td className="t-td-key text-right">{g.pts}</td>
-                          <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{g.reb}</td>
-                          <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{g.ast}</td>
-                          <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{r.stl ?? 0}</td>
-                          <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{r.blk ?? 0}</td>
-                          <td className="t-td text-right" style={{ color: 'var(--mm-muted)' }}>{g.fgm}/{g.fga}</td>
-                          <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{fgPct != null ? `${fgPct}%` : '—'}</td>
-                          <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
-                        </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+                      </div>
+                    </div>
+                  )}
+                  {view === 'form' && form && <PlayerFormCard form={form} />}
+                  {view === 'log' && (
+                    <>
+                      {activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
+                        <MonthlyStatsChart data={activeDetail.monthly_stats} />
+                      )}
+                      {/* 게임별 트렌드 라인 — 최소 3경기 이상일 때만 표시 */}
+                      {activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
+                        <GameTrendChart log={activeDetail.game_log} />
+                      )}
+                      {/* 일별 기록 (R = 하루, 같은 날 여러 경기는 합산) — 5일씩 쪽 넘김 */}
+                      {detail && detail.recent_games.length > 0 && <DailyLogTable rows={detail.recent_games} />}
+                    </>
+                  )}
+                </>
+              )
+            })()}
           </div>
         )}
       </div>

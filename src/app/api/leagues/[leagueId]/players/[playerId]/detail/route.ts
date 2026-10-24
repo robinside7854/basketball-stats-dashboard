@@ -22,6 +22,7 @@ import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { positionGroupOf, positionGroupLabel, type PositionGroupCode } from '@/lib/league/positionGroup'
 import type { PlayerStat } from '@/types/league'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { buildPlayerForm, type PlayerForm } from '@/lib/stats/playerForm'
 
 // 「선수 숫자는 한 벌」(2026-10-14) — 이 라우트의 합계·하루 평균·순위·백분위·비슷한 선수는 전부
 //   computeLeagueStats(스탯 탭과 같은 결과)에서 나온다(playerTotals.ts). 아래 자체 이벤트 루프는
@@ -379,6 +380,7 @@ export async function GET(
   // ── 집계 단위 (aggregateMap): round=라운드별, game=경기별 ──────
   const aggregateMap: Record<string, GS> = {}
   const unitToFirstGame: Record<string, string> = {}  // unitKey → first gameId
+  const unitGames: Record<string, number> = {}        // unitKey → 그날 뛴 경기 수(요즘 흐름의 경기당 흔들림 재료)
   for (const gId of playedGames) {
     const g = gameMap[gId] as { date?: string } | undefined
     // '라운드' = 경기일(date) 기준 그룹핑 (round_num은 하루 내 슬롯 번호라 부정확)
@@ -387,6 +389,7 @@ export async function GET(
       aggregateMap[unitKey] = { pts:0, reb:0, oreb:0, dreb:0, ast:0, stl:0, blk:0, tov:0, pf:0, fgm:0, fga:0, fg3m:0, fg3a:0, ftm:0, fta:0 }
       unitToFirstGame[unitKey] = gId
     }
+    unitGames[unitKey] = (unitGames[unitKey] ?? 0) + 1
     const s = perGame[gId]
     aggregateMap[unitKey].pts  += s.pts;  aggregateMap[unitKey].reb   += s.reb
     aggregateMap[unitKey].oreb += s.oreb; aggregateMap[unitKey].dreb  += s.dreb
@@ -464,10 +467,10 @@ export async function GET(
     careerHigh[key] = { value: entry.value, date: entry.date, extra: entry.extra, league_name: leagueName }
   }
 
-  // ── Recent 5 units ─────────────────────────────────────────
+  // ── 일별 기록 (최근 → 과거, 전부) ─────────────────────────
+  //   2026-10-24 부터 5일 제한을 없앴다 — 카드가 5일씩 쪽을 나눠 과거까지 넘겨 본다(하루 수는 수십 개라 가볍다).
   const recentGames = playedUnits
     .slice().reverse()
-    .slice(0, 5)
     .map(unitKey => {
       const s = aggregateMap[unitKey]
       const firstGId = unitToFirstGame[unitKey]
@@ -493,10 +496,26 @@ export async function GET(
     const g = firstGId ? (gameMap[firstGId] as { date?: string } | undefined) : undefined
     return {
       date: g?.date ?? unitKey,
+      games: unitGames[unitKey] ?? 1,
       pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk,
       fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a,
     }
   })
+
+  // ── 요즘 흐름 (2026-10-24) ── 평소 범위·꾸준함·지난 경기일은 이 카드 기간의 하루 기록으로,
+  //   분기 비교 문장은 정본(computeLeagueStats) 분기 하루 평균으로 만든다. 규칙은 lib/stats/playerForm.ts.
+  const formCompareP = (async (): Promise<PlayerForm['compare']> => {
+    const target = quarterId ? leagueQuarters.find(q => q.id === quarterId) : curQ
+    if (!target) return null
+    const idx = leagueQuarters.findIndex(q => q.id === target.id)
+    const prev = idx > 0 ? leagueQuarters[idx - 1] : null
+    if (!prev) return null
+    const [cr, pr] = await Promise.all([loadPeriodStats(leagueId, quarterPeriod(target)), loadPeriodStats(leagueId, quarterPeriod(prev))])
+    const c = pickPlayerRow(cr, playerId), p = pickPlayerRow(pr, playerId)
+    if (!c || !p || c.gp <= 0 || p.gp <= 0) return null
+    const avg = (r: PlayerStat) => ({ pts: +(r.pts / r.gp).toFixed(1), reb: +(r.reb / r.gp).toFixed(1), ast: +(r.ast / r.gp).toFixed(1) })
+    return { curLabel: `${qLabel(target)} · ${c.gp}일`, prevLabel: `지난 분기(${qLabel(prev)})`, cur: avg(c), prev: avg(p) }
+  })().catch(() => null)
 
   // ── 순위 · 백분위 · 비슷한 선수 — 스탯 탭과 같은 computeLeagueStats 결과 한 벌 ──
   //   모집단 = 게스트를 뺀 선수(스탯 탭 표와 같다), 자격 = leagueMinRounds(리그 순위 단일 규칙 — eligibility.ts).
@@ -785,6 +804,7 @@ export async function GET(
     rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
     recent_games: recentGames,
     game_log: gameLog,
+    form: buildPlayerForm(gameLog.map(d => ({ date: d.date, games: d.games, pts: d.pts, reb: d.reb, ast: d.ast })), await formCompareP),
     win_loss: winLoss, player_stats, monthly_stats, unit,
     active_streaks: await streaksP,
     dynamic_duo,
