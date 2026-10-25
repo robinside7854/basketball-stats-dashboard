@@ -1,6 +1,6 @@
 'use client'
 // 팀 탭 「승패 흐름」 (2026-10-25 운영진 — 표 대신 작은 점) — 팀마다 경기 단위 승·무·패 점을 날짜순으로 잇고,
-//   최장 연승·연패·지금 흐름을 붙인다. 규칙은 lib/stats/teamStreaks.ts(친선 제외 · 무승부에서 연속 끊김).
+//   최장 연승·연패를 붙인다(「지금 N연승」은 2026-10-25 운영진 요청으로 뺐다). 규칙은 lib/stats/teamStreaks.ts(친선 제외 · 무승부에서 연속 끊김).
 //   날짜가 바뀌는 곳은 점 사이를 조금 띄워 「하루」 단위가 보이게 한다.
 import { useMemo } from 'react'
 import { teamMarks, summarizeStreaks, type StreakGame, type Outcome } from '@/lib/stats/teamStreaks'
@@ -64,9 +64,6 @@ export default function TeamDailyRecordGrid({ games, teams }: { games: GridGame[
             </span>
             <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
               최장 <b style={{ color: 'var(--mm-ink)' }}>{s.longestWin}연승</b> · <b style={{ color: 'var(--mm-ink)' }}>{s.longestLoss}연패</b>
-              {s.current && s.current.result !== 'D' && s.current.length >= 2 && (
-                <span style={{ color: 'var(--mm-muted)' }}> · 지금 {s.current.length}연{s.current.result === 'W' ? '승' : '패'}</span>
-              )}
             </span>
           </div>
           {/* 점 — 날짜가 바뀌면 간격을 넓힌다 */}

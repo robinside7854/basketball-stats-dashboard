@@ -20,7 +20,7 @@ import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
 import PercentileBars from '@/components/league/player/PercentileBars'
 import QuarterTable from '@/components/league/player/QuarterTable'
-import SimilarPlayers, { type SimilarPlayersData } from '@/components/league/player/SimilarPlayers'
+import type { SimilarPlayersData } from '@/components/league/player/SimilarPlayers'
 import PlayerTeamLine, { PlayerTeamHistory, type CurrentTeam, type TeamHistoryEntry } from '@/components/league/player/PlayerTeamLine'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
@@ -1039,8 +1039,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     {/* 세부 능력치 — 묶음별 백분위 막대 (선택한 기간 기준) */}
                     {shownBars && <PercentileBars data={shownBars} scopeLabel={rankScopeOn ? `${posRanks!.label} 백분위` : undefined} />}
 
-                    {/* 비슷한 스타일 선수 — 같은 기간·같은 자격 집단 (줄을 누르면 그 선수 카드로) */}
-                    {activeDetail?.similar_players && <SimilarPlayers data={activeDetail.similar_players} onOpen={onOpenPlayer} />}
+                    {/* 리그 안 「비슷한 스타일 선수」는 2026-10-25 운영진 요청으로 뺐다 — 닮은 NBA 선수만 남긴다 */}
 
                     {/* 닮은 NBA 선수 — 같은 6축 값으로, 재미로 보는 비교 (lib/stats/nbaComps.ts) */}
                     {activeDetail?.hex_radar && <NbaComps radar={activeDetail.hex_radar} />}
