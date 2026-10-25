@@ -39,7 +39,7 @@ export default function NbaComps({ radar, shots }: { radar: HexRadarResult; shot
                 </span>
               </span>
               <span className="mt-0.5 block text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
-                {[m.comp.role, m.strengths.length > 0 ? `둘 다 ${m.strengths.join('·')} 강점` : null, m.shotStyle ? `둘 다 ${m.shotStyle}` : null].filter(Boolean).join(' · ')}
+                {[m.comp.role, m.strengths.length > 0 ? `${m.strengths.join('·')} 강점` : null, m.shotStyle].filter(Boolean).join(' · ')}
               </span>
             </span>
           </li>
