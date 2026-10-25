@@ -1465,11 +1465,11 @@ function LeagueTeamsPageInner() {
         {/* ── 섹션 1.5: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
         <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} myTeamKey={myIdentityKey} />
 
-        {/* ── 일별 성적 (2026-10-25) — 고른 기간 경기일 × 팀, 칸 = 그날 승-패 (정본 dayRecord.ts) ── */}
-        <SectionCard variant="standalone" pad="none" ariaLabel="일별 성적">
+        {/* ── 승패 흐름 (2026-10-25) — 팀마다 경기 단위 점 + 최장 연승·연패 (lib/stats/teamStreaks.ts) ── */}
+        <SectionCard variant="standalone" pad="none" ariaLabel="승패 흐름">
           <SectionHeader
-            title="일별 성적"
-            description={`${selectedQId === 'all' ? '시즌 전체' : '이 분기'} 경기일마다 팀 승패 · 최근 날짜가 위`}
+            title="승패 흐름"
+            description={`${selectedQId === 'all' ? '시즌 전체' : '이 분기'} 경기마다 승·무·패 점 · 최장 연승·연패`}
           />
           <div className="px-4 py-3 lg:px-6 lg:py-4">
             <TeamDailyRecordGrid
