@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { NBA_POOL, NBA_POSITIONS, matchNbaComps, shotMix } from './nbaComps'
 
 test('풀은 100명 안팎, 이름 중복 없음, 6축 0~100', () => {
-  assert.ok(NBA_POOL.length >= 95 && NBA_POOL.length <= 110, `풀 ${NBA_POOL.length}명`)
+  assert.ok(NBA_POOL.length >= 130 && NBA_POOL.length <= 150, `풀 ${NBA_POOL.length}명`)
   assert.equal(new Set(NBA_POOL.map(p => p.name)).size, NBA_POOL.length)
   for (const p of NBA_POOL) {
     assert.equal(p.axes.length, 6, p.name)
@@ -32,7 +32,7 @@ test('비교 가능한 축이 4개 미만이면 빈 배열, 점수는 내림차�
   assert.ok(r[0].score >= r[1].score && r[1].score >= r[2].score)
 })
 
-test('슛 분포는 109명 모두 합 100', () => {
+test('슛 분포는 모두 합 100', () => {
   for (const p of NBA_POOL) assert.equal(p.shots.reduce((s, v) => s + v, 0), 100, p.name)
 })
 
