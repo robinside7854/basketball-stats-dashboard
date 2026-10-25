@@ -28,6 +28,7 @@ import type { QuarterTableRow } from '@/lib/stats/quarterTable'
 import MonthTable, { type MonthRow } from '@/components/league/player/MonthTable'
 import PlayerFormCard from '@/components/league/player/PlayerFormCard'
 import DailyLogTable from '@/components/league/player/DailyLogTable'
+import NbaComps from '@/components/league/player/NbaComps'
 import type { PlayerForm } from '@/lib/stats/playerForm'
 import type { QuarterTotal } from '@/components/league/player/QuarterTable'
 import { positionGroupOf, positionGroupLabel, POSITION_GROUPS, type PositionGroupCode } from '@/lib/league/positionGroup'
@@ -1040,6 +1041,9 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
 
                     {/* 비슷한 스타일 선수 — 같은 기간·같은 자격 집단 (줄을 누르면 그 선수 카드로) */}
                     {activeDetail?.similar_players && <SimilarPlayers data={activeDetail.similar_players} onOpen={onOpenPlayer} />}
+
+                    {/* 닮은 NBA 선수 — 같은 6축 값으로, 재미로 보는 비교 (lib/stats/nbaComps.ts) */}
+                    {activeDetail?.hex_radar && <NbaComps radar={activeDetail.hex_radar} />}
 
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
