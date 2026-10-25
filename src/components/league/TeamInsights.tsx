@@ -211,6 +211,39 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
         </div>
       )}
 
+      {/* ── G2. 공격 리바운드 — 잡은 것 vs 허용한 것 (2026-10-25 운영진) ──
+          허용 = 이 팀 경기에서 상대가 잡은 공격 리바운드(opp_total.oreb, 이벤트의 team_id 기준). 친선 제외 — insights API 와 같은 경기 집합. */}
+      {(() => {
+        const gc = data.game_count
+        const ours = data.team_total.oreb ?? 0
+        const allowed = data.opp_total.oreb ?? 0
+        const per = (v: number) => (gc > 0 ? (v / gc).toFixed(1) : '0.0')
+        const better = ours > allowed
+        return (
+          <div>
+            <p className={sectionHeadCls} style={{ color: 'var(--mm-ink)' }}>
+              공격 리바운드
+              <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>{gc}경기 · 경기당 · 누적</span>
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 max-w-3xl mx-auto">
+              {[
+                { label: '잡은 공격 리바', v: ours, color: better ? 'var(--mm-positive)' : 'var(--mm-ink)' },
+                { label: '허용한 공격 리바', v: allowed, color: better ? 'var(--mm-ink)' : 'var(--mm-negative)' },
+              ].map(c => (
+                <div key={c.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                  <div className="font-jersey font-black tabular-nums leading-none" style={{ color: c.color, fontSize: '28px' }}>{per(c.v)}</div>
+                  <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{c.label}</div>
+                  <div className="text-xs mt-0.5 tabular-nums" style={{ color: 'var(--mm-muted)' }}>경기당 · 누적 {c.v}개</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs mt-1.5 text-center" style={{ color: 'var(--mm-muted)' }}>
+              허용 = 우리 경기에서 상대가 잡은 공격 리바운드 · 차이 {ours - allowed > 0 ? '+' : ''}{ours - allowed}개
+            </p>
+          </div>
+        )
+      })()}
+
       {/* ── H. Advanced Team Metrics ───────────────────────────── */}
       {adv && (
         <div>
