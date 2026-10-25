@@ -1,7 +1,7 @@
 // 실행: node --test --import jiti/register src/lib/stats/nbaComps.test.ts
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { NBA_POOL, matchNbaComps, shotMix } from './nbaComps'
+import { NBA_POOL, NBA_POSITIONS, matchNbaComps, shotMix } from './nbaComps'
 
 test('풀은 100명 안팎, 이름 중복 없음, 6축 0~100', () => {
   assert.ok(NBA_POOL.length >= 95 && NBA_POOL.length <= 110, `풀 ${NBA_POOL.length}명`)
@@ -47,4 +47,14 @@ test('같은 6축이라도 슛 분포가 돌파형이면 돌파형, 포스트형
 test('야투가 적으면 슛 분포를 쓰지 않는다', () => {
   assert.equal(shotMix([3, 2, 1, 4]), null)
   assert.ok(shotMix([30, 10, 20, 40]))
+})
+
+test('포지션을 주면 그 포지션 NBA 선수만 나온다', () => {
+  const axes = [85, 40, 25, 95, 85, 85]
+  for (const g of ['G', 'F', 'C'] as const) {
+    const r = matchNbaComps(axes, 3, undefined, null, g)
+    assert.equal(r.length, 3)
+    for (const m of r) assert.ok(NBA_POSITIONS[m.comp.name].includes(g), `${g} ${m.comp.name}`)
+  }
+  for (const p of NBA_POOL) assert.ok(/^(G|F|C|GF|FC)$/.test(NBA_POSITIONS[p.name] ?? ''), p.name)
 })

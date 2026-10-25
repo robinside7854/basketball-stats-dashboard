@@ -1045,6 +1045,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     {activeDetail?.hex_radar && (
                       <NbaComps
                         radar={activeDetail.hex_radar}
+                        position={positionGroup}
                         shots={activeDetail.shot_breakdown ? [activeDetail.shot_breakdown.layup.a, activeDetail.shot_breakdown.post.a, activeDetail.shot_breakdown.mid.a, activeDetail.shot_breakdown.three.a] : null}
                       />
                     )}

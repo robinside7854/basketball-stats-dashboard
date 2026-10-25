@@ -8,12 +8,13 @@ import type { HexRadarResult } from '@/lib/stats/hexRadar'
 const AXIS_ORDER = ['offense', 'defense', 'rebounding', 'shooting', 'leading', 'efficiency'] as const
 
 /** shots = 우리 선수 야투 시도 수 [레이업, 포스트, 미드, 3점] — 공격 스타일 탭과 같은 shot_breakdown */
-export default function NbaComps({ radar, shots }: { radar: HexRadarResult; shots?: readonly number[] | null }) {
+/** position = 우리 선수 포지션 그룹 — 같은 포지션 NBA 선수만 고른다(포지션이 없으면 전원) */
+export default function NbaComps({ radar, shots, position = null }: { radar: HexRadarResult; shots?: readonly number[] | null; position?: 'G' | 'F' | 'C' | null }) {
   const matches = useMemo(() => {
     if (!radar.qualified) return []
     const byKey = new Map(radar.axes.map(a => [a.key, a.value]))
-    return matchNbaComps(AXIS_ORDER.map(k => byKey.get(k) ?? null), 3, undefined, shotMix(shots))
-  }, [radar, shots])
+    return matchNbaComps(AXIS_ORDER.map(k => byKey.get(k) ?? null), 3, undefined, shotMix(shots), position)
+  }, [radar, shots, position])
   if (matches.length === 0) return null
 
   return (
