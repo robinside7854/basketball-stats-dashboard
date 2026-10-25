@@ -14,7 +14,6 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
-import { ProgressBar } from '@/components/league/ui/viz'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
 import Avatar from '@/components/league/ui/Avatar'
@@ -83,55 +82,19 @@ const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
   efg_pct: '유효야투율',
 }
 
-// 슛 존별 컬러 (SHOT MIX 스택 막대 · 통일 팔레트)
-// 리그 차트 팔레트(--mm-series-*)만 쓴다 — 라이트·다크 값이 globals.css 에 짝으로 있다.
-const SHOT_MIX_COLORS = {
-  ds:    'var(--mm-series-5)',  // 빨강 · 골밑 (덩크/포스트)
-  lu:    'var(--mm-series-2)',  // 주황 · 레이업
-  md:    'var(--mm-series-1)',  // 앰버 · 미드레인지
-  three: 'var(--mm-series-3)',  // 청록 · 3점
-} as const
-
-function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; height?: number }) {
+// 슛 분포 — 막대 없이 글자로만(2026-10-25 운영진: 막대가 화면을 복잡하게 만든다).
+function ShotMixText({ p }: { p: PlayerStat }) {
   const fga = p.fga
   if (fga <= 0) {
     return <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>—</span>
   }
-  const ds    = ((p.ds_a ?? 0) / fga) * 100
-  const lu    = ((p.lu_a ?? 0) / fga) * 100
-  const md    = ((p.md_a ?? 0) / fga) * 100
-  const three = ((p.fg3a  ?? 0) / fga) * 100
-  const segments = [
-    { key: 'ds',    label: 'DS',  pct: ds,    color: SHOT_MIX_COLORS.ds },
-    { key: 'lu',    label: 'LU',  pct: lu,    color: SHOT_MIX_COLORS.lu },
-    { key: 'md',    label: 'MD',  pct: md,    color: SHOT_MIX_COLORS.md },
-    { key: 'three', label: '3P',  pct: three, color: SHOT_MIX_COLORS.three },
-  ] as const
-  const title = segments.filter(s => s.pct > 0).map(s => `${s.label} ${s.pct.toFixed(0)}%`).join(' · ')
-  // width 미지정 = 부모 폭에 맞춰 늘어남 (모바일 카드용), 지정 시 고정 (데스크탑 셀용)
-  const barStyle: React.CSSProperties = {
-    height,
-    borderRadius: '2px',
-    border: '1px solid var(--mm-rule)',
-  }
-  if (width != null) barStyle.width = width
-  else barStyle.width = '100%'
-  return (
-    <div className={width != null ? 'inline-flex items-center' : 'flex items-center'} title={title} aria-label={`슛 분포: ${title}`} style={{ width: width != null ? undefined : '100%' }}>
-      <div className="flex overflow-hidden" style={barStyle}>
-        {segments.map(s => s.pct > 0 && (
-          <div
-            key={s.key}
-            style={{
-              width: `${s.pct}%`,
-              background: s.color,
-              minWidth: s.pct > 0 ? 2 : 0,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  )
+  const parts = [
+    { label: '골밑', a: p.ds_a ?? 0 },
+    { label: '레이업', a: p.lu_a ?? 0 },
+    { label: '미드', a: p.md_a ?? 0 },
+    { label: '3점', a: p.fg3a ?? 0 },
+  ].filter(x => x.a > 0).map(x => `${x.label} ${Math.round((x.a / fga) * 100)}%`)
+  return <span className="text-xs font-bold tabular-nums whitespace-nowrap">{parts.join(' · ')}</span>
 }
 
 // 순위 티어링 — 1위 골드 · 2위 실버 · 3위 브론즈 · 4-10위 에메랄드 · 11위+ 뉴트럴
@@ -245,10 +208,6 @@ function MobileStatCard({
             <div key={it.key} className="min-w-0 flex flex-col justify-end">
               <div className="text-xs font-medium leading-tight break-keep" style={{ color: it.active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{it.label}</div>
               <div className="t-num text-sm font-black mt-0.5 truncate" style={{ color: 'var(--mm-ink)' }}>{it.value}</div>
-              <ProgressBar
-                value={it.ratio ?? 0} max={1} mark={it.mark ?? null} height={5} className="mt-1"
-                label={`${it.label} ${it.value}${it.ratio != null ? ` · 1위 대비 ${Math.round(it.ratio * 100)}%` : ''}`}
-              />
             </div>
           ))}
         </div>
@@ -1124,7 +1083,7 @@ function LeagueStatsPageInner() {
                     footer={
                       <div className="flex items-center gap-2 mt-3">
                         <span className="text-xs font-semibold shrink-0" style={{ color: isMix ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>슛 분포</span>
-                        <div className="flex-1 min-w-0"><ShotMixBar p={p} height={10} /></div>
+                        <div className="flex-1 min-w-0" style={{ color: 'var(--mm-ink-soft)' }}><ShotMixText p={p} /></div>
                       </div>
                     }
                     onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
@@ -1190,7 +1149,7 @@ function LeagueStatsPageInner() {
                               className={active && !low ? 't-td-key' : 't-td'}
                               style={{ color: low ? 'var(--mm-muted)' : active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', ...dividerStyle }}
                               title={low ? '시도 부족 — 순위 대상 아님' : undefined}>
-                            {key === 'shot_mix' ? <ShotMixBar p={p} /> : `${fmt1(val)}%`}
+                            {key === 'shot_mix' ? <ShotMixText p={p} /> : `${fmt1(val)}%`}
                             {active && low && <LowAttemptTag />}
                           </td>
                         )

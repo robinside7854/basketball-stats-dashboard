@@ -20,12 +20,12 @@ export default function NbaComps({ radar, shots }: { radar: HexRadarResult; shot
     <section aria-labelledby="nba-comps-title" className="mt-3">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <h3 id="nba-comps-title" className="text-sm font-black" style={{ color: 'var(--mm-ink)' }}>닮은 NBA 선수</h3>
-        <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>재미로 보는 스타일 비교 · 6축 + 슛 분포</span>
+        <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>닮은 순서 · 6축 + 슛 분포</span>
       </div>
       <ul className="overflow-hidden rounded-sm" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
         {matches.map((m, i) => (
           <li key={m.comp.name} className="flex items-center gap-3 px-3 py-2.5" style={i > 0 ? { borderTop: '1px solid var(--mm-rule)' } : undefined}
-            aria-label={`${m.comp.name}, ${m.comp.team}, 닮음 ${m.score}, ${m.comp.role}`}>
+            aria-label={`${m.comp.name}, ${m.comp.team}, ${m.comp.role}`}>
             <span aria-hidden className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xs font-black"
               style={{ background: m.comp.color, color: '#fff', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)' }}>
               {m.comp.name.replace(/\s/g, '').slice(0, 2)}
@@ -40,12 +40,6 @@ export default function NbaComps({ radar, shots }: { radar: HexRadarResult; shot
               </span>
               <span className="mt-0.5 block text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
                 {[m.comp.role, m.strengths.length > 0 ? `둘 다 ${m.strengths.join('·')} 강점` : null, m.shotStyle ? `둘 다 ${m.shotStyle}` : null].filter(Boolean).join(' · ')}
-              </span>
-              <span className="mt-1 grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-x-2" aria-hidden>
-                <span className="relative block h-2 overflow-hidden rounded-sm" style={{ background: 'var(--mm-rule)' }}>
-                  <span className="absolute inset-y-0 left-0 block rounded-sm" style={{ width: `${Math.max(2, m.score)}%`, background: 'var(--mm-yellow-strong)' }} />
-                </span>
-                <span className="text-right text-xs font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{m.score}</span>
               </span>
             </span>
           </li>
