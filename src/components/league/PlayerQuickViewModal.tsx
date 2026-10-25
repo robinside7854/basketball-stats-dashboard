@@ -1042,7 +1042,12 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     {/* 리그 안 「비슷한 스타일 선수」는 2026-10-25 운영진 요청으로 뺐다 — 닮은 NBA 선수만 남긴다 */}
 
                     {/* 닮은 NBA 선수 — 같은 6축 값으로, 재미로 보는 비교 (lib/stats/nbaComps.ts) */}
-                    {activeDetail?.hex_radar && <NbaComps radar={activeDetail.hex_radar} />}
+                    {activeDetail?.hex_radar && (
+                      <NbaComps
+                        radar={activeDetail.hex_radar}
+                        shots={activeDetail.shot_breakdown ? [activeDetail.shot_breakdown.layup.a, activeDetail.shot_breakdown.post.a, activeDetail.shot_breakdown.mid.a, activeDetail.shot_breakdown.three.a] : null}
+                      />
+                    )}
 
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {

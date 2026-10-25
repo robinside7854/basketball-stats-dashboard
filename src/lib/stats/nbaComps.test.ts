@@ -1,7 +1,7 @@
 // 실행: node --test --import jiti/register src/lib/stats/nbaComps.test.ts
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { NBA_POOL, matchNbaComps } from './nbaComps'
+import { NBA_POOL, matchNbaComps, shotMix } from './nbaComps'
 
 test('풀은 100명 안팎, 이름 중복 없음, 6축 0~100', () => {
   assert.ok(NBA_POOL.length >= 95 && NBA_POOL.length <= 110, `풀 ${NBA_POOL.length}명`)
@@ -30,4 +30,21 @@ test('비교 가능한 축이 4개 미만이면 빈 배열, 점수는 내림차�
   assert.deepEqual(matchNbaComps([50, null, null, null, 50, 50]), [])
   const r = matchNbaComps([60, 60, 60, 60, 60, null])
   assert.ok(r[0].score >= r[1].score && r[1].score >= r[2].score)
+})
+
+test('슛 분포는 109명 모두 합 100', () => {
+  for (const p of NBA_POOL) assert.equal(p.shots.reduce((s, v) => s + v, 0), 100, p.name)
+})
+
+test('같은 6축이라도 슛 분포가 돌파형이면 돌파형, 포스트형이면 포스트형이 앞선다', () => {
+  const axes = [90, 70, 85, 10, 40, 88]
+  const drive = matchNbaComps(axes, 3, undefined, shotMix([60, 20, 15, 5])).map(m => m.comp.name)
+  const post = matchNbaComps(axes, 3, undefined, shotMix([10, 70, 20, 0])).map(m => m.comp.name)
+  assert.notDeepEqual(drive, post)
+  assert.ok(post.some(n => ['샤킬 오닐', '카림 압둘자바', '하킴 올라주원', '팀 던컨', '윌트 체임벌린', '야오밍', '찰스 바클리', '칼 말론', '파우 가솔'].includes(n)), post.join(','))
+})
+
+test('야투가 적으면 슛 분포를 쓰지 않는다', () => {
+  assert.equal(shotMix([3, 2, 1, 4]), null)
+  assert.ok(shotMix([30, 10, 20, 40]))
 })
