@@ -55,7 +55,7 @@ function NbaFace({ comp }: { comp: NbaComp }) {
   const url = PHOTOS_ON ? nbaHeadshotUrl(comp.name) : null
   const [failed, setFailed] = useState(false)
   return (
-    <span aria-hidden className="relative w-10 h-10 shrink-0 overflow-hidden rounded-full flex items-center justify-center text-xs font-black"
+    <span aria-hidden className="relative w-14 h-14 shrink-0 overflow-hidden rounded-full flex items-center justify-center text-sm font-black"
       style={{ background: comp.color, color: '#fff', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)' }}>
       {comp.name.replace(/\s/g, '').slice(0, 2)}
       {url && !failed && (
