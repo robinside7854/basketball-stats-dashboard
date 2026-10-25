@@ -21,6 +21,7 @@ import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
+import TeamDailyRecordGrid, { type GridGame } from '@/components/league/TeamDailyRecordGrid'
 import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import TeamFormLine from '@/components/league/nba/TeamFormLine'
@@ -71,45 +72,37 @@ type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'a1_total'|'orb_pct'|'drb_pct'|'trb
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'
 
+// 2026-10-25 운영진: 「성공 개수와 성공률은 한 칸으로」 — 칩·열이 너무 많았다.
+//   · 누적: FG·3P·FT 는 성공률 한 칸(아래 줄에 성공/시도), 공격·수비 리바는 리바 칸 아래 줄로.
+//   · 하루 평균: 성공률(FG%·3P%·FT%·eFG%)은 「Shooting」 보기에만 둔다(겹쳤다). 공리·수리는 리바 아래 줄.
 const AVG_COLS: { key: BasicKey; label: string }[] = [
   { key: 'gp',      label: 'R'    },
   { key: 'ppg',     label: '득점'   },
   { key: 'rpg',     label: '리바'   },
-  { key: 'orp',     label: '공리'   },
-  { key: 'drp',     label: '수리'   },
   { key: 'apg',     label: '어시'   },
   { key: 'spg',     label: '스틸'   },
   { key: 'bpg',     label: '블락'   },
   { key: 'topg',    label: '턴오버' },
-  { key: 'fg_pct',  label: 'FG%'  },
-  { key: 'fg3_pct', label: '3P%'  },
-  { key: 'ft_pct',  label: 'FT%'  },
-  { key: 'efg_pct', label: 'eFG%' },
 ]
 const TOTAL_COLS: { key: BasicKey; label: string }[] = [
   { key: 'gp',      label: 'R'    },
   { key: 'pts',     label: 'PTS'  },
   { key: 'reb',     label: 'REB'  },
-  { key: 'oreb',    label: 'OR'   },
-  { key: 'dreb',    label: 'DR'   },
   { key: 'ast',     label: 'AST'  },
   { key: 'stl',     label: 'STL'  },
   { key: 'blk',     label: 'BLK'  },
   { key: 'tov',     label: 'TOV'  },
-  { key: 'fgm',     label: 'FG'   },
-  { key: 'fg3m',    label: '3P'   },
-  { key: 'ftm',     label: 'FT'   },
-  { key: 'fg_pct',  label: 'FG%'  },
-  { key: 'fg3_pct', label: '3P%'  },
-  { key: 'ft_pct',  label: 'FT%'  },
+  { key: 'fg_pct',  label: 'FG'   },
+  { key: 'fg3_pct', label: '3P'   },
+  { key: 'ft_pct',  label: 'FT'   },
 ]
 const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
   { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
   { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
   { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
   { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
-  { key: 'orb_pct',   label: 'ORB%',  desc: '본인 리바운드 중 공격 리바운드 비중 · OREB/REB' },
-  { key: 'drb_pct',   label: 'DRB%',  desc: '본인 리바운드 중 수비 리바운드 비중 · DREB/REB' },
+  // DRB% 는 100 − ORB% 라 뺐다(2026-10-25 — 같은 정보가 두 칸)
+  { key: 'orb_pct',   label: 'ORB%',  desc: '본인 리바운드 중 공격 리바운드 비중 · OREB/REB (나머지가 수비 리바)' },
   { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
 ]
 // 2026-08-15: 셀 하단 컬러 막대(PercentBar) 삭제. 11개 컬럼이 저마다 0-100 척도의 막대를 깔면
@@ -123,10 +116,8 @@ const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string }[] = [
   { key: 'ft_pct',      label: 'FT%',   desc: '자유투 성공률 · FTM/FTA' },
   { key: 'ts_pct',      label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
   { key: 'ft_rate',     label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
-  { key: 'ds_pct',      label: 'DS',    desc: '골밑슛 비중 · 골밑슛시도/전체야투시도' },
-  { key: 'lu_pct',      label: 'LU',    desc: '레이업 비중 · 레이업 시도/전체야투시도' },
-  { key: 'md_pct',      label: 'MD',    desc: '미드레인지 비중 · 미들시도/전체야투시도' },
-  { key: 'three_share', label: '3P',    desc: '3점 비중 · 3PA/FGA' },
+  // 골밑·레이업·미드·3점 비중 4칸 → 「슛 분포」 한 칸(정렬은 3점 비중, 아래 줄에 나머지 셋) — 2026-10-25
+  { key: 'three_share', label: '슛 분포', desc: '야투 시도 비중 · 3점 / 골밑 · 레이업 · 미드 (정렬은 3점 비중)' },
 ]
 
 const BASIC_PCT_KEYS = new Set<BasicKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
@@ -299,8 +290,28 @@ function StatsTable({
   }
 
   function shootVal(sh: Record<ShootingKey, number>, key: ShootingKey): string {
+    if (key === 'three_share') return `3점 ${sh.three_share.toFixed(0)}%`
     return `${sh[key].toFixed(1)}%`
   }
+
+  // 한 칸에 합친 값의 아래 줄 — 성공/시도 · 공격/수비 리바 · 슛 분포 나머지 (2026-10-25)
+  function basicSub(p: PlayerStat, key: BasicKey): string | null {
+    if (key === 'fg_pct')  return `${p.fgm}/${p.fga}`
+    if (key === 'fg3_pct') return `${p.fg3m}/${p.fg3a}`
+    if (key === 'ft_pct')  return `${p.ftm}/${p.fta}`
+    if (key === 'reb') return `공${p.oreb}·수${p.dreb}`
+    if (key === 'rpg') return `공${(p.orp ?? 0).toFixed(1)}·수${(p.drp ?? 0).toFixed(1)}`
+    return null
+  }
+  function shootSub(p: PlayerStat, sh: Record<ShootingKey, number>, key: ShootingKey): string | null {
+    if (key === 'fg_pct')  return `${p.fgm}/${p.fga}`
+    if (key === 'fg3_pct') return `${p.fg3m}/${p.fg3a}`
+    if (key === 'ft_pct')  return `${p.ftm}/${p.fta}`
+    if (key === 'three_share') return `골${sh.ds_pct.toFixed(0)}·레${sh.lu_pct.toFixed(0)}·미${sh.md_pct.toFixed(0)}`
+    return null
+  }
+  const Sub = ({ text }: { text: string | null }) =>
+    text ? <span className="block text-xs font-normal tabular-nums" style={{ color: 'var(--mm-muted)' }}>{text}</span> : null
 
   const basicCols = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
 
@@ -308,8 +319,9 @@ function StatsTable({
     <>
     {/* 모바일 정렬 칩 + 카드뷰 (md 미만) — 칩은 26px 로 눌러지지 않아 스탯 탭 정렬 칩과 같은 36px 로 맞췄다 */}
     <div className="md:hidden">
-      <div className="px-1 pb-2 overflow-x-auto">
-        <div className="flex gap-1.5 whitespace-nowrap">
+      {/* 가로 스크롤 없이 줄바꿈(2026-10-25) */}
+      <div className="px-1 pb-2">
+        <div className="flex flex-wrap gap-1.5">
           {statMode === 'basic' ? (
             basicCols.map(({ key, label }) => {
               const active = basicSortKey === key
@@ -384,6 +396,7 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: accentOrInk(color), fontSize: '26px' }}>{basicVal(p, basicSortKey)}</div>
+                    <Sub text={basicSub(p, basicSortKey)} />
                     <div className="t-label mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
                       <StatHeader term={basicSortKey === 'gp' ? 'R' : sortLabel} label={sortLabel} />
                     </div>
@@ -428,6 +441,7 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: accentOrInk(color), fontSize: '26px' }}>{shootVal(sh, shootSortKey)}</div>
+                    <Sub text={shootSub(p, sh, shootSortKey)} />
                     <div className="t-label mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
                       <StatHeader term={sortLabel} label={sortLabel} />
                     </div>
@@ -569,6 +583,7 @@ function StatsTable({
                     return (
                       <td key={key} className={`t-td text-right px-1.5 ${isSortLeader ? 'font-bold' : ''} ${baseClass}`} style={style}>
                         {basicVal(p, key)}
+                        <Sub text={basicSub(p, key)} />
                       </td>
                     )
                   })}
@@ -598,6 +613,7 @@ function StatsTable({
                     return (
                       <td key={key} className={`t-td text-right px-1.5 font-bold ${baseClass}`} style={style}>
                         {shootVal(sh, key)}
+                        <Sub text={shootSub(p, sh, key)} />
                       </td>
                     )
                   })}
@@ -1448,6 +1464,20 @@ function LeagueTeamsPageInner() {
         {!editing && (<>
         {/* ── 섹션 1.5: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
         <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} myTeamKey={myIdentityKey} />
+
+        {/* ── 일별 성적 (2026-10-25) — 고른 기간 경기일 × 팀, 칸 = 그날 승-패 (정본 dayRecord.ts) ── */}
+        <SectionCard variant="standalone" pad="none" ariaLabel="일별 성적">
+          <SectionHeader
+            title="일별 성적"
+            description={`${selectedQId === 'all' ? '시즌 전체' : '이 분기'} 경기일마다 팀 승패 · 최근 날짜가 위`}
+          />
+          <div className="px-4 py-3 lg:px-6 lg:py-4">
+            <TeamDailyRecordGrid
+              games={games as unknown as GridGame[]}
+              teams={identities.map(id => ({ key: id.key, team_id: id.team_id, name: id.display_name, color: id.color, quarter_ids: id.quarter_ids }))}
+            />
+          </div>
+        </SectionCard>
 
         {/* 「시즌 어시스트 · 공격 유형」 섹션은 2026-10-18 아래 「팀별 선수」의 보기로 합쳤다 — 팀 필터가 두 벌이었다 */}
 
