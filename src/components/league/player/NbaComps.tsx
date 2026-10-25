@@ -1,8 +1,9 @@
 'use client'
 // 선수 카드 「닮은 NBA 선수」 (2026-10-25) — 6축 레이더 값으로 NBA 100여 명 중 3명. 규칙·표는 lib/stats/nbaComps.ts.
-//   ⚠ NBA 선수 사진은 쓰지 않는다(사용 권리) — 팀 색 이니셜 동그라미.
-import { useMemo } from 'react'
-import { matchNbaComps, shotMix } from '@/lib/stats/nbaComps'
+//   사진은 NBA CDN 얼굴 사진을 그대로 띄운다(2026-10-25 운영진 결정 — 비영리 동호회). 없거나 실패하면 팀 색 이니셜 동그라미.
+//   끄는 스위치: NEXT_PUBLIC_NBA_PHOTOS=off (빌드 때 반영).
+import { useMemo, useState } from 'react'
+import { matchNbaComps, nbaHeadshotUrl, shotMix, type NbaComp } from '@/lib/stats/nbaComps'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
 
 const AXIS_ORDER = ['offense', 'defense', 'rebounding', 'shooting', 'leading', 'efficiency'] as const
@@ -27,10 +28,7 @@ export default function NbaComps({ radar, shots, position = null }: { radar: Hex
         {matches.map((m, i) => (
           <li key={m.comp.name} className="flex items-center gap-3 px-3 py-2.5" style={i > 0 ? { borderTop: '1px solid var(--mm-rule)' } : undefined}
             aria-label={`${m.comp.name}, ${m.comp.team}, ${m.comp.role}`}>
-            <span aria-hidden className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xs font-black"
-              style={{ background: m.comp.color, color: '#fff', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)' }}>
-              {m.comp.name.replace(/\s/g, '').slice(0, 2)}
-            </span>
+            <NbaFace comp={m.comp} />
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className="truncate text-sm font-black" style={{ color: 'var(--mm-ink)' }}>{m.comp.name}</span>
@@ -47,5 +45,25 @@ export default function NbaComps({ radar, shots, position = null }: { radar: Hex
         ))}
       </ul>
     </section>
+  )
+}
+
+const PHOTOS_ON = process.env.NEXT_PUBLIC_NBA_PHOTOS !== 'off'
+
+// 얼굴 사진 — 팀 색 동그라미 안에 넣고, 못 불러오면 이니셜로 바꾼다(번호가 틀렸거나 옛 선수라 사진이 없는 경우).
+function NbaFace({ comp }: { comp: NbaComp }) {
+  const url = PHOTOS_ON ? nbaHeadshotUrl(comp.name) : null
+  const [failed, setFailed] = useState(false)
+  return (
+    <span aria-hidden className="relative w-10 h-10 shrink-0 overflow-hidden rounded-full flex items-center justify-center text-xs font-black"
+      style={{ background: comp.color, color: '#fff', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)' }}>
+      {comp.name.replace(/\s/g, '').slice(0, 2)}
+      {url && !failed && (
+        // eslint-disable-next-line @next/next/no-img-element -- NBA CDN 을 그대로 쓴다(Vercel 이미지 변환 사용량을 늘리지 않게)
+        <img src={url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover object-top" style={{ background: comp.color }} />
+      )}
+    </span>
   )
 }
