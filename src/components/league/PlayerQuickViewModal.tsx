@@ -682,7 +682,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               </div>
             </div>
           </div>
-          {/* 분기별 소속 (2026-10-16) — 「26.1Q 락다운 · 26.2Q 락다운 · 26.3Q 굿모닝」. 아바타 옆 칸은 360px 에서 좁아 전체 폭에 둔다 */}
+          {/* 분기별 소속 (2026-10-16 · 2026-10-26 칸 모양으로) — 아바타 옆 칸은 360px 에서 좁아 전체 폭에 둔다 */}
           {detail?.team_history && detail.team_history.length > 0 && (
             <PlayerTeamHistory history={detail.team_history} currentQuarterId={detail.current_team?.quarter_id ?? null} className="relative mt-3" />
           )}
