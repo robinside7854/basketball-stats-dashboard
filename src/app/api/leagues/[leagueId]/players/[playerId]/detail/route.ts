@@ -23,6 +23,7 @@ import { positionGroupOf, positionGroupLabel, type PositionGroupCode } from '@/l
 import type { PlayerStat } from '@/types/league'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildPlayerForm, type PlayerForm } from '@/lib/stats/playerForm'
+import { buildPlayStyle, pairBlockedShots, type StyleInput as PlayStyleInput } from '@/lib/stats/playStyle'
 
 // 「선수 숫자는 한 벌」(2026-10-14) — 이 라우트의 합계·하루 평균·순위·백분위·비슷한 선수는 전부
 //   computeLeagueStats(스탯 탭과 같은 결과)에서 나온다(playerTotals.ts). 아래 자체 이벤트 루프는
@@ -545,6 +546,36 @@ export async function GET(
   })
   const hex_radar = buildHexRadar(eligibleForRank.map(toHexInput), myRow ? toHexInput(myRow) : null)
 
+  // ── 플레이스타일 (2026-10-26) ── 공격·수비·리바운드 성향. 규칙은 lib/stats/playStyle.ts.
+  //   막아낸 슛 위치 = 같은 경기·쿼터에서 상대가 놓친 슛 중 영상 시각이 가장 가까운 것(친선 제외).
+  const play_style = await (async () => {
+    if (!myRow) return null
+    const regularIds = (games ?? []).filter(g => !g.is_exhibition).map(g => g.id)
+    const regularSet = new Set(regularIds)
+    const { data: blockRows } = await supabase.from('league_game_events')
+      .select('league_game_id, quarter, video_timestamp, team_id')
+      .eq('league_player_id', playerId).eq('type', 'block')
+    const blocks = (blockRows ?? [])
+      .filter(b => regularSet.has(b.league_game_id) && b.video_timestamp != null)
+      .map(b => ({ game: b.league_game_id as string, quarter: b.quarter as number | null, t: Number(b.video_timestamp), team: b.team_id as string | null }))
+    const blockGames = [...new Set(blocks.map(b => b.game))]
+    const missed = blockGames.length === 0 ? [] : (await supabase.from('league_game_events')
+      .select('league_game_id, quarter, video_timestamp, team_id, type')
+      .in('league_game_id', blockGames).eq('result', 'missed').in('type', FIELD_SHOT_TYPES as string[])
+      .not('video_timestamp', 'is', null)).data ?? []
+    const blocked = pairBlockedShots(blocks, missed.map(s => ({
+      game: s.league_game_id as string, quarter: s.quarter as number | null, t: Number(s.video_timestamp), team: s.team_id as string | null, type: s.type as string,
+    })))
+    const toIn = (p: PlayerStat): PlayStyleInput => ({
+      pid: p.player_id, gp: p.gp, oreb: p.oreb, dreb: p.dreb, stl: p.stl, blk: p.blk, ast: p.ast,
+      fga: p.fga, lu_a: p.lu_a ?? 0, ds_a: p.ds_a ?? 0, md_a: p.md_a ?? 0, fg3a: p.fg3a,
+    })
+    // 블록 수는 정본(myRow.blk)과 맞춘다 — 짝을 못 찾은 블록·영상 시각 없는 블록은 「위치 모름」
+    blocked.unknown += Math.max(0, myRow.blk - blocked.total)
+    blocked.total = Math.max(blocked.total, myRow.blk)
+    return buildPlayStyle(eligibleForRank.map(toIn), toIn(myRow), blocked)
+  })().catch(() => null)
+
   // ── 비슷한 스타일 선수 (2026-10-14) ── 막대와 같은 자격 집단·같은 기간.
   //   팀 칩 = computeLeagueStats 의 표시용 소속 팀(기간 안 마지막 출전일 팀, (team_id, quarter_id) 정체성).
   const similar_players = (() => {
@@ -813,6 +844,7 @@ export async function GET(
     percentile_bars,
     position_ranks,
     hex_radar,
+    play_style,
     similar_players,
     current_team,
     team_history,

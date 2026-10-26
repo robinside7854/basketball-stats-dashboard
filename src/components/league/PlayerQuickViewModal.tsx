@@ -29,6 +29,8 @@ import MonthTable, { type MonthRow } from '@/components/league/player/MonthTable
 import PlayerFormCard from '@/components/league/player/PlayerFormCard'
 import DailyLogTable from '@/components/league/player/DailyLogTable'
 import NbaComps from '@/components/league/player/NbaComps'
+import { PlayStyleTags, PlayStyleDefense } from '@/components/league/player/PlayStyleCard'
+import type { PlayStyle } from '@/lib/stats/playStyle'
 import type { PlayerForm } from '@/lib/stats/playerForm'
 import type { QuarterTotal } from '@/components/league/player/QuarterTable'
 import { positionGroupOf, positionGroupLabel, POSITION_GROUPS, type PositionGroupCode } from '@/lib/league/positionGroup'
@@ -68,6 +70,7 @@ type Detail = {
   percentile_bars?: PercentileBarsResult
   /** (2026-10-14) 6축 레이더 — 막대와 같은 모집단·하루 평균. 정의 lib/stats/hexRadar.ts */
   hex_radar?: HexRadarResult
+  play_style?: PlayStyle | null
   /** (2026-10-14) 비슷한 스타일 선수 — 같은 자격 집단·같은 기간 */
   similar_players?: SimilarPlayersData
   /** (2026-10-16) 현 소속팀 — 지금 분기(pickCurrentQuarter) 기준. 그 분기 소속이 없으면 null */
@@ -378,7 +381,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     const s = new Set<PlayerTabKey>(['season'])
     if ((quarterRows?.length ?? 0) > 0 || (activeDetail?.monthly_stats?.length ?? 0) > 0) s.add('quarters')
     if ((detail?.dynamic_duo?.length ?? 0) > 0) s.add('duo')
-    if ((activeDetail?.shot_breakdown?.total_fga ?? 0) > 0) s.add('shot')
+    if ((activeDetail?.shot_breakdown?.total_fga ?? 0) > 0 || activeDetail?.play_style) s.add('shot')
     if (detail?.career_high && Object.keys(detail.career_high).length > 0) s.add('career')
     if ((activeDetail?.monthly_stats?.length ?? 0) >= 2
       || (activeDetail?.game_log?.length ?? 0) >= 3
@@ -893,7 +896,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                 </div>
             </div>
 
-            {/* 미니 탭 — 시즌 스탯 / 다이나믹 듀오 / 공격 스타일 / 커리어 하이 / 최근 트렌드 */}
+            {/* 미니 탭 — 시즌 스탯 / 다이나믹 듀오 / 플레이스타일 / 커리어 하이 / 최근 트렌드 */}
             <PlayerMiniTabs active={shownTab} onChange={changeTab} available={availableTabs} topOffset={actionBarH} />
 
             {/* ── 시즌 스탯 ─────────────────────────────── */}
@@ -1041,14 +1044,6 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
 
                     {/* 리그 안 「비슷한 스타일 선수」는 2026-10-25 운영진 요청으로 뺐다 — 닮은 NBA 선수만 남긴다 */}
 
-                    {/* 닮은 NBA 선수 — 같은 6축 값으로, 재미로 보는 비교 (lib/stats/nbaComps.ts) */}
-                    {activeDetail?.hex_radar && (
-                      <NbaComps
-                        radar={activeDetail.hex_radar}
-                        position={positionGroup}
-                        shots={activeDetail.shot_breakdown ? [activeDetail.shot_breakdown.layup.a, activeDetail.shot_breakdown.post.a, activeDetail.shot_breakdown.mid.a, activeDetail.shot_breakdown.three.a] : null}
-                      />
-                    )}
 
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
@@ -1197,13 +1192,17 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               />
             )}
 
-            {/* ── 공격 스타일 ─────────────────────────── */}
+            {/* ── 플레이스타일 (2026-10-26) ── 한눈에 태그 → 공격(아래 기존 블록) → 수비·리바운드 → 닮은 NBA 선수 */}
+            {shownTab === 'shot' && activeDetail?.play_style && (
+              <div className="px-5 pt-4"><PlayStyleTags style={activeDetail.play_style} /></div>
+            )}
+            {/* ── 공격 ─────────────────────────── */}
             {/* 시도 비중(얼마나 자주 쏘는가) 과 성공률(그중 얼마나 넣는가) 을 별도 컬럼으로 분리.
                 이전엔 두 수치가 한 줄에 섞여 있어 혼동을 유발했다 (2026-08-03 개편). */}
             {shownTab === 'shot' && activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>공격 스타일</p>
+                  <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>공격</p>
                   {/* 코트 / 도넛 토글 */}
                   <div
                     className="flex rounded-sm overflow-hidden shrink-0"
@@ -1377,6 +1376,19 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     </div>
                   )
                 })()}
+              </div>
+            )}
+
+            {shownTab === 'shot' && activeDetail && (activeDetail.play_style || activeDetail.hex_radar) && (
+              <div className="px-5 pb-4 space-y-4">
+                {activeDetail.play_style && <PlayStyleDefense style={activeDetail.play_style} />}
+                {activeDetail.hex_radar && (
+                  <NbaComps
+                    radar={activeDetail.hex_radar}
+                    position={positionGroup}
+                    shots={activeDetail.shot_breakdown ? [activeDetail.shot_breakdown.layup.a, activeDetail.shot_breakdown.post.a, activeDetail.shot_breakdown.mid.a, activeDetail.shot_breakdown.three.a] : null}
+                  />
+                )}
               </div>
             )}
 

@@ -10,7 +10,7 @@ export const PLAYER_TABS: { key: PlayerTabKey; label: string }[] = [
   { key: 'season', label: '시즌 스탯' },
   { key: 'quarters', label: '분기·월별' },
   { key: 'duo',    label: '다이나믹 듀오' },
-  { key: 'shot',   label: '공격 스타일' },
+  { key: 'shot',   label: '플레이스타일' },
   { key: 'career', label: '커리어 하이' },
   { key: 'trend',  label: '최근 트렌드' },
 ]
