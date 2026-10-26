@@ -671,7 +671,7 @@ function LeagueTeamsPageInner() {
     leader_player_id?: string | null
   }
   type RegularPlayer = { id: string; name: string; number: number | null; position: string | null; photo_url: string | null }
-  type TeamsData = { identities: TeamIdentity[]; unassigned: PlayerStat[]; games: GridGame[] }
+  type TeamsData = { identities: TeamIdentity[]; unassigned: PlayerStat[]; games: GridGame[]; locked: boolean }
 
   // 요청 정리(2026-10-26): 종전엔 /teams·/games·/stats·/leaders·/team-identities·정체성마다 /stats?teamId=·
   //   분기마다 /players·(전체면) 현재 분기 /stats 가 따로 나갔다(특정 분기 11회 · 「전체」 20회 안팎, 일부는 앞 응답을 기다림).
@@ -695,9 +695,9 @@ function LeagueTeamsPageInner() {
         if (cancelled) return
         if (r.status === 401) { setStatus('login'); return }
         if (!r.ok) { setStatus('error'); return }
-        const d = await r.json() as { identities?: TeamIdentity[]; unassigned_players?: PlayerStat[]; games?: GridGame[] }
+        const d = await r.json() as { identities?: TeamIdentity[]; unassigned_players?: PlayerStat[]; games?: GridGame[]; players_locked?: boolean }
         if (cancelled) return
-        setData({ identities: d.identities ?? [], unassigned: d.unassigned_players ?? [], games: d.games ?? [] })
+        setData({ identities: d.identities ?? [], unassigned: d.unassigned_players ?? [], games: d.games ?? [], locked: d.players_locked === true })
         setLoadedFor(selectedQId)
         setStatus('ok')
       })
@@ -1049,6 +1049,19 @@ function LeagueTeamsPageInner() {
         {/* 화면 순서(2026-10-26): 팀 전적 → 팀별 선수 → 승패 흐름 → 누적 맞대결.
             「어시스트 · 공격 유형」은 팀별 선수 표 아래 「더 보기」에 접어 둔다(2026-10-18 합침 · 팀 필터는 한 벌) */}
 
+        {/* 공개 리그의 비회원 — 팀 전적·승패 흐름·맞대결은 보이고 선수 기록만 잠근다(2026-10-26 리뷰) */}
+        {data?.locked ? (
+          <SectionCard variant="standalone">
+            <div className="text-center py-8 space-y-3">
+              <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>팀별 선수 기록은 로그인한 회원만 볼 수 있어요</p>
+              <button type="button" onClick={openLogin}
+                className="mm-press inline-flex items-center justify-center min-h-11 px-4 text-sm font-bold cursor-pointer"
+                style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                로그인
+              </button>
+            </div>
+          </SectionCard>
+        ) : (<>
         {/* ── 섹션 2: 팀별 선수 ── */}
         <div className="space-y-3">
           {/* 제목 · 보기 토글 · 읽는 법 · 팀 탭 — 한 카드로 묶는다(배경 위에 글자만 떠 있지 않게, 2026-10-13) */}
@@ -1321,6 +1334,8 @@ function LeagueTeamsPageInner() {
             </SectionCard>
           </div>
         )}
+
+        </>)}
 
         {/* ── 섹션 3: 승패 흐름 (2026-10-25) — 팀마다 경기 단위 점 + 최장 연승·연패 (lib/stats/teamStreaks.ts) ── */}
         <SectionCard variant="standalone" pad="none" ariaLabel="승패 흐름">

@@ -26,12 +26,26 @@ export async function POST(
   //   경기묶음에서만 로그인이 되고, 회원이 대회 페이지에서 직접 로그인을 시도하면
   //   (쿠키 없이 새 브라우저 등) 여기서 못 찾아 로그인 자체가 막힌다.
   const teamId = await resolveTeamId(leagueId)
-  const { data: account } = await sb
+  type Acc = { id: string; league_player_id: string; login_id: string; password_hash: string; status: string }
+  let { data: account } = await sb
     .from('league_user_accounts')
     .select('id, league_player_id, login_id, password_hash, status')
     .eq('team_id', teamId)
     .eq('login_id', loginId)
-    .maybeSingle()
+    .maybeSingle() as { data: Acc | null }
+  // 정확히 같은 아이디가 없으면 띄어쓰기·자모 분리(NFD)만 다른 아이디를 찾는다 — 가입(signup)이 「김 로빈」을
+  //   명단의 「김로빈」으로 맞춰 주므로(2026-10-26) 로그인도 같은 규칙이어야 같은 입력으로 들어올 수 있다.
+  //   하나로 딱 맞을 때만 쓴다(동명이인처럼 둘 이상이면 모호하므로 실패로 둔다).
+  if (!account) {
+    const norm = (v: string) => v.normalize('NFC').replace(/\s+/g, '').toLowerCase()
+    const want = norm(loginId)
+    const { data: all } = await sb
+      .from('league_user_accounts')
+      .select('id, league_player_id, login_id, password_hash, status')
+      .eq('team_id', teamId) as { data: Acc[] | null }
+    const hits = (all ?? []).filter(a => norm(a.login_id) === want)
+    if (hits.length === 1) account = hits[0]
+  }
 
   if (!account) {
     return NextResponse.json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' }, { status: 401 })

@@ -81,10 +81,10 @@ export async function GET(
   const sp = new URL(req.url).searchParams
   const quarterId = sp.get('quarterId')
   const withPlayers = sp.get('withPlayers') === '1'
-  // 선수 기록은 스탯 권한(승인 회원 · 편집 권한자)만 — /stats 라우트와 같은 문
-  if (withPlayers && !(await canViewStats(req, leagueId))) {
-    return NextResponse.json({ error: 'login_required' }, { status: 401 })
-  }
+  // 선수 기록은 스탯 권한(승인 회원 · 편집 권한자)만 — /stats 라우트와 같은 문.
+  //   권한이 없으면 401 이 아니라 팀 전적·경기(리그 열람 권한으로 보던 것)만 준다 — 공개 리그 방문자가
+  //   순위·승패 흐름까지 통째로 못 보게 되는 것을 막는다(2026-10-26 리뷰). 화면은 선수 칸만 로그인 안내.
+  const playersLocked = withPlayers && !(await canViewStats(req, leagueId))
 
   const supabase = createClient()
 
@@ -268,7 +268,13 @@ export async function GET(
 
   void quarterMap  // 명시적 사용 (eslint)
 
+  const outGamesOf = () => targetGames.map(g => ({
+    id: g.id, date: g.date, slot_num: g.slot_num, quarter_id: g.quarter_id,
+    home_team_id: g.home_team_id, away_team_id: g.away_team_id,
+    home_score: g.home_score, away_score: g.away_score, is_complete: true, is_exhibition: false,
+  }))
   if (!withPlayers) return NextResponse.json({ identities })
+  if (playersLocked) return NextResponse.json({ identities, unassigned_players: [], games: outGamesOf(), players_locked: true })
 
   // ── withPlayers: 선수 기록 · 정규 명단 · 리더 · 비정규 · 경기 (한 응답) ──
   const allQids = [...new Set(identities.flatMap(id => id.quarter_ids))]
@@ -320,11 +326,5 @@ export async function GET(
   const inIdentity = new Set(statsByIdentity.flat().map(p => p.player_id))
   const unassigned_players = unassignedBase.filter(p => !inIdentity.has(p.player_id))
 
-  const outGames = targetGames.map(g => ({
-    id: g.id, date: g.date, slot_num: g.slot_num, quarter_id: g.quarter_id,
-    home_team_id: g.home_team_id, away_team_id: g.away_team_id,
-    home_score: g.home_score, away_score: g.away_score, is_complete: true, is_exhibition: false,
-  }))
-
-  return NextResponse.json({ identities: withData, unassigned_players, games: outGames })
+  return NextResponse.json({ identities: withData, unassigned_players, games: outGamesOf() })
 }

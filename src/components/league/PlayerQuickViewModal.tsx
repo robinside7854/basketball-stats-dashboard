@@ -289,12 +289,13 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   //   나머지는 필요할 때만 — 전체 기간(분기를 보다 「커리어 하이」·「플레이스타일」 듀오를 열 때),
   //   분기별 기록표(「기록 → 분기별」), 리그 통산·대회(「더 보기」를 펼칠 때).
   const requestedRef = useRef(new Set<string>())
-  const profileAskedRef = useRef(false)
+  // 머리 정보(이름·사진 등)를 받기 전까지는 모든 상세 요청에 profile 을 붙인다 — 첫 요청이 실패하는 사이
+  //   분기를 바꾸면 머리 정보를 영영 못 받던 문제(2026-10-26 리뷰). 겹쳐 나가도 같은 값이라 해가 없다.
+  const havePlayerRef = useRef(false)
   const requestDetail = useCallback((key: string) => {
     if (requestedRef.current.has(key)) return
     requestedRef.current.add(key)
-    const withProfile = !profileAskedRef.current
-    profileAskedRef.current = true
+    const withProfile = !havePlayerRef.current
     const qs = new URLSearchParams()
     if (key !== 'all') qs.set('quarterId', key)
     if (withProfile) qs.set('profile', '1')
@@ -312,12 +313,11 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
         const d: Detail = await r.json()
         setDetails(m => ({ ...m, [key]: d }))
         setMeta(m => mergeMeta(m, d))
-        if (withProfile && d.player) setPlayer(d.player)
+        if (withProfile && d.player) { havePlayerRef.current = true; setPlayer(d.player) }
       })
       .catch(() => {
         // 다음에 다시 시도할 수 있게 비워 둔다. 첫 요청이 실패했으면 머리 정보도 다음 요청에 다시 싣는다.
         requestedRef.current.delete(key)
-        if (withProfile) profileAskedRef.current = false
         setFailedKeys(f => ({ ...f, [key]: true }))
       })
   }, [leagueId, playerId])
@@ -350,11 +350,14 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
 
   const activeDetail = details[detailKey] ?? null
   const allDetail = details['all'] ?? null
-  // 분기를 막 바꿔 새 상세를 받는 동안엔 직전 값을 그대로 보인다(요약 탭만 로딩 표시)
+  // 숫자는 **고른 기간의 상세만** 보인다(2026-10-26 리뷰 — 실패·로딩 중에 다른 기간 숫자가 그 분기 이름 아래 보였다).
+  //   탭 구성(availableTabs)만 직전 값을 빌려 써서, 분기를 바꾸는 동안 탭이 사라졌다 돌아오지 않게 한다.
   const anyDetail = activeDetail ?? Object.values(details)[0] ?? null
-  const viewDetail = anyDetail
+  const viewDetail = activeDetail
   const loading = !gated && !anyDetail && !failedKeys[detailKey]
   const quarterLoading = !activeDetail && !!anyDetail && !failedKeys[detailKey]
+  const quarterFailed = !gated && !activeDetail && !!failedKeys[detailKey]
+  const retryDetail = () => { setFailedKeys(f => { const n = { ...f }; delete n[detailKey]; return n }); requestDetail(detailKey) }
 
   // Hero 관찰 — 본문이 처음 열릴 때(로딩 → 내용) 다시 붙인다
   useEffect(() => {
@@ -382,14 +385,14 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   // 데이터가 있는 탭만 노출 — 빈 탭 클릭 후 아무것도 안 나오는 상황 방지
   const availableTabs = useMemo(() => {
     const s = new Set<PlayerTabKey>(['summary'])
-    const v = viewDetail
+    const v = anyDetail
     if (v?.player_stats || (v?.game_log?.length ?? 0) > 0 || (v?.monthly_stats?.length ?? 0) > 0 || (quarterRows?.length ?? 0) > 0) s.add('records')
     if ((v?.shot_breakdown?.total_fga ?? 0) > 0 || v?.play_style || (duoSource?.dynamic_duo?.length ?? 0) > 0) s.add('style')
     // 전체 기간을 아직 안 받았으면 지금 기간에 기록이 있는지로 판단한다(있으면 전체 기간에도 있다)
     const ch = careerHigh ?? v?.career_high
     if (ch && Object.keys(ch).length > 0) s.add('career')
     return s
-  }, [viewDetail, duoSource, careerHigh, quarterRows])
+  }, [anyDetail, duoSource, careerHigh, quarterRows])
 
   // 고른 탭에 보일 것이 없으면 그동안 요약을 보여 준다. activeTab 은 그대로 두어 데이터가 오면 그 탭으로 돌아간다.
   const shownTab: PlayerTabKey = availableTabs.has(activeTab) ? activeTab : 'summary'
@@ -783,6 +786,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               <div>
                 <button onClick={async () => {
                   if (!leagueHeaders) return
+                  // 머리 정보를 아직 못 받았거나 이름이 비면 저장하지 않는다 — 빈 이름으로 덮어쓰는 사고 방지(2026-10-26 리뷰)
+                  if (!player || !editForm.name.trim()) { toast.error('이름을 확인해 주세요'); return }
                   setSavingEdit(true)
                   const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
                     method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
@@ -941,11 +946,20 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             {/* 미니 탭 — 요약 / 기록 / 플레이스타일 / 커리어 하이 */}
             <PlayerMiniTabs active={shownTab} onChange={changeTab} available={availableTabs} topOffset={actionBarH} />
 
+            {/* 고른 기간을 받는 중이거나 실패 — 모든 탭 공통(요약은 아래 자기 자리에서 같은 처리) */}
+            {shownTab !== 'summary' && !activeDetail && (quarterLoading ? (
+              <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
+            ) : quarterFailed ? (
+              <DetailRetry onRetry={retryDetail} />
+            ) : null)}
+
             {/* ── 요약 (2026-10-26) ─────────────────────────────
                 폰 첫 화면에 숫자가 보이도록: 지난 경기일 한 줄 → 하루 평균 6칸·순위 → 요즘 흐름 문장 → 슛 성공률.
                 레이더·세부 능력치·승패·팀 득점 기여·누적·통산은 아래 「더 보기」로 접었다(지운 것은 없다). */}
             {shownTab === 'summary' && (quarterLoading ? (
               <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
+            ) : quarterFailed ? (
+              <DetailRetry onRetry={retryDetail} />
             ) : viewDetail?.player_stats ? (
               <div className="px-4 sm:px-5 py-3 sm:py-4">
                 {viewDetail.form?.last && (
@@ -1694,6 +1708,19 @@ function DetailSkeleton() {
         {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-24 rounded-sm mm-shimmer" />)}
       </div>
       <div className="h-40 w-full rounded-sm mm-shimmer" />
+    </div>
+  )
+}
+
+function DetailRetry({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="text-center py-8 space-y-3">
+      <p className="text-sm font-bold" style={{ color: 'var(--mm-ink-soft)' }}>기록을 불러오지 못했어요</p>
+      <button type="button" onClick={onRetry}
+        className="mm-press inline-flex items-center justify-center min-h-11 px-4 text-sm font-bold cursor-pointer"
+        style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+        다시 시도
+      </button>
     </div>
   )
 }

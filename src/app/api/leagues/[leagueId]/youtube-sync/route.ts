@@ -4,6 +4,7 @@
 
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { syncYoutubeForLeague, type TitleRule } from '@/lib/youtube/syncYoutubeForLeague'
 
@@ -58,6 +59,12 @@ export async function POST(
         need_slots: outcome.needSlots,
         requested_rule: titleRule,
       }, { status: 404 })
+    }
+
+    // 영상이 붙으면 박스스코어(daily-boxscore 캐시)·홈 경기일 카드가 바로 보이게 (2026-10-26 리뷰)
+    if (!dryRun) {
+      revalidateTag(`league-${leagueId}`, 'max')
+      revalidateTag(`league-${leagueId}-games`, 'max')
     }
 
     // 저장 후 DB 재조회 — 실제 저장된 값 검증

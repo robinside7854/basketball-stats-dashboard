@@ -26,14 +26,14 @@ export async function GET(
 
   // 2026-10-26 (점검 MVP 3): 그날 계산을 리그·날짜 단위로 캐시한다(종전엔 요청마다 이벤트 전량 재집계,
   //   홈 「지난 토요일 나」와 박스스코어 화면이 같은 날을 두 번 계산했다). 기록·경기·선수 수정 API 가
-  //   `league-{id}-games`/`-events` 태그를 무효화하므로 수정은 바로 반영된다. 인가(canViewLeague)는 위에서
+  //   `league-{id}`/`-games`/`-events` 태그를 무효화한다(stale-while-revalidate — 수정 직후 첫 요청은 이전 값일 수 있다). 인가(canViewLeague)는 위에서
   //   요청마다 따로 한다 — 캐시에는 로그인과 무관한 리그 공용 데이터만 들어간다.
   const body = await unstable_cache(
     () => computeDailyBoxscore(leagueId, date),
     ['daily-boxscore', leagueId, date, 'v1'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )()
-  return NextResponse.json(body, { headers: { 'Cache-Control': 'private, max-age=30' } })
+  return NextResponse.json(body, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 async function computeDailyBoxscore(leagueId: string, date: string) {

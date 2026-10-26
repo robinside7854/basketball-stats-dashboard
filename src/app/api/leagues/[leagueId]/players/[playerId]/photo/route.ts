@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
@@ -41,5 +42,7 @@ export async function POST(
     .eq('team_id', teamId)
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  // 박스스코어·홈 사진 맵 캐시가 1시간이라 바로 새 사진이 보이게 (2026-10-26 리뷰)
+  revalidateTag(`league-${leagueId}`, 'max')
   return NextResponse.json({ url: urlWithBust })
 }
