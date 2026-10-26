@@ -34,3 +34,13 @@ test('스틸 위주는 외곽 압박형, 3점 비중이 높으면 3점 슈터', 
   assert.ok(keys.includes('def-perimeter') && keys.includes('off-three'), keys.join(','))
   assert.equal(s.defense.rim_share, null)
 })
+
+test('리바운드 성향은 공격 리바 비중을 선수끼리 줄 세워 정한다 — 리그 평균과 7%p 차이여도 아래 1/3 이면 수비 위주', () => {
+  // 실측 분포 흉내: 공격 리바 비중 13~58%, 리그 약 31%
+  const shares = [13, 14, 21, 22, 23, 26, 27, 29, 30, 31, 31, 32, 33, 33, 34, 35, 36, 37, 41, 44, 48, 58]
+  const pool = shares.map((sh, i) => P(`r${i}`, { oreb: sh, dreb: 100 - sh }))
+  const me = P('me', { oreb: 24, dreb: 76 })
+  const s = buildPlayStyle([...pool, me], me, { total: 0, zones: { rim: 0, mid: 0, three: 0 }, unknown: 0 })
+  assert.equal(s.rebound.lean, 'defense')
+  assert.ok(s.ranked && s.rebound.dreb_rank >= 1)
+})

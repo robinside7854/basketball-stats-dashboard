@@ -20,8 +20,11 @@ export const RIM_PROTECT_PCT = 80
 export const RIM_SHARE_MIN = 60
 /** 수비 성향 — 블록·스틸 백분위 차이 */
 export const DEF_LEAN_GAP = 20
-/** 리바운드 성향 — 내 공격 리바 비중이 리그 평균보다 이만큼(%p) 높거나 낮으면 */
-export const REB_LEAN_GAP = 10
+/** 리바운드 성향 — 「내 리바운드 중 공격 리바 비중」을 리바운드 10개 이상 선수끼리 줄 세워
+ *  아래 1/3 = 수비 리바 위주, 위 1/3 = 공격 리바 적극. (2026-10-26 운영진: 리그 평균 ±10%p 기준은 폭이 좁아
+ *  수비 지향이 뚜렷한 김로빈(공격 비중 24%, 리그 31%)이 「고루」로 나왔다 — 비중 분포가 13~58% 로 촘촘하다) */
+export const REB_LEAN_LOW = 33
+export const REB_LEAN_HIGH = 67
 
 export type StyleInput = {
   pid: string; gp: number
@@ -64,9 +67,12 @@ function pctOf(values: readonly number[], v: number): number {
 
 export type PlayStyle = {
   tags: StyleTag[]
+  /** 순위 모집단 인원(순위 자격 선수) · 이 선수가 그 안에 있나(출전일 부족이면 순위 대신 「자격 미달」) */
+  pool_size: number
+  ranked: boolean
   defense: {
-    blk_per_day: number; blk_pct: number
-    stl_per_day: number; stl_pct: number
+    blk_per_day: number; blk_pct: number; blk_rank: number
+    stl_per_day: number; stl_pct: number; stl_rank: number
     lean: 'rim' | 'perimeter' | 'balanced' | 'quiet'
     blocked: { total: number; zones: Record<BlockZone, number>; unknown: number }
     rim_share: number | null   // 위치를 아는 블록 중 림 비중(%)
@@ -74,6 +80,7 @@ export type PlayStyle = {
   rebound: {
     oreb_per_day: number; oreb_pct: number
     dreb_per_day: number; dreb_pct: number
+    oreb_rank: number; dreb_rank: number
     oreb_share: number | null       // 내 리바운드 중 공격 리바(%)
     league_oreb_share: number | null
     lean: 'offense' | 'defense' | 'balanced' | null
@@ -91,6 +98,8 @@ export function buildPlayStyle(
   const daily = (p: StyleInput, k: 'oreb' | 'dreb' | 'stl' | 'blk' | 'ast') => (p.gp > 0 ? p[k] / p.gp : 0)
   const pp = pool.length > 0 ? pool : [me]
   const pctFor = (k: 'oreb' | 'dreb' | 'stl' | 'blk' | 'ast') => pctOf(pp.map(p => daily(p, k)), daily(me, k))
+  // 순위 = 하루 평균 큰 순, 공동 순위(1, 2, 2, 4)
+  const rankFor = (k: 'oreb' | 'dreb' | 'stl' | 'blk') => { const v = daily(me, k); return 1 + pp.filter(p => daily(p, k) > v + 1e-9).length }
   const blk_pct = pctFor('blk'), stl_pct = pctFor('stl'), oreb_pct = pctFor('oreb'), dreb_pct = pctFor('dreb'), ast_pct = pctFor('ast')
 
   // ── 수비 ──
@@ -107,10 +116,12 @@ export function buildPlayStyle(
   const lgO = pool.reduce((s, p) => s + p.oreb, 0), lgR = pool.reduce((s, p) => s + p.oreb + p.dreb, 0)
   const league_oreb_share = lgR > 0 ? Math.round((lgO / lgR) * 100) : null
   const oreb_share = myReb > 0 ? Math.round((me.oreb / myReb) * 100) : null
+  const shares = pool.filter(p => p.oreb + p.dreb >= MIN_REB_FOR_LEAN).map(p => p.oreb / (p.oreb + p.dreb))
+  const sharePct = myReb > 0 ? pctOf(shares, me.oreb / myReb) : null
   const rebLean: PlayStyle['rebound']['lean'] =
-    myReb < MIN_REB_FOR_LEAN || oreb_share == null || league_oreb_share == null ? null
-      : oreb_share - league_oreb_share >= REB_LEAN_GAP ? 'offense'
-      : league_oreb_share - oreb_share >= REB_LEAN_GAP ? 'defense'
+    myReb < MIN_REB_FOR_LEAN || sharePct == null || shares.length < 3 ? null
+      : sharePct >= REB_LEAN_HIGH ? 'offense'
+      : sharePct <= REB_LEAN_LOW ? 'defense'
       : 'balanced'
 
   // ── 공격 ──
@@ -138,12 +149,14 @@ export function buildPlayStyle(
 
   return {
     tags,
+    pool_size: pp.length,
+    ranked: pool.some(p => p.pid === me.pid),
     defense: {
-      blk_per_day: per(me.blk, me.gp), blk_pct, stl_per_day: per(me.stl, me.gp), stl_pct,
+      blk_per_day: per(me.blk, me.gp), blk_pct, blk_rank: rankFor('blk'), stl_per_day: per(me.stl, me.gp), stl_pct, stl_rank: rankFor('stl'),
       lean: defLean, blocked, rim_share,
     },
     rebound: {
-      oreb_per_day: per(me.oreb, me.gp), oreb_pct, dreb_per_day: per(me.dreb, me.gp), dreb_pct,
+      oreb_per_day: per(me.oreb, me.gp), oreb_pct, oreb_rank: rankFor('oreb'), dreb_per_day: per(me.dreb, me.gp), dreb_pct, dreb_rank: rankFor('dreb'),
       oreb_share, league_oreb_share, lean: rebLean,
     },
     offense: { lean: offLean, playmaker },
