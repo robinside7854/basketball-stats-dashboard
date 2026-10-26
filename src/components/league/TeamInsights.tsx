@@ -1,10 +1,14 @@
 'use client'
 // 미라클모닝 브랜드 (E안) — TeamInsights
-// 팀 하이라이트 · Four Factors · Advanced 팀 평가
+// 공격 리바운드 · 팀 하이라이트 · 승리 4요소 · 효율 (2026-10-26 열 이름 한글화 · 공격 리바를 맨 위로)
 // mm-* 팔레트 · font-jersey · rounded 최소 · 그라디언트 제거
 import { useEffect, useState } from 'react'
 import { Trophy, ShieldCheck, Flame, HandCoins, Target, Activity, Zap, TrendingUp } from 'lucide-react'
 import { accentOrInk } from '@/lib/util/contrastColor'
+import { ShimmerRows } from '@/components/league/teams/TeamsSkeleton'
+
+/** 하루치 최다 기록 카드는 경기일이 이만큼 쌓여야 뜻이 있다 — 분기 초엔 「최다」가 전부 같은 하루라 7장이 비슷하다 */
+const MIN_DAYS_FOR_HIGHLIGHTS = 3
 
 type DayRecord = { date: string; value: number; vs: string; score: string } | null
 
@@ -42,29 +46,27 @@ interface Props {
 }
 
 export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }: Props) {
-  const [data, setData] = useState<Insights | null>(null)
-  const [loading, setLoading] = useState(true)
+  // 받은 응답에 요청 키를 붙여 두고, 키가 다르면 로딩으로 본다(effect 안에서 setLoading 을 부르지 않게)
+  const reqKey = `${leagueId}|${teamId}|${quarterId}`
+  const [got, setGot] = useState<{ key: string; d: Insights | null } | null>(null)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
     const qp = quarterId !== 'all' ? `?quarterId=${quarterId}` : ''
     fetch(`/api/leagues/${leagueId}/teams/${teamId}/insights${qp}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => setData(d))
-      .finally(() => setLoading(false))
-  }, [leagueId, teamId, quarterId])
+      .then(d => { if (!cancelled) setGot({ key: reqKey, d }) })
+      .catch(() => { if (!cancelled) setGot({ key: reqKey, d: null }) })
+    return () => { cancelled = true }
+  }, [leagueId, teamId, quarterId, reqKey])
+  const loading = got?.key !== reqKey
+  const data = loading ? null : got!.d
 
-  if (loading) {
-    return (
-      <p className="text-xs py-3" style={{ color: 'var(--mm-muted)' }}>
-        불러오는 중...
-      </p>
-    )
-  }
+  if (loading) return <ShimmerRows rows={3} height={64} />
   if (!data || data.game_count === 0) {
     return (
       <p className="text-xs py-3 text-center" style={{ color: 'var(--mm-muted)' }}>
-        완료된 경기가 없어 인사이트를 계산할 수 없습니다.
+        아직 마감된 경기가 없어요.
       </p>
     )
   }
@@ -76,18 +78,18 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
     { key: 'pts',     label: '최다 득점 일자',  record: records.most_points_day,  icon: <Flame size={14} />,       suffix: '점' },
     { key: 'allowed', label: '최소 실점 일자',  record: records.fewest_allowed,   icon: <ShieldCheck size={14} />, suffix: '점 허용' },
     { key: 'win',     label: '최대 승점차',     record: records.biggest_win,      icon: <Trophy size={14} />,      suffix: '점 차' },
-    { key: 'ast',     label: '최다 어시스트',   record: records.most_ast_day,     icon: <HandCoins size={14} />,   suffix: 'AST' },
-    { key: '3pm',     label: '최다 3점슛',      record: records.most_3pm_day,     icon: <Target size={14} />,      suffix: '3PM' },
-    { key: 'stlblk',  label: '최다 STL+BLK',    record: records.most_stl_blk_day, icon: <Zap size={14} />,         suffix: '회' },
-    { key: 'reb',     label: '최다 리바운드',   record: records.most_reb_day,     icon: <Activity size={14} />,    suffix: 'REB' },
+    { key: 'ast',     label: '최다 어시스트',   record: records.most_ast_day,     icon: <HandCoins size={14} />,   suffix: '개' },
+    { key: '3pm',     label: '최다 3점슛',      record: records.most_3pm_day,     icon: <Target size={14} />,      suffix: '개' },
+    { key: 'stlblk',  label: '최다 스틸+블록',  record: records.most_stl_blk_day, icon: <Zap size={14} />,         suffix: '회' },
+    { key: 'reb',     label: '최다 리바운드',   record: records.most_reb_day,     icon: <Activity size={14} />,    suffix: '개' },
   ]
 
-  // Four Factors (Dean Oliver / Basketball Reference)
+  // 승리 4요소 (Four Factors — Dean Oliver). 화면 이름은 스탯 탭 한글과 맞춘다
   const ffRows = ff ? [
-    { label: 'eFG%',      tooltip: '유효 야투율 — (FGM + 0.5×3PM) / FGA',           team: ff.efg.team,  opp: ff.efg.opp,  suffix: '%', higherBetter: true  },
-    { label: 'TOV%',      tooltip: '턴오버 비율 — TOV / (FGA + 0.44×FTA + TOV)',     team: ff.tov.team,  opp: ff.tov.opp,  suffix: '%', higherBetter: false },
-    { label: 'ORB%',      tooltip: '공격리바운드 점유율 — ORB / (ORB + opp DRB)',    team: ff.orb.team,  opp: ff.orb.opp,  suffix: '%', higherBetter: true  },
-    { label: 'FT/FGA',    tooltip: '자유투 시도 비율 — FTA / FGA (얼마나 라인까지 가는가)', team: ff.ftr.team, opp: ff.ftr.opp, suffix: '%', higherBetter: true },
+    { label: '유효야투',   tooltip: '3점을 1.5개로 쳐 준 야투율 — (야투 성공 + 0.5×3점 성공) / 야투 시도', team: ff.efg.team,  opp: ff.efg.opp,  suffix: '%', higherBetter: true  },
+    { label: '턴오버 비율', tooltip: '공격 기회 중 턴오버로 끝난 비율',                                  team: ff.tov.team,  opp: ff.tov.opp,  suffix: '%', higherBetter: false },
+    { label: '공리 비율',  tooltip: '빗나간 우리 슛을 우리가 다시 잡은 비율',                            team: ff.orb.team,  opp: ff.orb.opp,  suffix: '%', higherBetter: true  },
+    { label: '자유투 유도', tooltip: '야투 시도 대비 자유투 시도 — 얼마나 파울을 얻어내는가',              team: ff.ftr.team, opp: ff.ftr.opp, suffix: '%', higherBetter: true },
   ] : []
 
   // 공용 섹션 헤드라인 스타일
@@ -97,16 +99,52 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
   return (
     <div className="space-y-6">
 
+      {/* ── G2. 공격 리바운드 — 잡은 것 vs 허용한 것 (2026-10-25 운영진) ──
+          허용 = 이 팀 경기에서 상대가 잡은 공격 리바운드(opp_total.oreb, 이벤트의 team_id 기준). 친선 제외 — insights API 와 같은 경기 집합. */}
+      {(() => {
+        const gc = data.game_count
+        const ours = data.team_total.oreb ?? 0
+        const allowed = data.opp_total.oreb ?? 0
+        const per = (v: number) => (gc > 0 ? (v / gc).toFixed(1) : '0.0')
+        const better = ours > allowed
+        return (
+          <div>
+            <p className={sectionHeadCls} style={{ color: 'var(--mm-ink)' }}>
+              공격 리바운드
+              <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>{gc}경기 · 경기당 · 누적</span>
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 max-w-3xl mx-auto">
+              {[
+                { label: '잡은 공격 리바', v: ours, color: better ? 'var(--mm-positive)' : 'var(--mm-ink)' },
+                { label: '허용한 공격 리바', v: allowed, color: better ? 'var(--mm-ink)' : 'var(--mm-negative)' },
+              ].map(c => (
+                <div key={c.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                  <div className="font-jersey font-black tabular-nums leading-none" style={{ color: c.color, fontSize: '28px' }}>{per(c.v)}</div>
+                  <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{c.label}</div>
+                  <div className="text-xs mt-0.5 tabular-nums" style={{ color: 'var(--mm-muted)' }}>경기당 · 누적 {c.v}개</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs mt-1.5 text-center" style={{ color: 'var(--mm-muted)' }}>
+              허용 = 우리 경기에서 상대가 잡은 공격 리바운드 · 차이 {ours - allowed > 0 ? '+' : ''}{ours - allowed}개
+            </p>
+          </div>
+        )
+      })()}
+
       {/* ── F. 팀 하이라이트 ───────────────────────────────────── */}
       <div>
         <p className={sectionHeadCls} style={{ color: 'var(--mm-ink)' }}>
           팀 하이라이트
           <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>
-            라운드 단위 최고 기록 · {data.day_count}R · {data.game_count}G
+            하루 최고 기록 · {data.day_count}일 · {data.game_count}경기
           </span>
         </p>
         {/* 폰 2열: 카드 7장이면 마지막 한 장이 왼쪽 반만 차고 오른쪽이 비었다 → 그 한 장만 가운데로.
             칸이 좁아(약 140px) 「10-08 · vs 챗지피…」가 잘리지 않게 폰 안쪽 여백을 한 단계 줄였다 */}
+        {data.day_count < MIN_DAYS_FOR_HIGHLIGHTS ? (
+          <p className="text-xs py-2" style={{ color: 'var(--mm-muted)' }}>경기일이 더 쌓이면 보여요.</p>
+        ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-5px)]">
           {recordCards.filter(c => c.record).map(c => (
             <div
@@ -141,15 +179,16 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* ── G. Four Factors ────────────────────────────────────── */}
       {ff && (
         <div>
           <p className={sectionHeadCls} style={{ color: 'var(--mm-ink)' }}>
-            Four Factors
+            승리 4요소
             <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>
-              Dean Oliver 표준 · 좌: 우리 팀 · 우: 상대(디펜스)
+              왼쪽 우리 팀 · 오른쪽 상대
             </span>
           </p>
           {/* 막대 비교는 폭을 묶어 가운데로 — 전폭이면 가운데 항목명과 양끝 숫자가 너무 멀다 */}
@@ -206,52 +245,19 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             })}
           </div>
           <p className="mt-2 italic text-xs" style={{ color: 'var(--mm-muted)' }}>
-            ※ TOV%는 낮을수록 좋고, 나머지는 높을수록 좋음. 라벨에 마우스를 올리면 공식이 표시됩니다.
+            ※ 턴오버 비율은 낮을수록, 나머지는 높을수록 좋아요. 항목에 마우스를 올리면 뜻이 나와요.
           </p>
         </div>
       )}
-
-      {/* ── G2. 공격 리바운드 — 잡은 것 vs 허용한 것 (2026-10-25 운영진) ──
-          허용 = 이 팀 경기에서 상대가 잡은 공격 리바운드(opp_total.oreb, 이벤트의 team_id 기준). 친선 제외 — insights API 와 같은 경기 집합. */}
-      {(() => {
-        const gc = data.game_count
-        const ours = data.team_total.oreb ?? 0
-        const allowed = data.opp_total.oreb ?? 0
-        const per = (v: number) => (gc > 0 ? (v / gc).toFixed(1) : '0.0')
-        const better = ours > allowed
-        return (
-          <div>
-            <p className={sectionHeadCls} style={{ color: 'var(--mm-ink)' }}>
-              공격 리바운드
-              <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>{gc}경기 · 경기당 · 누적</span>
-            </p>
-            <div className="grid grid-cols-2 gap-2.5 max-w-3xl mx-auto">
-              {[
-                { label: '잡은 공격 리바', v: ours, color: better ? 'var(--mm-positive)' : 'var(--mm-ink)' },
-                { label: '허용한 공격 리바', v: allowed, color: better ? 'var(--mm-ink)' : 'var(--mm-negative)' },
-              ].map(c => (
-                <div key={c.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
-                  <div className="font-jersey font-black tabular-nums leading-none" style={{ color: c.color, fontSize: '28px' }}>{per(c.v)}</div>
-                  <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{c.label}</div>
-                  <div className="text-xs mt-0.5 tabular-nums" style={{ color: 'var(--mm-muted)' }}>경기당 · 누적 {c.v}개</div>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs mt-1.5 text-center" style={{ color: 'var(--mm-muted)' }}>
-              허용 = 우리 경기에서 상대가 잡은 공격 리바운드 · 차이 {ours - allowed > 0 ? '+' : ''}{ours - allowed}개
-            </p>
-          </div>
-        )
-      })()}
 
       {/* ── H. Advanced Team Metrics ───────────────────────────── */}
       {adv && (
         <div>
           <p className={sectionHeadCls} style={{ color: 'var(--mm-ink)' }}>
             <TrendingUp size={14} className="inline mr-1 mb-0.5" style={{ color: 'var(--mm-ink-soft)' }} />
-            Advanced 팀 평가
+            팀 효율
             <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>
-              100 포제션당 득실 · Pace = 평균 포제션
+              공격 100번당 득실 · 경기 속도 = 평균 공격 횟수
             </span>
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -261,7 +267,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
-                ORtg
+                공격 효율
               </div>
               <div
                 className="font-jersey font-black tabular-nums leading-none mt-1"
@@ -270,7 +276,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                 {adv.ortg}
               </div>
               <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
-                100 포제션당 득점
+                공격 100번당 득점
               </div>
             </div>
             {/* DRtg */}
@@ -279,7 +285,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
-                DRtg
+                수비 효율
               </div>
               <div
                 className="font-jersey font-black tabular-nums leading-none mt-1"
@@ -288,16 +294,16 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                 {adv.drtg}
               </div>
               <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
-                100 포제션당 실점
+                공격 100번당 실점 · 낮을수록 좋음
               </div>
             </div>
-            {/* Net Rtg — 부호에 따라 emerald/red 데이터 강조 예외 허용 */}
+            {/* 효율 차 — 부호에 따라 positive/negative */}
             <div
               className="p-3 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
-                Net Rtg
+                효율 차
               </div>
               <div
                 className="font-jersey font-black tabular-nums leading-none mt-1"
@@ -309,7 +315,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                 {adv.net_rtg >= 0 ? '+' : ''}{adv.net_rtg}
               </div>
               <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
-                ORtg − DRtg
+                공격 효율 − 수비 효율
               </div>
             </div>
             {/* Pace */}
@@ -318,7 +324,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
-                Pace
+                경기 속도
               </div>
               <div
                 className="font-jersey font-black tabular-nums leading-none mt-1"
@@ -327,12 +333,12 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                 {adv.pace}
               </div>
               <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
-                평균 포제션
+                한 경기 평균 공격 횟수
               </div>
             </div>
           </div>
           <p className="mt-2 italic text-xs" style={{ color: 'var(--mm-muted)' }}>
-            포제션 = FGA + 0.44×FTA + TOV (Dean Oliver 추정). 우리 팀 누적 {adv.team_poss} / 상대 누적 {adv.opp_poss}.
+            공격 횟수 = 야투 시도 + 0.44×자유투 시도 + 턴오버 (추정). 우리 팀 누적 {adv.team_poss}번 / 상대 누적 {adv.opp_poss}번.
           </p>
         </div>
       )}

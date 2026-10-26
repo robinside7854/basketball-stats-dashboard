@@ -35,10 +35,13 @@ export default function DynamicDuoPanel({
   duos,
   playerName,
   onSelectPartner,
+  periodNote,
 }: {
   duos: DuoEntry[]
   playerName: string
   onSelectPartner?: (id: string, name: string) => void
+  /** 기간 안내 — 카드가 분기를 보고 있어도 듀오는 전체 기간이라 그 사실을 붙인다 */
+  periodNote?: string
 }) {
   if (duos.length === 0) {
     return (
@@ -55,7 +58,7 @@ export default function DynamicDuoPanel({
         다이나믹 듀오
       </p>
       <p className="text-xs mb-3 break-keep" style={{ color: 'var(--mm-muted)' }}>
-        어시스트로 함께 만든 득점 합계 상위 3조합
+        어시스트로 함께 만든 득점 합계 상위 3조합{periodNote ? ` · ${periodNote}` : ''}
       </p>
 
       <div className="space-y-2.5">

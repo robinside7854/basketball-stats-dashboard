@@ -14,6 +14,9 @@
 //   · 베스트샷: 공개 리그면 누구나(옛 best-shots 는 isLeaguePrivateGated 만 봤다)
 //   · 그 밖의 전부: 승인 회원 전용(getApprovedSession) — 날짜 목록도 비회원에게는 싣지 않는다
 // 캐시 — 옛 페이지들의 unstable_cache 키·태그를 그대로 쓴다. 개인 데이터(핀 상태·세션)는 캐시 밖.
+// 「내 클립」 카드(2026-10-26) — 세션의 선수 id 로 기존 선수 피드 캐시(getPlayerCached, 키 = 선수)를 읽어
+//   여기서 센다. 캐시 항목 자체는 「그 선수의 클립」이라 누가 보든 같고(승인 회원이면 누구 클립이든 볼 수 있다),
+//   「누가 보고 있나」는 캐시에 들어가지 않는다.
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -29,6 +32,7 @@ import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBro
 import HighlightsFeedChips, { type FeedKind, type FeedPlayerLabel } from '@/components/league/highlights/HighlightsFeedChips'
 import { formatFeedDate } from '@/components/league/highlights/feedFormat'
 import FeedKeyed from '@/components/league/highlights/FeedKeyed'
+import MyClipsCard, { MarkMyClipsSeen } from '@/components/league/highlights/MyClipsCard'
 import ClassicGameCard from '@/components/league/highlights/ClassicGameCard'
 import PlayerMilestoneChart, { type PlayerMilestoneData } from '@/components/league/highlights/PlayerMilestoneChart'
 import { loadRecentRounds, loadRoundDetail, loadPlayerHighlights, loadLeagueBestShots } from '@/lib/highlights/loader'
@@ -208,7 +212,9 @@ export default async function HighlightsFeedPage({
 
   const base = `/league/${orgSlug}/${leagueId}`
   const hl = `${base}/highlights`
-  const approved = !!(await getApprovedSession(leagueId))
+  const session = await getApprovedSession(leagueId)
+  const approved = !!session
+  const meId = session?.pid ?? null
 
   // 날짜 시트 — 클립이 있는 날만. 비회원에게는 날짜 목록도 싣지 않는다(옛 랜딩과 같은 문).
   const landing = approved ? await getLandingCached(leagueId)() : null
@@ -377,6 +383,10 @@ export default async function HighlightsFeedPage({
             <EmptyState icon={Film} title="이 선수의 하이라이트가 없어요" description="YouTube 영상이 연결되고 영상 시각이 기록된 득점 장면만 보여요." />
           ) : (
             <FeedKeyed>
+              {playerId === meId && (() => {
+                const m = summarizeMyClips(playerData)
+                return m ? <MarkMyClipsSeen leagueId={leagueId} date={m.date} /> : null
+              })()}
               <PlayerHighlightsBrowser
                 player={p}
                 clips={playerData.clips}
@@ -393,7 +403,18 @@ export default async function HighlightsFeedPage({
       )
     }
   } else {
-    body = <DayCards hl={hl} rounds={landing?.rounds ?? []} records={landing?.records ?? {}} />
+    // 날짜 카드 격자 첫 칸 — 내 클립이 있는 가장 최근 경기일과 그날 클립 수 (선수 피드와 같은 클립 정의)
+    const mine = meId ? summarizeMyClips(await getPlayerCached(leagueId, meId)().catch(() => null)) : null
+    const lead = mine ? (
+      <MyClipsCard
+        leagueId={leagueId}
+        href={`${hl}?player=${encodeURIComponent(meId!)}`}
+        date={mine.date}
+        count={mine.count}
+        thumbVideoId={mine.thumbVideoId}
+      />
+    ) : null
+    body = <DayCards hl={hl} rounds={landing?.rounds ?? []} records={landing?.records ?? {}} lead={lead} />
   }
 
   return (
@@ -405,6 +426,18 @@ export default async function HighlightsFeedPage({
 }
 
 // ── 조각들 ─────────────────────────────────────────────────────────
+
+/** 선수 피드에서 「가장 최근 경기일 · 그날 클립 수 · 썸네일 영상」 — 클립이 없으면 null */
+function summarizeMyClips(
+  data: { clips: Array<{ game_date?: string; video_id: string }> } | null,
+): { date: string; count: number; thumbVideoId: string | null } | null {
+  if (!data) return null
+  let date: string | null = null
+  for (const c of data.clips) if (c.game_date && (!date || c.game_date > date)) date = c.game_date
+  if (!date) return null
+  const day = data.clips.filter(c => c.game_date === date)
+  return { date, count: day.length, thumbVideoId: day.find(c => c.video_id)?.video_id ?? null }
+}
 
 function ModeLine({ title, sub, avatar }: { title: React.ReactNode; sub?: string; avatar?: { src: string | null; name: string } | null }) {
   return (
@@ -437,8 +470,8 @@ function FeedLinks({ links }: { links: Array<{ href: string; label: string }> })
 
 type LandingRound = Awaited<ReturnType<ReturnType<typeof getLandingCached>>>['rounds'][number]
 
-function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[]; records: Record<string, DayRecord> }) {
-  if (rounds.length === 0) {
+function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRound[]; records: Record<string, DayRecord>; lead?: React.ReactNode }) {
+  if (rounds.length === 0 && !lead) {
     return (
       <EmptyState
         icon={Film}
@@ -450,6 +483,7 @@ function DayCards({ hl, rounds, records }: { hl: string; rounds: LandingRound[];
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {lead}
         {rounds.map(r => {
           const isReady = r.status === 'ready'
           const isPendingRecord = r.status === 'pending_record'

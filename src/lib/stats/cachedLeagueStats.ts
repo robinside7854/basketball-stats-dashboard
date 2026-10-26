@@ -39,6 +39,6 @@ export function getCachedLeagueStats(leagueId: string, raw: CachedStatOpts = {})
       opts.quarterId ?? '', (opts.quarterIds ?? []).join(','),
       opts.teamId ?? '', opts.playerId ?? '', opts.from ?? '', opts.to ?? '', opts.unit,
     ],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )()
 }

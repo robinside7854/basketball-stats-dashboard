@@ -9,7 +9,8 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 //
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
 //   · 공격 유형(슛 유형별 비중·야투율) · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
-import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
+import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
@@ -73,7 +74,7 @@ function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
 function DdLegend() {
   return (
     <p className="t-label" style={{ color: 'var(--mm-muted)' }}>
-      DD = 더블더블 (득점·리바운드·어시스트·스틸·블락 중 2개가 두 자릿수) · TD = 트리플더블 (3개 이상)
+      DD = 더블더블 (득점·리바운드·어시스트·스틸·블록 중 2개가 두 자릿수) · TD = 트리플더블 (3개 이상)
     </p>
   )
 }
@@ -145,6 +146,15 @@ interface Props {
   initialHl?: HighlightScope | null
   /** ?tab= — 안쪽 탭. 없으면 이 세션에서 마지막으로 본 탭 */
   initialTab?: string | null
+  /** ?me=1 — 선수 기록 탭으로 열고 내 줄로 스크롤(홈 「지난 토요일 나」) */
+  initialMe?: boolean
+}
+
+// 로그인 회원 본인 — 표·카드에서 내 줄을 노랑으로 (2026-10-26 점검 MVP 1: 47명 표에서 내 이름을 눈으로 찾아야 했다)
+const MyIdCtx = createContext<string | null>(null)
+const MY_ROW_BG = 'color-mix(in srgb, var(--mm-yellow) 22%, var(--mm-panel))'
+function MeTag() {
+  return <span className="shrink-0 px-1 text-[11px] font-black leading-4" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 3 }}>나</span>
 }
 
 // 선수명. 누르면 선수 카드 모달이 열린다 — 글자 크기·굵기·색은 기존 그대로 두고
@@ -184,6 +194,7 @@ function sumLine(rows: PlayerRow[]): TotalLine {
 type TotalOpts = { label?: string; gp?: number }
 
 function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; total?: TotalLine; totalOpts?: TotalOpts }) {
+  const myId = useContext(MyIdCtx)
   const [sortKey, setSortKey] = useState('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -279,11 +290,13 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
         <tbody>
           {sorted.map((r, i) => {
             const rr = r as PlayerRow & DailyStat
+            const isMe = !!myId && rr.player_id === myId
             return (
               <tr
                 key={rr.player_id}
-                className={`transition-colors duration-200 hover:bg-[color:var(--mm-yellow-soft)] ${i % 2 === 0 ? 'bg-[color:var(--mm-panel)]' : 'bg-[color:var(--mm-panel-alt)]'}`}
-                style={{ borderBottom: '1px solid var(--mm-rule)' }}
+                className={`transition-colors duration-200 hover:bg-[color:var(--mm-yellow-soft)] ${isMe ? '' : i % 2 === 0 ? 'bg-[color:var(--mm-panel)]' : 'bg-[color:var(--mm-panel-alt)]'}`}
+                style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { background: MY_ROW_BG, boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' } : null) }}
+                data-me={isMe || undefined}
               >
                 <th scope="row" className="py-2 px-3 sticky left-0 text-left font-normal" style={{ background: 'inherit' }}>
                   <div className="flex items-center gap-2">
@@ -293,6 +306,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                       {/* 선수명은 본문체 600 — 유니폼체(좁음)와 900 굵기를 뺀 것이 이번 작업의 요지 */}
                       <span className="flex items-center gap-1.5 min-w-0">
                         <PlayerName row={rr} onPlayerPick={onPlayerPick} />
+                        {isMe && <MeTag />}
                         {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
                       </span>
                       {rr.team_name && <p className="text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
@@ -375,6 +389,7 @@ function ShootCell({ label, made, att, pct }: { label: string; made: number; att
 }
 
 function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort = false, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; hideSort?: boolean; total?: TotalLine; totalOpts?: TotalOpts }) {
+  const myId = useContext(MyIdCtx)
   const [sortKey, setSortKey] = useState<'pts' | 'reb' | 'ast'>('pts')
   const sorted = [...rows].sort((a, b) => {
     const av = (a as Record<string, unknown>)[sortKey] as number ?? 0
@@ -382,9 +397,9 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
     return bv - av
   })
   const sortBtns: { key: 'pts' | 'reb' | 'ast'; label: string }[] = [
-    { key: 'pts', label: 'PTS' },
-    { key: 'reb', label: 'REB' },
-    { key: 'ast', label: 'AST' },
+    { key: 'pts', label: '득점' },
+    { key: 'reb', label: '리바' },
+    { key: 'ast', label: '어시' },
   ]
   return (
     <div className="space-y-2">
@@ -410,14 +425,19 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
       <div>
       {sorted.map(r => {
         const rr = r as PlayerRow & DailyStat
+        const isMe = !!myId && rr.player_id === myId
         return (
-          <div key={rr.player_id} className="py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+          <div key={rr.player_id} className={isMe ? 'py-3 px-2 -mx-2' : 'py-3'} data-me={isMe || undefined}
+            style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { background: MY_ROW_BG, boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' } : null) }}>
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Avatar src={rr.photo_url} name={rr.name} size={32} ringColor={ringOf(rr.team_color)} decorative />
                 {/* 팀명·경기 수는 이름 아래 줄로 — 한 줄에 다 두면 360px 에서 이름이 「이…」로 잘렸다 */}
                 <span className="flex flex-col min-w-0">
-                  <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
+                    {isMe && <MeTag />}
+                  </span>
                   {(rr.team_name || showGP) && (
                     <span className="flex items-center gap-1.5 min-w-0 text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>
                       {rr.team_name && <span className="truncate min-w-0">{rr.team_name}</span>}
@@ -430,7 +450,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
               <div className="flex items-baseline gap-1 shrink-0">
                 {/* 큰 점수 숫자(≥20px)만 유니폼체 유지 — 운영자 결정 */}
                 <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{rr.pts}</span>
-                <span className="t-label">PTS</span>
+                <span className="t-label">득점</span>
               </div>
             </div>
             <LineGrid r={rr} />
@@ -446,7 +466,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
             </span>
             <div className="flex items-baseline gap-1 shrink-0">
               <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{total.pts}</span>
-              <span className="t-label">PTS</span>
+              <span className="t-label">득점</span>
             </div>
           </div>
           <LineGrid r={total} />
@@ -499,7 +519,7 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
     { Icon: Flame,     label: '득점',     p: byPts,   val: byPts ? `${byPts.pts}점` : null,     sub: gpSub(byPts) },
     { Icon: Hand,      label: '리바운드', p: byReb,   val: byReb ? `${byReb.reb}개` : null,     sub: byReb ? `OR ${byReb.oreb} / DR ${byReb.dreb}` : '' },
     { Icon: Handshake, label: '어시스트', p: byAst,   val: byAst ? `${byAst.ast}개` : null,     sub: gpSub(byAst) },
-    { Icon: Shield,    label: '블락',     p: byBlk,   val: byBlk ? `${byBlk.blk}개` : null,     sub: gpSub(byBlk) },
+    { Icon: Shield,    label: '블록',     p: byBlk,   val: byBlk ? `${byBlk.blk}개` : null,     sub: gpSub(byBlk) },
     { Icon: Zap,       label: '스틸',     p: byStl,   val: byStl ? `${byStl.stl}개` : null,     sub: gpSub(byStl) },
     { Icon: Target,    label: '야투율',   p: byFgPct, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
     { Icon: Sparkles,  label: '3점슛',    p: byFg3,   val: byFg3 ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
@@ -601,8 +621,9 @@ function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: P
 
 // 멀티테넌트 전환(온볼): leagueName 은 항상 호출부(boxscore page)에서 DB league.name 을 넘겨받음 —
 // 기본값은 다른 클럽명이 아닌 빈 문자열로 폴백 (호출부 fallback 미전달 시에도 특정 클럽명 노출 방지)
-export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId, initialHl, initialTab }: Props) {
+export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId, initialHl, initialTab, initialMe = false }: Props) {
   const { orgSlug } = useParams<{ orgSlug: string }>()
+  const myId = useOptionalCurrentUser()?.user?.player_id ?? null
   // 팀 어드민 · CEO — 펼친 경기 카드에 「기록 수정」(→ 기록 화면 · 기록 내역)
   const { isEditMode } = useLeagueEditMode()
   const [games, setGames] = useState<GameData[]>([])
@@ -618,6 +639,8 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   //   서버 렌더(늘 'result')와 달라도 하이드레이션 어긋남이 없다.
   const [activeTab, setActiveTabState] = useState<BoxTab>(() => {
     if (isBoxTab(initialTab)) return initialTab
+    // ?me=1 (홈 「지난 토요일 나」 → 그날 기록표) — 선수 기록 탭으로 연다
+    if (initialMe) return 'players'
     if (typeof window === 'undefined') return 'result'
     try { const v = sessionStorage.getItem(BOX_TAB_KEY); return isBoxTab(v) ? v : 'result' } catch { return 'result' }
   })
@@ -652,6 +675,14 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const ddKinds: DdMap = ddMapOf(dailyStats)
   const hasDd = ddKinds.size > 0
 
+  // ?me=1 — 다 그린 뒤 내 줄로 한 번 스크롤
+  const scrolledToMe = useRef(false)
+  useEffect(() => {
+    if (!initialMe || loading || scrolledToMe.current || !myId) return
+    const el = document.querySelector('[data-me="true"]')
+    if (el) { scrolledToMe.current = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
+  })
+
   const dateLabel = (() => {
     const d = new Date(date + 'T00:00:00')
     const days = ['일','월','화','수','목','금','토']
@@ -675,11 +706,25 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
         pixelRatio: 2,
         cacheBust: true,
       })
-      const link = document.createElement('a')
-      link.download = `boxscore-${date}.png`
-      link.href = dataUrl
-      link.click()
-      toast.success('박스스코어 공유 이미지를 저장했어요')
+      // 폰이면 공유 시트(카톡 등)로 바로 — 「다운로드 → 갤러리 → 카톡」 세 단계를 한 번으로 (2026-10-26 점검 MVP 1).
+      //   파일 공유를 못 하는 브라우저(대부분의 PC)는 종전처럼 내려받는다. 공유 창을 닫은 것(AbortError)은 실패가 아니다.
+      const fileName = `boxscore-${date}.png`
+      const blob = await (await fetch(dataUrl)).blob()
+      const file = new File([blob], fileName, { type: 'image/png' })
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
+      if (nav.share && nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: `${dateLabel} 박스스코어` })
+        } catch (err) {
+          if ((err as { name?: string })?.name !== 'AbortError') throw err
+        }
+      } else {
+        const link = document.createElement('a')
+        link.download = fileName
+        link.href = dataUrl
+        link.click()
+        toast.success('박스스코어 공유 이미지를 저장했어요')
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       toast.error(`이미지를 저장하지 못했어요: ${msg}`)
@@ -732,7 +777,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const completedCount = games.filter(g => g.is_complete).length
   const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
 
+  const myLine = myId ? dailyStats.find(r => r.player_id === myId) ?? null : null
+
   return (
+    <MyIdCtx.Provider value={myId}>
     <div className="mm-brand overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)' }}>
       {/* 요약 서브헤더 — 경기 수 · 이미지 저장 버튼 */}
       <div
@@ -759,7 +807,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
             >
               {savingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-              <span className="hidden sm:inline">이미지 저장</span>
+              <span className="hidden sm:inline">이미지 공유</span>
             </button>
           )}
         </div>
@@ -791,6 +839,23 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
           </div>
         )
       })()}
+
+      {/* 내 기록 한 줄 (2026-10-26 점검 MVP 1) — 그날 뛰었으면 표를 뒤지지 않아도 위에서 바로 보인다 */}
+      {!loading && myLine && (
+        <button
+          type="button"
+          onClick={() => setActiveTab('players')}
+          className="mm-press w-full shrink-0 px-4 lg:px-6 py-2 flex items-center gap-2.5 min-h-11 text-left cursor-pointer"
+          style={{ background: MY_ROW_BG, borderBottom: '1px solid var(--mm-rule)', boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' }}
+        >
+          <MeTag />
+          <span className="text-sm font-black tabular-nums min-w-0 flex-1" style={{ color: 'var(--mm-ink)' }}>
+            {myLine.pts}점 · {myLine.reb}리바 · {myLine.ast}어시
+            <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}> · {myLine.gp}경기</span>
+          </span>
+          <span className="text-xs font-bold shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>선수 기록 →</span>
+        </button>
+      )}
 
       {/* 하이라이트 보기 — 전체 · 우리 팀 · 내 기록 → 전체화면 연속 재생 (2026-10-14). 클립은 펼칠 때 받는다 */}
       {!loading && games.length > 0 && (
@@ -1271,6 +1336,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
         </div>
       )}
     </div>
+    </MyIdCtx.Provider>
   )
 }
 

@@ -8,7 +8,6 @@ import { buildPercentileBars, type PercentileInput } from '@/lib/stats/percentil
 import { buildHexRadar, type HexInput } from '@/lib/stats/hexRadar'
 import { buildQuarterRow, type QuarterTableRow } from '@/lib/stats/quarterTable'
 import { rateIfQualified } from '@/lib/stats/eligibility'
-import { findSimilarStyle, similarReasonText, type StyleInput } from '@/lib/stats/similarStyle'
 import { isAssistEvent, FIELD_SHOT_TYPES } from '@/lib/stats/boxLine'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import {
@@ -25,7 +24,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildPlayerForm, type PlayerForm } from '@/lib/stats/playerForm'
 import { buildPlayStyle, pairBlockedShots, type StyleInput as PlayStyleInput } from '@/lib/stats/playStyle'
 
-// 「선수 숫자는 한 벌」(2026-10-14) — 이 라우트의 합계·하루 평균·순위·백분위·비슷한 선수는 전부
+// 「선수 숫자는 한 벌」(2026-10-14) — 이 라우트의 합계·하루 평균·순위·백분위는 전부
 //   computeLeagueStats(스탯 탭과 같은 결과)에서 나온다(playerTotals.ts). 아래 자체 이벤트 루프는
 //   **그 결과에 없는 것**(커리어 하이·슛 분포·최근 경기·월별·연속 기록·승패·듀오)만 만든다 —
 //   그래서 같은 경기 집합(친선 제외·같은 기간·외부 팀 이벤트 제외·출전시간만 있는 날 포함)을 쓴다.
@@ -41,6 +40,14 @@ export async function GET(
   }
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId') ?? undefined
+  // (2026-10-26 카드 속도) `profile=1` — 선수 카드의 **첫 요청**. 머리에 쓸 선수 기본 정보(이름·사진·번호·포지션·+1·인증)와
+  //   기간과 무관한 값(마지막 출전·진행 중 연속 기록)을 같이 싣는다. 카드가 이 한 명 때문에 `/players` 전원 명단을
+  //   따로 받던 요청을 없앴다. 분기를 고른 채 열면 그 분기 요청 하나에 이것이 실린다(전체 기간 요청을 건너뛴다).
+  const withProfile = searchParams.get('profile') === '1'
+  // `lite=1` — 「나와 비교」 시트용. 합계·하루 평균·순위·6축 레이더만 쓰므로 플레이스타일(추가 조회 2회)·
+  //   요즘 흐름 분기 비교(분기 집계 2회)·듀오·백분위·같은 포지션 순위를 건너뛴다.
+  const lite = searchParams.get('lite') === '1'
+  const withTimeless = !lite && (!quarterId || withProfile)
   // 라운드(R) 기준 고정 — 경기 슬롯 단위는 2026-08-10 삭제했다.
   // 쿼리파라미터를 그대로 읽으면 옛 화면의 unit=game 요청이 여기서만 되살아난다.
   const unit = 'round'
@@ -72,14 +79,19 @@ export async function GET(
   const eventIndexP = getCachedLeagueEventIndex(leagueId)
   // (2026-10-14) 마지막 출전일 + 그 뒤 결장 경기일 — 분기와 무관한 값이라 분기 없는 요청에서만 계산한다
   //   (선수 카드는 분기 없는 첫 응답에서 읽는다). ⚠ 이 값만 친선일 포함 — computeLastPlayed 머리 주석. 실패하면 null.
-  const lastPlayedP = quarterId ? Promise.resolve(undefined) : computeLastPlayed(supabase, leagueId, playerId)
+  const lastPlayedP = withTimeless ? computeLastPlayed(supabase, leagueId, playerId) : Promise.resolve(undefined)
   // (2026-10-15) 진행 중 연속 기록 — /me 와 **같은 캐시·같은 판정**(lib/stats/dashboardBase.ts · computeStreaks).
   //   「진행 중」은 기간과 무관한 값이라 분기 없는 요청에서만 싣는다(카드는 분기 없는 첫 응답의 값을 읽는다).
-  const streaksP: Promise<OngoingStreak[] | undefined> = quarterId
-    ? Promise.resolve(undefined)
-    : getCachedDashboardBase(leagueId).then(b => ongoingStreaksFor(b, playerId)).catch(() => [])
+  const streaksP: Promise<OngoingStreak[] | undefined> = withTimeless
+    ? getCachedDashboardBase(leagueId).then(b => ongoingStreaksFor(b, playerId)).catch(() => [])
+    : Promise.resolve(undefined)
+  // 인증 뱃지 — `/players` 의 has_account 와 같은 판정(승인된 계정이 이 선수에 붙어 있는가). 실패하면 뱃지만 빠진다.
+  const hasAccountP: Promise<boolean> = withProfile
+    ? Promise.resolve(supabase.from('league_user_accounts').select('league_player_id').eq('league_player_id', playerId).eq('status', 'approved').limit(1))
+        .then(r => (r.data?.length ?? 0) > 0).catch(() => false)
+    : Promise.resolve(false)
   // 미처리 거부 방지 — 아래에서 조기 반환할 수 있다
-  for (const pr of [eventIndexP, lastPlayedP, streaksP, teamIdP, scoringRulesP, externalTeamIdsP]) (pr as Promise<unknown>).catch(() => {})
+  for (const pr of [eventIndexP, lastPlayedP, streaksP, hasAccountP, teamIdP, scoringRulesP, externalTeamIdsP]) (pr as Promise<unknown>).catch(() => {})
 
   type PlayerEventRow = { league_game_id: string; type: string; result: string | null; points: number | null; team_id: string | null; quarter: number | null }
   type AssistEventRow = { league_game_id: string; team_id: string | null; type: string; result: string | null; related_player_id: string | null }
@@ -107,7 +119,6 @@ export async function GET(
     { data: allGames },
     { data: teams },
     { data: allOverridesData },
-    { data: league },
     { data: memberships },
     { data: gpRows },
     playerEventsRaw,
@@ -119,7 +130,7 @@ export async function GET(
     quartersP,
     // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
     //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다. 핀(pinned_event_ids)도 이 조회에서 같이 읽는다.
-    teamIdP.then(tid => supabase.from('league_players').select('id, name, number, position, photo_url, plus_one, pinned_event_ids').eq('team_id', tid)),
+    teamIdP.then(tid => supabase.from('league_players').select('id, name, number, position, photo_url, plus_one, pinned_event_ids, birth_date').eq('team_id', tid)),
     supabase
       .from('league_games')
       .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, is_exhibition')
@@ -133,7 +144,6 @@ export async function GET(
     // id → 이름 매핑용이라 임시팀(exhibition_date)을 거르지 않는다
     supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
     supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
-    supabase.from('leagues').select('name').eq('id', leagueId).single(),
     supabase
       .from('league_player_quarters')
       .select('quarter_id, team_id, is_regular')
@@ -187,9 +197,6 @@ export async function GET(
     (teams ?? []) as TeamBase[],
     (allOverridesData ?? []) as QuarterOverride[],
   )
-  function resolveTeamName(teamId: string, qId: string | null | undefined): string {
-    return resolveIdentity(teamId, qId)?.display_name ?? '—'
-  }
 
   // ── 현 소속팀 + 분기별 소속 (2026-10-16) ── 카드 머리에 가장 먼저 보인다.
   //   지금 분기 = pickCurrentQuarter(날짜 → is_current → 최근). 대회 분기는 리그 소속 이력이 아니라 뺀다.
@@ -221,17 +228,25 @@ export async function GET(
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   // 듀오 파트너 표시용 메타 (이름/등번호/사진)
-  type LPMeta = { id: string; name: string | null; number: number | null; position?: string | null; photo_url: string | null; pinned_event_ids?: string[] | null }
+  type LPMeta = { id: string; name: string | null; number: number | null; position?: string | null; photo_url: string | null; pinned_event_ids?: string[] | null; plus_one?: boolean | null; birth_date?: string | null }
   const playerMetaMap: Record<string, LPMeta> = Object.fromEntries(
     ((leaguePlayers ?? []) as unknown as LPMeta[]).map(p => [p.id, p])
   )
   // 이 선수 행은 이제 팀 소유다 — 대회 화면에서 보는 선수카드도 team_id 로 소속을 확인해야 찾아진다.
   const pinned_event_ids: string[] = playerMetaMap[playerId]?.pinned_event_ids ?? []
+  // 카드 머리용 선수 기본 정보 — 첫 요청(profile=1)에만. 명단에 없으면(외부 선수 등) null → 카드가 `/players` 로 폴백하지 않고 이름만 보인다.
+  const player = withProfile ? (() => {
+    const m = playerMetaMap[playerId]
+    if (!m) return null
+    return Promise.resolve(hasAccountP).then(has_account => ({
+      id: m.id, name: m.name ?? '', number: m.number ?? null, position: m.position ?? null,
+      birth_date: m.birth_date ?? null, plus_one: !!m.plus_one, photo_url: m.photo_url ?? null, has_account,
+    }))
+  })() : null
   const gameIds = (games ?? []).map(g => g.id)
   const gameMap = Object.fromEntries((games ?? []).map(g => [g.id, g]))
   const gamePlusOneMap: Record<string, GamePlusOne> = {}
   for (const g of games ?? []) gamePlusOneMap[g.id] = g as GamePlusOne
-  const leagueName = (league as { name?: string } | null)?.name ?? ''
 
   const qTeamMap: Record<string, string> = {}
   for (const m of memberRows) {
@@ -245,8 +260,9 @@ export async function GET(
 
   if (gameIds.length === 0) {
     return NextResponse.json({
-      rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [], player_stats: null,
+      rankings: {}, career_high: {}, shot_breakdown: {}, game_log: [], player_stats: null,
       last_played: await lastPlayedP, active_streaks: await streaksP, current_team, team_history, pinned_event_ids,
+      ...(withProfile ? { player: await player } : {}),
     })
   }
 
@@ -353,8 +369,8 @@ export async function GET(
 
   const playedGames = Object.keys(perGame)
 
-  // ── unit(라운드/게임) 단위 승패 판정 — recentGames 카드가 쓴다 (연승은 2026-10-15 부터 dashboardBase 의 computeStreaks) ──
-  //   과거엔 recentGames 가 "그 unit의 첫 경기" 하나만으로 승패를 판정해, 스탯은 하루
+  // ── unit(라운드/게임) 단위 승패 판정 — 일별 기록(game_log)의 그날 전적이 쓴다 (연승은 2026-10-15 부터 dashboardBase 의 computeStreaks) ──
+  //   과거엔 일별 기록이 "그 unit의 첫 경기" 하나만으로 승패를 판정해, 스탯은 하루
   //   합산인데 승패만 첫 경기인 사고가 났다(2026-08-09, 김로빈 8/8 2승4패인데 W로 표시됨).
   //   이제 이 함수 하나로 두 곳 모두 "그 unit에 속한 모든 게임"을 합산해 판정한다.
   //   unit === 'game' 모드에서는 unitKey 가 gId 자체라 게임 하나 = 판정 하나로 기존과 동일.
@@ -432,72 +448,35 @@ export async function GET(
     const upd = (key: string, val: number, extra?: string) => {
       if (val > (chDay[key]?.value ?? -1)) chDay[key] = { value: val, date, extra }
     }
-    upd('pts', s.pts, s.fga > 0 ? `FG ${+(s.fgm / s.fga * 100).toFixed(1)}% (${s.fgm}/${s.fga})` : undefined)
-    upd('reb', s.reb, `OR ${s.oreb} / DR ${s.dreb}`)
+    upd('pts', s.pts, s.fga > 0 ? `야투율 ${+(s.fgm / s.fga * 100).toFixed(1)}% (${s.fgm}/${s.fga})` : undefined)
+    upd('reb', s.reb, `공격 ${s.oreb} · 수비 ${s.dreb}`)
     upd('ast', s.ast)
     upd('stl', s.stl)
     upd('blk', s.blk)
-    upd('fg3m', s.fg3m, s.fg3a > 0 ? `3P ${+(s.fg3m / s.fg3a * 100).toFixed(1)}% (${s.fg3m}/${s.fg3a})` : undefined)
+    upd('fg3m', s.fg3m, s.fg3a > 0 ? `3점률 ${+(s.fg3m / s.fg3a * 100).toFixed(1)}% (${s.fg3m}/${s.fg3a})` : undefined)
     if (s.fga >= 5) upd('fgPct', +(s.fgm / s.fga * 100).toFixed(1), `${s.fgm}/${s.fga}`)
-  }
-
-  function gameInfo(gId: string, teamId?: string) {
-    const g = gameMap[gId]
-    if (!g) return null
-    const isHome = g.home_team_id === teamId
-    const oppId = isHome ? g.away_team_id : g.home_team_id
-    const myPts = isHome ? g.home_score : g.away_score
-    const oppPts = isHome ? g.away_score : g.home_score
-    // 게임의 quarter override 를 우선 적용, 없으면 base team 이름 사용
-    const gameQuarterId = (g as { quarter_id?: string | null }).quarter_id ?? null
-    const opponent = oppId ? resolveTeamName(oppId, gameQuarterId) : '상대'
-    return {
-      date: g.date as string,
-      opponent,
-      round_num: g.round_num as number,
-      result: myPts > oppPts ? 'W' : 'L',
-      score: `${myPts}-${oppPts}`,
-      league_name: leagueName,
-    }
   }
 
   const careerHigh: Record<string, unknown> = {}
   for (const [key, entry] of Object.entries(chDay)) {
     if (!entry) continue
     // Career High Day: date + extra (opponent/result는 일자 기반이라 의미 모호 — 제외)
-    careerHigh[key] = { value: entry.value, date: entry.date, extra: entry.extra, league_name: leagueName }
+    careerHigh[key] = { value: entry.value, date: entry.date, extra: entry.extra }
   }
 
-  // ── 일별 기록 (최근 → 과거, 전부) ─────────────────────────
-  //   2026-10-24 부터 5일 제한을 없앴다 — 카드가 5일씩 쪽을 나눠 과거까지 넘겨 본다(하루 수는 수십 개라 가볍다).
-  const recentGames = playedUnits
-    .slice().reverse()
-    .map(unitKey => {
-      const s = aggregateMap[unitKey]
-      const firstGId = unitToFirstGame[unitKey]
-      const g = firstGId ? gameMap[firstGId] : null
-      const tid = teamForGame(g)
-      // 승패는 그 unit(라운드)의 **모든 경기**를 합산해 판정한다. 첫 경기 하나로 정하면
-      //   스탯은 하루 합산인데 승패만 첫 경기가 되어 어긋난다(2026-08-09 사고).
-      //   opponent/score 는 라운드에 여러 상대가 섞이므로 아래 record 로 대체해 쓴다.
-      const rec = computeUnitRecord(unitKey)
-      return {
-        ...gameInfo(firstGId ?? '', tid),
-        result: rec.result,
-        record: { wins: rec.wins, losses: rec.losses, draws: rec.draws, games: rec.games },
-        pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a,
-      }
-    })
-
-  // ── Full Game Log (trend chart 용) ────────────────────────
-  // 오래된 → 최근 순으로 전체 unit 스탯 제공. 클라이언트가 rolling avg 를 계산.
+  // ── 일별 기록 (오래된 → 최근, 전부) ── 추세 차트·요즘 흐름·일별 기록 표가 함께 쓴다.
+  //   (2026-10-26) 종전엔 같은 하루 기록을 recent_games(최근 → 과거, 상대·점수 포함)와 game_log 로 두 번 보냈다.
+  //   화면은 상대·점수를 쓰지 않아(하루에 상대가 여럿이다) game_log 하나로 합치고, 그날 팀 전적(record)만 얹는다.
+  //   승패는 그 하루의 **모든 경기**를 합산해 판정한다 — 첫 경기 하나로 정하면 어긋난다(2026-08-09 사고).
   const gameLog = playedUnits.map(unitKey => {
     const s = aggregateMap[unitKey]
     const firstGId = unitToFirstGame[unitKey]
     const g = firstGId ? (gameMap[firstGId] as { date?: string } | undefined) : undefined
+    const rec = computeUnitRecord(unitKey)
     return {
       date: g?.date ?? unitKey,
       games: unitGames[unitKey] ?? 1,
+      record: { wins: rec.wins, losses: rec.losses, draws: rec.draws },
       pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk,
       fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a,
     }
@@ -506,6 +485,7 @@ export async function GET(
   // ── 요즘 흐름 (2026-10-24) ── 평소 범위·꾸준함·지난 경기일은 이 카드 기간의 하루 기록으로,
   //   분기 비교 문장은 정본(computeLeagueStats) 분기 하루 평균으로 만든다. 규칙은 lib/stats/playerForm.ts.
   const formCompareP = (async (): Promise<PlayerForm['compare']> => {
+    if (lite) return null
     const target = quarterId ? leagueQuarters.find(q => q.id === quarterId) : curQ
     if (!target) return null
     const idx = leagueQuarters.findIndex(q => q.id === target.id)
@@ -534,7 +514,7 @@ export async function GET(
     pid: p.player_id, gp: p.gp, pts: p.pts, reb: p.reb, oreb: p.oreb, dreb: p.dreb, ast: p.ast, stl: p.stl, blk: p.blk,
     tov: p.tov, fgm: p.fgm, fga: p.fga, fg3m: p.fg3m, fg3a: p.fg3a, ftm: p.ftm, fta: p.fta,
   })
-  const percentile_bars = buildPercentileBars(eligibleForRank.map(toPctInput), myRow ? toPctInput(myRow) : null)
+  const percentile_bars = lite ? undefined : buildPercentileBars(eligibleForRank.map(toPctInput), myRow ? toPctInput(myRow) : null)
 
   // ── 6축 레이더 (2026-10-14) ── 공격·수비·리바운드·슈팅·리딩·효율. 막대와 같은 모집단·같은 기간·같은 최소 시도.
   //   정의·식의 정본은 lib/stats/hexRadar.ts — 여기서 축을 다시 만들지 말 것.
@@ -549,7 +529,7 @@ export async function GET(
   // ── 플레이스타일 (2026-10-26) ── 공격·수비·리바운드 성향. 규칙은 lib/stats/playStyle.ts.
   //   막아낸 슛 위치 = 같은 경기·쿼터에서 상대가 놓친 슛 중 영상 시각이 가장 가까운 것(친선 제외).
   const play_style = await (async () => {
-    if (!myRow) return null
+    if (!myRow || lite) return null
     const regularIds = (games ?? []).filter(g => !g.is_exhibition).map(g => g.id)
     const regularSet = new Set(regularIds)
     const { data: blockRows } = await supabase.from('league_game_events')
@@ -575,35 +555,6 @@ export async function GET(
     blocked.total = Math.max(blocked.total, myRow.blk)
     return buildPlayStyle(eligibleForRank.map(toIn), toIn(myRow), blocked)
   })().catch(() => null)
-
-  // ── 비슷한 스타일 선수 (2026-10-14) ── 막대와 같은 자격 집단·같은 기간.
-  //   팀 칩 = computeLeagueStats 의 표시용 소속 팀(기간 안 마지막 출전일 팀, (team_id, quarter_id) 정체성).
-  const similar_players = (() => {
-    const toStyleInput = (p: PlayerStat): StyleInput => ({
-      pid: p.player_id, gp: p.gp, pts: p.pts, oreb: p.oreb, dreb: p.dreb, ast: p.ast, stl: p.stl, blk: p.blk, tov: p.tov,
-      fga: p.fga, fta: p.fta,
-      shotAttempts: { shot_3p: p.fg3a, shot_2p_mid: p.md_a, shot_layup: p.lu_a, shot_post: p.ds_a },
-    })
-    const res = findSimilarStyle(eligibleForRank.map(toStyleInput), playerId)
-    const rowOf = new Map(pool.map(p => [p.player_id, p]))
-    return {
-      qualified: res.qualified,
-      sample: res.sample,
-      players: res.matches.map(m => {
-        const row = rowOf.get(m.pid)
-        const meta = playerMetaMap[m.pid]
-        return {
-          player_id: m.pid,
-          name: row?.name ?? meta?.name ?? '알 수 없음',
-          photo_url: row?.photo_url ?? meta?.photo_url ?? null,
-          team: row?.team_name ? { name: row.team_name, color: row.team_color ?? '#9ca3af' } : null,
-          score: m.score,
-          reasons: m.reasons,
-          reason_text: similarReasonText(m.reasons),
-        }
-      }),
-    }
-  })()
 
   // 승률 — 선수별 (승, 패). 모집단은 아래 순위 자격(eligibleForRank — 종전엔 따로 「출전 3일 이상」), 승패는 경기 단위.
   //   선수마다 뛴 경기와 그 경기의 팀은 이벤트 team_id 로 안다(본인은 teamForGame 폴백).
@@ -663,7 +614,7 @@ export async function GET(
   const groupOfPlayer = (pid: string, row?: PlayerStat): PositionGroupCode | null =>
     positionGroupOf(playerMetaMap[pid]?.position ?? row?.position ?? null)
   const myGroup = groupOfPlayer(playerId, myRow ?? undefined)
-  const position_ranks = myGroup ? (() => {
+  const position_ranks = myGroup && !lite ? (() => {
     const sameGroup = (p: PlayerStat) => groupOfPlayer(p.player_id, p) === myGroup
     const eligPos = eligibleForRank.filter(sameGroup)
     return {
@@ -783,7 +734,7 @@ export async function GET(
   //         pair_pts = Σ points  WHERE (scorer, assister) ∈ {(me, X), (X, me)}
   //   범위: 어워즈 BEST_DUO 와 동일하게 필드 야투(자유투/앤드원 제외) · made 만.
   //   출력: 합작 점수 상위 3조합 + 각 방향별 기여 분해.
-  const dynamic_duo = (() => {
+  const dynamic_duo = lite ? [] : (() => {
     type DuoAcc = { total: number; iScored: number; partnerScored: number; iAssists: number; partnerAssists: number }
     const acc: Record<string, DuoAcc> = {}
 
@@ -833,10 +784,9 @@ export async function GET(
 
   return NextResponse.json({
     rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
-    recent_games: recentGames,
     game_log: gameLog,
     form: buildPlayerForm(gameLog.map(d => ({ date: d.date, games: d.games, pts: d.pts, reb: d.reb, ast: d.ast })), await formCompareP),
-    win_loss: winLoss, player_stats, monthly_stats, unit,
+    win_loss: winLoss, player_stats, monthly_stats,
     active_streaks: await streaksP,
     dynamic_duo,
     pinned_event_ids,
@@ -845,9 +795,9 @@ export async function GET(
     position_ranks,
     hex_radar,
     play_style,
-    similar_players,
     current_team,
     team_history,
+    ...(withProfile ? { player: await player } : {}),
   })
 }
 

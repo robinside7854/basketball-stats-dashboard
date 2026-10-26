@@ -4,7 +4,7 @@
 //   그림: HeadToHeadBars — 날짜별 화면과 같은 컴포넌트.
 import { useEffect, useState } from 'react'
 import HeadToHeadBars, { type H2HTotals } from '@/components/league/HeadToHeadBars'
-import { BasketballLoader } from '@/components/league/BasketballIcons'
+import { ShimmerRows } from '@/components/league/teams/TeamsSkeleton'
 import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
 
@@ -44,13 +44,13 @@ export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = nul
     <SectionCard variant="standalone" pad="none" ariaLabel="누적 맞대결">
       <SectionHeader
         title="누적 맞대결"
-        description="두 팀이 실제로 맞붙은 경기만 모은 합계 · 마감된 정규전 기준 (친선전 제외)"
+        description="두 팀이 실제로 맞붙은 경기만 모은 합계 · 친선전 제외"
       />
       <div className="px-4 py-4 lg:px-6 lg:py-5 space-y-4">
         {pairs === null ? (
-          <div className="flex justify-center py-8"><BasketballLoader size={24} /></div>
+          <ShimmerRows rows={4} height={40} />
         ) : pairs.length === 0 || !active ? (
-          <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 기간에 마감된 맞대결이 아직 없습니다.</p>
+          <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 기간에 끝난 맞대결이 아직 없어요.</p>
         ) : (
           <>
             <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>

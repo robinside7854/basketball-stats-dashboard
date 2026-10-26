@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 import ThemedToaster from '@/components/ThemedToaster'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { siteUrl } from '@/lib/siteUrl'
 import { appleWebAppMetadata } from '@/lib/pwa/appShell'
@@ -112,6 +113,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 덮지 않음. expand=false 로 스택이 위로 펼쳐지지 않게 하고 offset 으로 상단 헤더 영역 회피.
                 theme 은 next-themes 와 동기화 (ThemedToaster). */}
             <ThemedToaster />
+            {/* 방문 측정 (2026-10-26 점검 MVP 0) — Vercel Web Analytics. 쿠키 없이 페이지 조회만 센다.
+                Vercel 대시보드 → 프로젝트 → Analytics 에서 Enable 해야 수집이 시작된다. */}
+            <Analytics />
           </TooltipProvider>
         </ThemeProvider>
       </body>

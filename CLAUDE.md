@@ -315,12 +315,34 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 ### 역할 라벨(「플레이 스타일」)은 폐지 (2026-10-16) — 되살리지 말 것
 
 - 선수 카드 칩·CEO 미리보기 `/admin/leagues/[leagueId]/role-labels`·그 API·`roleLabels.ts` 를 모두 지웠다. 아래 「폐지된 기능」 참고.
-- 캐시: `loadPeriodStats` 는 `lib/stats/cachedLeagueStats.ts`(unstable_cache, `league-{id}-games` 태그, 60초) 경유 —
+- 캐시: `loadPeriodStats` 는 `lib/stats/cachedLeagueStats.ts`(unstable_cache, `league-{id}-games` 태그, 1시간 — 2026-10-26 60초→1시간, 수정은 태그로 즉시 반영) 경유 —
   스탯 탭 `/stats` 라우트와 **같은 캐시 항목**을 쓴다. 키에 콜백 소스가 들어가므로 캐시 함수를 다른 곳에 또 만들지 말 것.
-- 선수 카드의 리그 전체 이벤트 재료(승률 순위·다이나믹 듀오)는 `lib/stats/leagueEventIndex.ts`(같은 태그·60초) 한 벌이다 —
+- 선수 카드의 리그 전체 이벤트 재료(승률 순위·다이나믹 듀오)는 `lib/stats/leagueEventIndex.ts`(같은 태그·1시간) 한 벌이다 —
   detail 라우트에서 리그 전체 이벤트를 요청마다 다시 읽지 말 것(카드가 3초 걸린 원인, 2026-10-16).
 - 선수 카드 머리 = 현 소속팀(지금 분기 `pickCurrentQuarter`, 정체성 resolver) + 분기별 소속 한 줄(대회 분기 제외) — detail `current_team`·`team_history`.
   「마지막 출전」은 최근 28일 안에 출전이 없을 때만(`lib/format/lastPlayed.ts` 의 `shouldShowLastPlayed`, 카드·/me 공용).
+
+### 「내 얘기 먼저」 개편 (2026-10-26 점검 MVP 0~3 — `docs/dashboard-review-2026-10-26.md`)
+
+운영진 결정: **비공개 유지 · 푸시 알림 안 함.** 회원이 앱을 열면 첫 화면에서 「내 숫자」가 보이게.
+- 홈 맨 위 = 「지난 토요일 나」(`components/league/home/MyLastDay.tsx` — 그날 득점·리바·어시·내 경기 승패·그날 득점 순위).
+  재료는 `HomeMeContext` 가 받는 그날 `daily-boxscore` 한 번(요청 추가 없음). /me 첫 화면에도 같은 카드(내가 마지막으로 뛴 날).
+  홈 헤더 카드(팀 이름)·하단 클러치샷/마일스톤 탭은 뺐다(빈 카드가 잦고 가장 무거운 계산이었다) — 하이라이트 탭이 맡는다.
+- 어드민 「경기 결과 단톡방에 공유」(`home/AdminDayShare.tsx`) — 푸시 대신의 계기. 팀 성적 + 득점 상위 + 링크를 Web Share/복사.
+- 내 줄 강조: 박스스코어(하루 합산·경기별 표·모바일 카드, 상단 「나」 한 줄, `?me=1` 이면 선수 기록 탭으로 열고 스크롤)·스탯 탭(내 줄 상단 고정 — 순위 기준 미달이어도 보임).
+- 로그인: `/auth/me` 가 남은 기간 25일 미만이면 쿠키를 다시 서명(=30일 동안 안 오면 로그아웃), `last_seen_at` 을 6시간에 한 번 기록 →
+  설정의 회원 패널에 「최근 7일 들어온 회원 N명」. 잠금 화면은 이 기기에서 로그인한 적 있으면 로그인 창을 바로 연다(`mm_member:<leagueId>`),
+  가입 요청을 보낸 기기면 「승인 대기 중」. 가입 이름 매칭은 띄어쓰기·NFD 무시.
+- 방문 측정: `@vercel/analytics`(루트 layout). Vercel 대시보드에서 Analytics 를 Enable 해야 수집된다.
+- `daily-boxscore` 는 리그·날짜 단위 `unstable_cache`(1시간, games·events 태그). 인가는 캐시 밖에서 요청마다.
+- `guard.ts` 의 `getApprovedSession`·`isLeaguePublic` 은 React `cache` — 한 요청 안에서만 결과를 나눠 쓴다.
+- 선수 카드: 탭 4개(요약 / 기록 / 플레이스타일 / 커리어 하이), 첫 열기 요청 1개(`detail?profile=1` — 선수 기본 정보 포함),
+  나머지는 필요할 때. 비교 시트는 `detail?lite=1`. `recent_games`·`similar_players` 는 응답에서 없앴다(`game_log` 하나).
+- 팀 탭: `team-identities?withPlayers=1` 한 번 + 누적 맞대결 1회(종전 11~20회). 열 이름 한글. 상세 지표는 「더 보기」.
+- 일정 탭: 리그/대회 판정·고정 대관을 서버(page.tsx)가 넘긴다 — 클라는 일정·경기 2요청.
+- 하이라이트 재생기(공용): 썸네일+▶ 포스터 먼저, 누르면 YouTube 생성(iOS 검은 화면 대응). 클립 끝에서 **한 번** 멈춤 + 「다음 클립」.
+  하이라이트 탭 첫 칸 = 「내 클립」(NEW 는 localStorage `hl:<leagueId>:lastSeenMine`).
+- 표기: 「블록」으로 통일(블락 금지), 카드·표의 영어 약어는 한글.
 
 ### 선수 6축 레이더 (2026-10-14) — 정본은 `src/lib/stats/hexRadar.ts`
 

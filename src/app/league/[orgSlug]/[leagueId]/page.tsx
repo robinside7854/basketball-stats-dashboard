@@ -4,24 +4,22 @@ import { unstable_cache } from 'next/cache'
 import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { leagueMinRounds } from '@/lib/stats/eligibility'
-import { computeMilestones } from '@/lib/stats/milestones'
 
 // 홈 페이지 공통 — teams/overrides 를 한 번만 로드해 3개 계산 함수(highlights/rounds/standings)에
 // 재사용하기 위한 Promise 타입. 각 함수는 내부에서 await 로 값 참조.
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
-import MilestoneFeed from '@/components/league/MilestoneFeed'
 import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 import PendingSignupsAlert from '@/components/league/PendingSignupsAlert'
-import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
-import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import type { RoundSummary, RoundTeamSummary, RoundGame } from '@/components/league/home/roundTypes'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
-import HomeSectionTabs from '@/components/league/HomeSectionTabs'
 import { HomeMeProvider } from '@/components/league/home/HomeMeContext'
 import { LastRoundTimeline } from '@/components/league/home/LastRound'
+import MyLastDay from '@/components/league/home/MyLastDay'
+import AdminDayShare from '@/components/league/home/AdminDayShare'
+import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 import DraftInProgressBanner from '@/components/league/home/DraftInProgressBanner'
-import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { fetchLeagueMode } from '@/lib/league/competitions'
 import TournamentBoard from '@/components/league/TournamentBoard'
@@ -257,7 +255,7 @@ const getCachedRecentRounds = (leagueId: string) =>
       return computeRecentRounds(sb, leagueId, resolverPromise)
     },
     ['home-recent-rounds', leagueId, '1', 'all-quarters', 'v3-dayrecord'],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )
 
 const getCachedQuarterStandings = (leagueId: string) =>
@@ -268,7 +266,7 @@ const getCachedQuarterStandings = (leagueId: string) =>
       return computeCurrentQuarterStandings(sb, leagueId, resolverPromise)
     },
     ['home-quarter-standings', leagueId, 'v2-form'],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )
 
 // B2 확장: 리더/스트릭/마일스톤/포토맵도 캐시.
@@ -290,25 +288,9 @@ const getCachedLeaderStats = (leagueId: string) =>
       return { ...stats, quarterLabel: q?.label ?? null, quarterId: q?.id ?? null }
     },
     ['home-leader-stats-q', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )
 
-const getCachedMilestones = (leagueId: string) =>
-  unstable_cache(
-    async () => {
-      const sb = createClient()
-      // 홈 마일스톤 피드는 recent 만 그린다(MilestoneFeed) — 임박 목록은 최소로만 계산한다
-      return computeMilestones(sb, leagueId, { horizonDays: 30, maxUpcoming: 1, maxRecent: 6 })
-    },
-    // v3 (2026-07-19): 7/18 이벤트 points 백필이 API 우회로 실행돼 revalidateTag 미호출 →
-    //                  캐시가 백필 이전 상태(변원식/천세원 100점을 6/27 로 잘못 표기) 로 pin 됨.
-    //                  키 상향으로 강제 재계산 · 최근 30일 실제 crossings 6건 노출.
-    ['home-milestones-v3', leagueId],
-    // events 태그 추가: 이벤트 timestamp/points 변경 시 재계산 필요
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
-  )
-
-// 사진 맵: `league` 태그만 무효화하면 됨(경기 편집으로 안 바뀜)
 const getCachedPhotoMap = (leagueId: string) =>
   unstable_cache(
     async (): Promise<Record<string, string | null>> => {
@@ -328,51 +310,9 @@ const getCachedPhotoMap = (leagueId: string) =>
       return map
     },
     ['home-photo-map', leagueId],
-    { tags: [`league-${leagueId}`], revalidate: 60 },
+    { tags: [`league-${leagueId}`], revalidate: 3600 },
   )
 
-// 홈 하이라이트 위젯 — 최근 재생 가능 라운드(status='ready') 대표 클립 3-5개.
-// 발견성 강화용. 클립 상위 5개는 균등 분산 샘플링(단순 chunk-first pick) 으로 다양한 시점 노출.
-async function computeHomeHighlights(
-  supabase: ReturnType<typeof createClient>,
-  leagueId: string,
-): Promise<HighlightsHomePayload | null> {
-  // v2: "이번주 클러치샷" — 가장 최근 재생 가능 라운드의 is_clutch=true 클립만
-  //     클러치 없으면 { date, clips: [] } 반환 (빈 상태 UI 로 안내)
-  //     라운드조차 없으면 null (섹션 자체 미노출)
-  const rounds = await loadRecentRounds(supabase, leagueId, 24)
-  const target = rounds.find(r => r.status === 'ready')
-  if (!target) return null
-
-  const detail = await loadRoundDetail(supabase, leagueId, target.date)
-  const all = detail.clips
-  // 클러치 필터 · 원본 인덱스 유지
-  const clutchWithIdx = all
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => c.is_clutch === true)
-
-  return {
-    date: target.date,
-    clips: clutchWithIdx.map(x => x.c),
-    clipIndexes: clutchWithIdx.map(x => x.i),
-    totalClips: all.length,
-    displayNames: target.team_names,
-  }
-}
-
-const getCachedHomeHighlights = (leagueId: string) =>
-  unstable_cache(
-    async () => {
-      const sb = createClient()
-      return computeHomeHighlights(sb, leagueId)
-    },
-    // v2 (2026-07-19): payload 스키마에 clutch_kind / opponent_name 필드 추가 → 캐시 강제 갱신
-    ['home-clutch-shots-v2', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
-  )
-
-// 리그 메타 조회: `leagues` 자체 변경(status/name)만 무효화.
-// 경기 편집으로는 안 바뀌지만 안전하게 league 태그에 묶어둔다.
 const getCachedLeagueMeta = (leagueId: string, orgSlug: string) =>
   unstable_cache(
     async () => {
@@ -382,7 +322,7 @@ const getCachedLeagueMeta = (leagueId: string, orgSlug: string) =>
       return { league }
     },
     ['home-league-meta', leagueId, orgSlug],
-    { tags: [`league-${leagueId}`], revalidate: 60 },
+    { tags: [`league-${leagueId}`], revalidate: 3600 },
   )
 
 export default async function LeagueDetailPage({
@@ -417,8 +357,6 @@ export default async function LeagueDetailPage({
     quarterStandings,
     leaderStats,
     initialPhotoMap,
-    milestonesData,
-    homeHighlights,
     approvedSession,
     draftLive,
   ] = await Promise.all([
@@ -427,8 +365,6 @@ export default async function LeagueDetailPage({
     getCachedQuarterStandings(leagueId)(),
     getCachedLeaderStats(leagueId)(),
     getCachedPhotoMap(leagueId)(),
-    getCachedMilestones(leagueId)(),
-    getCachedHomeHighlights(leagueId)(),
     // 스탯 게이팅 — 쿠키 접근이라 unstable_cache 밖에서 호출 (2026-07-28)
     getApprovedSession(leagueId),
     // 진행 중인 드래프트가 있는가 — 한 줄 조회(캐시 밖: 시작·마감이 바로 보여야 한다). 띠는 어드민에게만 그린다.
@@ -445,9 +381,6 @@ export default async function LeagueDetailPage({
   if (!league) notFound()
 
   const l = league as League
-  // 첫 사용자용 헤더 메타(추가 쿼리 없이 기존 데이터 재사용) · 하이라이트 유무(팬 기본 탭용)
-  const memberCount = Object.keys(initialPhotoMap ?? {}).length
-  const highlightsAvailable = (homeHighlights?.clips?.length ?? 0) > 0
   // 스탯 게이팅 — 승인 회원만 리더보드·마일스톤·하이라이트 열람 (순위표·라운드는 공개)
   const isMember = !!approvedSession
   // 「지난 토요일」 = 기록이 있는 최근 경기일(최근 라운드 첫 카드와 같은 날)
@@ -456,41 +389,9 @@ export default async function LeagueDetailPage({
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      {/* 헤더 — 팀 이름 큰 제목은 2026-09-28 뺐다. 첫 화면에 팀 이름이 전환 칩·네비 브랜드·제목으로
-          세 번 반복돼 요약 탭이 스크롤 아래로 밀렸다. 남은 건 한 줄 소개 · 메타 · 공유 버튼뿐이라
-          세로 여백도 줄였다. 제목 문맥(스크린리더 헤딩 탐색)은 잃지 않도록 h1 은 sr-only 로 남긴다 —
-          네비 브랜드는 모든 하위 화면에 공통이라 h1 으로 바꾸면 하위 화면 제목과 중복된다. */}
-      <div
-        className="relative overflow-hidden px-4 py-3.5 lg:px-6 lg:py-4"
-        style={{
-          // 오른쪽 위에서 비치는 노랑 빛 — 첫 화면 맨 위 카드가 아래 카드들과 같은 흰 면이라 「입구」로 안 읽혔다(Taste 리디자인 2026-10-16)
-          background: 'radial-gradient(80% 160% at 100% 0%, var(--mm-yellow-soft), transparent 62%), var(--mm-panel)',
-          border: '1px solid var(--mm-rule)',
-          borderRadius: 'var(--mm-radius-card)',
-          boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
-        }}
-      >
-        <h1 className="sr-only">{l.name}</h1>
-        <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-        {/* 2026-10-12 사용자 요청: 소개 문구 대신 팀 이름을 크게 — 줄바꿈 없이 한 줄(360px 에서도 들어가도록 vw 로 축소) */}
-        <p
-          className="font-jersey font-black whitespace-nowrap leading-tight"
-          style={{ color: 'var(--mm-ink)', fontSize: 'clamp(19px, 5.4vw, 32px)', letterSpacing: '-0.02em' }}
-        >
-          목동 미라클모닝농구단
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
-          {/* 분기 경기 수는 아래 「이번 분기」 순위표 머리에 있어 여기서 뺐다(2026-10-14 중복 정리) */}
-          <span>멤버 {memberCount}명</span>
-        </div>
-        </div>
-        {/* 「내 기록」 진입은 하단 네비의 내 프로필 탭(/me)이 맡는다 — 홈 「내 카드」는 2026-10-14 뺐다. */}
-        <div className="flex items-center gap-2 shrink-0">
-          <ShareLeagueButton leagueName={l.name} />
-        </div>
-        </div>
-      </div>
+      {/* 헤더 카드(팀 이름 · 멤버 수 · 공유)는 2026-10-26 뺐다(점검 MVP 1) — 첫 화면 1/5 을 쓰면서 정보가 없었다.
+          그 자리에 회원 본인의 「지난 토요일 나」(MyLastDay)를 둔다. 공유 버튼은 맨 아래 줄로. */}
+      <h1 className="sr-only">{l.name}</h1>
 
       {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
           지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,
@@ -510,7 +411,11 @@ export default async function LeagueDetailPage({
           이 페이지의 나머지는 unstable_cache(사용자 공용)라 개인 값이 거기 섞이면 안 된다. */}
       {latestRound && (
         <HomeMeProvider leagueId={leagueId} latestDate={latestRound.date} serverMember={isMember}>
-          <LastRoundTimeline round={latestRound} orgSlug={orgSlug} leagueId={leagueId} />
+          <div className="space-y-4 lg:space-y-5">
+            <MyLastDay base={`/league/${orgSlug}/${leagueId}`} />
+            <LastRoundTimeline round={latestRound} orgSlug={orgSlug} leagueId={leagueId} />
+            <AdminDayShare round={latestRound} leagueId={leagueId} base={`/league/${orgSlug}/${leagueId}`} />
+          </div>
         </HomeMeProvider>
       )}
 
@@ -558,26 +463,19 @@ export default async function LeagueDetailPage({
         </div>
       </section>
 
-      {/* 하이라이트 · 마일스톤 — 탭 2개 (2026-10-15 「지난 경기일」 탭 삭제 — 일정 탭과 같은 목록이었다) */}
-      <HomeSectionTabs
-        highlights={
-          isMember ? (
-            <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
-          ) : (
-            <StatGate title="하이라이트는 회원 전용" description="클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요." />
-          )
-        }
-        milestones={
-          isMember ? (
-            // recent 만 넘긴다 — upcoming 은 화면이 읽지 않는데 RSC 페이로드에만 실렸다
-            <MilestoneFeed leagueId={leagueId} initialData={{ recent: milestonesData.recent }} />
-          ) : (
-            <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
-          )
-        }
-        highlightsAvailable={isMember && highlightsAvailable}
-        isMember={isMember}
-      />
+      {/* 하이라이트 · 마일스톤 탭은 2026-10-26 뺐다(점검 MVP 3) — 클러치샷·마일스톤이 대부분의 주에 빈 카드였는데
+          홈에서 가장 무거운 계산(24일치 경기·이벤트 전체 스캔)이었다. 그날 클립은 위 경기일 카드·「지난 토요일 나」의
+          하이라이트 버튼이, 전체 모음은 하이라이트 탭이 맡는다. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <Link
+          href={`/league/${orgSlug}/${leagueId}/highlights`}
+          className="mm-press inline-flex items-center gap-1 min-h-[44px] text-sm font-black"
+          style={{ color: 'var(--mm-ink)' }}
+        >
+          하이라이트 · 마일스톤 모아 보기 <ArrowRight size={15} aria-hidden />
+        </Link>
+        <ShareLeagueButton leagueName={l.name} />
+      </div>
     </div>
   )
 }

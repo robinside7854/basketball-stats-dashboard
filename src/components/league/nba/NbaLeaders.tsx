@@ -52,7 +52,7 @@ const CATEGORIES: CategoryDef[] = [
   { key: 'orp',    term: '공격리바', label: '공격 리바운드', format: v => v.toFixed(1) },
   { key: 'apg',    term: '어시',     label: '어시스트',   format: v => v.toFixed(1) },
   { key: 'spg',    term: '스틸',     label: '스틸',       format: v => v.toFixed(1) },
-  { key: 'bpg',    term: '블락',     label: '블락',       format: v => v.toFixed(1) },
+  { key: 'bpg',    term: '블록',     label: '블록',       format: v => v.toFixed(1) },
   // 자유투 성공률 카드는 2026-10-13 사용자 요청으로 홈에서 뺐다(subFormat·minAttempts 는 백분율 카드용으로 남겨 둠).
 ]
 

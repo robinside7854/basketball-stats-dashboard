@@ -12,7 +12,7 @@
 // 기간(분기) 거름은 라우트가 자기 경기 집합(gameMap)으로 한다 — 그래서 키에는 리그 id 만 들어간다.
 //
 // 저장: unstable_cache 는 JSON 으로 저장하고 항목당 크기 제한이 있어 id 를 번호 표로 바꿔 담는다.
-// 무효화: `league-{id}-games` 태그(경기·이벤트 mutation API 의 기존 revalidateTag) + 60초.
+// 무효화: `league-{id}-games` 태그(경기·이벤트 mutation API 의 기존 revalidateTag) + 1시간(2026-10-26: 주 1회 리그라 60초면 토요일 저녁 첫 방문자마다 다시 셌다 — 수정은 태그로 바로 반영).
 
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/admin'
@@ -103,7 +103,7 @@ async function buildPacked(leagueId: string): Promise<Packed> {
       // ⚠ 정렬 없이 나눠 읽으면 페이지 사이에서 줄이 빠지거나 겹친다
       .order('id', { ascending: true })
       .range(p * CHUNK, (p + 1) * CHUNK - 1)
-    // 중간 실패를 「끝」으로 보면 뒷부분 경기가 통째로 빠진 채 60초 캐시된다 — 실패는 던진다
+    // 중간 실패를 「끝」으로 보면 뒷부분 경기가 통째로 빠진 채 캐시된다 — 실패는 던진다
     if (error) throw new Error(`leagueEventIndex: league_game_events(p=${p}) 실패 — ${error.message}`)
     if (!data || data.length === 0) break
     for (const e of data as Row[]) {
@@ -158,7 +158,7 @@ export async function getCachedLeagueEventIndex(leagueId: string): Promise<Leagu
   const packed = await unstable_cache(
     () => buildPacked(leagueId),
     ['player-card-event-index-v1', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )()
   return unpack(packed)
 }

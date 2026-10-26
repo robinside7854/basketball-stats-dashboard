@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowLeftRight, ArrowDown, ArrowUp, RotateCw } from 'lucide-react'
+import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import StatsSkeleton from '@/components/league/stats/StatsSkeleton'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
 
@@ -43,15 +44,6 @@ const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
 type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'ts_pct'|'shot_mix'
-/** 모바일 정렬 칩 묶음 — 세 모드(기본·슈팅·고급)의 열 key 를 한 표로. 여기 없는 열은 「기타」 줄로 간다 */
-const CHIP_GROUPS: { title: string; keys: string[] }[] = [
-  { title: '공격', keys: ['ppg', 'pts', 'apg', 'ast', 'topg', 'tov', 'fgm', 'fg3m', 'ftm'] },
-  { title: '리바운드', keys: ['rpg', 'reb', 'orp', 'oreb', 'drp', 'dreb'] },
-  { title: '수비', keys: ['spg', 'stl', 'bpg', 'blk'] },
-  { title: '성공률', keys: ['fg_pct', 'fg2_pct', 'fg3_pct', 'ft_pct'] },
-  { title: '효율', keys: ['efg_pct', 'ts_pct', 'shot_mix', 'at_ratio', 'a1_total'] },
-  { title: '비중', keys: ['trb_pct', 'usg_pct'] },
-]
 type StatMode = 'basic'|'shooting'|'advanced'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
@@ -63,7 +55,7 @@ const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
   drp:     '수비 리바운드',
   apg:     '어시스트',
   spg:     '스틸',
-  bpg:     '블락',
+  bpg:     '블록',
   topg:    '턴오버',
   pts:     '득점 (누적)',
   reb:     '리바운드 (누적)',
@@ -71,7 +63,7 @@ const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
   dreb:    '수비 리바운드 (누적)',
   ast:     '어시스트 (누적)',
   stl:     '스틸 (누적)',
-  blk:     '블락 (누적)',
+  blk:     '블록 (누적)',
   tov:     '턴오버 (누적)',
   fgm:     '야투 성공',
   fg3m:    '3점 성공',
@@ -148,15 +140,23 @@ function rankTier(rank: number | null): { color: string; bg: string; accent: str
 }
 
 // ─── 모바일 선수 카드 (리뉴얼 3단계, 2026-10-12) ─────────────────────────
-// 폰(<md)에서는 넓은 표 대신 카드 한 장에 한 사람. 정렬 지표를 크게, 핵심 숫자 3~4개는
-// 리그 1위(자격자) 대비 막대로 — 숫자만 줄지어 있으면 「이게 높은 건가」를 판단할 수 없다.
+// 폰(<md)에서는 넓은 표 대신 카드 한 장에 한 사람. 정렬 지표를 크게, 보조 숫자 3~4개는 아래 한 줄에.
+// (1위 대비 막대는 2026-10-25 운영진 결정으로 걷어냈다 — 막대 계산·범례도 2026-10-26 정리)
 // 카드 전체가 선수 상세(퀵뷰) 열기. 안에 용어 툴팁 버튼이 있어 <button> 대신 role="button" div.
-type CardItem = { key: string; label: string; value: string; ratio: number | null; mark?: number | null; active?: boolean }
+type CardItem = { key: string; label: string; value: string; active?: boolean }
+
+// 「내 기록」 강조 — 노란 계열(yellow-soft 바탕 + yellow-strong 왼쪽 막대). 목록 안 원래 자리와 맨 위 고정 줄이 같은 모양.
+const MINE_BG = 'var(--mm-yellow-soft)'
+const MINE_EDGE = 'inset 3px 0 0 var(--mm-yellow-strong)'
+
+function MyRecordLabel() {
+  return <span className="text-xs font-black whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>내 기록</span>
+}
 
 function MobileStatCard({
-  rank, p, ineligible, lowAttempts = false, bigLabel, bigTerm, bigValue, items, footer, onOpen,
+  rank, p, ineligible, lowAttempts = false, bigLabel, bigTerm, bigValue, items, footer, onOpen, mine = false, pinned = false, note,
 }: {
-  /** null = 순위 없음(성공률 정렬에서 시도 부족) */
+  /** null = 순위 없음(성공률 정렬에서 시도 부족 · 순위 기준 미달) */
   rank: number | null
   p: PlayerStat
   ineligible: boolean
@@ -167,19 +167,26 @@ function MobileStatCard({
   items: CardItem[]
   footer?: React.ReactNode
   onOpen: () => void
+  /** 로그인 회원 본인 줄 — 노란 계열로 강조 */
+  mine?: boolean
+  /** 목록 맨 위에 고정한 「내 기록」 줄 */
+  pinned?: boolean
+  /** 「· 자격 미달」 대신 보일 문구(예: 순위 기준까지 2일) */
+  note?: string
 }) {
   const rt = rankTier(rank)
   return (
     <div role="button" tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
-      aria-label={`${rank != null ? `${rank}위` : '순위 없음(시도 부족)'} ${p.name} — 선수 상세 보기`}
+      aria-label={`${pinned ? '내 기록 · ' : ''}${rank != null ? `${rank}위` : '순위 없음'} ${p.name} — 선수 상세 보기`}
       className="w-full text-left px-3 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={{
-        background: 'var(--mm-panel)',
-        border: '1px solid var(--mm-rule)',
+        background: mine ? MINE_BG : 'var(--mm-panel)',
+        border: `1px solid ${mine ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
         borderRadius: 'var(--mm-radius-card)',
       }}>
+      {pinned && <div className="mb-1.5"><MyRecordLabel /></div>}
       <div className="flex items-center gap-2.5">
         <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
           style={{ color: rt.color, background: rt.bg, border: rt.border }}>{rank ?? '–'}</span>
@@ -192,7 +199,11 @@ function MobileStatCard({
                 <span className="truncate max-w-[7rem]" title={p.team_name}>{p.team_name}</span>
               </Chip>
             )}
-            <span className="text-xs font-medium" style={{ color: 'var(--mm-muted)' }}>{p.gp}일 출전{ineligible && <IneligibleTag />}{lowAttempts && <LowAttemptTag />}</span>
+            <span className="text-xs font-medium" style={{ color: 'var(--mm-muted)' }}>
+              {p.gp}일 출전
+              {note ? <span className="ml-1 font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>· {note}</span> : ineligible && <IneligibleTag />}
+              {lowAttempts && <LowAttemptTag />}
+            </span>
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -253,6 +264,10 @@ function LeagueStatsPageInner() {
   //   자격 커트라인(leagueMinRounds)은 리그 전체 기준 그대로 — 그룹마다 기준이 달라지면 「가드 1위」가 다른 잣대가 된다.
   const [rankScope, setRankScope] = useState<'all' | 'pos'>('all')
   const [posGroup, setPosGroup] = useState<PositionGroupCode>('G')
+  // 기본 모드의 덜 보는 열(공리·수리·턴오버)은 접어 둔다 — 데이터·정렬은 그대로(2026-10-26)
+  const [showMoreCols, setShowMoreCols] = useState(false)
+  // 로그인 회원 본인 — 표·카드 맨 위에 「내 기록」으로 고정한다(프로바이더 밖이면 null → 아무것도 안 그림)
+  const myPlayerId = useOptionalCurrentUser()?.user?.player_id ?? null
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
   const setQuickViewPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId: selectedQuarterId }) }
@@ -387,41 +402,30 @@ function LeagueStatsPageInner() {
 
   const isLeader = (p: PlayerStat, key: string) => seasonLeaders[key]?.has(p.player_id) ?? false
 
-  // 모바일 카드 막대의 분모 = 자격자 중 1위 값. 성공률은 최소 시도를 채운 선수만 1위 후보(seasonLeaders 와 같은 기준) —
-  //   1개 던져 1개 넣은 100% 가 분모가 되면 모든 막대가 바닥에 깔린다.
-  const leaderPool = rankPlayers.filter(p => p.gp >= effectiveMinGP)
-  function leaderOf(get: (p: PlayerStat) => number | null, pctKey?: PctStatKey | null): number {
-    let best = 0
-    for (const p of leaderPool) {
-      if (pctKey && !meetsAttemptMin(p, pctKey)) continue
-      const v = get(p)
-      if (v != null && Number.isFinite(v) && v > best) best = v
-    }
-    return best
-  }
-  const ratioOf = (v: number | null, leader: number) => (v == null || leader <= 0 ? null : Math.max(0, Math.min(1, v / leader)))
-  const basicAttempts = (key: SortKey): ((p: PlayerStat) => number) | undefined =>
-    key === 'fg3_pct' ? p => p.fg3a : key === 'ft_pct' ? p => p.fta : (key === 'fg_pct' || key === 'efg_pct') ? p => p.fga : undefined
   const pctKeyOf = (key: string): PctStatKey | null => (isPctStatKey(key) ? key : null)
 
   // 테이블 컬럼 정의
   // label = 화면 글자(한국어), term = 용어 사전 키(툴팁). 약어는 툴팁 안에만 남긴다(2026-10-12 리뉴얼 3단계).
-  const AVG_COLS: { key: SortKey; label: string; term: string }[] = [
+  // more = 「더 보기」로 접어 두는 열(공리·수리·턴오버, 2026-10-26). 앞쪽은 출전·득점·리바·어시·스틸·블록.
+  type BasicCol = { key: SortKey; label: string; term: string; more?: boolean }
+  const AVG_COLS: BasicCol[] = [
     { key: 'gp', label: '출전', term: 'R' }, { key: 'ppg', label: '득점', term: '득점' },
-    { key: 'rpg', label: '리바', term: '리바' }, { key: 'orp', label: '공리', term: '공리' }, { key: 'drp', label: '수리', term: '수리' },
-    { key: 'apg', label: '어시', term: '어시' }, { key: 'spg', label: '스틸', term: '스틸' }, { key: 'bpg', label: '블락', term: '블락' },
-    { key: 'topg', label: '턴오버', term: '턴오버' },
+    { key: 'rpg', label: '리바', term: '리바' }, { key: 'apg', label: '어시', term: '어시' },
+    { key: 'spg', label: '스틸', term: '스틸' }, { key: 'bpg', label: '블록', term: '블록' },
+    { key: 'orp', label: '공리', term: '공리', more: true }, { key: 'drp', label: '수리', term: '수리', more: true },
+    { key: 'topg', label: '턴오버', term: '턴오버', more: true },
     // 성공률(야투·3점·자유투·eFG)은 「슈팅」 탭에만 둔다 — 기본과 슈팅에 같은 열이 겹쳤다(운영진 2026-10-19)
   ]
-  const TOTAL_COLS: { key: SortKey; label: string; term: string }[] = [
+  const TOTAL_COLS: BasicCol[] = [
     { key: 'gp', label: '출전', term: 'R' }, { key: 'pts', label: '득점', term: 'PTS' },
-    { key: 'reb', label: '리바', term: 'REB' }, { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
-    { key: 'ast', label: '어시', term: 'AST' }, { key: 'stl', label: '스틸', term: 'STL' }, { key: 'blk', label: '블락', term: 'BLK' },
-    { key: 'tov', label: '턴오버', term: 'TOV' },
+    { key: 'reb', label: '리바', term: 'REB' }, { key: 'ast', label: '어시', term: 'AST' },
+    { key: 'stl', label: '스틸', term: 'STL' }, { key: 'blk', label: '블록', term: 'BLK' },
     { key: 'fgm', label: '야투', term: 'FGM' }, { key: 'fg3m', label: '3점', term: '3PM' }, { key: 'ftm', label: '자유투', term: 'FTM' },
     // MIN 은 누적 뷰에만 둔다 — 교체 기록이 거의 없어 이벤트 시각으로 추정한 값이라
     // 하루 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
     { key: 'minutes_est', label: '시간', term: 'MIN' },
+    { key: 'oreb', label: '공리', term: 'OREB', more: true }, { key: 'dreb', label: '수리', term: 'DREB', more: true },
+    { key: 'tov', label: '턴오버', term: 'TOV', more: true },
   ]
 
   // Shooting stats 컬럼 — 슈팅 정확도 + 야투 분포
@@ -436,7 +440,7 @@ function LeagueStatsPageInner() {
     { key: 'ft_pct',   label: '자유투율', term: 'FT%', desc: '자유투 성공률 · FTM/FTA' },
     { key: 'efg_pct',  label: '유효야투', term: 'eFG%', desc: '유효 야투율 · (FGM+0.5×3PM)/FGA' },
     { key: 'ts_pct',   label: '진실야투', term: 'TS%', desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
-    { key: 'shot_mix', label: '슛 분포',  term: '3P share', desc: '골밑 · 레이업 · 미들 · 3점 시도 비중 막대 (정렬은 3점 비중)' },
+    { key: 'shot_mix', label: '슛 분포',  term: '3P share', desc: '골밑 · 레이업 · 미들 · 3점 시도 비중 (정렬은 3점 비중)' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
@@ -447,12 +451,13 @@ function LeagueStatsPageInner() {
     { key: 'usg_pct',   label: '공격 점유',   term: 'USG%', desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
   ]
 
-  // usg_pct 만 null 가능(팀 분모 0) — 0% 로 찍으면 "공격을 안 했다"로 읽혀 거짓이 된다
+  // usg_pct·at_ratio 는 null 가능(분모 0) — 0% 로 찍으면 "공격을 안 했다"로 읽혀 거짓이 된다
   function calcAdv(p: PlayerStat): Record<AdvKey, number | null> {
     const a1 = p.and_one ?? 0
     const teamReb = p.team_reb_in_games ?? 0
     return {
-      at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
+      // 턴오버 0 이면 나눌 수 없다 — 「99」로 1위에 앉히지 않고 null(화면 「—」, 정렬 맨 뒤, TOP 5 제외)
+      at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : null,
       a1_total:  a1,
       trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
       usg_pct:   calcUsg(p, p.team_poss_in_games ?? 0),
@@ -500,7 +505,7 @@ function LeagueStatsPageInner() {
   const visibleBasic = filtered.slice(0, visibleCount)
   const visibleShoot = filteredShoot.slice(0, visibleCount)
 
-  // 슈팅 카드 막대의 기준선 = 지금 목록의 자격자 평균(시도 0인 선수는 빼고 낸다 — 0% 로 끌어내리지 않게)
+  // 그 지표의 분모(시도 수) — 0 이면 값 대신 「—」
   const SHOOT_ATTEMPTS: Record<ShootingKey, (p: PlayerStat) => number> = {
     fg_pct: p => p.fga,
     fg2_pct: p => p.fga - p.fg3a,
@@ -510,14 +515,6 @@ function LeagueStatsPageInner() {
     ts_pct: p => p.fga + p.fta,
     shot_mix: p => p.fga,
   }
-  const shootAvg = (key: ShootingKey): number | null => {
-    const rows = filteredShoot.filter(({ p }) => !isIneligible(p) && SHOOT_ATTEMPTS[key](p) > 0)
-    if (rows.length === 0) return null
-    return rows.reduce((s, r) => s + r.sh[key], 0) / rows.length
-  }
-  const shootMarks = Object.fromEntries(
-    SHOOTING_COLS.map(c => [c.key, shootAvg(c.key)])
-  ) as Record<ShootingKey, number | null>
   const visibleAdv = filteredAdv.slice(0, visibleCount)
   const hiddenCount = Math.max(0, filtered.length - visibleCount)
 
@@ -530,7 +527,11 @@ function LeagueStatsPageInner() {
     else { setShootSortKey(key); setShootSortDir('desc') }
   }
 
-  const COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
+  const ALL_COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
+  // 접힌 열로 정렬 중이면(모바일 선택에서 골랐을 때) 표에서도 펼쳐 보인다
+  const moreOpen = showMoreCols || ALL_COLS.some(c => c.more && c.key === sortKey)
+  const COLS = moreOpen ? ALL_COLS : ALL_COLS.filter(c => !c.more)
+  const moreLabels = ALL_COLS.filter(c => c.more).map(c => c.label).join('·')
 
   function cellVal(p: PlayerStat, key: SortKey): string {
     if (viewMode === 'avg') {
@@ -654,6 +655,269 @@ function LeagueStatsPageInner() {
     />
   )
 
+  // ─── 「내 기록」 (2026-10-26) ───────────────────────────────────────────
+  // 로그인 회원 본인을 표·카드 맨 위에 고정하고, 목록 안 원래 자리도 노랗게 칠한다.
+  // 출전일이 순위 기준(leagueMinRounds)에 못 미쳐 기본 목록에서 빠진 경우에도 맨 위 줄은 보인다 —
+  //   이때는 순위 대신 「순위 기준까지 N일」. 같은 포지션 보기에서 다른 포지션이면 그리지 않는다.
+  const me = myPlayerId ? rankPlayers.find(p => p.player_id === myPlayerId && p.gp > 0) ?? null : null
+  const isMe = (p: PlayerStat) => me != null && p.player_id === me.player_id
+  const myNote = me && me.gp < effectiveMinGP ? `순위 기준까지 ${effectiveMinGP - me.gp}일` : undefined
+  const myBasicRank = (() => {
+    if (!me) return null
+    const i = filtered.indexOf(me)
+    return i >= 0 && !lowAttempts(me, basicPctKey) ? i + 1 : null
+  })()
+  const myShoot = me ? { p: me, sh: calcShoot(me) } : null
+  const myShootRank = (() => {
+    if (!me) return null
+    const i = filteredShoot.findIndex(r => r.p === me)
+    return i >= 0 && !lowAttempts(me, shootPctKey) ? i + 1 : null
+  })()
+  const myAdv = me ? { p: me, adv: calcAdv(me) } : null
+  // 고급 표에서 값이 없는 줄(턴오버 0 의 어시/턴오버 등)은 맨 뒤 · 순위 없음
+  const advRank = (adv: Record<AdvKey, number | null>, i: number) => adv[advSortKey] == null ? null : i + 1
+  const myAdvRank = (() => {
+    if (!me || !myAdv) return null
+    const i = filteredAdv.findIndex(r => r.p === me)
+    return i >= 0 ? advRank(myAdv.adv, i) : null
+  })()
+
+  // 모바일 카드 — 세 모드가 목록·고정 줄에서 같은 모양을 쓴다
+  function basicCard(p: PlayerStat, rank: number | null, opts: { pinned?: boolean; key?: string } = {}) {
+    const sortCol = ALL_COLS.find(c => c.key === sortKey)
+    // 보조 4칸은 고정 우선순위로 고른다 — 표 순서대로 앞 4칸을 쓰면 득점순일 때
+    //   리바운드만 세 번 나오고 어시스트가 빠졌다(2026-10-11). 출전일은 이름 아래에 있다.
+    const subPref: SortKey[] = viewMode === 'avg'
+      ? ['ppg', 'rpg', 'apg', 'spg', 'bpg', 'topg']
+      : ['pts', 'reb', 'ast', 'stl', 'fg3m', 'blk']
+    const items: CardItem[] = subPref
+      .filter(k => k !== sortKey)
+      .slice(0, 4)
+      .map(k => ALL_COLS.find(c => c.key === k))
+      .filter((c): c is BasicCol => !!c)
+      .map(c => ({ key: c.key, label: c.label, value: cellVal(p, c.key) }))
+    const low = lowAttempts(p, basicPctKey)
+    return (
+      <MobileStatCard key={opts.key ?? p.player_id} rank={low ? null : rank} p={p} ineligible={isIneligible(p)} lowAttempts={low}
+        bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)}
+        items={items} mine={isMe(p)} pinned={opts.pinned} note={opts.pinned ? myNote : undefined}
+        onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
+    )
+  }
+  function shootCard(p: PlayerStat, sh: Record<ShootingKey, number>, rank: number | null, opts: { pinned?: boolean; key?: string } = {}) {
+    const sortCol = SHOOTING_COLS.find(c => c.key === shootSortKey)
+    const isMix = shootSortKey === 'shot_mix'
+    const pref: ShootingKey[] = ['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct', 'fg2_pct']
+    const items: CardItem[] = pref
+      .filter(k => k !== shootSortKey)
+      .slice(0, 4)
+      .map(k => {
+        const c = SHOOTING_COLS.find(x => x.key === k)!
+        return { key: k, label: c.label, value: SHOOT_ATTEMPTS[k](p) > 0 ? `${fmt1(sh[k])}%` : '—' }
+      })
+    const low = lowAttempts(p, shootPctKey)
+    return (
+      <MobileStatCard key={opts.key ?? p.player_id} rank={low ? null : rank} p={p} ineligible={isIneligible(p)} lowAttempts={low}
+        bigLabel={isMix ? '3점 비중' : (sortCol?.label ?? '')} bigTerm={sortCol?.term ?? ''}
+        bigValue={SHOOT_ATTEMPTS[shootSortKey](p) > 0 ? `${fmt1(sh[shootSortKey])}%` : '—'}
+        items={items} mine={isMe(p)} pinned={opts.pinned} note={opts.pinned ? myNote : undefined}
+        footer={
+          <div className="flex items-center gap-2 mt-3">
+            <span className="text-xs font-semibold shrink-0" style={{ color: isMix ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>슛 분포</span>
+            <div className="flex-1 min-w-0" style={{ color: 'var(--mm-ink-soft)' }}><ShotMixText p={p} /></div>
+          </div>
+        }
+        onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
+    )
+  }
+  const fmtAdv = (k: AdvKey, v: number | null) =>
+    v == null ? '—' : k === 'a1_total' ? String(v) : k === 'at_ratio' ? v.toFixed(2) : `${fmt1(v)}%`
+  function advCard(p: PlayerStat, adv: Record<AdvKey, number | null>, rank: number | null, opts: { pinned?: boolean; key?: string } = {}) {
+    const sortCol = ADV_COLS.find(c => c.key === advSortKey)
+    const items: CardItem[] = ADV_COLS
+      .filter(c => c.key !== advSortKey)
+      .map(c => ({ key: c.key, label: c.label, value: fmtAdv(c.key, adv[c.key]) }))
+    return (
+      <MobileStatCard key={opts.key ?? p.player_id} rank={rank} p={p} ineligible={isIneligible(p)}
+        bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={fmtAdv(advSortKey, adv[advSortKey])}
+        items={items} mine={isMe(p)} pinned={opts.pinned} note={opts.pinned ? myNote : undefined}
+        onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
+    )
+  }
+
+  // PC 표 공통 칸 — 순위 배지 · 선수 이름(고정 열)
+  function rankCell(rank: number | null, title?: string) {
+    const rt = rankTier(rank)
+    return (
+      <td className="py-2 pl-2 pr-1 text-right">
+        <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
+          style={{ color: rt.color, background: rt.bg, border: rt.border }}
+          title={rank == null ? (title ?? '순위 없음') : undefined}>{rank ?? '–'}</span>
+      </td>
+    )
+  }
+  function nameCell(p: PlayerStat, pinned = false) {
+    const mine = isMe(p)
+    return (
+      <th scope="row"
+        className={`px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors ${mine ? '' : 'bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]'}`}
+        style={mine ? { background: MINE_BG, boxShadow: MINE_EDGE } : undefined}>
+        {pinned && <MyRecordLabel />}
+        <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+          className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
+          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+          {p.name}
+        </button>
+        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+          {positionLabelOf(p.position)}{p.number ? ` #${p.number}` : ''}
+          {pinned && myNote && <span className="block text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{myNote}</span>}
+        </div>
+      </th>
+    )
+  }
+  const rowStyle = (p: PlayerStat, pinned = false): React.CSSProperties => ({
+    borderBottom: pinned ? '2px solid var(--mm-yellow-strong)' : '1px solid var(--mm-rule)',
+    ...(isMe(p) ? { background: MINE_BG } : {}),
+  })
+
+  function basicRow(p: PlayerStat, rank: number | null, pinned = false) {
+    return (
+      <tr key={pinned ? 'mine' : p.player_id}
+        className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+        style={rowStyle(p, pinned)}>
+        {rankCell(rank, lowAttempts(p, basicPctKey) ? '시도 부족 — 순위 없음' : undefined)}
+        <td className="px-2 py-3 text-center">
+          <input type="checkbox" checked={compareIds.has(p.player_id)}
+            disabled={!compareIds.has(p.player_id) && compareIds.size >= 2}
+            onChange={() => toggleCompare(p)} aria-label={`${p.name} 비교 선택`}
+            className="cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
+            style={{ accentColor: 'var(--mm-yellow-strong)' }} />
+        </td>
+        {nameCell(p, pinned)}
+        {COLS.map(({ key }) => {
+          const leader = isLeader(p, key as string)
+          // 성공률 칸은 시도 기준 미달이면 흐린 글자(순위 대상 아님) — 정렬 중인 칸엔 「시도 부족」도 붙인다
+          const low = lowAttempts(p, pctKeyOf(key))
+          const cellColor = low
+            ? 'var(--mm-muted)'
+            : sortKey === key || leader
+              ? 'var(--mm-ink)'
+              : 'var(--mm-ink-soft)'
+          return (
+            <td key={key}
+                className={`px-1.5 ${(sortKey === key || leader) && !low ? 't-td-key' : 't-td'}`}
+                style={{ color: cellColor }}
+                title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
+              {cellVal(p, key)}
+              {key === 'gp' && isIneligible(p) && !pinned && <IneligibleTag />}
+              {key === sortKey && low && <LowAttemptTag />}
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
+  function shootRow(p: PlayerStat, sh: Record<ShootingKey, number>, rank: number | null, pinned = false) {
+    return (
+      <tr key={pinned ? 'mine' : p.player_id}
+        className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+        style={rowStyle(p, pinned)}>
+        {rankCell(rank, lowAttempts(p, shootPctKey) ? '시도 부족 — 순위 없음' : undefined)}
+        {nameCell(p, pinned)}
+        <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && !pinned && <IneligibleTag />}</td>
+        {SHOOTING_COLS.map(({ key }) => {
+          const val = sh[key]
+          const active = shootSortKey === key
+          const low = lowAttempts(p, pctKeyOf(key))
+          return (
+            <td key={key}
+                className={active && !low ? 't-td-key' : 't-td'}
+                style={{ color: low ? 'var(--mm-muted)' : active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}
+                title={low ? '시도 부족 — 순위 대상 아님' : undefined}>
+              {key === 'shot_mix' ? <ShotMixText p={p} /> : `${fmt1(val)}%`}
+              {active && low && <LowAttemptTag />}
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
+  function advRow(p: PlayerStat, adv: Record<AdvKey, number | null>, rank: number | null, pinned = false) {
+    return (
+      <tr key={pinned ? 'mine' : p.player_id}
+        className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+        style={rowStyle(p, pinned)}>
+        {rankCell(rank)}
+        {nameCell(p, pinned)}
+        <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && !pinned && <IneligibleTag />}</td>
+        {ADV_COLS.map(({ key }) => {
+          const active = advSortKey === key
+          return (
+            <td key={key} className={active ? 't-td-key' : 't-td'}
+              style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>
+              {fmtAdv(key, adv[key])}
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
+
+  // TOP 5 바로 아래 한 줄 — 정렬(폰) · 순위 범위. 첫 화면에 숫자가 먼저 들어오게 머리 카드에서 내렸다(2026-10-26).
+  //   PC 는 표 머리를 눌러 정렬하므로 정렬 선택은 폰에만 둔다.
+  const sortOpts = statMode === 'basic'
+    ? { cols: ALL_COLS.map(c => ({ key: c.key as string, label: c.label, more: !!c.more })), active: sortKey as string, dir: sortDir, onPick: (k: string) => { setSortKey(k as SortKey); setSortDir('desc') }, flip: () => setSortDir(d => d === 'desc' ? 'asc' : 'desc') }
+    : statMode === 'shooting'
+    ? { cols: SHOOTING_COLS.map(c => ({ key: c.key as string, label: c.label, more: false })), active: shootSortKey as string, dir: shootSortDir, onPick: (k: string) => { setShootSortKey(k as ShootingKey); setShootSortDir('desc') }, flip: () => setShootSortDir(d => d === 'desc' ? 'asc' : 'desc') }
+    : { cols: ADV_COLS.map(c => ({ key: c.key as string, label: c.label, more: false })), active: advSortKey as string, dir: advSortDir, onPick: (k: string) => { setAdvSortKey(k as AdvKey); setAdvSortDir('desc') }, flip: () => setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc') }
+  const selectCls = 'min-w-0 flex-1 md:flex-none min-h-11 px-2 text-base font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]'
+  const selectStyle: React.CSSProperties = { background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }
+  const scopeValue = rankScope === 'pos' ? posGroup : 'all'
+  const topFiveFooter = (
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <select
+          aria-label="정렬 기준 (TOP 5 함께 바뀜)"
+          value={sortOpts.active}
+          onChange={e => sortOpts.onPick(e.target.value)}
+          className={`md:hidden ${selectCls}`}
+          style={selectStyle}
+        >
+          {sortOpts.cols.filter(c => !c.more).map(c => <option key={c.key} value={c.key}>{c.label} 순</option>)}
+          {sortOpts.cols.some(c => c.more) && (
+            <optgroup label="더 보기">
+              {sortOpts.cols.filter(c => c.more).map(c => <option key={c.key} value={c.key}>{c.label} 순</option>)}
+            </optgroup>
+          )}
+        </select>
+        <button
+          type="button"
+          onClick={sortOpts.flip}
+          aria-label={sortOpts.dir === 'desc' ? '높은 순 — 눌러서 낮은 순으로' : '낮은 순 — 눌러서 높은 순으로'}
+          className="md:hidden mm-press shrink-0 inline-flex items-center justify-center size-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+          style={selectStyle}
+        >
+          {sortOpts.dir === 'desc' ? <ArrowDown size={16} aria-hidden /> : <ArrowUp size={16} aria-hidden />}
+        </button>
+        <select
+          aria-label="순위 범위"
+          value={scopeValue}
+          onChange={e => {
+            const v = e.target.value
+            if (v === 'all') setRankScope('all')
+            else { setRankScope('pos'); setPosGroup(v as PositionGroupCode) }
+          }}
+          className={selectCls}
+          style={selectStyle}
+        >
+          <option value="all">전체 순위</option>
+          {POSITION_GROUPS.map(g => <option key={g.code} value={g.code}>{g.label} 중 순위</option>)}
+        </select>
+      </div>
+      <AttemptRuleCaption k={statMode === 'basic' ? basicPctKey : statMode === 'shooting' ? shootPctKey : null} />
+    </div>
+  )
+
   if (gated) {
     return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드는 가입 승인된 회원만 볼 수 있어요." />
   }
@@ -679,28 +943,6 @@ function LeagueStatsPageInner() {
         />
         {/* 2줄: 표 모드 — 표 카드 안에 두면 375px 에서 4번째 칩이 잘려서, 모든 모드 공통 위치로 뺐다 */}
         <div className="flex">{modeChips}</div>
-        {/* 3줄: 순위 범위 — 같은 포지션이면 TOP 5·표 순위를 그 포지션 안에서 다시 센다 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <SegmentedTabs<'all' | 'pos'>
-            items={[
-              { key: 'all', label: '전체 순위' },
-              { key: 'pos', label: '같은 포지션' },
-            ]}
-            value={rankScope}
-            onChange={setRankScope}
-            ariaLabel="순위 범위"
-            size="sm"
-          />
-          {rankScope === 'pos' && (
-            <div className="flex gap-1.5" role="group" aria-label="포지션">
-              {POSITION_GROUPS.map(g => (
-                <Chip key={g.code} as="button" size="sm" selected={posGroup === g.code} onClick={() => setPosGroup(g.code)}>
-                  {g.label}
-                </Chip>
-              ))}
-            </div>
-          )}
-        </div>
       </SectionCard>
 
       {loading ? (
@@ -726,7 +968,17 @@ function LeagueStatsPageInner() {
         <EmptyState
           icon={Trophy}
           title="아직 끝난 경기가 없어요"
-          description="첫 경기가 끝나면 여기에 기록이 쌓여요"
+          description={selectedQuarterId !== 'all' ? '이 분기에는 아직 기록이 없어요. 전체 기간 기록은 볼 수 있어요.' : '첫 경기가 끝나면 여기에 기록이 쌓여요'}
+          action={selectedQuarterId !== 'all' ? (
+            <button
+              type="button"
+              onClick={() => setSelectedQuarterId('all')}
+              className="mm-press inline-flex items-center justify-center gap-1.5 px-4 py-2 min-h-11 text-sm font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+              style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}
+            >
+              전체 기간 보기
+            </button>
+          ) : undefined}
         />
       ) : (
         <>
@@ -737,44 +989,7 @@ function LeagueStatsPageInner() {
             metricFullLabel={topFive.fullLabel && (rankScope === 'pos' ? `${positionGroupLabel(posGroup)} · ${topFive.fullLabel}` : topFive.fullLabel)}
             players={topFive.players}
             onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
-            controls={<>
-          {/* 모바일 정렬 칩 — TOP 5 카드 안, 사진 바로 위 (2026-10-11).
-              종전엔 표 카드 안(비교 바·읽는 법·표 컨트롤 아래)에 있어서, 칩을 누르면 바뀌는 TOP 5 가
-              화면 위로 멀리 떨어져 "무엇이 바뀌었는지"가 한눈에 안 보였다. 누르는 곳과 바뀌는 곳을 붙인다.
-              세 모드(기본·슈팅·고급)의 칩 행을 하나로 합쳤다 — 지금 모드의 열·정렬 상태만 보여준다. */}
-          {(() => {
-            const chipRow = statMode === 'basic'
-              ? { cols: COLS.map(c => ({ key: c.key as string, label: c.label })), active: sortKey as string, dir: sortDir, onPick: (k: string) => handleSort(k as SortKey) }
-              : statMode === 'shooting'
-              ? { cols: SHOOTING_COLS.map(c => ({ key: c.key as string, label: c.label })), active: shootSortKey as string, dir: shootSortDir, onPick: (k: string) => handleShootSort(k as typeof shootSortKey) }
-              : { cols: ADV_COLS.map(c => ({ key: c.key as string, label: c.label })), active: advSortKey as string, dir: advSortDir, onPick: (k: string) => handleAdvSort(k as typeof advSortKey) }
-            // 부문을 공격·리바운드·수비… 로 묶어 줄마다 보인다 — 한 줄 가로 스크롤에 15칸이 늘어서 있었다(운영진 2026-10-19)
-            const groups = CHIP_GROUPS
-              .map(g => ({ title: g.title, cols: chipRow.cols.filter(c => g.keys.includes(c.key)) }))
-              .filter(g => g.cols.length > 0)
-            const grouped = new Set(groups.flatMap(g => g.cols.map(c => c.key)))
-            const rest = chipRow.cols.filter(c => !grouped.has(c.key))
-            if (rest.length > 0) groups.push({ title: '기타', cols: rest })
-            return (
-              <div className="md:hidden mb-2 space-y-1.5" role="group" aria-label="정렬 기준 (TOP 5 함께 바뀜)">
-                {groups.map(g => (
-                  <div key={g.title} className="flex items-start gap-2">
-                    <span className="shrink-0 w-12 pt-2 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{g.title}</span>
-                    <div className="flex flex-wrap gap-1.5 min-w-0">
-                      {g.cols.map(({ key, label }) => (
-                        <Chip key={key} as="button" size="sm" onClick={() => chipRow.onPick(key)}
-                          selected={chipRow.active === key}>
-                          <span className="inline-flex items-center gap-0.5">{label}{chipRow.active === key && (chipRow.dir === 'desc' ? <ArrowDown size={14} aria-label="내림차순" /> : <ArrowUp size={14} aria-label="오름차순" />)}</span>
-                        </Chip>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          })()}
-          <AttemptRuleCaption k={statMode === 'basic' ? basicPctKey : statMode === 'shooting' ? shootPctKey : null} className="mb-2" />
-            </>}
+            footer={topFiveFooter}
           />
 
           {/* 비교하기 버튼 */}
@@ -870,111 +1085,48 @@ function LeagueStatsPageInner() {
             })()}
 
             {statMode === 'basic' ? (<>
-            {/* Basic — 모바일 카드뷰 (정렬 지표 크게 + 핵심 4칸 · 1위 대비 막대) */}
+            {/* Basic — 모바일 카드뷰 (정렬 지표 크게 + 보조 4칸). 맨 위는 「내 기록」 고정 */}
             <div className="md:hidden p-2.5 space-y-2">
-              {visibleBasic.map((p, i) => {
-                const sortCol = COLS.find(c => c.key === sortKey)
-                // 보조 4칸은 고정 우선순위로 고른다 — 표 순서대로 앞 4칸을 쓰면 득점순일 때
-                //   리바운드만 세 번 나오고 어시스트가 빠졌다(2026-10-11). 출전일은 이름 아래에 있다.
-                const subPref: SortKey[] = viewMode === 'avg'
-                  ? ['ppg', 'rpg', 'apg', 'spg', 'bpg', 'topg']
-                  : ['pts', 'reb', 'ast', 'stl', 'fg3m', 'blk']
-                const items: CardItem[] = subPref
-                  .filter(k => k !== sortKey)
-                  .slice(0, 4)
-                  .map(k => COLS.find(c => c.key === k))
-                  .filter((c): c is NonNullable<typeof c> => !!c)
-                  .map(c => {
-                    const att = basicAttempts(c.key)
-                    const raw = p[c.key] as number
-                    const has = !att || att(p) > 0
-                    return {
-                      key: c.key, label: c.label, value: cellVal(p, c.key),
-                      ratio: has ? ratioOf(raw, leaderOf(q => q[c.key] as number, pctKeyOf(c.key))) : null,
-                    }
-                  })
-                const low = lowAttempts(p, basicPctKey)
-                return (
-                  <MobileStatCard key={p.player_id} rank={low ? null : i + 1} p={p} ineligible={isIneligible(p)} lowAttempts={low}
-                    bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)}
-                    items={items}
-                    onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
-                )
-              })}
+              {me && basicCard(me, myBasicRank, { pinned: true, key: 'mine' })}
+              {visibleBasic.map((p, i) => basicCard(p, i + 1))}
             </div>
 
             {/* Basic — 데스크탑 테이블 */}
             <div className="hidden md:block overflow-x-auto">
+              {/* 덜 보는 열(공리·수리·턴오버)은 접어 둔다 — 정렬·데이터는 그대로 */}
+              <div className="flex justify-end px-4 pt-2 lg:px-6">
+                <button
+                  type="button"
+                  onClick={() => setShowMoreCols(v => !v)}
+                  aria-expanded={moreOpen}
+                  className="mm-press inline-flex items-center gap-1 px-3 min-h-9 text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  style={{ color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', background: 'var(--mm-panel)' }}
+                >
+                  {moreOpen ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+                  {moreOpen ? `${moreLabels} 접기` : `더 보기 (${moreLabels})`}
+                </button>
+              </div>
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th scope="col" className="t-th px-2 w-8" style={{ color: 'var(--mm-ink)' }}>비교</th>
                     <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    {COLS.map(({ key, label, term }) => {
-                      return (
-                        <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
-                          className="t-th px-1.5 select-none transition-colors duration-200"
-                          style={{
-                            color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
-                            background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
-                          }}>
-                          <SortHeader term={term} label={label} active={sortKey === key} dir={sortDir} onSort={() => handleSort(key)} />
-                        </th>
-                      )
-                    })}
+                    {COLS.map(({ key, label, term }) => (
+                      <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
+                        className="t-th px-1.5 select-none transition-colors duration-200"
+                        style={{
+                          color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
+                          background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
+                        }}>
+                        <SortHeader term={term} label={label} active={sortKey === key} dir={sortDir} onSort={() => handleSort(key)} />
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleBasic.map((p, i) => {
-                    const rank = lowAttempts(p, basicPctKey) ? null : i + 1
-                    return (
-                    <tr key={p.player_id}
-                      className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-                      style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                      <td className="py-2 pl-2 pr-1 text-right">
-                        <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
-                          style={{ color: rankTier(rank).color, background: rankTier(rank).bg, border: rankTier(rank).border }}
-                          title={rank == null ? '시도 부족 — 순위 없음' : undefined}>{rank ?? '–'}</span>
-                      </td>
-                      <td className="px-2 py-3 text-center">
-                        <input type="checkbox" checked={compareIds.has(p.player_id)}
-                          disabled={!compareIds.has(p.player_id) && compareIds.size >= 2}
-                          onChange={() => toggleCompare(p)} aria-label={`${p.name} 비교 선택`}
-                          className="cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
-                          style={{ accentColor: 'var(--mm-yellow-strong)' }} />
-                      </td>
-                      <th scope="row" className="px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]">
-                        <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
-                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                          {p.name}
-                        </button>
-                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{positionLabelOf(p.position)}{p.number ? ` #${p.number}` : ''}</div>
-                      </th>
-                      {COLS.map(({ key }) => {
-                        const leader = isLeader(p, key as string)
-                        // 성공률 칸은 시도 기준 미달이면 흐린 글자(순위 대상 아님) — 정렬 중인 칸엔 「시도 부족」도 붙인다
-                        const low = lowAttempts(p, pctKeyOf(key))
-                        const cellColor = low
-                          ? 'var(--mm-muted)'
-                          : sortKey === key || leader
-                            ? 'var(--mm-ink)'
-                            : 'var(--mm-ink-soft)'
-                        return (
-                          <td key={key}
-                              className={`px-1.5 ${(sortKey === key || leader) && !low ? 't-td-key' : 't-td'}`}
-                              style={{ color: cellColor }}
-                              title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
-                            {cellVal(p, key)}
-                            {key === 'gp' && isIneligible(p) && <IneligibleTag />}
-                            {key === sortKey && low && <LowAttemptTag />}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                    )
-                  })}
+                  {me && basicRow(me, myBasicRank, true)}
+                  {visibleBasic.map((p, i) => basicRow(p, lowAttempts(p, basicPctKey) ? null : i + 1))}
                 </tbody>
                 {/* Career Totals Footer — 자격자 대상 리그 총합/평균 */}
                 {/* 푸터는 토글과 무관하게 자격자 기준 — 「리그 평균」에 1경기 뛴 선수가 섞이면 기준선이 흔들린다 */}
@@ -1049,47 +1201,10 @@ function LeagueStatsPageInner() {
               )}
             </div>
             </>) : statMode === 'shooting' ? (<>
-            {/* Shooting — 모바일 카드뷰 (막대 = 1위 대비, 세로선 = 자격자 평균) */}
-            <div className="md:hidden">
-              <div className="px-4 py-1.5 text-xs flex items-center gap-1.5" style={{ color: 'var(--mm-muted)', borderBottom: '1px solid var(--mm-rule)' }}>
-                <span aria-hidden className="inline-block" style={{ width: 2, height: 10, background: 'var(--mm-ink)' }} />
-                막대 = 1위 대비 · 세로선 = 자격자 평균
-              </div>
-              <div className="p-2.5 space-y-2">
-              {visibleShoot.map(({ p, sh }, i) => {
-                const sortCol = SHOOTING_COLS.find(c => c.key === shootSortKey)
-                const isMix = shootSortKey === 'shot_mix'
-                const pref: ShootingKey[] = ['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct', 'fg2_pct']
-                const items: CardItem[] = pref
-                  .filter(k => k !== shootSortKey)
-                  .slice(0, 4)
-                  .map(k => {
-                    const c = SHOOTING_COLS.find(x => x.key === k)!
-                    const att = SHOOT_ATTEMPTS[k]
-                    const has = att(p) > 0
-                    const leader = leaderOf(q => calcShoot(q)[k], pctKeyOf(k))
-                    return {
-                      key: k, label: c.label, value: has ? `${fmt1(sh[k])}%` : '—',
-                      ratio: has ? ratioOf(sh[k], leader) : null,
-                      mark: shootMarks[k] != null && leader > 0 ? Math.min(1, shootMarks[k]! / leader) : null,
-                    }
-                  })
-                const low = lowAttempts(p, shootPctKey)
-                return (
-                  <MobileStatCard key={p.player_id} rank={low ? null : i + 1} p={p} ineligible={isIneligible(p)} lowAttempts={low}
-                    bigLabel={isMix ? '3점 비중' : (sortCol?.label ?? '')} bigTerm={sortCol?.term ?? ''}
-                    bigValue={SHOOT_ATTEMPTS[shootSortKey](p) > 0 ? `${fmt1(sh[shootSortKey])}%` : '—'}
-                    items={items}
-                    footer={
-                      <div className="flex items-center gap-2 mt-3">
-                        <span className="text-xs font-semibold shrink-0" style={{ color: isMix ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>슛 분포</span>
-                        <div className="flex-1 min-w-0" style={{ color: 'var(--mm-ink-soft)' }}><ShotMixText p={p} /></div>
-                      </div>
-                    }
-                    onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
-                )
-              })}
-              </div>
+            {/* Shooting — 모바일 카드뷰 (정렬 지표 크게 + 보조 4칸 + 슛 분포 글자). 맨 위는 「내 기록」 고정 */}
+            <div className="md:hidden p-2.5 space-y-2">
+              {myShoot && shootCard(myShoot.p, myShoot.sh, myShootRank, { pinned: true, key: 'mine' })}
+              {visibleShoot.map(({ p, sh }, i) => shootCard(p, sh, i + 1))}
             </div>
 
             {/* Shooting — 데스크탑 테이블 */}
@@ -1118,45 +1233,8 @@ function LeagueStatsPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleShoot.map(({ p, sh }, i) => {
-                    const rank = lowAttempts(p, shootPctKey) ? null : i + 1
-                    return (
-                    <tr key={p.player_id}
-                      className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-                      style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                      <td className="py-2 pl-2 pr-1 text-right">
-                        <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
-                          style={{ color: rankTier(rank).color, background: rankTier(rank).bg, border: rankTier(rank).border }}
-                          title={rank == null ? '시도 부족 — 순위 없음' : undefined}>{rank ?? '–'}</span>
-                      </td>
-                      <th scope="row" className="px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]">
-                        <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
-                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                          {p.name}
-                        </button>
-                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{positionLabelOf(p.position)}{p.number ? ` #${p.number}` : ''}</div>
-                      </th>
-                      <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
-                      {SHOOTING_COLS.map(({ key }, idx) => {
-                        const val = sh[key]
-                        const active = shootSortKey === key
-                        const low = lowAttempts(p, pctKeyOf(key))
-                        // 구분선: 슈팅 효율(0-6) | 슛 분포(7 · SHOT MIX)
-                        const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-rule)' } : {}
-                        return (
-                          <td key={key}
-                              className={active && !low ? 't-td-key' : 't-td'}
-                              style={{ color: low ? 'var(--mm-muted)' : active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', ...dividerStyle }}
-                              title={low ? '시도 부족 — 순위 대상 아님' : undefined}>
-                            {key === 'shot_mix' ? <ShotMixText p={p} /> : `${fmt1(val)}%`}
-                            {active && low && <LowAttemptTag />}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                    )
-                  })}
+                  {myShoot && shootRow(myShoot.p, myShoot.sh, myShootRank, true)}
+                  {visibleShoot.map(({ p, sh }, i) => shootRow(p, sh, lowAttempts(p, shootPctKey) ? null : i + 1))}
                 </tbody>
               </table>
               {/* 지표 설명 범례 */}
@@ -1169,29 +1247,10 @@ function LeagueStatsPageInner() {
               </div>
             </div>
             </>) : (<>
-            {/* Advanced — 모바일 카드뷰 (정렬 지표 크게 + 나머지 4칸 · 1위 대비 막대) */}
+            {/* Advanced — 모바일 카드뷰 (정렬 지표 크게 + 나머지 3칸). 맨 위는 「내 기록」 고정 */}
             <div className="md:hidden p-2.5 space-y-2">
-              {visibleAdv.map(({ p, adv }, i) => {
-                const fmtAdv = (k: AdvKey, v: number | null) =>
-                  v == null ? '—' : k === 'a1_total' ? String(v) : k === 'at_ratio' ? v.toFixed(2) : `${fmt1(v)}%`
-                const sortCol = ADV_COLS.find(c => c.key === advSortKey)
-                const items: CardItem[] = ADV_COLS
-                  .filter(c => c.key !== advSortKey)
-                  .map(c => {
-                    // A/T 의 99 는 「턴오버 0」 표식이라 1위 분모에서 뺀다(막대가 전부 바닥에 깔린다)
-                    const leader = leaderOf(q => {
-                      const v = calcAdv(q)[c.key]
-                      return c.key === 'at_ratio' && v === 99 ? null : v
-                    })
-                    return { key: c.key, label: c.label, value: fmtAdv(c.key, adv[c.key]), ratio: ratioOf(adv[c.key], leader) }
-                  })
-                return (
-                  <MobileStatCard key={p.player_id} rank={i + 1} p={p} ineligible={isIneligible(p)}
-                    bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={fmtAdv(advSortKey, adv[advSortKey])}
-                    items={items}
-                    onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
-                )
-              })}
+              {myAdv && advCard(myAdv.p, myAdv.adv, myAdvRank, { pinned: true, key: 'mine' })}
+              {visibleAdv.map(({ p, adv }, i) => advCard(p, adv, advRank(adv, i)))}
             </div>
 
             {/* Advanced — 데스크탑 테이블 */}
@@ -1215,37 +1274,8 @@ function LeagueStatsPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleAdv.map(({ p, adv }, i) => (
-                    <tr key={p.player_id}
-                      className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-                      style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                      <td className="py-2 pl-2 pr-1 text-right">
-                        <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border }}>{i+1}</span>
-                      </td>
-                      <th scope="row" className="px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]">
-                        <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
-                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                          {p.name}
-                        </button>
-                        <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{positionLabelOf(p.position)}{p.number ? ` #${p.number}` : ''}</div>
-                      </th>
-                      <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
-                      {ADV_COLS.map(({ key }) => {
-                        const val = adv[key]
-                        const isRatio = key === 'at_ratio'
-                        const isCount = key === 'a1_total'
-                        const active = advSortKey === key
-                        return (
-                          <td key={key} className={active ? 't-td-key' : 't-td'}
-                            style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>
-                            {val == null ? '—' : isCount ? val : isRatio ? val.toFixed(2) : `${fmt1(val)}%`}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
+                  {myAdv && advRow(myAdv.p, myAdv.adv, myAdvRank, true)}
+                  {visibleAdv.map(({ p, adv }, i) => advRow(p, adv, advRank(adv, i)))}
                 </tbody>
               </table>
               {/* 지표 설명 범례 */}
@@ -1258,6 +1288,7 @@ function LeagueStatsPageInner() {
               </div>
             </div>
             </>)}
+
 
             {/* 더 보기 — 이미 받아온 배열을 클라이언트에서 점진 노출한다(서버 재요청 없음).
                 세 모드 · 두 뷰 바깥에 한 번만 둔다: 모드마다 복제하면 언젠가 한 곳만 고쳐지고,

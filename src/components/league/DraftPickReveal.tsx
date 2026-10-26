@@ -633,7 +633,7 @@ interface StatBox {
 }
 
 /**
- * 공개할 기록 칸 — 참석율 → 득점 → 리바운드 → 어시스트 → 스틸 → 블락 → 야투% → 3점%,
+ * 공개할 기록 칸 — 참석율 → 득점 → 리바운드 → 어시스트 → 스틸 → 블록 → 야투% → 3점%,
  * 항상 이 여덟 칸. 값이 0 인 칸도 뺄 수 없다: 여덟 칸이 4×2(sm 이상)·2×4(모바일) 격자로
  * 고정이라 한 칸만 빠져도 격자가 어긋나고, 단계 연출의 칸 수가 선수마다 달라진다.
  * 기록이 아예 없으면 빈 배열(호출부가 "시즌 기록 없음" 한 칸을 그린다).
@@ -656,7 +656,7 @@ function buildStatBoxes(brief: DraftPlayerBrief | null | undefined): StatBox[] {
     { key: 'rpg', label: '평균 리바운드', value: brief.rpg.toFixed(1), rank: rank.rpg },
     { key: 'apg', label: '평균 어시스트', value: brief.apg.toFixed(1), rank: rank.apg },
     { key: 'spg', label: '평균 스틸', value: brief.spg.toFixed(1), rank: rank.spg },
-    { key: 'bpg', label: '평균 블락', value: brief.bpg.toFixed(1), rank: rank.bpg },
+    { key: 'bpg', label: '평균 블록', value: brief.bpg.toFixed(1), rank: rank.bpg },
     // 야투율은 brief 가 이미 %(소수 1자리)로 준다 — 여기서 다시 100 을 곱하지 않는다.
     { key: 'fg', label: '야투%', value: `${(brief.fg_pct ?? 0).toFixed(1)}%`, rank: rank.fg_pct },
     { key: 'fg3', label: '3점%', value: `${(brief.fg3_pct ?? 0).toFixed(1)}%`, rank: rank.fg3_pct },

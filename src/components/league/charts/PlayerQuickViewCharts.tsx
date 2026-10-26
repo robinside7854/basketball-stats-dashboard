@@ -13,8 +13,8 @@ import type { HexRadarResult } from '@/lib/stats/hexRadar'
 const MONTH_STATS = [
   { key: 'ppg', label: '득점' }, { key: 'rpg', label: '리바' },
   { key: 'apg', label: '어시' }, { key: 'spg', label: '스틸' },
-  { key: 'bpg', label: '블록' }, { key: 'fg_pct', label: 'FG%' },
-  { key: 'fg3_pct', label: '3P%' },
+  { key: 'bpg', label: '블록' }, { key: 'fg_pct', label: '야투율' },
+  { key: 'fg3_pct', label: '3점률' },
 ] as const
 // 성공률 지표 — 그 달 시도가 최소 기준(하루 평균 × 출전일, eligibility.ts)에 못 미치면 서버가 null 을 준다
 const RATE_KEYS: ReadonlySet<MonthStatKey> = new Set(['fg_pct', 'fg3_pct'])

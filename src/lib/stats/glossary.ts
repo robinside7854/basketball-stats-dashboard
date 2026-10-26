@@ -34,7 +34,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   DREB: { short: 'DR',   long: '수비 리바운드',  description: '누적 수비 리바운드' },
   AST:  { short: 'AST',  long: '어시스트',       description: '팀 동료의 성공한 야투를 도운 마지막 패스' },
   STL:  { short: 'STL',  long: '스틸',           description: '상대의 공을 빼앗은 횟수' },
-  BLK:  { short: 'BLK',  long: '블락',           description: '상대 슛을 저지한 횟수' },
+  BLK:  { short: 'BLK',  long: '블록',           description: '상대 슛을 저지한 횟수' },
   TOV:  { short: 'TOV',  long: '턴오버',         description: '공을 상대에게 넘긴 횟수 · 낮을수록 좋음', direction: 'low' },
   FGM:  { short: 'FG',   long: '야투 성공',      description: '2점 + 3점 야투 성공' },
   '3PM': { short: '3P',  long: '3점 성공',       description: '3점 야투 성공' },
@@ -45,7 +45,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   RPG:  { short: 'RPG',  long: '하루 평균 리바운드', formula: 'REB / R', description: '경기한 날 하루 평균 리바운드' },
   APG:  { short: 'APG',  long: '하루 평균 어시스트', formula: 'AST / R', description: '경기한 날 하루 평균 어시스트' },
   SPG:  { short: 'SPG',  long: '하루 평균 스틸',    formula: 'STL / R', description: '경기한 날 하루 평균 스틸' },
-  BPG:  { short: 'BPG',  long: '하루 평균 블락',    formula: 'BLK / R', description: '경기한 날 하루 평균 블락' },
+  BPG:  { short: 'BPG',  long: '하루 평균 블록',    formula: 'BLK / R', description: '경기한 날 하루 평균 블록' },
   TOPG: { short: 'TOPG', long: '하루 평균 턴오버',  formula: 'TOV / R', description: '경기한 날 하루 평균 턴오버 · 낮을수록 좋음', direction: 'low' },
   ORpg: { short: 'ORpg', long: '하루 평균 공격리바', formula: 'OREB / R', description: '경기한 날 하루 평균 공격 리바운드' },
   DRpg: { short: 'DRpg', long: '하루 평균 수비리바', formula: 'DREB / R', description: '경기한 날 하루 평균 수비 리바운드' },
@@ -57,7 +57,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   수리:   { short: '수리',   long: '하루 평균 수비 리바운드',  formula: 'DREB / R', description: '경기한 날 하루 평균 수비 리바운드' },
   어시:   { short: '어시',   long: '하루 평균 어시스트 (APG)', formula: 'AST / R', description: '경기한 날 하루 평균 어시스트' },
   스틸:   { short: '스틸',   long: '하루 평균 스틸 (SPG)',    formula: 'STL / R', description: '경기한 날 하루 평균 스틸' },
-  블락:   { short: '블락',   long: '하루 평균 블락 (BPG)',    formula: 'BLK / R', description: '경기한 날 하루 평균 블락' },
+  블록:   { short: '블록',   long: '하루 평균 블록 (BPG)',    formula: 'BLK / R', description: '경기한 날 하루 평균 블록' },
   턴오버: { short: '턴오버', long: '하루 평균 턴오버 (TOPG)', formula: 'TOV / R', description: '경기한 날 하루 평균 턴오버 · 낮을수록 좋음', direction: 'low' },
 
   // ── 슈팅 % ────────────────────────────
@@ -91,7 +91,7 @@ export const GLOSSARY: Record<string, StatDef> = {
             formula: 'PTS + 0.4×FGM − 0.7×FGA − 0.4×(FTA−FTM) + 0.7×OR + 0.3×DR + STL + 0.7×AST + 0.7×BLK − 0.4×PF − TOV',
             description: '한 경기 활약을 숫자 하나로 요약한 값(존 홀린저 공식). 득점에 리바운드·도움·수비를 더하고 놓친 슛·파울·실책을 뺀다. 클수록 그 경기 기여가 컸다 · NBA 기준으로는 10 이 평균' },
   'A/T':  { short: 'A/T', long: '어시-턴오버 비율', formula: 'AST / TOV',
-            description: '어시스트를 실책으로 나눈 값. 1 보다 크면 실책보다 도움이 많다는 뜻 · 높을수록 공을 안정적으로 다룬다' },
+            description: '어시스트를 실책으로 나눈 값. 1 보다 크면 실책보다 도움이 많다는 뜻 · 높을수록 공을 안정적으로 다룬다. 턴오버가 0이면 나눌 수 없어 「—」로 보이고 순위에서 뺀다' },
   'AST%': { short: 'AST%', long: '어시스트 사용률', formula: 'AST / (POSS + AST) × 100',
             description: '본인 볼 소유 중 어시스트로 마무리한 비중' },
   'TOV%': { short: 'TOV%', long: '턴오버 사용률', formula: 'TOV / POSS × 100',
@@ -162,8 +162,9 @@ export const READING_GUIDE: GuideSection[] = [
     title: '기본',
     items: [
       { term: '하루 평균', text: '하루에 몇 경기를 뛰든 그날을 한 번으로 쳐서 나눈 평균이에요.', formula: '누적 ÷ 출전일' },
-      { term: '출전 (R)', text: '뛴 날 수예요.' },
+      { term: '출전', text: '뛴 날 수예요.' },
       { term: '누적', text: '기간 동안 모두 더한 값이에요. 실력 비교는 하루 평균으로 보세요.' },
+      { term: '공리 · 수리', text: '공격 리바운드 · 수비 리바운드예요.' },
       { term: '턴오버', text: '이건 낮을수록 좋아요.' },
     ],
   },
@@ -171,9 +172,19 @@ export const READING_GUIDE: GuideSection[] = [
     title: '슛',
     items: [
       { term: '야투율', text: '던진 슛 중 들어간 비율이에요(자유투 제외).' },
-      { term: 'eFG%', text: '3점의 가치를 1.5배로 쳐 준 야투율이에요.', formula: '(넣은 슛 + 0.5 × 넣은 3점) ÷ 던진 슛' },
-      { term: 'TS%', text: '자유투까지 합쳐 슛 한 번에 몇 점 뽑았나예요. +1 가산점이 들어가서 프로보다 높게 나와요.' },
-      { term: 'USG%', text: '팀 공격이 나로 끝난 비율이에요. 높다고 잘한 건 아니에요.' },
+      { term: '2점률', text: '3점을 뺀 2점슛만의 성공률이에요.' },
+      { term: '유효야투 (eFG%)', text: '3점의 가치를 1.5배로 쳐 준 야투율이에요.', formula: '(넣은 슛 + 0.5 × 넣은 3점) ÷ 던진 슛' },
+      { term: '진실야투 (TS%)', text: '자유투까지 합쳐 슛 한 번에 몇 점 뽑았나예요. +1 가산점이 들어가서 프로보다 높게 나와요.' },
+      { term: '슛 분포', text: '던진 슛이 골밑·레이업·미드·3점에 어떻게 나뉘었나예요. 정렬하면 3점 비중 순이에요.' },
+    ],
+  },
+  {
+    title: '고급',
+    items: [
+      { term: '어시/턴오버', text: '어시스트를 턴오버로 나눈 값이에요. 1보다 크면 실수보다 도움이 많아요. 턴오버가 0이면 「—」로 보여요.' },
+      { term: '앤드원', text: '슛을 넣으면서 파울까지 얻어 낸 횟수예요.' },
+      { term: '리바 비중', text: '내가 뛴 경기에서 우리 팀 리바운드 중 내가 잡은 몫이에요.' },
+      { term: '공격 점유 (USG%)', text: '팀 공격이 나로 끝난 비율이에요. 높다고 잘한 건 아니에요.' },
     ],
   },
   {
@@ -182,7 +193,7 @@ export const READING_GUIDE: GuideSection[] = [
       { term: '+1 가산점', text: '지정된 선수는 슛을 넣을 때마다 1점을 더 받아요.' },
       { term: '자유투', text: '2점슛 파울은 1구에 2점, 3점슛 파울은 2점 + 1점이에요.' },
       { term: '친선전', text: '순위·스탯에는 안 들어가요. 박스스코어에서만 보여요.' },
-      { term: '순위 기준', text: `열린 날의 ${RATIO_PCT}% 이상 뛰어야 순위에 들어요. 성공률은 하루 평균 야투 ${A.fg}개 · 3점 ${A.fg3}개 · 자유투 ${A.ft}개 이상 던져야 해요.` },
+      { term: '순위 기준', text: `열린 날의 ${RATIO_PCT}% 이상 뛰어야 순위에 들어요. 기준에 못 미쳐도 내 기록은 맨 위에 보여요. 성공률은 하루 평균 야투 ${A.fg}개 · 3점 ${A.fg3}개 · 자유투 ${A.ft}개 이상 던져야 해요.` },
     ],
   },
 ]

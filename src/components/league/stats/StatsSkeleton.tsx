@@ -1,5 +1,5 @@
 // 리그 스탯(리더보드) 불러오는 중 — 실제 화면과 같은 모양으로 자리를 잡아 둔다.
-// 서브탭 줄 · 머리 카드(제목·분기 칩·표 모드) · TOP 5 다섯 칸 · 표 8줄.
+// 서브탭 줄 · 머리 카드(제목·분기 칩·표 모드) · TOP 5 다섯 칸 + 정렬 줄 · 표 8줄.
 // 빙글 도는 공(BasketballLoader) 대신 이 모양을 쓰면 다 불러왔을 때 화면이 튀지 않는다.
 
 function Block({ className = '', radius = 'var(--mm-radius-ctl)', style }: { className?: string; radius?: string; style?: React.CSSProperties }) {
@@ -46,6 +46,12 @@ export default function StatsSkeleton({ variant = 'full' }: { variant?: 'full' |
               <Block className="h-6 w-1/2" />
             </div>
           ))}
+        </div>
+        {/* TOP 5 아래 한 줄 — 정렬 · 순위 범위 */}
+        <div className="flex gap-2 mt-3">
+          <Block className="h-11 flex-1 md:hidden" />
+          <Block className="h-11 w-11 shrink-0 md:hidden" />
+          <Block className="h-11 flex-1 md:flex-none md:w-36" />
         </div>
       </div>
 

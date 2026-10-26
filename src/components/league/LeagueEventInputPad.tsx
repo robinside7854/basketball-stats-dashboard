@@ -465,7 +465,7 @@ export default function LeagueEventInputPad({
     }
   }
 
-  // 통합 리바운드 저장 함수 (슛 실패/블락/FT 미스 공통)
+  // 통합 리바운드 저장 함수 (슛 실패/블록/FT 미스 공통)
   async function doRebound(rebounderId: string | null) {
     if (rebounderId) {
       const rebounder = allPlayers.find(p => p.id === rebounderId)
@@ -743,7 +743,7 @@ export default function LeagueEventInputPad({
       </div>
       )}
 
-      {/* ── 리바운드 선택 (슛 실패 / 블락 / FT 미스 공통) ── */}
+      {/* ── 리바운드 선택 (슛 실패 / 블록 / FT 미스 공통) ── */}
       {awaitingRebound && (
         <div className="pt-1 space-y-2">
           <p className="text-xs text-[color:var(--mm-ink-soft)]">리바운드 선수 선택</p>

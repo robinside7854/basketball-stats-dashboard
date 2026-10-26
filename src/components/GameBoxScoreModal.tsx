@@ -108,7 +108,7 @@ function formatEvent(e: TimelineEvent): EventStyle | null {
     case 'steal':
       return { badge: 'STL', badgeClass: 'bg-green-900/60 text-green-300', label: `${playerLabel} 스틸`, labelClass: 'text-white' }
     case 'block':
-      return { badge: 'BLK', badgeClass: 'bg-indigo-900/60 text-indigo-300', label: `${playerLabel} 블락`, labelClass: 'text-white' }
+      return { badge: 'BLK', badgeClass: 'bg-indigo-900/60 text-indigo-300', label: `${playerLabel} 블록`, labelClass: 'text-white' }
     case 'turnover':
       return { badge: 'TOV', badgeClass: 'bg-red-900/60 text-red-300', label: `${playerLabel} 턴오버`, labelClass: 'text-white' }
     case 'foul':

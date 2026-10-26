@@ -137,7 +137,7 @@ export const EVENT_LABELS: Record<EventType, string> = {
   dreb: '수비 리바운드',
   assist: '어시스트',
   steal: '스틸',
-  block: '블락',
+  block: '블록',
   turnover: '턴오버',
   foul: '파울',
   opp_score: '상대팀 득점',

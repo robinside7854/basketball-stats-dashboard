@@ -6,7 +6,7 @@
 // 콘텐츠는 DailyBoxscoreModal 의 "전체 스탯" 탭 + 상단 스코어보드와 1:1 매칭:
 //   - 헤더 (날짜 · 리그 · 진행/완료 요약)
 //   - 스코어보드 (완료 + 진행중 + 예정 카드 · 팀 record chips)
-//   - 당일 스탯 리더 7개 (득점 · 리바 · 어시 · 블락 · 스틸 · FG% · 3P%)
+//   - 당일 스탯 리더 7개 (득점 · 리바 · 어시 · 블록 · 스틸 · FG% · 3P%)
 //   - 전체 선수 스탯 테이블 (14 컬럼: G, PTS, REB, OR, DR, AST, STL, BLK, TOV, FG, FG%, 3P, 3P%, FT)
 //
 // 폭 고정 1080px — KakaoTalk 공유 시 모바일 화면에서 잘 보이는 크기
@@ -110,7 +110,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
     { label: '득점',     player: byPts,   value: byPts   ? `${byPts.pts}점`    : null, sub: `${byPts?.gp ?? 0}경기` },
     { label: '리바운드', player: byReb,   value: byReb   ? `${byReb.reb}개`    : null, sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
     { label: '어시스트', player: byAst,   value: byAst   ? `${byAst.ast}개`    : null, sub: `${byAst?.gp ?? 0}경기` },
-    { label: '블락',     player: byBlk,   value: byBlk   ? `${byBlk.blk}개`    : null, sub: `${byBlk?.gp ?? 0}경기` },
+    { label: '블록',     player: byBlk,   value: byBlk   ? `${byBlk.blk}개`    : null, sub: `${byBlk?.gp ?? 0}경기` },
     { label: '스틸',     player: byStl,   value: byStl   ? `${byStl.stl}개`    : null, sub: `${byStl?.gp ?? 0}경기` },
     { label: '야투율',   player: byFgPct, value: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
     { label: '3점슛',    player: byFg3,   value: byFg3   ? `${byFg3.fg3m}개`   : null, sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },

@@ -16,7 +16,7 @@ export async function GET(
   const status = sp.get('status') ?? 'all'
   const sb = createClient()
   let q = sb.from('league_user_accounts')
-    .select('id, league_player_id, login_id, status, role, requested_at, approved_at, last_login_at, reset_by_admin_at')
+    .select('id, league_player_id, login_id, status, role, requested_at, approved_at, last_login_at, last_seen_at, reset_by_admin_at')
     .eq('league_id', leagueId)
     .order('requested_at', { ascending: false })
   if (status !== 'all') q = q.eq('status', status)

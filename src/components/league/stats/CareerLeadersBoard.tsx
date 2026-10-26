@@ -4,9 +4,9 @@
 //
 // 재료: 스탯 API 를 분기 없이 부른 결과 = 그 리그의 모든 정규 경기(친선전 제외). 새 집계 없음.
 // 화면
-//   ① 1위 카드 격자 — 부문(CAREER_STATS) 하나에 카드 하나. 첫 부문(출전일)은 줄 전체를 쓰는 큰 카드라
+//   ① 1위 카드 격자 — 부문(CAREER_STATS) 하나에 카드 하나. 첫 부문(득점)은 줄 전체를 쓰는 큰 카드라
 //      나머지 12장이 2·3·4·6열 어디서도 끝줄이 비지 않는다. 카드를 누르면 아래 상세가 그 부문으로 바뀐다.
-//   ② 선택 부문 상세 — 칩(줄바꿈) + 상위 10명. 1~3위는 줄을 키우고 순위 숫자를 노랑 계열로.
+//   ② 선택 부문 상세 — 상위 10명. 부문 고르기는 위 카드가 맡는다(같은 13부문 칩 줄이 한 벌 더 있어 2026-10-26 삭제). 1~3위는 줄을 키우고 순위 숫자를 노랑 계열로.
 //   ⚠ 트로피·배지 아이콘은 쓰지 않는다(배지 제도 폐지 2026-10-11 — 모으기처럼 읽히면 안 된다).
 // 출전 자격은 따지지 않는다: 통산 누적은 「얼마나 쌓았나」라 오래 뛴 사람이 위에 오는 게 맞다.
 import { useMemo, useRef, useState, type CSSProperties } from 'react'
@@ -152,15 +152,6 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
               {scopeLabel}통산 {def.label} 순위
             </h3>
             <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>상위 {BOARD_TOP}명</span>
-          </div>
-
-          <div className="px-4 pt-3 lg:px-6" role="group" aria-label="통산 부문">
-            {/* 칩 13개 — 줄바꿈으로 모두 보이게(가로 스크롤 안에 숨기면 뒤쪽 부문이 있는 줄 모른다) */}
-            <div className="flex flex-wrap gap-2 lg:gap-1.5">
-              {CAREER_STATS.map(s => (
-                <Chip key={s.key} as="button" size="sm" selected={s.key === key} onClick={() => setKey(s.key)}>{s.label}</Chip>
-              ))}
-            </div>
           </div>
 
           <div className="px-4 py-4 lg:px-6 lg:py-5">

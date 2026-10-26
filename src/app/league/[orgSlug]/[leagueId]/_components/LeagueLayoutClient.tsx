@@ -69,7 +69,8 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   const [signupPending, setSignupPending] = useState(false)
   useEffect(() => {
     try {
-      if (user) { localStorage.removeItem(`mm_signup_pending:${leagueId}`); setSignupPending(false) }
+      // mm_member: 이 기기에서 로그인한 적 있음 — 로그인이 풀렸을 때 잠금 화면이 「다시 로그인」으로 바로 열린다(PrivateLeagueGate)
+      if (user) { localStorage.removeItem(`mm_signup_pending:${leagueId}`); localStorage.setItem(`mm_member:${leagueId}`, '1'); setSignupPending(false) }
       else setSignupPending(!!localStorage.getItem(`mm_signup_pending:${leagueId}`))
     } catch { /* 무시 */ }
   }, [user, leagueId])

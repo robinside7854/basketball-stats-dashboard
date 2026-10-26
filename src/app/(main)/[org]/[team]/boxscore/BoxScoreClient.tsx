@@ -60,7 +60,7 @@ function Pct({ val, kind, suffix = '' }: { val: number; kind?: PctKind; suffix?:
 }
 
 // 모바일 카드 본문 — 경기별·대회 전체가 같은 모양을 쓴다(스탯 탭 카드와 같은 구조).
-//   종전에는 REB·AST·FG%·3P% 네 칸뿐이라 스틸·블락·야투 볼륨(성공/시도)을 폰에서 볼 수 없었다.
+//   종전에는 REB·AST·FG%·3P% 네 칸뿐이라 스틸·블록·야투 볼륨(성공/시도)을 폰에서 볼 수 없었다.
 //   (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
 type ShotLine = Pick<PlayerBoxScore, 'fgm' | 'fga' | 'fg_pct' | 'fg3m' | 'fg3a' | 'fg3_pct' | 'ftm' | 'fta' | 'ft_pct'>
 
@@ -173,12 +173,12 @@ function pctOf(made?: number, att?: number) {
 }
 
 // 경기별 「주요 기록 요약」 — 전체 박스스코어(24칸)를 다 읽지 않고도 누가 무엇을 했는지 보이게.
-//   항목은 사용자 지정(2026-10-05): 득점·리바·어시·스틸·블락·야투%·3점%·자유투%.
+//   항목은 사용자 지정(2026-10-05): 득점·리바·어시·스틸·블록·야투%·3점%·자유투%.
 //   PC·모바일 같은 표 하나. 항목별 1위는 노랑 굵게(동률이면 모두). 정렬은 득점순 고정 —
 //   아래 전체 표의 정렬을 따라가면 요약이 매번 뒤섞여 요약 구실을 못 한다.
 const SUMMARY_COLS: { key: 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg_pct' | 'fg3_pct' | 'ft_pct'; label: string; kind?: PctKind }[] = [
   { key: 'pts', label: '득점' }, { key: 'reb', label: '리바' }, { key: 'ast', label: '어시' },
-  { key: 'stl', label: '스틸' }, { key: 'blk', label: '블락' },
+  { key: 'stl', label: '스틸' }, { key: 'blk', label: '블록' },
   { key: 'fg_pct', label: '야투%', kind: 'fg' }, { key: 'fg3_pct', label: '3점%', kind: 'fg3' }, { key: 'ft_pct', label: '자유투%', kind: 'ft' },
 ]
 

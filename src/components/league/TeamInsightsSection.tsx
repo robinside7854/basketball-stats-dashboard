@@ -1,5 +1,5 @@
 'use client'
-// 팀 탭 「팀별 선수」 안의 「어시스트」·「공격 유형」 보기 (2026-10-12 신설 · 2026-10-18 팀별 선수에 합침).
+// 팀 탭 「팀별 선수」 안의 「어시스트」·「공격 유형」 보기 (2026-10-12 신설 · 2026-10-18 팀별 선수에 합침 · 2026-10-26 「더 보기」로 접음).
 //   날짜별 박스스코어의 두 탭을 분기·시즌 단위로 쌓아 보여 준다.
 //   데이터: GET /api/leagues/[leagueId]/team-insights?quarterId=  (마감된 정규전 · 팀 정체성 단위)
 //   그림: AssistNetwork · ShotTypeBreakdown — 날짜별 화면과 같은 컴포넌트(경기 범위 칩 없이 쓴다).
@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AssistNetwork, { type AssistLink, type AssistPlayer } from '@/components/league/boxscore/AssistNetwork'
 import ShotTypeBreakdown, { type ShotTypeRow, type ShotPlayer } from '@/components/league/boxscore/ShotTypeBreakdown'
-import { BasketballLoader } from '@/components/league/BasketballIcons'
+import { ShimmerRows } from '@/components/league/teams/TeamsSkeleton'
 
 type InsightTeam = { key: string; team_id: string; name: string; color: string }
 type InsightPlayer = { id: string; name: string; photo_url: string | null }
@@ -59,12 +59,12 @@ export default function TeamInsightView({ data, teamKey, view, scopeText }: {
   const assistPlayers = useMemo(() => new Map<string, AssistPlayer>((data?.players ?? []).map(p => [p.id, { name: p.name, photo_url: p.photo_url }])), [data])
   const shotPlayers = useMemo(() => new Map<string, ShotPlayer>((data?.players ?? []).map(p => [p.id, { name: p.name, team_id: null }])), [data])
 
-  if (data === null) return <div className="flex justify-center py-8"><BasketballLoader size={24} /></div>
+  if (data === null) return <ShimmerRows rows={4} height={48} />
 
   return (
     <div className="space-y-2">
       <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-        {scopeText} 누적 · 마감된 정규전 기준 (친선전 제외) · 날짜별 박스스코어와 같은 판정
+        {scopeText} 누적 · 친선전 제외
       </p>
       {view === 'assist' ? (
         <AssistNetwork links={assistLinks} games={[]} players={assistPlayers} emptyTitle="이 기간에 기록된 어시스트가 없어요." />

@@ -17,7 +17,7 @@
 
 import { PCT_MIN_ATTEMPTS, rateIfQualified, MIN_ATTEMPTS_PER_DAY } from './eligibility'
 
-// 옛 import 경로 호환 — 정본은 eligibility.ts (hexRadar·quarterTable·similarStyle 이 아직 여기서 가져간다)
+// 옛 import 경로 호환 — 정본은 eligibility.ts (hexRadar·quarterTable 이 아직 여기서 가져간다)
 export { PCT_MIN_ATTEMPTS, MIN_ATTEMPTS_PER_DAY }
 
 /** 백분위 계산에 쓰는 선수 한 명의 기간 합계 */
@@ -85,7 +85,7 @@ const GROUPS: { key: string; label: string; metrics: MetricSpec[] }[] = [
     key: 'defense', label: '수비',
     metrics: [
       { key: 'spg', label: '스틸', kind: 'perDay', higherIsBetter: true, value: p => perDay(p.stl, p) },
-      { key: 'bpg', label: '블락', kind: 'perDay', higherIsBetter: true, value: p => perDay(p.blk, p) },
+      { key: 'bpg', label: '블록', kind: 'perDay', higherIsBetter: true, value: p => perDay(p.blk, p) },
     ],
   },
 ]

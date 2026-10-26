@@ -69,7 +69,8 @@ export default async function BoxscorePage({
   // 멀티테넌트 전환(온볼): DB에 리그명이 없을 때 다른 클럽명으로 폴백하지 않고 중립 라벨 사용
   const leagueName = (league.name as string) ?? '리그'
 
-  const backHref = `/league/${orgSlug}/${leagueId}/schedule`
+  // 홈 「지난 토요일 나」·「내 하이라이트」에서 왔으면(?me·?hl) 뒤로가기는 홈으로 — 늘 일정으로 튀었다(2026-10-26)
+  const backHref = sp?.me || sp?.hl ? `/league/${orgSlug}/${leagueId}` : `/league/${orgSlug}/${leagueId}/schedule`
 
   return (
     <div className="mm-brand space-y-4">
@@ -127,6 +128,7 @@ export default async function BoxscorePage({
         initialHl={sp?.hl === 'mine' || sp?.hl === 'team' || sp?.hl === 'all' ? sp.hl : null}
         // ?tab= — 안쪽 탭 기억(검증은 BoxscoreContent 가 한다)
         initialTab={typeof sp?.tab === 'string' ? sp.tab : null}
+        initialMe={sp?.me === '1'}
       />
     </div>
   )

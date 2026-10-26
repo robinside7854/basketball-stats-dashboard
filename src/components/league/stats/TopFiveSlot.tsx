@@ -23,6 +23,8 @@ interface Props {
   onPlayerClick?: (id: string, name: string) => void
   /** 헤더와 사진 사이에 끼우는 컨트롤(모바일 정렬 칩). 누르는 곳과 바뀌는 곳을 붙여 두려고 받는다. */
   controls?: React.ReactNode
+  /** 사진 아래에 붙는 한 줄(정렬·순위 범위). 첫 화면에서 숫자가 먼저 보이게 컨트롤을 TOP 5 아래로 내렸다(2026-10-26). */
+  footer?: React.ReactNode
 }
 
 function initials(name: string): string {
@@ -69,7 +71,7 @@ function BigAvatar({ photo, name }: { photo?: string | null; name: string }) {
   )
 }
 
-export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, players, onPlayerClick, controls }: Props) {
+export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, players, onPlayerClick, controls, footer }: Props) {
   const active = metricKey !== null && players.length > 0
 
   return (
@@ -194,6 +196,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
           })}
         </div>
       )}
+      {footer}
       </div>
 
       {/* Scoped keyframes — Framer Motion 없이 순수 CSS */}

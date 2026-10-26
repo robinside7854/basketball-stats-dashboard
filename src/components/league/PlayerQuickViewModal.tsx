@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ArrowLeftRight } from 'lucide-react'
+import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ArrowLeftRight, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -15,24 +15,25 @@ import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { LEAGUE_BASELINE, tierAgainst, type ShootingBaseline } from '@/lib/stats/shootingBaseline'
 import PlayerMiniTabs, { PLAYER_TABS, type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
 import PercentileBars from '@/components/league/player/PercentileBars'
 import QuarterTable from '@/components/league/player/QuarterTable'
-import type { SimilarPlayersData } from '@/components/league/player/SimilarPlayers'
 import PlayerTeamLine, { PlayerTeamHistory, type CurrentTeam, type TeamHistoryEntry } from '@/components/league/player/PlayerTeamLine'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
 import type { QuarterTableRow } from '@/lib/stats/quarterTable'
 import MonthTable, { type MonthRow } from '@/components/league/player/MonthTable'
-import PlayerFormCard from '@/components/league/player/PlayerFormCard'
+import { PlayerLastDayCard, PlayerFormHeadline, PlayerFormRanges } from '@/components/league/player/PlayerFormCard'
 import DailyLogTable from '@/components/league/player/DailyLogTable'
 import NbaComps from '@/components/league/player/NbaComps'
 import { PlayStyleTags, PlayStyleDefense } from '@/components/league/player/PlayStyleCard'
 import type { PlayStyle } from '@/lib/stats/playStyle'
 import type { PlayerForm } from '@/lib/stats/playerForm'
 import type { QuarterTotal } from '@/components/league/player/QuarterTable'
+import type { Quarter } from '@/types/league'
 import { positionGroupOf, positionGroupLabel, POSITION_GROUPS, type PositionGroupCode } from '@/lib/league/positionGroup'
 
 // 차트 4종 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿨다(수 KB).
@@ -43,7 +44,6 @@ type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
   birth_date: string | null; plus_one: boolean
   photo_url?: string | null
-  original_photo_url?: string | null
   has_account?: boolean  // 로그인 계정 등록·승인(인증) 회원 여부
 }
 
@@ -56,36 +56,38 @@ type Rankings = {
   /** 순위 자격 최소 출전일(leagueMinRounds) */
   min_rounds?: number
 }
+/** 일별 기록 한 줄 — 하루(같은 날 여러 경기 합산), 오래된 → 최근. record = 그날 내 팀 전적(하루 합산) */
+type DayLog = {
+  date: string; games?: number; record?: { wins: number; losses: number; draws: number }
+  pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number
+}
 type Detail = {
   rankings: Rankings
   /** (2026-10-17) 같은 포지션(가드·포워드·센터) 안 순위 — 자격·기간·공동 순위 규칙은 rankings 와 같다. 포지션 없으면 null */
   position_ranks?: { group: 'G' | 'F' | 'C'; label: string; rankings: Rankings; percentile_bars: PercentileBarsResult } | null
-  /** 진행 중 연속 기록 — /me 와 같은 판정(lib/stats/dashboardBase.ts). 분기 없는 응답에만 실린다. 단위는 「일」 */
+  /** 진행 중 연속 기록 — /me 와 같은 판정(lib/stats/dashboardBase.ts). 첫 요청(profile=1)·전체 기간 응답에만 실린다. 단위는 「일」 */
   active_streaks?: Array<{ key: string; label: string; count: number; unit: string }>
   dynamic_duo?: DuoEntry[]
   pinned_event_ids?: string[]
-  /** (2026-10-14) 마지막 출전(친선일 포함) — 분기 없는 요청에만 실린다 */
+  /** (2026-10-14) 마지막 출전(친선일 포함) — 첫 요청·전체 기간 응답에만 실린다 */
   last_played?: LastPlayedData | null
   /** (2026-10-14) 세부 능력치 백분위 막대 — 레이더와 같은 자격 집단·하루 평균 */
   percentile_bars?: PercentileBarsResult
   /** (2026-10-14) 6축 레이더 — 막대와 같은 모집단·하루 평균. 정의 lib/stats/hexRadar.ts */
   hex_radar?: HexRadarResult
   play_style?: PlayStyle | null
-  /** (2026-10-14) 비슷한 스타일 선수 — 같은 자격 집단·같은 기간 */
-  similar_players?: SimilarPlayersData
   /** (2026-10-16) 현 소속팀 — 지금 분기(pickCurrentQuarter) 기준. 그 분기 소속이 없으면 null */
   current_team?: CurrentTeam | null
   /** (2026-10-16) 분기별 소속(리그 분기만, 오래된 순) */
   team_history?: TeamHistoryEntry[]
-  career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
+  /** (2026-10-26) 카드 머리용 선수 기본 정보 — 첫 요청(profile=1)에만. 종전엔 이 한 명 때문에 `/players` 전원을 받았다 */
+  player?: PlayerInfo | null
+  career_high: Record<string, { value: number; extra?: string; date?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
-  // record = 그 라운드(하루)의 전 경기 합산 전적. result 는 그 합산의 종합 판정(W/L/D).
-  //   예전엔 result 가 '그날 첫 경기' 결과였다 — 스탯은 하루 합산인데 승패만 한 경기라
-  //   어긋났다(2026-08-09 김로빈 8/8: 실제 2승4패인데 첫 경기 승이라 W 로 표시).
-  recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; record?: { wins: number; losses: number; draws: number; games: number }; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
   /** 요즘 흐름(2026-10-24) — lib/stats/playerForm.ts */
   form?: PlayerForm | null
-  game_log?: Array<{ date: string; games?: number; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
+  /** 일별 기록 — 추세 차트·일별 표·지난 경기일 카드가 같이 쓴다(2026-10-26 recent_games 와 합침) */
+  game_log?: DayLog[]
   win_loss?: {
     // draws — 짧은 쿼터 경기라 동점이 실제로 난다. 예전엔 무를 패로 세서
     //   전적과 승률이 둘 다 틀렸다(2026-08-09). 승률 분모에서는 제외한다.
@@ -102,7 +104,17 @@ type Detail = {
   monthly_stats?: MonthRow[]
 }
 
-type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
+/** 기간과 무관한 머리 정보 — 처음 받은 응답에서 모은다(분기를 바꿔도 다시 받지 않는다) */
+type CardMeta = Pick<Detail, 'current_team' | 'team_history' | 'pinned_event_ids' | 'last_played' | 'active_streaks'>
+function mergeMeta(prev: CardMeta, d: Detail): CardMeta {
+  const next: CardMeta = { ...prev }
+  if (d.current_team !== undefined && prev.current_team === undefined) next.current_team = d.current_team
+  if (d.team_history !== undefined && prev.team_history === undefined) next.team_history = d.team_history
+  if (d.pinned_event_ids !== undefined && prev.pinned_event_ids === undefined) next.pinned_event_ids = d.pinned_event_ids
+  if (d.last_played !== undefined && prev.last_played === undefined) next.last_played = d.last_played
+  if (d.active_streaks !== undefined && prev.active_streaks === undefined) next.active_streaks = d.active_streaks
+  return next
+}
 
 // /career 라우트 응답 — 「선수 숫자는 한 벌」(2026-10-14).
 //   묶음마다 숫자는 그 묶음 스탯 탭의 그 선수 행과 같다(playerPeriodLine). 리그 통산은 리그 시즌끼리만 더하고,
@@ -125,23 +137,11 @@ const MM_POSITION_STYLE: React.CSSProperties = {
 }
 
 // mm-brand: 선수별 개별 accent 대신 단일 노랑 accent 로 통일.
-// 구조는 유지 (radar / spotlight 렌더 로직 안 건드림).
-type AccentPalette = {
-  rgb: string
-  stroke: string
-  fillA: string; fillB: string
-  borderCls: string
-  textCls: string
-  ringCls: string
-}
+type AccentPalette = { stroke: string; fillA: string; fillB: string }
 const ACCENT_DEFAULT: AccentPalette = {
-  rgb: '234,179,8',            // mm-yellow (현재 소비처 없음)
   // 레이더 — 선은 yellow-strong(라이트에서 흰 패널 대비 확보), 채움은 yellow → yellow-strong 그라데이션
   stroke: 'var(--mm-yellow-strong)',
   fillA: 'var(--mm-yellow-strong)', fillB: 'var(--mm-yellow)',
-  borderCls: '',                // 아래에서 style 로 처리
-  textCls: '',
-  ringCls: '',
 }
 
 // data emphasis (spec 5): 양수=emerald, 음수=red, muted 유지
@@ -172,14 +172,16 @@ interface Props {
   onDeleted?: () => void
   /** 처음 고른 기간(분기 id) — 카드를 연 화면의 분기. null 이면 전체 */
   initialQuarterId?: string | null
-  /** 처음 열 미니 탭 — 없으면 이 리그에서 마지막으로 본 탭 */
+  /** 처음 열 미니 탭 — 없으면 요약(내 카드는 마지막으로 본 탭) */
   initialTab?: PlayerTabKey
   /** 「나와 비교」 — [나, 이 선수] 와 지금 고른 분기를 넘긴다. 없으면 버튼을 그리지 않는다(편집 전용 카드 등) */
   onCompare?: (ids: [string, string], quarterId: string | null) => void
 }
 
-// 미니 탭 기억 — 리그마다 마지막으로 본 탭 (2026-10-15). 매번 「시즌 스탯」부터 다시 누르게 하지 않으려고.
-const tabStorageKey = (leagueId: string) => `player-card:${leagueId}:tab`
+// 미니 탭 기억 (2026-10-15) — 매번 첫 탭부터 다시 누르게 하지 않으려고.
+//   (2026-10-26) **내 카드에서만** 기억한다. 종전엔 리그 단위로 기억해, 내 카드에서 「커리어 하이」를 본 뒤
+//   남의 카드를 열어도 커리어 하이로 열렸다 — 남의 카드는 늘 「요약」부터.
+const tabStorageKey = (leagueId: string) => `player-card:${leagueId}:my-tab`
 function readStoredTab(leagueId: string): PlayerTabKey | null {
   try {
     const v = localStorage.getItem(tabStorageKey(leagueId))
@@ -188,8 +190,8 @@ function readStoredTab(leagueId: string): PlayerTabKey | null {
 }
 
 /**
- * 카드 안에서 다른 선수(「비슷한 스타일 선수」 줄)로 갈아탈 수 있게 감싼다.
- * 내부 상태(분기·탭·편집 패널 등)를 깨끗이 비우려고 key 로 통째로 다시 만든다.
+ * 카드 안에서 다른 선수(다이나믹 듀오 짝꿍)로 갈아탈 수 있게 감싼다.
+ * 내부 상태(분기·탭·편집 패널·받아 둔 상세 등)를 깨끗이 비우려고 key 로 통째로 다시 만든다.
  */
 export default function PlayerQuickViewModal(props: Props) {
   const [current, setCurrent] = useState({ id: props.playerId, name: props.playerName })
@@ -213,30 +215,31 @@ export default function PlayerQuickViewModal(props: Props) {
 function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted, onOpenPlayer, initialQuarterId = null, initialTab, onCompare }: Props & { onOpenPlayer?: (id: string, name: string) => void }) {
   // 「나와 비교」 — 로그인 회원이 남의 카드를 볼 때만 (프로바이더 밖이면 null)
   const me = useOptionalCurrentUser()?.user ?? null
+  const isMine = !!me?.player_id && me.player_id === playerId
+  // 분기 칩 — 리그 레이아웃이 이미 받아 둔 분기 목록(LeagueQuarterContext). 종전엔 카드가 `/quarters` 를 또 받았다.
+  const { quarters: ctxQuarters, currentQuarter } = useLeagueQuarter()
+  const quarters: Quarter[] = ctxQuarters
 
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
-  const [detail, setDetail] = useState<Detail | null>(null)
-  const [loading, setLoading] = useState(true)
+  // 받아 둔 상세 — 키 = 'all'(전체 기간) | 분기 id. 분기를 오가도 한 번 받은 것은 다시 받지 않는다.
+  const [details, setDetails] = useState<Record<string, Detail>>({})
+  const [failedKeys, setFailedKeys] = useState<Record<string, true>>({})
+  const [meta, setMeta] = useState<CardMeta>({})
   const [gated, setGated] = useState(false)  // 401 — 상세 스탯은 승인 회원 전용 (2026-07-28)
-  const [quarters, setQuarters] = useState<Quarter[]>([])
   const [career, setCareer] = useState<CareerSummary | null>(null)
   // 카드를 연 화면의 분기로 시작한다(2026-10-15) — 스탯 탭 4분기에서 열면 카드도 4분기
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(initialQuarterId)
-  const [quarterDetail, setQuarterDetail] = useState<Detail | null>(null)
-  const [quarterLoading, setQuarterLoading] = useState(false)
-  // 분기별 기록표 — 무거워서 본 응답과 따로 받는다(`detail?quarterRows=only`)
+  // 분기별 기록표 — 무거워서(분기마다 집계) 「기록 → 분기별」을 열 때만 받는다(`detail?quarterRows=only`)
   const [quarterRows, setQuarterRows] = useState<QuarterTableRow[] | null>(null)
   // 분기별 기록표의 「전체」·「합계」 줄 — 같은 요청에 실려 온다(전체 기간 정본 한 줄)
   const [quarterTotal, setQuarterTotal] = useState<QuarterTotal | null>(null)
-  // 「분기·월별」 탭 안 보기 — 분기별 | 월별
-  const [periodView, setPeriodView] = useState<'quarter' | 'month'>('quarter')
-  // 최근 트렌드 하위 탭 — 요즘 흐름(기본) / 일별 기록 (2026-10-24)
-  const [trendView, setTrendView] = useState<'form' | 'log'>('form')
+  // 「기록」 탭 안 보기 — 일별 | 월별 | 분기별
+  const [recordView, setRecordView] = useState<'daily' | 'month' | 'quarter'>('daily')
   const [showEditPanel, setShowEditPanel] = useState(false)
   const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', position: '', birth_date: '' })
+  const [editForm, setEditForm] = useState({ name: '', position: '' })
   const [savingEdit, setSavingEdit] = useState(false)
   // 사진 업로드 state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -258,9 +261,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     edgeGuardPx: 0,  // 헤더 영역이므로 엣지 가드 불필요
   })
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
-  // 미니 탭 — 세로 스크롤 과다 해소 (2026-08-03). 탭 전환 시 본문 최상단으로 스크롤 복귀.
-  //   (2026-10-15) 처음 탭 = 호출부가 정한 탭 → 이 리그에서 마지막으로 본 탭 → 시즌 스탯
-  const [activeTab, setActiveTab] = useState<PlayerTabKey>(() => initialTab ?? readStoredTab(leagueId) ?? 'season')
+  // 미니 탭 — 처음 탭 = 호출부가 정한 탭 → (내 카드면) 마지막으로 본 탭 → 요약
+  const [activeTab, setActiveTab] = useState<PlayerTabKey>(() => initialTab ?? (isMine ? readStoredTab(leagueId) : null) ?? 'summary')
   const routeParams = useParams<{ orgSlug?: string; org?: string }>()
   const orgSlug = routeParams?.orgSlug ?? routeParams?.org ?? ''
 
@@ -279,57 +281,50 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     setActionBarH(el.offsetHeight)
     return () => ro.disconnect()
   }, [])
-  useEffect(() => {
-    if (!heroRef.current || !modalScrollRef.current) return
-    const io = new IntersectionObserver(
-      ([entry]) => setHeroOutOfView(!entry.isIntersecting),
-      { root: modalScrollRef.current, threshold: 0.1 },
-    )
-    io.observe(heroRef.current)
-    return () => io.disconnect()
-  }, [loading])
 
-  // 네 요청을 따로 받는다 (2026-10-16 속도 개선) — 종전엔 Promise.all 로 넷(명단·상세·분기·통산)이 다
-  //   끝나야 본문을 그렸다. 머리(이름·사진·팀)는 이미 아는 값으로 바로 그리고, 본문은 상세가 오는 대로 연다.
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    fetch(`/api/leagues/${leagueId}/players`)
-      .then(r => (r.ok ? r.json() : null))
-      .then((all: PlayerInfo[] | null) => { if (!cancelled && all) setPlayer(all.find(p => p.id === playerId) ?? null) })
-      .catch(() => {})
-    fetch(`/api/leagues/${leagueId}/quarters`)
-      .then(r => (r.ok ? r.json() : null))
-      .then((qs: Quarter[] | null) => { if (!cancelled && qs) setQuarters(qs) })
-      .catch(() => {})
-    // 리그 통산·대회 기록 — 리그 시즌이 1개뿐이면 통산은 안 보인다. 401(미승인 회원)은
-    // gated 상태(상세 401)로 이미 처리되므로 여기선 실패를 조용히 무시.
-    fetch(`/api/leagues/${leagueId}/players/${playerId}/career`)
-      .then(r => (r.ok ? r.json() : null))
-      .then((c: CareerSummary | null) => { if (!cancelled && c) setCareer(c) })
-      .catch(() => {})
-    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`)
+  // ── 데이터 받기 (2026-10-26 요청 6 → 1~2) ─────────────────────────────
+  //   종전: `/players`(전원 명단) · `/quarters` · `/career` · `/detail` · `/detail?quarterRows=only` ·
+  //   (분기로 열면) `/detail?quarterId=` — 열 때마다 6요청, 상세 계산이 서버에서 세 번 돌았다.
+  //   지금: 연 기간의 상세 **한 번**(첫 요청에 선수 기본 정보·기간 무관 값이 실린다 — profile=1).
+  //   나머지는 필요할 때만 — 전체 기간(분기를 보다 「커리어 하이」·「플레이스타일」 듀오를 열 때),
+  //   분기별 기록표(「기록 → 분기별」), 리그 통산·대회(「더 보기」를 펼칠 때).
+  const requestedRef = useRef(new Set<string>())
+  const profileAskedRef = useRef(false)
+  const requestDetail = useCallback((key: string) => {
+    if (requestedRef.current.has(key)) return
+    requestedRef.current.add(key)
+    const withProfile = !profileAskedRef.current
+    profileAskedRef.current = true
+    const qs = new URLSearchParams()
+    if (key !== 'all') qs.set('quarterId', key)
+    if (withProfile) qs.set('profile', '1')
+    const q = qs.toString()
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail${q ? `?${q}` : ''}`)
       .then(async r => {
-        if (cancelled) return
-        if (r.status === 401) setGated(true)
-        if (r.ok) { const d: Detail = await r.json(); if (!cancelled) setDetail(d) }
+        if (r.status === 401) {
+          // 비승인 회원 — 상세는 막혀도 머리(이름·사진)는 보인다. 그때만 명단에서 이 선수를 찾는다.
+          setGated(true)
+          const all: PlayerInfo[] | null = await fetch(`/api/leagues/${leagueId}/players`).then(x => (x.ok ? x.json() : null)).catch(() => null)
+          if (all) setPlayer(all.find(p => p.id === playerId) ?? null)
+          return
+        }
+        if (!r.ok) throw new Error(String(r.status))
+        const d: Detail = await r.json()
+        setDetails(m => ({ ...m, [key]: d }))
+        setMeta(m => mergeMeta(m, d))
+        if (withProfile && d.player) setPlayer(d.player)
       })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [leagueId, playerId])
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterRows=only`)
-      .then(r => (r.ok ? r.json() : null))
-      .then((d: { quarter_rows?: QuarterTableRow[]; quarter_total?: QuarterTotal | null } | null) => {
-        if (cancelled) return
-        setQuarterRows(d?.quarter_rows ?? [])
-        setQuarterTotal(d?.quarter_total ?? null)
+      .catch(() => {
+        // 다음에 다시 시도할 수 있게 비워 둔다. 첫 요청이 실패했으면 머리 정보도 다음 요청에 다시 싣는다.
+        requestedRef.current.delete(key)
+        if (withProfile) profileAskedRef.current = false
+        setFailedKeys(f => ({ ...f, [key]: true }))
       })
-      .catch(() => { if (!cancelled) setQuarterRows([]) })
-    return () => { cancelled = true }
   }, [leagueId, playerId])
+
+  const detailKey = selectedQuarterId ?? 'all'
+  useEffect(() => { requestDetail(detailKey) }, [detailKey, requestDetail])
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -344,54 +339,66 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     return () => window.removeEventListener('keydown', h)
   }, [onClose, photoLightboxOpen])
 
+  // 머리 정보가 오면 편집 폼·사진을 맞춘다 (렌더 중 동기화 — 같은 선수 정보가 다시 와도 한 번만)
+  //   (id 기준 — 저장 후 setPlayer 로 이름·+1 을 고쳐도 사진·폼을 옛 값으로 되돌리지 않는다)
+  const [syncedPlayerId, setSyncedPlayerId] = useState<string | null>(null)
+  if (player && player.id !== syncedPlayerId) {
+    setSyncedPlayerId(player.id)
+    setEditForm({ name: player.name, position: player.position ?? '' })
+    setPhotoUrl(player.photo_url ?? null)
+  }
+
+  const activeDetail = details[detailKey] ?? null
+  const allDetail = details['all'] ?? null
+  // 분기를 막 바꿔 새 상세를 받는 동안엔 직전 값을 그대로 보인다(요약 탭만 로딩 표시)
+  const anyDetail = activeDetail ?? Object.values(details)[0] ?? null
+  const viewDetail = anyDetail
+  const loading = !gated && !anyDetail && !failedKeys[detailKey]
+  const quarterLoading = !activeDetail && !!anyDetail && !failedKeys[detailKey]
+
+  // Hero 관찰 — 본문이 처음 열릴 때(로딩 → 내용) 다시 붙인다
   useEffect(() => {
-    if (player) {
-      setEditForm({ name: player.name, position: player.position ?? '', birth_date: player.birth_date ?? '' })
-      setPhotoUrl(player.photo_url ?? null)
-    }
-  }, [player])
-
-  // 분기 선택 시 해당 분기 detail 패치
-  useEffect(() => {
-    if (!selectedQuarterId) { setQuarterDetail(null); return }
-    let cancelled = false
-    setQuarterLoading(true)
-    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterId=${selectedQuarterId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) setQuarterDetail(d) })
-      .finally(() => { if (!cancelled) setQuarterLoading(false) })
-    return () => { cancelled = true }
-  }, [leagueId, playerId, selectedQuarterId])
-
-
-
-
-  const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
+    if (!heroRef.current || !modalScrollRef.current) return
+    const io = new IntersectionObserver(
+      ([entry]) => setHeroOutOfView(!entry.isIntersecting),
+      { root: modalScrollRef.current, threshold: 0.1 },
+    )
+    io.observe(heroRef.current)
+    return () => io.disconnect()
+  }, [loading])
 
   // 순위 범위 — 「전체 | 같은 포지션」 (2026-10-17). 같은 포지션 순위는 서버가 같은 규칙으로 만든다(position_ranks).
   //   포지션이 없는 선수는 position_ranks 가 null 이라 토글이 안 보이고 늘 전체다.
   const [rankScope, setRankScope] = useState<'all' | 'pos'>('all')
-  const posRanks = (activeDetail ?? detail)?.position_ranks ?? null
+  const posRanks = viewDetail?.position_ranks ?? null
   const rankScopeOn = rankScope === 'pos' && !!posRanks
-  const rk: Rankings | undefined = rankScopeOn ? posRanks!.rankings : (activeDetail ?? detail)?.rankings
-  const shownBars = rankScopeOn ? posRanks!.percentile_bars : activeDetail?.percentile_bars
+  const rk: Rankings | undefined = rankScopeOn ? posRanks!.rankings : viewDetail?.rankings
+  const shownBars = rankScopeOn ? posRanks!.percentile_bars : viewDetail?.percentile_bars
+
+  // 커리어 하이·다이나믹 듀오는 **전체 기간** 값이다 — 분기를 보고 있으면 전체 기간 상세를 따로(필요할 때만) 받는다.
+  const careerHigh = (allDetail ?? (detailKey === 'all' ? activeDetail : null))?.career_high ?? null
+  const duoSource = allDetail ?? (detailKey === 'all' ? activeDetail : null)
 
   // 데이터가 있는 탭만 노출 — 빈 탭 클릭 후 아무것도 안 나오는 상황 방지
   const availableTabs = useMemo(() => {
-    const s = new Set<PlayerTabKey>(['season'])
-    if ((quarterRows?.length ?? 0) > 0 || (activeDetail?.monthly_stats?.length ?? 0) > 0) s.add('quarters')
-    if ((detail?.dynamic_duo?.length ?? 0) > 0) s.add('duo')
-    if ((activeDetail?.shot_breakdown?.total_fga ?? 0) > 0 || activeDetail?.play_style) s.add('shot')
-    if (detail?.career_high && Object.keys(detail.career_high).length > 0) s.add('career')
-    if ((activeDetail?.monthly_stats?.length ?? 0) >= 2
-      || (activeDetail?.game_log?.length ?? 0) >= 3
-      || (detail?.recent_games?.length ?? 0) > 0) s.add('trend')
+    const s = new Set<PlayerTabKey>(['summary'])
+    const v = viewDetail
+    if (v?.player_stats || (v?.game_log?.length ?? 0) > 0 || (v?.monthly_stats?.length ?? 0) > 0 || (quarterRows?.length ?? 0) > 0) s.add('records')
+    if ((v?.shot_breakdown?.total_fga ?? 0) > 0 || v?.play_style || (duoSource?.dynamic_duo?.length ?? 0) > 0) s.add('style')
+    // 전체 기간을 아직 안 받았으면 지금 기간에 기록이 있는지로 판단한다(있으면 전체 기간에도 있다)
+    const ch = careerHigh ?? v?.career_high
+    if (ch && Object.keys(ch).length > 0) s.add('career')
     return s
-  }, [detail, activeDetail, quarterRows])
+  }, [viewDetail, duoSource, careerHigh, quarterRows])
+
+  // 고른 탭에 보일 것이 없으면 그동안 요약을 보여 준다. activeTab 은 그대로 두어 데이터가 오면 그 탭으로 돌아간다.
+  const shownTab: PlayerTabKey = availableTabs.has(activeTab) ? activeTab : 'summary'
 
   const changeTab = (key: PlayerTabKey) => {
     setActiveTab(key)
-    try { localStorage.setItem(tabStorageKey(leagueId), key) } catch { /* 저장소가 막혀 있으면 기억만 생략 */ }
+    if (isMine) {
+      try { localStorage.setItem(tabStorageKey(leagueId), key) } catch { /* 저장소가 막혀 있으면 기억만 생략 */ }
+    }
     // 긴 탭 → 짧은 탭 전환 시 화면이 비어 보이지 않도록 탭 바가 상단에 오도록 스크롤 정렬.
     // (0 으로 올리면 히어로가 다시 나와 탭이 화면 밖으로 밀림)
     const scroller = modalScrollRef.current
@@ -401,10 +408,35 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     if (scroller.scrollTop > target) scroller.scrollTo({ top: target, behavior: 'smooth' })
   }
 
-  // 고른 탭에 보일 것이 없으면(분기 전환 · 기억해 둔 탭의 데이터가 아직 안 옴 — 분기별 기록표는 따로 받는다)
-  //   그동안 시즌 스탯을 보여 준다. activeTab 은 그대로 두어 데이터가 오면 그 탭으로 돌아간다.
-  //   (종전엔 effect 로 activeTab 을 'season' 으로 덮어써, 첫 렌더에 기억해 둔 탭이 바로 지워졌다)
-  const shownTab: PlayerTabKey = availableTabs.has(activeTab) ? activeTab : 'season'
+  // 전체 기간 상세 — 분기를 보다 커리어 하이·플레이스타일(듀오)을 열 때만
+  const needAll = !gated && detailKey !== 'all' && (shownTab === 'career' || shownTab === 'style')
+  useEffect(() => { if (needAll) requestDetail('all') }, [needAll, requestDetail])
+
+  // 분기별 기록표 — 「기록 → 분기별」을 열 때만 한 번
+  const quarterRowsAskedRef = useRef(false)
+  const wantQuarterRows = !gated && shownTab === 'records' && recordView === 'quarter'
+  useEffect(() => {
+    if (!wantQuarterRows || quarterRowsAskedRef.current) return
+    quarterRowsAskedRef.current = true
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterRows=only`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { quarter_rows?: QuarterTableRow[]; quarter_total?: QuarterTotal | null } | null) => {
+        setQuarterRows(d?.quarter_rows ?? [])
+        setQuarterTotal(d?.quarter_total ?? null)
+      })
+      .catch(() => setQuarterRows([]))
+  }, [wantQuarterRows, leagueId, playerId])
+
+  // 리그 통산·대회 기록 — 요약의 「더 보기」를 펼칠 때만. 401(미승인 회원)은 gated 로 이미 막혀 여기 오지 않는다.
+  const careerAskedRef = useRef(false)
+  const loadCareer = () => {
+    if (careerAskedRef.current || gated) return
+    careerAskedRef.current = true
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/career`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((c: CareerSummary | null) => { if (c) setCareer(c) })
+      .catch(() => {})
+  }
 
   // 포지션은 세 그룹(가드·포워드·센터)으로만 보인다 — 옛 5코드(PG·SF…)로 저장된 선수도 읽을 때 묶는다(positionGroup.ts)
   const positionGroup = positionGroupOf(player?.position)
@@ -412,6 +444,10 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
 
   // 분기 탭 레이블
   const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
+  const periodLabel = selectedQuarterId ? '이 분기' : '전체 기간'
+  const displayName = player?.name ?? playerName
+  // 지난 경기일의 팀 전적 — 일별 기록 마지막 날(오래된 → 최근 순)
+  const lastLog = viewDetail?.game_log?.length ? viewDetail.game_log[viewDetail.game_log.length - 1] : null
 
   const accent = ACCENT_DEFAULT
 
@@ -431,7 +467,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
         style={{
           background: 'var(--mm-panel)',
           borderColor: 'var(--mm-rule)',
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)',
+          boxShadow: 'var(--mm-shadow-lg)',
           transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
           transition: dragY === 0 ? 'transform 200ms ease-out' : 'none',
         }}>
@@ -464,7 +500,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               <span className="font-mono text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>#{player.number}</span>
             )}
             <span className="font-jersey text-sm font-bold truncate" style={{ color: 'var(--mm-ink)' }}>
-              {player?.name ?? playerName}
+              {displayName}
             </span>
           </div>
 
@@ -498,7 +534,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
           ref={heroRef}
           className="relative overflow-hidden"
           style={{
-            padding: 'clamp(16px, 4vw, 24px) clamp(16px, 4vw, 24px) clamp(20px, 5vw, 28px)',
+            // (2026-10-26) 폰 첫 화면에 숫자가 보이도록 위아래를 줄였다(종전 16·20px)
+            padding: 'clamp(12px, 3vw, 24px) clamp(16px, 4vw, 24px) clamp(12px, 3vw, 28px)',
             borderBottom: '1px solid var(--mm-rule)',
           }}
         >
@@ -507,22 +544,22 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             <div
               aria-hidden
               className="absolute -right-2 sm:right-2 top-1 pointer-events-none select-none font-jersey font-black leading-none tracking-tighter"
-              style={{ fontSize: 'clamp(120px, 40vw, 200px)', color: 'var(--mm-yellow-soft)' }}
+              style={{ fontSize: 'clamp(96px, 30vw, 200px)', color: 'var(--mm-yellow-soft)' }}
             >
               {player.number}
             </div>
           )}
-          <div className="relative flex items-start gap-4 sm:gap-5">
+          <div className="relative flex items-start gap-3 sm:gap-5">
             {/* 아바타 (편집모드 = 호버 오버레이 업로드 · 뷰모드 = 클릭 시 라이트박스 확대) */}
-            {/* 크기: 프로 선수 프로필처럼 큼 */}
+            {/* 크기: 폰 96px(종전 160px — 첫 화면에 숫자가 안 보였다) · 640px 이상 192px */}
             <div className="relative shrink-0 group/avatar">
               <div
-                className={`relative w-40 sm:w-48 rounded-none overflow-hidden flex items-center justify-center ${!isEditMode && photoUrl ? `cursor-zoom-in hover:brightness-105 transition-all duration-200` : ''}`}
+                className={`relative w-24 sm:w-48 rounded-none overflow-hidden flex items-center justify-center ${!isEditMode && photoUrl ? `cursor-zoom-in hover:brightness-105 transition-all duration-200` : ''}`}
                 style={{
                   aspectRatio: '4/5',
                   background: 'var(--mm-panel-alt)',
                   border: '2px solid var(--mm-black)',
-                  boxShadow: '0 10px 30px -8px rgba(0,0,0,0.30)',
+                  boxShadow: 'var(--mm-shadow-md)',
                 }}
                 onClick={() => {
                   // 뷰 모드에서 사진 있을 때만 라이트박스 오픈
@@ -545,15 +582,14 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     src={photoUrl}
                     alt={player?.name ?? ''}
                     fill
-                    sizes="(max-width: 640px) 160px, 192px"
+                    sizes="(max-width: 640px) 96px, 192px"
                     priority
                     className="object-cover object-top"
                   />
                 ) : (
-                  <span className="font-jersey text-5xl sm:text-6xl font-black leading-none text-center" style={{ color: 'var(--mm-ink)' }}>
-                    {(player?.name ?? playerName).length > 1
-                      ? (player?.name ?? playerName).slice(1)
-                      : (player?.name ?? playerName)}
+                  // 사진이 없으면 이름 첫 글자 하나 (종전 뒤 두 글자는 폰 96px 칸에서 넘쳤다)
+                  <span className="font-jersey text-4xl sm:text-6xl font-black leading-none text-center" style={{ color: 'var(--mm-ink)' }} aria-hidden>
+                    {Array.from(displayName.trim())[0] ?? ''}
                   </span>
                 )}
               </div>
@@ -601,16 +637,16 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             </div>
 
             {/* 이름 + 정보 (아바타 크기와 비례해 확대) — hero stagger reveal */}
-            <div className="relative flex-1 min-w-0 pt-3 sm:pt-4">
+            <div className="relative flex-1 min-w-0 pt-0.5 sm:pt-4">
               {/* 현 소속팀 (2026-10-16) — 카드 머리에서 가장 먼저. 상세가 오기 전엔 자리만 잡아 둔다 */}
-              {gated ? null : !detail && loading ? (
-                <div className="h-6 w-28 mb-2 rounded-sm mm-shimmer" aria-hidden />
-              ) : detail?.current_team ? (
-                <PlayerTeamLine team={detail.current_team} className="mb-2" />
+              {gated ? null : meta.current_team === undefined && loading ? (
+                <div className="h-6 w-28 mb-1.5 rounded-sm mm-shimmer" aria-hidden />
+              ) : meta.current_team ? (
+                <PlayerTeamLine team={meta.current_team} className="mb-1.5" />
               ) : null}
               {player?.number != null && (
                 <div
-                  className="text-base font-mono mb-1 leading-none mm-rise-in"
+                  className="text-sm sm:text-base font-mono mb-1 leading-none mm-rise-in"
                   style={{ color: 'var(--mm-muted)', animationDelay: '80ms', animationDuration: '400ms', animationFillMode: 'backwards' }}
                 >
                   #{player.number}
@@ -618,10 +654,10 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               )}
               <h1
                 id="player-modal-name"
-                className="font-jersey text-4xl sm:text-5xl font-black leading-[0.95] tracking-tight mb-3 break-words mm-rise-in"
+                className="font-jersey text-3xl sm:text-5xl font-black leading-[0.95] tracking-tight mb-2 sm:mb-3 break-words mm-rise-in"
                 style={{ color: 'var(--mm-ink)', animationDelay: '140ms', animationDuration: '500ms', animationFillMode: 'backwards' }}
               >
-                {player?.name ?? playerName}
+                {displayName}
               </h1>
               <div
                 className="flex items-center gap-1.5 flex-wrap mm-rise-in"
@@ -654,7 +690,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     onClick={onClose}
                     className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-sm cursor-pointer transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                     style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
-                    aria-label={`${player?.name ?? playerName} 하이라이트 보기`}
+                    aria-label={`${displayName} 하이라이트 보기`}
                   >
                     <Film size={14} aria-hidden /> 하이라이트
                   </Link>
@@ -666,30 +702,30 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     onClick={() => onCompare([me.player_id, playerId], selectedQuarterId)}
                     className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-sm cursor-pointer transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] hover:bg-[color:var(--mm-yellow-soft)]"
                     style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
-                    aria-label={`나와 ${player?.name ?? playerName} 비교하기`}
+                    aria-label={`나와 ${displayName} 비교하기`}
                   >
                     <ArrowLeftRight size={14} aria-hidden /> 나와 비교
                   </button>
                 )}
                 {/* 베스트샷 재생 — 포지션 옆 · 핀 있을 때만 노출 */}
-                {detail?.pinned_event_ids && detail.pinned_event_ids.length > 0 && (
+                {meta.pinned_event_ids && meta.pinned_event_ids.length > 0 && (
                   <PlayerBestShotBanner
                     leagueId={leagueId}
-                    playerName={player?.name ?? playerName}
-                    pinnedEventIds={detail.pinned_event_ids}
+                    playerName={displayName}
+                    pinnedEventIds={meta.pinned_event_ids}
                   />
                 )}
               </div>
             </div>
           </div>
           {/* 분기별 소속 (2026-10-16 · 2026-10-26 칸 모양으로) — 아바타 옆 칸은 360px 에서 좁아 전체 폭에 둔다 */}
-          {detail?.team_history && detail.team_history.length > 0 && (
-            <PlayerTeamHistory history={detail.team_history} currentQuarterId={detail.current_team?.quarter_id ?? null} className="relative mt-3" />
+          {meta.team_history && meta.team_history.length > 0 && (
+            <PlayerTeamHistory history={meta.team_history} currentQuarterId={meta.current_team?.quarter_id ?? null} className="relative mt-2.5" />
           )}
           {/* 마지막 출전일 + 그 뒤 결장 경기일 (2026-10-14) — **최근 28일 안에 출전이 없을 때만** 보인다(2026-10-16).
               최근에 나온 사람에게는 의미 없는 줄이라 뺐다. detail 이 없으면(비회원 게이트·로딩) 그리지 않는다. */}
-          {detail && shouldShowLastPlayed(detail.last_played) && (
-            <LastPlayedLine lastPlayed={detail.last_played} className="relative mt-2" />
+          {meta.last_played !== undefined && shouldShowLastPlayed(meta.last_played) && (
+            <LastPlayedLine lastPlayed={meta.last_played} className="relative mt-2" />
           )}
         </div>
 
@@ -755,7 +791,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   setSavingEdit(false)
                   if (!res.ok) {
                     const err = await res.json().catch(() => ({ error: '저장 실패' }))
-                    alert(err.error || '저장 실패')
+                    toast.error(err.error || '저장 실패')
                     return
                   }
                   // 머리의 이름·포지션도 바로 바뀌게 — 명단을 다시 받기 전까지 화면이 옛 값으로 남지 않도록
@@ -780,11 +816,15 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   if (!leagueHeaders || !player) return
                   setTogglingP1(true)
                   const newVal = !player.plus_one
-                  await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
+                  const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
                     method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
                     body: JSON.stringify({ plus_one: newVal }),
-                  })
-                  setTogglingP1(false); onSaved?.()
+                  }).catch(() => null)
+                  setTogglingP1(false)
+                  if (!res?.ok) { toast.error('+1 변경 실패'); return }
+                  // 머리 배지·버튼도 바로 바뀌게(종전엔 다시 열 때까지 옛 값이었다)
+                  setPlayer(p => p ? { ...p, plus_one: newVal } : p)
+                  onSaved?.()
                 }}
                 disabled={togglingP1}
                 aria-pressed={player?.plus_one ?? false}
@@ -862,12 +902,13 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
           </div>
         ) : (
           <div className="space-y-0">
-            {/* 분기 · 단위 필터 — 모든 탭에 공통 적용되므로 탭 바깥으로 분리 */}
-            <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-                  {quarters.length > 0 && (
-                    <>
+            {/* 분기 필터 — 모든 탭에 공통 적용되므로 탭 바깥으로 분리. 분기 목록은 레이아웃이 받아 둔 것(컨텍스트) */}
+            {quarters.length > 0 && (
+            <div className="px-4 sm:px-5 py-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide" role="group" aria-label="기간">
                       <button
+                        type="button"
+                        aria-pressed={selectedQuarterId === null}
                         onClick={() => setSelectedQuarterId(null)}
                         className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                         style={selectedQuarterId === null
@@ -880,6 +921,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       {quarters.map(q => (
                         <button
                           key={q.id}
+                          type="button"
+                          aria-pressed={selectedQuarterId === q.id}
                           onClick={() => setSelectedQuarterId(q.id)}
                           className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                           style={selectedQuarterId === q.id
@@ -888,318 +931,311 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                           }
                         >
                           {quarterLabel(q)}
-                          {q.is_current && <span className="ml-1 text-xs">현재</span>}
+                          {currentQuarter?.id === q.id && <span className="ml-1 text-xs">현재</span>}
                         </button>
                       ))}
-                    </>
-                  )}
                 </div>
             </div>
+            )}
 
-            {/* 미니 탭 — 시즌 스탯 / 다이나믹 듀오 / 플레이스타일 / 커리어 하이 / 최근 트렌드 */}
+            {/* 미니 탭 — 요약 / 기록 / 플레이스타일 / 커리어 하이 */}
             <PlayerMiniTabs active={shownTab} onChange={changeTab} available={availableTabs} topOffset={actionBarH} />
 
-            {/* ── 시즌 스탯 ─────────────────────────────── */}
-            {shownTab === 'season' && (activeDetail?.player_stats ? (
-              <div className="px-5 py-4">
-                {quarterLoading ? (
-                  <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
-                      <p className="text-xs uppercase tracking-[0.20em] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>{selectedQuarterId ? '이 분기' : '전체 기간'} · 하루 평균</p>
-                      {/* 순위 범위 (2026-10-17) — 같은 포지션끼리의 순위. 포지션이 없는 선수에게는 안 보인다 */}
-                      {posRanks && (
-                        <div role="group" aria-label="순위 범위" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
-                          {([['all', '전체'], ['pos', `같은 포지션(${posRanks.label})`]] as const).map(([key, label]) => {
-                            const on = (key === 'pos') === rankScopeOn
-                            return (
-                              <button
-                                key={key}
-                                type="button"
-                                aria-pressed={on}
-                                onClick={() => setRankScope(key)}
-                                className="px-2.5 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                                style={on
-                                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
-                                  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }
-                                }
-                              >{label}</button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
-                      {[
-                        // 값은 하루(경기한 날) 평균. 순위도 값과 같은 기간(선택한 분기)의 순위를 쓴다 —
-                        //   예전엔 분기를 골라도 순위만 전체 기간 기준이라 숫자와 순위가 어긋났다(2026-10-11).
-                        { label: '출전일', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: rk?.gp?.rank ?? 0, total: rk?.gp?.total ?? 0 },
-                        { label: '득점', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: rk?.ppg ?? 0, total: rk?.total ?? 0 },
-                        { label: '리바', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: rk?.rpg ?? 0, total: rk?.total ?? 0 },
-                        { label: '어시', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: rk?.apg ?? 0, total: rk?.total ?? 0 },
-                        { label: '스틸', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: rk?.spg ?? 0, total: rk?.total ?? 0 },
-                        { label: '블락', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: rk?.bpg ?? 0, total: rk?.total ?? 0 },
-                      ].map(({ label, value, decimals, rank, total }) => {
-                        const isChamp = rank === 1
+            {/* ── 요약 (2026-10-26) ─────────────────────────────
+                폰 첫 화면에 숫자가 보이도록: 지난 경기일 한 줄 → 하루 평균 6칸·순위 → 요즘 흐름 문장 → 슛 성공률.
+                레이더·세부 능력치·승패·팀 득점 기여·누적·통산은 아래 「더 보기」로 접었다(지운 것은 없다). */}
+            {shownTab === 'summary' && (quarterLoading ? (
+              <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
+            ) : viewDetail?.player_stats ? (
+              <div className="px-4 sm:px-5 py-3 sm:py-4">
+                {viewDetail.form?.last && (
+                  <div className="mb-3">
+                    <PlayerLastDayCard form={viewDetail.form} record={lastLog?.date === viewDetail.form.last.date ? lastLog.record : null} />
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                  <p className="text-xs font-black" style={{ color: 'var(--mm-yellow-strong)' }}>{periodLabel} · 하루 평균</p>
+                  {/* 순위 범위 (2026-10-17) — 같은 포지션끼리의 순위. 포지션이 없는 선수에게는 안 보인다 */}
+                  {posRanks && (
+                    <div role="group" aria-label="순위 범위" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
+                      {([['all', '전체'], ['pos', `같은 포지션(${posRanks.label})`]] as const).map(([key, label]) => {
+                        const on = (key === 'pos') === rankScopeOn
                         return (
-                          <div
-                            key={label}
-                            className="relative rounded-sm p-2.5 text-center overflow-hidden"
-                            style={isChamp
-                              ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
-                              : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
+                          <button
+                            key={key}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => setRankScope(key)}
+                            className="px-2.5 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                            style={on
+                              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                              : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }
                             }
-                          >
-                            <p
-                              className="relative font-jersey text-xs font-bold mb-1"
-                              style={{ color: isChamp ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}
-                            >{label}</p>
-                            <p
-                              className="relative font-jersey font-black text-4xl leading-none tabular-nums"
-                              style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}
-                            >
-                              <CountUp value={value} decimals={decimals} />
-                            </p>
-                            {rank > 0 && (
-                              <p
-                                className="relative text-xs font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
-                                style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
-                              >
-                                {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
-                                {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
-                                {rank}위{total > 0 && <span className="opacity-60"> · {total}</span>}
-                              </p>
-                            )}
-                          </div>
+                          >{label}</button>
                         )
                       })}
                     </div>
-                    {/* 순위가 비어 있는 이유를 숫자로 — 자격은 리그 공통 규칙 하나(eligibility.ts leagueMinRounds) */}
-                    {(() => {
-                      const r = rk
-                      const gp = activeDetail?.player_stats?.gp ?? 0
-                      if (!r?.min_rounds || gp <= 0 || gp >= r.min_rounds) return null
-                      return (
-                        <p className="text-xs font-bold -mt-1 mb-3" style={{ color: 'var(--mm-muted)' }}>
-                          순위는 {selectedQuarterId ? '이 분기' : '전체 기간'} {r.min_rounds}일 이상 출전하면 보여요
+                  )}
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
+                  {[
+                    // 값은 하루(경기한 날) 평균. 순위도 값과 같은 기간(선택한 분기)의 순위를 쓴다 —
+                    //   예전엔 분기를 골라도 순위만 전체 기간 기준이라 숫자와 순위가 어긋났다(2026-10-11).
+                    { label: '출전일', value: viewDetail.player_stats.gp, decimals: 0, rank: rk?.gp?.rank ?? 0, total: rk?.gp?.total ?? 0 },
+                    { label: '득점', value: viewDetail.player_stats.ppg, decimals: 1, rank: rk?.ppg ?? 0, total: rk?.total ?? 0 },
+                    { label: '리바', value: viewDetail.player_stats.rpg, decimals: 1, rank: rk?.rpg ?? 0, total: rk?.total ?? 0 },
+                    { label: '어시', value: viewDetail.player_stats.apg, decimals: 1, rank: rk?.apg ?? 0, total: rk?.total ?? 0 },
+                    { label: '스틸', value: viewDetail.player_stats.spg, decimals: 1, rank: rk?.spg ?? 0, total: rk?.total ?? 0 },
+                    { label: '블록', value: viewDetail.player_stats.bpg, decimals: 1, rank: rk?.bpg ?? 0, total: rk?.total ?? 0 },
+                  ].map(({ label, value, decimals, rank, total }) => {
+                    const isChamp = rank === 1
+                    return (
+                      <div
+                        key={label}
+                        className="relative rounded-sm px-2 py-2 sm:p-2.5 text-center overflow-hidden"
+                        style={isChamp
+                          ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
+                          : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
+                        }
+                      >
+                        <p
+                          className="relative text-xs font-bold mb-1"
+                          style={{ color: isChamp ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}
+                        >{label}</p>
+                        <p
+                          className="relative font-jersey font-black text-3xl sm:text-4xl leading-none tabular-nums"
+                          style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}
+                        >
+                          <CountUp value={value} decimals={decimals} />
                         </p>
-                      )
-                    })()}
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      {[
-                        // 슛 정확도 순위 — 순위 자격 + 스탯 탭과 같은 최소 시도(하루 평균 기준). 미달이면 순위 칸 없음
-                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0, rt: rk?.fg_pct },
-                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0, rt: rk?.fg3_pct },
-                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0, rt: rk?.ft_pct },
-                      ].map(({ label, pct, m, a, rt }) => {
-                        const rank = rt?.rank ?? 0
-                        const total = rt?.total ?? 0
-                        const isChamp = rank === 1
-                        return (
-                          <div
-                            key={label}
-                            className="rounded-sm p-2.5 text-center"
-                            style={isChamp
-                              ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
-                              : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
-                            }
+                        {rank > 0 && (
+                          <p
+                            className="relative text-xs font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
+                            style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                           >
-                            <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold flex items-center justify-center" style={{ color: isChamp ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}>
-                              <span>{label}</span>
-                              <StatHelpTooltip statKey={label} />
-                            </p>
-                            <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
-                              {a > 0 ? <><CountUp value={pct} decimals={1} />%</> : '—'}
-                            </p>
-                            <p className="text-xs mt-0.5 font-mono" style={{ color: isChamp ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}>{m}/{a}</p>
-                            {rank > 0 && a > 0 && (
-                              <p
-                                className="text-xs font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
-                                style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
-                              >
-                                {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
-                                {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
-                                {rank}위{total > 0 && <span className="opacity-60"> · {total}</span>}
-                              </p>
-                            )}
-                            {/* 출전은 채웠는데 시도가 적어 순위에서 빠진 경우 — 스탯 탭의 「시도 부족」과 같은 말 */}
-                            {rank === 0 && a > 0 && (activeDetail?.player_stats?.gp ?? 0) >= (rk?.min_rounds ?? Infinity) && (
-                              <p className="text-xs font-bold mt-1" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-muted)' }}>시도 부족</p>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* 능력치 6축 레이더 — 공격·수비·리바운드·슈팅·리딩·효율 (리그 백분위, 선택한 기간 · 막대와 같은 모집단) */}
-                    {activeDetail?.hex_radar && (
-                      <div className="mt-2">
-                        <PlayerHexRadar data={activeDetail.hex_radar} accent={{ stroke: accent.stroke, fillA: accent.fillA, fillB: accent.fillB }} />
+                            {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
+                            {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
+                            {rank}위{total > 0 && <span className="opacity-60"> · {total}명</span>}
+                          </p>
+                        )}
                       </div>
-                    )}
+                    )
+                  })}
+                </div>
+                {/* 순위가 비어 있는 이유를 숫자로 — 자격은 리그 공통 규칙 하나(eligibility.ts leagueMinRounds) */}
+                {(() => {
+                  const gp = viewDetail.player_stats.gp
+                  if (!rk?.min_rounds || gp <= 0 || gp >= rk.min_rounds) return null
+                  return (
+                    <p className="text-xs font-bold -mt-1 mb-3" style={{ color: 'var(--mm-muted)' }}>
+                      순위는 {periodLabel} {rk.min_rounds}일 이상 출전하면 보여요
+                    </p>
+                  )
+                })()}
 
-                    {/* 세부 능력치 — 묶음별 백분위 막대 (선택한 기간 기준) */}
-                    {shownBars && <PercentileBars data={shownBars} scopeLabel={rankScopeOn ? `${posRanks!.label} 백분위` : undefined} />}
+                {/* 요즘 흐름 문장 — 지난 분기와 하루 평균 비교. 평소 범위·꾸준함은 「더 보기」 */}
+                {viewDetail.form?.compare && (
+                  <div className="mb-3 px-3 py-2.5" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
+                    <PlayerFormHeadline form={viewDetail.form} />
+                  </div>
+                )}
 
-                    {/* 리그 안 「비슷한 스타일 선수」는 2026-10-25 운영진 요청으로 뺐다 — 닮은 NBA 선수만 남긴다 */}
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                  {[
+                    // 슛 정확도 순위 — 순위 자격 + 스탯 탭과 같은 최소 시도(하루 평균 기준). 미달이면 순위 칸 없음
+                    { label: '야투율', term: 'FG%', pct: viewDetail.player_stats.fg_pct, m: viewDetail.player_stats.fgm, a: viewDetail.player_stats.fga, rt: rk?.fg_pct },
+                    { label: '3점률', term: '3P%', pct: viewDetail.player_stats.fg3_pct, m: viewDetail.player_stats.fg3m, a: viewDetail.player_stats.fg3a, rt: rk?.fg3_pct },
+                    { label: '자유투율', term: 'FT%', pct: viewDetail.player_stats.ft_pct, m: viewDetail.player_stats.ftm, a: viewDetail.player_stats.fta, rt: rk?.ft_pct },
+                  ].map(({ label, term, pct, m, a, rt }) => {
+                    const rank = rt?.rank ?? 0
+                    const total = rt?.total ?? 0
+                    const isChamp = rank === 1
+                    return (
+                      <div
+                        key={label}
+                        className="rounded-sm px-2 py-2 sm:p-2.5 text-center"
+                        style={isChamp
+                          ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
+                          : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
+                        }
+                      >
+                        <p className="text-xs mb-1 font-bold flex items-center justify-center" style={{ color: isChamp ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}>
+                          <span>{label}</span>
+                          <StatHelpTooltip statKey={term} />
+                        </p>
+                        <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
+                          {a > 0 ? <><CountUp value={pct} decimals={1} />%</> : '—'}
+                        </p>
+                        <p className="text-xs mt-0.5 font-mono" style={{ color: isChamp ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}>{m}/{a}</p>
+                        {rank > 0 && a > 0 && (
+                          <p
+                            className="text-xs font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
+                            style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
+                          >
+                            {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
+                            {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
+                            {rank}위{total > 0 && <span className="opacity-60"> · {total}명</span>}
+                          </p>
+                        )}
+                        {/* 출전은 채웠는데 시도가 적어 순위에서 빠진 경우 — 스탯 탭의 「시도 부족」과 같은 말 */}
+                        {rank === 0 && a > 0 && viewDetail.player_stats!.gp >= (rk?.min_rounds ?? Infinity) && (
+                          <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>시도 부족</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
 
+                {/* 진행 중 연속 기록 — /me 와 같은 판정·같은 캐시(lib/stats/dashboardBase.ts). 기간과 무관한 값이라 분기를 골라도 그대로다.
+                    단위는 「일」(하루 단위 판정) — 종전 「R」 표기·자체 계산은 2026-10-15 정리했다. */}
+                {(meta.active_streaks?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label="진행 중 연속 기록">
+                    {meta.active_streaks!.map(c => (
+                      <span
+                        key={c.key}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold"
+                        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
+                      >
+                        <Flame size={14} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+                        <span>{c.label}</span>
+                        <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{c.unit}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-                    {/* 승/패/승률 row */}
-                    {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
-                      const wl = activeDetail.win_loss!
-                      const total = rk?.total ?? 0
-                      // 최근 승패 닷은 제거(2026-08-09, 사용자 판단) — 한 라운드에 여러 경기를
-                      //   하는 리그라 하루를 W/L 하나로 압축하면 "2승 4패" 같은 실제 전적이
-                      //   사라져 오히려 오해를 만든다. 시즌 통산 전적과 승률만 남긴다.
+                {/* ── 더 보기 — 평소 범위·승패·팀 득점 기여·누적·능력치 레이더·세부 능력치·통산 ── */}
+                <details
+                  className="group mt-3"
+                  style={{ borderTop: '1px solid var(--mm-rule)' }}
+                  onToggle={e => { if ((e.currentTarget as HTMLDetailsElement).open) loadCareer() }}
+                >
+                  <summary
+                    className="mm-press list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-2 min-h-11 py-2 cursor-pointer text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                    style={{ color: 'var(--mm-ink)' }}
+                  >
+                    <span>더 보기 <span className="text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>평소 범위 · 승패 · 누적 · 능력치</span></span>
+                    <ChevronDown size={18} aria-hidden className="transition-transform duration-200 group-open:rotate-180" style={{ color: 'var(--mm-muted)' }} />
+                  </summary>
+
+                  <div className="pt-1 pb-1 space-y-2">
+                    {viewDetail.form && <PlayerFormRanges form={viewDetail.form} />}
+
+                    {/* 승/패/승률 — 최근 승패 닷은 제거(2026-08-09, 사용자 판단): 한 라운드에 여러 경기를 하는 리그라
+                        하루를 승/패 하나로 압축하면 "2승 4패" 같은 실제 전적이 사라진다. 통산 전적과 승률만 남긴다. */}
+                    {viewDetail.win_loss && (viewDetail.win_loss.wins + viewDetail.win_loss.losses) > 0 && (() => {
+                      const wl = viewDetail.win_loss!
+                      const rank = rk?.win_rate_rank ?? 0
                       return (
                         <div
-                          className="mt-2 rounded-sm px-3 py-2.5 flex items-center justify-between flex-wrap gap-2"
+                          className="rounded-sm px-3 py-2.5 flex items-center justify-between flex-wrap gap-2"
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                         >
                           <div className="flex items-center gap-3">
-                            <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-positive)' }}>{wl.wins}W</span>
-                            <span style={{ color: 'var(--mm-muted)' }}>·</span>
-                            <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-live)' }}>{wl.losses}L</span>
+                            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>출전 경기 전적</span>
+                            <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-positive)' }}>{wl.wins}승</span>
+                            <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-live)' }}>{wl.losses}패</span>
                             {(wl.draws ?? 0) > 0 && (
-                              <>
-                                <span style={{ color: 'var(--mm-muted)' }}>·</span>
-                                <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-muted)' }}>{wl.draws}D</span>
-                              </>
+                              <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-muted)' }}>{wl.draws}무</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>출전 승률</span>
+                            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>승률</span>
                             <span
                               className="font-jersey font-black text-base tabular-nums"
                               style={{ color: wl.win_rate >= 60 ? 'var(--mm-positive)' : wl.win_rate >= 40 ? 'var(--mm-yellow-strong)' : 'var(--mm-live)' }}
                             >
                               {wl.win_rate}%
                             </span>
-                            {total > 0 && (() => {
-                              const rank = rk?.win_rate_rank ?? 0
-                              return rank > 0 ? (
-                                <span
-                                  className="text-xs font-bold px-1.5 py-0.5 rounded-sm"
-                                  style={rank === 1
-                                    ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
-                                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
-                                  }
-                                >{rank}위</span>
-                              ) : null
-                            })()}
+                            {(rk?.total ?? 0) > 0 && rank > 0 && (
+                              <span
+                                className="text-xs font-bold px-1.5 py-0.5 rounded-sm"
+                                style={rank === 1
+                                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                                  : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
+                                }
+                              >{rank}위</span>
+                            )}
                           </div>
                         </div>
                       )
                     })()}
 
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mt-2">
-                      {([
-                        ['PTS', activeDetail?.player_stats?.pts ?? 0, true ],
-                        ['REB', activeDetail?.player_stats?.reb ?? 0, false],
-                        ['AST', activeDetail?.player_stats?.ast ?? 0, false],
-                        ['STL', activeDetail?.player_stats?.stl ?? 0, false],
-                        ['BLK', activeDetail?.player_stats?.blk ?? 0, false],
-                        ['TOV', activeDetail?.player_stats?.tov ?? 0, false],
-                      ] as const).map(([l, v, hi]) => (
-                        <div
-                          key={l}
-                          className="rounded-sm p-2 text-center"
-                          style={hi
-                            ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
-                            : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
-                          }
-                        >
-                          <p
-                            className="text-xs mb-0.5 uppercase tracking-[0.16em] font-bold"
-                            style={{ color: hi ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}
-                          >{l}</p>
-                          <p
-                            className="font-jersey text-base font-black tabular-nums"
-                            style={{ color: hi ? 'var(--mm-black)' : 'var(--mm-ink)' }}
-                          >
-                            <CountUp value={v} decimals={0} />
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* 팀 득점 기여 + 진행 중인 연속 기록 */}
-                    {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (
+                    {/* 팀 득점 기여 */}
+                    {viewDetail.win_loss && (viewDetail.win_loss.wins + viewDetail.win_loss.losses) > 0 && (
                       <div
-                        className="rounded-sm px-3 py-2.5 mt-2 flex items-center justify-between gap-2"
-                        style={{ background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
+                        className="rounded-sm px-3 py-2.5 flex items-center justify-between gap-2"
+                        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                       >
-                        <span className="text-xs uppercase tracking-[0.16em] font-bold" style={{ color: 'color-mix(in srgb, var(--mm-black) 72%, transparent)' }}>팀 득점 기여</span>
-                        <span className="font-jersey font-black text-xl leading-none tabular-nums" style={{ color: 'var(--mm-black)' }}>
-                          {activeDetail.win_loss.pts_share.toFixed(1)}%
+                        <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>팀 득점 중 내 몫</span>
+                        <span className="font-jersey font-black text-xl leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                          {viewDetail.win_loss.pts_share.toFixed(1)}%
                         </span>
                       </div>
                     )}
-                    {/* 진행 중 연속 기록 — /me 와 같은 판정·같은 캐시(lib/stats/dashboardBase.ts). 기간과 무관한 값이라 분기를 골라도 그대로다.
-                        단위는 「일」(하루 단위 판정) — 종전 「R」 표기·자체 계산은 2026-10-15 정리했다. */}
-                    {(detail?.active_streaks?.length ?? 0) > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label="진행 중 연속 기록">
-                        {detail!.active_streaks!.map(c => (
-                          <span
-                            key={c.key}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold"
-                            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
+
+                    {/* 누적 합계 */}
+                    <div>
+                      <p className="text-xs font-bold mb-1" style={{ color: 'var(--mm-muted)' }}>{periodLabel} 누적</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                        {([
+                          ['득점', viewDetail.player_stats.pts],
+                          ['리바', viewDetail.player_stats.reb],
+                          ['어시', viewDetail.player_stats.ast],
+                          ['스틸', viewDetail.player_stats.stl],
+                          ['블록', viewDetail.player_stats.blk],
+                          ['턴오버', viewDetail.player_stats.tov],
+                        ] as const).map(([l, v]) => (
+                          <div
+                            key={l}
+                            className="rounded-sm p-2 text-center"
+                            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                           >
-                            <Flame size={14} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
-                            <span>{c.label}</span>
-                            <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{c.unit}</span>
-                          </span>
+                            <p className="text-xs mb-0.5 font-bold" style={{ color: 'var(--mm-muted)' }}>{l}</p>
+                            <p className="font-jersey text-base font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                              <CountUp value={v} decimals={0} />
+                            </p>
+                          </div>
                         ))}
                       </div>
+                    </div>
+
+                    {/* 능력치 6축 레이더 — 공격·수비·리바운드·슈팅·리딩·효율 (리그 백분위, 선택한 기간 · 막대와 같은 모집단) */}
+                    {viewDetail.hex_radar && (
+                      <PlayerHexRadar data={viewDetail.hex_radar} accent={{ stroke: accent.stroke, fillA: accent.fillA, fillB: accent.fillB }} />
                     )}
+
+                    {/* 세부 능력치 — 묶음별 백분위 (선택한 기간 기준) */}
+                    {shownBars && <PercentileBars data={shownBars} scopeLabel={rankScopeOn ? `${posRanks!.label} 백분위` : undefined} />}
 
                     {/* ── 리그 통산 · 대회 기록 (2026-10-14 「선수 숫자는 한 벌」) ──────────────
                         위 누적은 지금 보고 있는 묶음 기준. 아래는 같은 정의(그 묶음 스탯 탭의 그 선수 행)로
                         ① 리그 시즌이 둘 이상이면 리그 시즌끼리만 더한 「리그 통산」,
                         ② 대회는 일시적인 이벤트라 통산에 **더하지 않고** 따로 「대회 기록 (통산 미포함)」. */}
                     {career && career.leagues.length >= 2 && (
-                      <CareerBlock
-                        title="리그 통산"
-                        total={career.league_career}
-                        rows={career.leagues}
-                      />
+                      <CareerBlock title="리그 통산" total={career.league_career} rows={career.leagues} />
                     )}
                     {career && career.tournaments.length > 0 && (
-                      <CareerBlock
-                        title="대회 기록 (통산 미포함)"
-                        total={null}
-                        rows={career.tournaments}
-                      />
+                      <CareerBlock title="대회 기록 (통산 미포함)" total={null} rows={career.tournaments} />
                     )}
-                  </>
-                )}
+                  </div>
+                </details>
               </div>
             ) : (
               <div
                 className="px-5 py-6 text-center text-sm"
                 style={{ color: 'var(--mm-muted)' }}
-              >아직 기록된 스탯이 없습니다</div>
+              >{selectedQuarterId ? '이 분기에는 아직 기록이 없어요' : '아직 기록된 스탯이 없습니다'}</div>
             ))}
 
-            {/* ── 다이나믹 듀오 ─────────────────────────── */}
-            {shownTab === 'duo' && (
-              <DynamicDuoPanel
-                duos={detail?.dynamic_duo ?? []}
-                playerName={player?.name ?? playerName}
-                // 짝꿍을 누르면 이 카드가 그 선수로 바뀐다 — 「비슷한 스타일 선수」와 같은 동작(2026-10-14)
-                onSelectPartner={onOpenPlayer}
-              />
-            )}
-
             {/* ── 플레이스타일 (2026-10-26) ── 한눈에 태그 → 공격(아래 기존 블록) → 수비·리바운드 → 닮은 NBA 선수 */}
-            {shownTab === 'shot' && activeDetail?.play_style && (
-              <div className="px-5 pt-4"><PlayStyleTags style={activeDetail.play_style} /></div>
+            {shownTab === 'style' && viewDetail?.play_style && (
+              <div className="px-5 pt-4"><PlayStyleTags style={viewDetail.play_style} /></div>
             )}
             {/* ── 공격 ─────────────────────────── */}
             {/* 시도 비중(얼마나 자주 쏘는가) 과 성공률(그중 얼마나 넣는가) 을 별도 컬럼으로 분리.
                 이전엔 두 수치가 한 줄에 섞여 있어 혼동을 유발했다 (2026-08-03 개편). */}
-            {shownTab === 'shot' && activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
+            {shownTab === 'style' && viewDetail?.shot_breakdown && viewDetail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>공격</p>
@@ -1222,7 +1258,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   </div>
                 </div>
                 {(() => {
-                  const sb = activeDetail.shot_breakdown
+                  const sb = viewDetail.shot_breakdown
                   // mm-brand: 존별 색은 데이터 구분 목적이라 정보시각화 관례 유지 (spec 5 data emphasis)
                   // 토큰화(2026-10-12): 골밑 검정(#0A0A0A)은 다크 패널에서 사라졌다 → --mm-ink 로 테마 반전.
                   // 미들은 노랑 계열 두 단계가 다크에서 거의 같아져 다계열 팔레트(--mm-series-2)로 갈랐다.
@@ -1379,37 +1415,60 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               </div>
             )}
 
-            {shownTab === 'shot' && activeDetail && (activeDetail.play_style || activeDetail.hex_radar) && (
+            {shownTab === 'style' && viewDetail && (viewDetail.play_style || viewDetail.hex_radar) && (
               <div className="px-5 pb-4 space-y-4">
-                {activeDetail.play_style && <PlayStyleDefense style={activeDetail.play_style} />}
-                {activeDetail.hex_radar && (
+                {viewDetail.play_style && <PlayStyleDefense style={viewDetail.play_style} />}
+                {viewDetail.hex_radar && (
                   <NbaComps
-                    radar={activeDetail.hex_radar}
+                    radar={viewDetail.hex_radar}
                     position={positionGroup}
-                    shots={activeDetail.shot_breakdown ? [activeDetail.shot_breakdown.layup.a, activeDetail.shot_breakdown.post.a, activeDetail.shot_breakdown.mid.a, activeDetail.shot_breakdown.three.a] : null}
+                    shots={viewDetail.shot_breakdown ? [viewDetail.shot_breakdown.layup.a, viewDetail.shot_breakdown.post.a, viewDetail.shot_breakdown.mid.a, viewDetail.shot_breakdown.three.a] : null}
                   />
                 )}
               </div>
             )}
 
-            {/* ── 분기별 기록 (분기 선택과 무관 — 전 분기를 한 표로) ── */}
-            {shownTab === 'quarters' && (() => {
-              const hasQ = (quarterRows?.length ?? 0) > 0
-              const months = activeDetail?.monthly_stats ?? []
-              const hasM = months.length > 0
-              // 한쪽만 있으면 그쪽을 보인다(분기가 하나도 없는 묶음 등)
-              const view = !hasQ ? 'month' : !hasM ? 'quarter' : periodView
+            {/* ── 다이나믹 듀오 (2026-10-26 별도 탭 → 플레이스타일 맨 아래) — 늘 전체 기간 ── */}
+            {shownTab === 'style' && (
+              duoSource ? (
+                (duoSource.dynamic_duo?.length ?? 0) > 0 && (
+                  <div style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                    <DynamicDuoPanel
+                      duos={duoSource.dynamic_duo ?? []}
+                      playerName={displayName}
+                      periodNote={selectedQuarterId ? '전체 기간' : undefined}
+                      // 짝꿍을 누르면 이 카드가 그 선수로 바뀐다(2026-10-14)
+                      onSelectPartner={onOpenPlayer}
+                    />
+                  </div>
+                )
+              ) : (
+                <div className="flex justify-center py-6"><BasketballLoader size={20} /></div>
+              )
+            )}
+
+            {/* ── 기록 (2026-10-26) — 일별(추세 + 하루 표) / 월별 / 분기별. 종전 「분기·월별」 + 「최근 트렌드 → 일별 기록」 ── */}
+            {shownTab === 'records' && (() => {
+              const log = viewDetail?.game_log ?? []
+              const months = viewDetail?.monthly_stats ?? []
+              const views = ([
+                ['daily', '일별', log.length > 0],
+                ['month', '월별', months.length > 0],
+                // 분기가 있는 리그만 — 표는 열 때 받는다(분기마다 집계라 무겁다)
+                ['quarter', '분기별', quarters.length > 0],
+              ] as const).filter(([, , ok]) => ok)
+              const view = views.some(([k]) => k === recordView) ? recordView : (views[0]?.[0] ?? 'daily')
               return (
                 <>
-                  {hasQ && hasM && (
+                  {views.length > 1 && (
                     <div className="px-5 pt-4 -mb-2">
                       <div role="group" aria-label="기록 단위" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
-                        {([['quarter', '분기별'], ['month', '월별']] as const).map(([key, label]) => (
+                        {views.map(([key, label]) => (
                           <button
                             key={key}
                             type="button"
                             aria-pressed={view === key}
-                            onClick={() => setPeriodView(key)}
+                            onClick={() => setRecordView(key)}
                             className="px-3 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
                             style={view === key
                               ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
@@ -1420,29 +1479,50 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       </div>
                     </div>
                   )}
-                  {view === 'quarter' && quarterRows && <QuarterTable rows={quarterRows} total={quarterTotal} />}
-                  {view === 'month' && <MonthTable rows={months} periodLabel={selectedQuarterId ? '이 분기' : '전체 기간'} />}
+                  {view === 'daily' && (
+                    <>
+                      {/* 하루 기록 추세 — 최소 3일 이상일 때만 */}
+                      {log.length >= 3 && <GameTrendChart log={log} />}
+                      {/* 일별 기록 (하루 한 줄, 같은 날 여러 경기는 합산) — 최근 → 과거, 5일씩 쪽 넘김 */}
+                      {log.length > 0 && <DailyLogTable rows={[...log].reverse()} />}
+                    </>
+                  )}
+                  {view === 'month' && (
+                    <>
+                      {months.length >= 2 && <MonthlyStatsChart data={months} />}
+                      <MonthTable rows={months} periodLabel={periodLabel} />
+                    </>
+                  )}
+                  {view === 'quarter' && (
+                    quarterRows === null
+                      ? <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
+                      : quarterRows.length > 0
+                        ? <QuarterTable rows={quarterRows} total={quarterTotal} />
+                        : <div className="px-5 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>분기별 기록이 아직 없어요</div>
+                  )}
                 </>
               )
             })()}
 
-            {/* ── 커리어 하이 ───────────────────────────── */}
-            {/* Career High Day — 하루(같은 날의 여러 경기 합산) 기준 최고점 */}
-            {shownTab === 'career' && detail?.career_high && Object.keys(detail.career_high).length > 0 && (() => {
+            {/* ── 커리어 하이 — 하루(같은 날 여러 경기 합산) 기준 최고 기록 · 늘 전체 기간 ─────── */}
+            {shownTab === 'career' && (() => {
+              if (!careerHigh) return <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
               const CH_LABEL: Record<string, string> = {
-                pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK',
-                fgPct: 'FG%', fg3m: '3PM',
+                pts: '득점', reb: '리바', ast: '어시', stl: '스틸', blk: '블록',
+                fgPct: '야투율', fg3m: '3점 성공',
               }
               const CH_ORDER = ['pts', 'reb', 'ast', 'stl', 'blk', 'fg3m', 'fgPct']
               const entries = CH_ORDER
-                .filter(k => detail.career_high[k])
-                .map(k => [k, detail.career_high[k]] as const)
-              if (entries.length === 0) return null
+                .filter(k => careerHigh[k])
+                .map(k => [k, careerHigh[k]] as const)
+              if (entries.length === 0) {
+                return <div className="px-5 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록이 없어요</div>
+              }
               return (
                 <div className="px-5 py-4">
-                  <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>
-                    Career High <span style={{ color: 'var(--mm-ink)' }}>Day</span>
-                    <span className="ml-2 text-xs font-normal normal-case tracking-normal" style={{ color: 'var(--mm-muted)' }}>날짜 클릭 → 박스스코어</span>
+                  <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>
+                    하루 최고 기록
+                    <span className="ml-2 text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 날짜를 누르면 그날 경기 기록</span>
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {entries.map(([key, ch]) => {
@@ -1450,8 +1530,8 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       const inner = (
                         <>
                           <div className="flex items-baseline gap-1.5">
-                            <p className="font-jersey text-3xl font-black leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>{ch.value}</p>
-                            <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--mm-muted)' }}>{CH_LABEL[key] ?? key.toUpperCase()}</p>
+                            <p className="font-jersey text-3xl font-black leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>{ch.value}{key === 'fgPct' ? '%' : ''}</p>
+                            <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{CH_LABEL[key] ?? key}</p>
                           </div>
                           {ch.date && (
                             <p
@@ -1471,7 +1551,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                           onClick={onClose}
                           className="block text-left rounded-sm px-3 py-2.5 group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-yellow-soft)]"
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                          title={`${ch.date} 박스스코어 보기`}
+                          title={`${ch.date} 경기 기록 보기`}
                         >
                           {inner}
                         </Link>
@@ -1487,48 +1567,6 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     })}
                   </div>
                 </div>
-              )
-            })()}
-            {/* ── 최근 트렌드 — 하위 탭: 요즘 흐름(기본) / 일별 기록(월별 성장 + 게임 트렌드 + 일별 표) ── */}
-            {shownTab === 'trend' && (() => {
-              const form = activeDetail?.form ?? null
-              const view = form ? trendView : 'log'
-              return (
-                <>
-                  {form && (
-                    <div className="px-5 pt-4 -mb-2">
-                      <div role="group" aria-label="최근 트렌드 보기" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
-                        {([['form', '요즘 흐름'], ['log', '일별 기록']] as const).map(([key, label]) => (
-                          <button
-                            key={key}
-                            type="button"
-                            aria-pressed={view === key}
-                            onClick={() => setTrendView(key)}
-                            className="px-3 min-h-11 text-xs font-bold whitespace-nowrap cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                            style={view === key
-                              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
-                              : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }
-                            }
-                          >{label}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {view === 'form' && form && <PlayerFormCard form={form} />}
-                  {view === 'log' && (
-                    <>
-                      {activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
-                        <MonthlyStatsChart data={activeDetail.monthly_stats} />
-                      )}
-                      {/* 게임별 트렌드 라인 — 최소 3경기 이상일 때만 표시 */}
-                      {activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
-                        <GameTrendChart log={activeDetail.game_log} />
-                      )}
-                      {/* 일별 기록 (R = 하루, 같은 날 여러 경기는 합산) — 5일씩 쪽 넘김 */}
-                      {detail && detail.recent_games.length > 0 && <DailyLogTable rows={detail.recent_games} />}
-                    </>
-                  )}
-                </>
               )
             })()}
           </div>

@@ -67,6 +67,8 @@ type Slot = 0 | 1
 export default function PlayerCompareModal({ leagueId, candidates: givenCandidates, initialIds = [], quarterId, onClose }: Props) {
   const q = quarterId && quarterId !== 'all' ? quarterId : null
   const qs = q ? `?quarterId=${encodeURIComponent(q)}` : ''
+  // 상세는 lite — 이 시트는 합계·하루 평균·순위·6축 레이더만 쓴다(플레이스타일·듀오·요즘 흐름 계산을 건너뛴다, 2026-10-26)
+  const detailQs = q ? `?quarterId=${encodeURIComponent(q)}&lite=1` : '?lite=1'
   // 후보를 안 받았으면 그 기간 스탯 목록(게스트 제외 · 스탯 탭과 같은 응답)으로 만든다
   const [fetchedCandidates, setFetchedCandidates] = useState<CompareCandidate[] | null>(null)
   useEffect(() => {
@@ -108,8 +110,8 @@ export default function PlayerCompareModal({ leagueId, candidates: givenCandidat
     if (!id1 || !id2) return
     let cancelled = false
     Promise.all([
-      fetch(`/api/leagues/${leagueId}/players/${id1}/detail${qs}`).then(r => r.ok ? r.json() : null),
-      fetch(`/api/leagues/${leagueId}/players/${id2}/detail${qs}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/leagues/${leagueId}/players/${id1}/detail${detailQs}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/leagues/${leagueId}/players/${id2}/detail${detailQs}`).then(r => r.ok ? r.json() : null),
       fetch(`/api/leagues/${leagueId}/players/head-to-head?a=${id1}&b=${id2}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([a, b, h]) => {
       if (cancelled) return
@@ -117,7 +119,7 @@ export default function PlayerCompareModal({ leagueId, candidates: givenCandidat
     }).catch(() => { /* 빈 값으로 보여 준다 */ })
       .finally(() => { if (!cancelled) setLoadedPair(`${id1}:${id2}${qs}`) })
     return () => { cancelled = true }
-  }, [leagueId, id1, id2, qs])
+  }, [leagueId, id1, id2, qs, detailQs])
 
   function choose(slot: Slot, id: string) {
     setIds(prev => {
@@ -157,7 +159,7 @@ export default function PlayerCompareModal({ leagueId, candidates: givenCandidat
     { key: 'rpg',     term: '리바', label: '리바' },
     { key: 'apg',     term: '어시', label: '어시' },
     { key: 'spg',     term: '스틸', label: '스틸' },
-    { key: 'bpg',     term: '블락', label: '블락' },
+    { key: 'bpg',     term: '블록', label: '블록' },
     { key: 'fg_pct',  term: 'FG%',  label: '야투율', isPct: true },
     { key: 'fg3_pct', term: '3P%',  label: '3점 성공률', isPct: true },
   ]
@@ -335,7 +337,7 @@ function HeadToHeadCard({ data, name1, name2, id1, id2 }: { data: PlayerHeadToHe
     { label: '리바', v1: avg(o.a.reb), v2: avg(o.b.reb), n1: o.a.reb, n2: o.b.reb },
     { label: '어시', v1: avg(o.a.ast), v2: avg(o.b.ast), n1: o.a.ast, n2: o.b.ast },
     { label: '스틸', v1: avg(o.a.stl), v2: avg(o.b.stl), n1: o.a.stl, n2: o.b.stl },
-    { label: '블락', v1: avg(o.a.blk), v2: avg(o.b.blk), n1: o.a.blk, n2: o.b.blk },
+    { label: '블록', v1: avg(o.a.blk), v2: avg(o.b.blk), n1: o.a.blk, n2: o.b.blk },
     {
       label: '야투율', v1: pct(o.a.fgm, o.a.fga), v2: pct(o.b.fgm, o.b.fga),
       n1: o.a.fga > 0 ? o.a.fgm / o.a.fga : -1, n2: o.b.fga > 0 ? o.b.fgm / o.b.fga : -1,

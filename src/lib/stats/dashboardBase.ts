@@ -5,7 +5,7 @@
 //   「두 자릿수 득점 N」이 두 화면에서 달랐다. 이제 둘 다 이 캐시 하나를 읽고, 선수 한 명 몫은
 //   ongoingStreaksFor() 하나로 고른다.
 //
-// 캐시: 리그 전체 집계라 보는 사람과 무관하다(개인 정보 없음). 60초 + 기록 편집 API 의 `league-{id}-games` 태그.
+// 캐시: 리그 전체 집계라 보는 사람과 무관하다(개인 정보 없음). 1시간(2026-10-26) + 기록 편집 API 의 `league-{id}-games` 태그.
 //   unstable_cache 는 JSON 으로 저장하므로 Map 대신 평범한 객체로 바꿔 담는다.
 //   ⚠ 키·콜백을 이 파일 한 곳에만 둔다 — 두 라우트가 같은 캐시 항목을 쓰게.
 
@@ -39,7 +39,7 @@ export function getCachedDashboardBase(leagueId: string): Promise<DashboardBase>
       return { allDates: perDay.allDates, days, streaks }
     },
     ['auth-dashboard-base-v1', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )()
 }
 

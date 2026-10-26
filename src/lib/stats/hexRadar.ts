@@ -30,7 +30,7 @@
 //   · TS%(진실 야투율) — +1 선수 보너스·ft_2pt(자유투 1구 2점) 때문에 득점이 부풀어 선수마다 기준이 달라진다.
 //     효율 축은 득점과 무관한 eFG%(야투 성공·3점 성공만) 하나다. PER 은 출전 시간이 추정값이라 쓰지 않는다.
 //   · 「상대 실책 유도」 — 스틸은 기록 화면에서 상대 실책과 짝(related_player_id)으로 입력돼 짝지은 스틸 수가
-//     곧 스틸 수(입력 누락분만 적다)다. 같은 숫자를 두 번 세게 되므로 수비 축은 스틸·블락 둘이다.
+//     곧 스틸 수(입력 누락분만 적다)다. 같은 숫자를 두 번 세게 되므로 수비 축은 스틸·블록 둘이다.
 import { PCT_MIN_ATTEMPTS, rankPercentile } from './percentileBars'
 import { rateIfQualified, meetsAttemptMin } from './eligibility'
 
@@ -93,7 +93,7 @@ export const HEX_AXES: readonly { key: HexAxisKey; label: string; components: re
     key: 'defense', label: '수비',
     components: [
       { key: 'spg', label: '스틸', kind: 'perDay', higherIsBetter: true, value: p => perDay(p.stl, p) },
-      { key: 'bpg', label: '블락', kind: 'perDay', higherIsBetter: true, value: p => perDay(p.blk, p) },
+      { key: 'bpg', label: '블록', kind: 'perDay', higherIsBetter: true, value: p => perDay(p.blk, p) },
     ],
   },
   {

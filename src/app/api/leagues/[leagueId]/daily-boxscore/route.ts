@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { fetchAllPaged } from '@/lib/supabase/paged'
 import { NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
@@ -21,8 +22,21 @@ export async function GET(
   }
   const { searchParams } = new URL(req.url)
   const date = searchParams.get('date')
-  if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 })
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: 'date required' }, { status: 400 })
 
+  // 2026-10-26 (점검 MVP 3): 그날 계산을 리그·날짜 단위로 캐시한다(종전엔 요청마다 이벤트 전량 재집계,
+  //   홈 「지난 토요일 나」와 박스스코어 화면이 같은 날을 두 번 계산했다). 기록·경기·선수 수정 API 가
+  //   `league-{id}-games`/`-events` 태그를 무효화하므로 수정은 바로 반영된다. 인가(canViewLeague)는 위에서
+  //   요청마다 따로 한다 — 캐시에는 로그인과 무관한 리그 공용 데이터만 들어간다.
+  const body = await unstable_cache(
+    () => computeDailyBoxscore(leagueId, date),
+    ['daily-boxscore', leagueId, date, 'v1'],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
+  )()
+  return NextResponse.json(body, { headers: { 'Cache-Control': 'private, max-age=30' } })
+}
+
+async function computeDailyBoxscore(leagueId: string, date: string) {
   const supabase = createClient()
 
   // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일
@@ -56,7 +70,7 @@ export async function GET(
     (overrides ?? []) as QuarterOverride[],
   )
 
-  if (!games || games.length === 0) return NextResponse.json({ games: [], daily_stats: [], assist_links: [], shot_types: [] })
+  if (!games || games.length === 0) return { games: [], daily_stats: [], rolled_up: false, assist_links: [], shot_types: [] }
 
   const gameIds = games.map(g => g.id)
   // 쿼터별 영상 — 경기 하나에 쿼터 영상이 붙어 있으면 카드에 쿼터 탭으로 내려준다.
@@ -436,5 +450,5 @@ export async function GET(
 
   // games 는 이미 대진 롤업 결과(= 경기)다. 슬롯 단위 원본은 내려보내지 않는다 —
   //   화면에 "슬롯별 보기" 가 없고(2026-08-23 요청), 응답만 두 배로 불린다.
-  return NextResponse.json({ games: gameList, daily_stats: dailyStats, rolled_up: rolledUp, assist_links: assistLinks, shot_types: shotTypes })
+  return { games: gameList, daily_stats: dailyStats, rolled_up: rolledUp, assist_links: assistLinks, shot_types: shotTypes }
 }

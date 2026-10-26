@@ -1,5 +1,5 @@
 'use client'
-// 선수 카드 「최근 트렌드 → 일별 기록」 표 — 하루(라운드) 한 줄, 최근 → 과거.
+// 선수 카드 「기록 → 일별」 표 — 하루(라운드) 한 줄, 최근 → 과거. 같은 날 여러 경기는 합산.
 //   2026-10-24 운영진: 최근 5일만 보이던 것을 5일씩 쪽을 넘겨 과거까지 본다.
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -39,8 +39,8 @@ export default function DailyLogTable({ rows }: { rows: DailyLogRow[] }) {
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              {['날짜', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'FG', 'FG%', '3P%'].map(h => (
-                <th key={h} className={`t-th ${h === '날짜' ? 'text-left sticky left-0' : 'text-right'}`} style={h === '날짜' ? { color: 'var(--mm-muted)', background: 'var(--mm-panel)' } : { color: 'var(--mm-muted)' }}>{h}</th>
+              {['날짜', '득점', '리바', '어시', '스틸', '블록', '야투', '야투율', '3점률'].map(h => (
+                <th key={h} scope="col" className={`t-th whitespace-nowrap ${h === '날짜' ? 'text-left sticky left-0' : 'text-right'}`} style={h === '날짜' ? { color: 'var(--mm-muted)', background: 'var(--mm-panel)' } : { color: 'var(--mm-muted)' }}>{h}</th>
               ))}
             </tr>
           </thead>

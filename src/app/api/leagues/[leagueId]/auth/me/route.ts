@@ -6,14 +6,22 @@
 //     화면 표시용일 뿐이다. 실제 인가는 각 mutation 라우트의 canEditLeague 가 매 요청 다시 한다.
 //   ⚠ role 도 여기서 **매 요청 DB 에서** 읽는다(세션 토큰에 넣지 않는다 — 강등 즉시 반영).
 //   개인 데이터라 응답은 `private, no-store` — 공유 캐시에 실리면 안 된다.
+//   ⚠ 2026-10-26 (점검 MVP 0·1):
+//     · 로그인 유지 연장 — 쿠키는 발급 시각 기준 30일 고정이라 매일 들어와도 30일째에 갑자기 잠겼다.
+//       남은 기간이 REFRESH_BELOW 보다 짧으면 같은 내용으로 새로 서명해 30일을 다시 준다(=30일 동안 안 오면 로그아웃).
+//     · last_seen_at 다시 기록 — 「안 본다」를 잴 수단이 로그인 시각뿐이었다. 쓰기가 화면마다 붙지 않게
+//       SEEN_EVERY 에 한 번만 UPDATE 한다.
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
-import { AUTH_COOKIE, verifySession } from '@/lib/auth/session'
+import { AUTH_COOKIE, verifySession, signSession, buildAuthCookieHeader } from '@/lib/auth/session'
 import { sessionMatchesLeague } from '@/lib/auth/teamMatch'
 import { requireCeoSession } from '@/lib/auth/ceo'
 
 const NO_STORE = { 'Cache-Control': 'private, no-store' }
+const DAY = 24 * 60 * 60 * 1000
+const REFRESH_BELOW = 25 * DAY   // 남은 기간이 25일 미만(=발급 후 5일 지남)이면 연장
+const SEEN_EVERY = 6 * 60 * 60 * 1000
 
 export async function GET(
   _req: Request,
@@ -36,14 +44,17 @@ export async function GET(
   const sb = createClient()
   const { data: acc } = await sb
     .from('league_user_accounts')
-    .select('id, league_player_id, login_id, status, password_changed_at')
+    .select('id, league_player_id, login_id, status, password_changed_at, last_seen_at')
     .eq('id', session.uid)
     .maybeSingle()
   if (!acc || acc.status !== 'approved') return NextResponse.json({ authenticated: false, ceo: await ceoPromise }, { headers: NO_STORE })
 
-  // 접속 현황 기능은 2026-08-11 삭제 — last_seen_at 을 더 이상 쓰지 않는다.
-  //   /me 는 화면 진입마다 불리는 경로다. 여기에 UPDATE 가 붙어 있으면 '내가 누구인지' 읽는
-  //   요청이 매번 쓰기 요청이 된다. 컬럼은 남겨 두되(과거 값 보존) 갱신은 하지 않는다.
+  // 마지막 열람 시각 — SEEN_EVERY 에 한 번만 쓴다(best-effort, 실패해도 응답은 그대로)
+  const lastSeen = (acc as { last_seen_at?: string | null }).last_seen_at
+  if (!lastSeen || Date.now() - new Date(lastSeen).getTime() > SEEN_EVERY) {
+    // 서버리스는 응답 뒤 작업이 잘릴 수 있어 기다린다 — 6시간에 한 번이라 비용은 작다
+    await sb.from('league_user_accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', acc.id).then(() => {}, () => {})
+  }
 
   const { data: player } = await sb
     .from('league_players')
@@ -62,7 +73,7 @@ export async function GET(
     .maybeSingle()
   const role = (roleRow as { role?: string } | null)?.role === 'admin' ? 'admin' : 'member'
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     authenticated: true,
     user: {
       id: acc.id,
@@ -78,4 +89,10 @@ export async function GET(
     },
     ceo: await ceoPromise,
   }, { headers: NO_STORE })
+  // 로그인 유지 연장 — 같은 내용(uid·lid·tid·pid)으로 다시 서명
+  if (session.exp - Date.now() < REFRESH_BELOW) {
+    const { token: fresh, maxAge } = signSession({ uid: session.uid, lid: session.lid, tid: session.tid, pid: session.pid, loginId: session.loginId })
+    res.headers.append('Set-Cookie', buildAuthCookieHeader(fresh, maxAge))
+  }
+  return res
 }

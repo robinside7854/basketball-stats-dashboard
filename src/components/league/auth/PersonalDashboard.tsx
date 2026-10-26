@@ -29,6 +29,8 @@ import Avatar from '@/components/league/ui/Avatar'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
 import { DashboardCardsSkeleton } from './MePageSkeleton'
+import { HomeMeProvider } from '@/components/league/home/HomeMeContext'
+import MyLastDay from '@/components/league/home/MyLastDay'
 import InstallAppButton from '@/components/InstallAppButton'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
@@ -90,7 +92,7 @@ interface Props {
 const METRIC_DOT: Record<Chaser['metric'], string> = {
   pts: 'var(--mm-series-1)', reb: 'var(--mm-series-2)', ast: 'var(--mm-series-3)', stl: 'var(--mm-series-4)', blk: 'var(--mm-series-5)',
 }
-const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블락' }
+const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블록' }
 
 // 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (배경/전경 쌍 · 캐주얼 전환 2026-08-06)
 function proximityStyle(progressPct: number): { bg: string; fg: string } {
@@ -146,7 +148,8 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
   }
 
   const leagueBase = base ?? `/league/${orgSlug}/${leagueId}`
-  const myHighlightsHref = `${leagueBase}/highlights/player/${user.player_id}`
+  // 옛 주소(/highlights/player/{id})는 redirect 한 번을 더 거친다 — 지금 주소로 바로
+  const myHighlightsHref = `${leagueBase}/highlights?player=${user.player_id}`
   // 최근 하이라이트 = 내가 마지막으로 뛴 날의 박스스코어 — `?hl=mine` 이면 그 화면이 「내 기록」 하이라이트 재생기를 바로 연다
   const highlightsHref = data?.weekly.available && data.weekly.date
     ? `${leagueBase}/boxscore/${data.weekly.date}?hl=mine`
@@ -180,6 +183,16 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
                 )}
               </div>
             </header>
+
+            {/* 내가 마지막으로 뛴 날 (2026-10-26 점검 MVP 1) — 「내 기록」 첫 화면에 숫자가 하나도 없었다.
+                홈과 같은 카드(MyLastDay) · 같은 계산(그날 박스스코어 한 번). */}
+            {ready && data.last_played?.date && (
+              <div className="px-3 sm:px-4 pt-3">
+                <HomeMeProvider leagueId={leagueId} latestDate={data.last_played.date} serverMember>
+                  <MyLastDay base={leagueBase} />
+                </HomeMeProvider>
+              </div>
+            )}
 
             {/* 마지막 출전 + 그 뒤 결장 경기일 (2026-10-14) — 친선일 포함 · 출석 지표.
                 (2026-10-16) 최근 28일 안에 출전이 없을 때만 보인다 — 선수 카드와 같은 기준(shouldShowLastPlayed). */}

@@ -1,5 +1,10 @@
-// 하이라이트 불러오는 중 — 실제 화면 모양(제목 · 칩 줄 · 영상 카드 격자)을 그대로 비춘다.
+// 하이라이트 불러오는 중 — 실제 화면 모양(제목 · 칩 줄 · 본문)을 그대로 비춘다.
 // 공용 SubTabLoadingSkeleton 은 표·목록 모양이라 영상 카드가 뜰 때 자리가 크게 흔들렸다.
+// 본문 모양은 주소로 고른다(2026-10-26): ?date= · ?player= · ?f=best 는 재생기(16:9) + 클립 목록,
+//   그 밖(첫 화면 · 명경기 · 마일스톤)은 카드 격자. loading 은 searchParams 를 못 받으므로 클라이언트 조각이 읽는다.
+import { Suspense } from 'react'
+import HighlightsLoadingBody, { CardGridSkeleton } from '@/components/league/highlights/HighlightsLoadingBody'
+
 export default function Loading() {
   return (
     <div className="space-y-4 mm-brand" role="status" aria-busy="true" aria-label="하이라이트 불러오는 중">
@@ -17,22 +22,9 @@ export default function Loading() {
         </div>
       </div>
 
-      {/* 날짜 카드 격자 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
-        {Array.from({ length: 6 }, (_, i) => (
-          <div
-            key={i}
-            className="overflow-hidden"
-            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}
-          >
-            <div className="mm-shimmer aspect-video" />
-            <div className="p-3 space-y-2">
-              <span className="mm-shimmer block h-5 w-2/5" style={{ borderRadius: 'var(--mm-radius-ctl)' }} />
-              <span className="mm-shimmer block h-3 w-3/5" style={{ borderRadius: 'var(--mm-radius-chip)' }} />
-            </div>
-          </div>
-        ))}
-      </div>
+      <Suspense fallback={<CardGridSkeleton />}>
+        <HighlightsLoadingBody />
+      </Suspense>
       <span className="sr-only">불러오는 중이에요</span>
     </div>
   )

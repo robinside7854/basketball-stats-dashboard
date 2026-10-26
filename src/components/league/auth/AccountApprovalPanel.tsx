@@ -18,6 +18,8 @@ interface AccountRow {
   requested_at: string
   approved_at: string | null
   last_login_at: string | null
+  /** 마지막으로 앱을 연 시각(2026-10-26 다시 기록 — 6시간 단위) */
+  last_seen_at?: string | null
   reset_by_admin_at: string | null
   player: {
     id: string
@@ -99,6 +101,14 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
   }
 
   const pendingCount = rows.filter(r => r.status === 'pending').length
+  // 최근 7일 안에 앱을 연 회원 수 (점검 MVP 0 — 「안 본다」를 숫자로 보기 위해)
+  const lastSeenOf = (r: AccountRow) => {
+    const t = Math.max(r.last_seen_at ? Date.parse(r.last_seen_at) : 0, r.last_login_at ? Date.parse(r.last_login_at) : 0)
+    return t > 0 ? t : null
+  }
+  const approvedRows = rows.filter(r => r.status === 'approved')
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const activeWeek = approvedRows.filter(r => (lastSeenOf(r) ?? 0) >= weekAgo).length
   const q = query.replace(/\s+/g, '').toLowerCase()
   const shown = !q ? rows : rows.filter(r =>
     (r.player?.name ?? '').replace(/\s+/g, '').toLowerCase().includes(q)
@@ -166,6 +176,11 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
           </button>
         </div>
       </header>
+      {approvedRows.length > 0 && (
+        <p className="px-4 py-2 text-xs font-bold" style={{ color: 'var(--mm-ink-soft)', borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
+          최근 7일 동안 들어온 회원 <b style={{ color: 'var(--mm-ink)' }}>{activeWeek}명</b> / 승인 {approvedRows.length}명
+        </p>
+      )}
 
       {/* 이름 검색 — 대기 목록에서 찾으면 승인된 회원이 안 나오므로, 입력을 시작하면 「전체」로 넘긴다 */}
       <div className="px-3 pt-3">
@@ -241,7 +256,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   아이디: <b style={{ color: 'var(--mm-ink-soft)' }}>{r.login_id}</b>
                   {' · 요청: '}
                   {new Date(r.requested_at).toLocaleDateString('ko-KR')}
-                  {r.last_login_at && ` · 최근로그인: ${new Date(r.last_login_at).toLocaleDateString('ko-KR')}`}
+                  {lastSeenOf(r) != null && ` · 최근 접속: ${new Date(lastSeenOf(r)!).toLocaleDateString('ko-KR')}`}
                 </div>
               </div>
               {/* 액션 — 폰: 승인 회원은 버튼이 셋(약 250px)이라 한 줄에 두면 이름 칸이 0 으로 눌렸다 → 이름 아래 줄로(아바타 폭만큼 들여서) */}

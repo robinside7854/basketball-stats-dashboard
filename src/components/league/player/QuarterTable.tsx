@@ -11,7 +11,7 @@ const COLS: { key: QuarterTableKey; label: string; pct?: boolean; int?: boolean 
   { key: 'rpg',     label: '리바' },
   { key: 'apg',     label: '어시' },
   { key: 'spg',     label: '스틸' },
-  { key: 'bpg',     label: '블락' },
+  { key: 'bpg',     label: '블록' },
   { key: 'fg_pct',  label: '야투율', pct: true },
   { key: 'fg3_pct', label: '3점률', pct: true },
 ]

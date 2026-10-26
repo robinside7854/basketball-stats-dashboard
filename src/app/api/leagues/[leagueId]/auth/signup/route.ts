@@ -37,15 +37,19 @@ export async function POST(
     .from('league_players')
     .select('id, name, is_guest, created_at')
     .eq('team_id', teamId)
-    .eq('name', name)
     .order('created_at', { ascending: true })
 
-  const nonGuestList = (candidates ?? []).filter(p => !p.is_guest)
+  // 2026-10-26: 띄어쓰기·자모 분리(NFD)만 다른 이름도 같은 사람으로 본다 — 비공개 리그에선 가입 화면의
+  //   이름 자동완성이 401 로 막혀 있어(명단을 비회원에게 보여 줄 수 없다) 「김 로빈」처럼 쳐서 실패했다.
+  const norm = (v: string) => v.normalize('NFC').replace(/\s+/g, '')
+  const wanted = norm(name)
+  const sameName = (candidates ?? []).filter(p => typeof p.name === 'string' && norm(p.name) === wanted)
+  const nonGuestList = sameName.filter(p => !p.is_guest)
   const matched = nonGuestList[0] ?? null
 
   if (!matched) {
     // 이름 자체가 등록 안 됨 or 게스트만 있음
-    const anyGuest = (candidates ?? []).some(p => p.is_guest)
+    const anyGuest = sameName.some(p => p.is_guest)
     return NextResponse.json({
       error: anyGuest
         ? '해당 이름은 게스트로 등록되어 있어 계정 생성 대상이 아닙니다.'

@@ -27,7 +27,7 @@ export type OpenPlayerCardArgs = {
   playerName?: string
   /** 카드를 연 화면의 분기 — 카드가 이 분기로 열린다. 없거나 'all' 이면 전체 기간 */
   quarterId?: string | null
-  /** 처음 열 미니 탭 — 없으면 이 리그에서 마지막으로 본 탭(데이터가 없으면 시즌 스탯) */
+  /** 처음 열 미니 탭 — 없으면 요약(내 카드만 마지막으로 본 탭을 기억한다, 2026-10-26) */
   tab?: PlayerTabKey
 }
 

@@ -136,7 +136,7 @@ export function rateIfQualified(made: number, attempts: number, gp: number, key:
  * 비율 지표의 최소 표본(기간 합계) — 하루 평균으로 나눌 수 없는 것들만 남았다.
  *   ⚠ fg·fg3·ft 는 **옛 기준**(기간 합계 20·10·8)이다. 선수 카드 순위·세부 능력치 막대·스탯 탭은
  *   2026-10-15 부터 하루 평균 기준(MIN_ATTEMPTS_PER_DAY · meetsAttemptMin)을 쓴다.
- *   레이더(hexRadar.ts)·분기별 기록표(quarterTable.ts)·비슷한 선수(similarStyle.ts)가 아직 이 값을 읽는다 —
+ *   레이더(hexRadar.ts)·분기별 기록표(quarterTable.ts)가 아직 이 값을 읽는다 —
  *   그쪽도 rateIfQualified 로 옮기면 fg·fg3·ft 를 지운다.
  */
 export const PCT_MIN_ATTEMPTS = {

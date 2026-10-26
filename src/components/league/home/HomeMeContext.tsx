@@ -1,6 +1,8 @@
 'use client'
 // 홈 맨 위 경기일 카드가 쓰는 개인 데이터 — 「그날 내가 뛴 경기」 (리뉴얼 2단계, 2026-10-12).
 //   (2026-10-15) 쓰는 곳이 「내 경기」 노랑 표시와 「내 하이라이트 ▶」 링크뿐이라 gameIds 만 남겼다
+//   (2026-10-26 점검 MVP 1) 홈 맨 위 「지난 토요일 나」 카드가 다시 생겨 그날 내 합계·승패·득점 순위를 같은 응답에서 만든다
+//   (요청 추가 없음 — 같은 daily-boxscore 한 번)
 //   (하루 합계 line · 승패 results 는 그리던 「내 카드」가 없어져 아무도 읽지 않았다).
 //   useMePeriod · MePeriod · MeShooting 은 /me(PersonalDashboard)가 쓴다 — 지우지 말 것.
 //
@@ -24,6 +26,13 @@ export interface MyDay {
   date: string
   /** 내가 뛴 경기의 슬롯 id 전부 (롤업된 경기도 슬롯 단위로 맞출 수 있게) — 비어 있으면 그날 안 뛰었다 */
   gameIds: Set<string>
+  /** 그날 내 합계 (daily_stats 내 줄 그대로) — 안 뛰었으면 null. 홈 「지난 토요일 나」 카드(2026-10-26) */
+  line: { pts: number; reb: number; ast: number; stl: number; blk: number; gp: number; fgm: number; fga: number; fg3m: number } | null
+  /** 내가 뛴 정규전의 승·패·무 (친선 제외 — dayRecord 와 같은 규칙) */
+  record: { w: number; l: number; d: number }
+  /** 그날 득점 순위(공동 순위)와 그날 뛴 인원 */
+  ptsRank: number | null
+  dayPlayers: number
 }
 
 type Status = 'idle' | 'loading' | 'ready' | 'error'
@@ -66,16 +75,39 @@ export function useMePeriod(leagueId: string): [MePeriod, (p: MePeriod) => void]
 interface BoxGame {
   id: string
   slot_ids?: string[]
-  players: Array<{ player_id: string }>
+  is_exhibition?: boolean
+  is_complete?: boolean
+  home_score: number | null
+  away_score: number | null
+  home_team: { id: string } | null
+  away_team: { id: string } | null
+  players: Array<{ player_id: string; team_id?: string | null }>
 }
+interface DailyRow { player_id: string; gp: number; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number }
 
-function buildDay(date: string, pid: string, games: BoxGame[]): MyDay {
+function buildDay(date: string, pid: string, games: BoxGame[], daily: DailyRow[]): MyDay {
   const gameIds = new Set<string>()
+  const record = { w: 0, l: 0, d: 0 }
   for (const g of games) {
-    if (!g.players?.some(p => p.player_id === pid)) continue
+    const me = g.players?.find(p => p.player_id === pid)
+    if (!me) continue
     for (const id of g.slot_ids?.length ? g.slot_ids : [g.id]) gameIds.add(id)
+    // 내가 뛴 팀이 이겼나 — 친선·미마감·점수 없음은 세지 않는다
+    if (g.is_exhibition || g.is_complete === false || g.home_score == null || g.away_score == null || !me.team_id) continue
+    const side = me.team_id === g.home_team?.id ? 'home' : me.team_id === g.away_team?.id ? 'away' : null
+    if (!side) continue
+    const mine = side === 'home' ? g.home_score : g.away_score
+    const opp = side === 'home' ? g.away_score : g.home_score
+    if (mine > opp) record.w++
+    else if (mine < opp) record.l++
+    else record.d++
   }
-  return { date, gameIds }
+  const row = daily.find(r => r.player_id === pid) ?? null
+  const ptsRank = row ? 1 + daily.filter(r => r.pts > row.pts).length : null
+  return {
+    date, gameIds, record, ptsRank, dayPlayers: daily.length,
+    line: row ? { pts: row.pts, reb: row.reb, ast: row.ast, stl: row.stl, blk: row.blk, gp: row.gp, fgm: row.fgm, fga: row.fga, fg3m: row.fg3m } : null,
+  }
 }
 
 export function HomeMeProvider({
@@ -106,7 +138,7 @@ export function HomeMeProvider({
     getJson(`/api/leagues/${leagueId}/daily-boxscore?date=${latestDate}`).then(box => {
       if (!alive) return
       setDay(box
-        ? buildDay(latestDate, pid, (box.games ?? []) as BoxGame[])
+        ? buildDay(latestDate, pid, (box.games ?? []) as BoxGame[], (box.daily_stats ?? []) as DailyRow[])
         : null)
       setStatus(box ? 'ready' : 'error')
     })

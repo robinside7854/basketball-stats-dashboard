@@ -22,12 +22,27 @@
 //   - form / games_behind (2026-10-14, 특정 분기일 때만): 최근 5경기 · 연승/연패 · 최근 경기일 성적 · 승차
 //     (lib/stats/standings.ts). 마감된 정규전만 · 그 분기 기간(날짜)으로 고른다 — 연승이 분기를 넘지 않게.
 //     「전체」에서는 정체성이 여러 분기에 걸치고 서로 공존하지 않은 팀도 섞이므로 주지 않는다.
+//
+// ?withPlayers=1 (2026-10-26 팀 탭 요청 정리 — 종전엔 팀 탭이 정체성마다 /stats?teamId= 를 따로 불러
+//   특정 분기 11회 · 「전체」 20회 안팎이 나갔다). 붙이면 한 응답에 함께 준다(스탯 권한 필요 — canViewStats):
+//   - identities[].players : getCachedLeagueStats({ teamId, quarterIds }) — /stats?teamId=&quarterIds= 와 **같은 캐시 항목**
+//     ⚠ 전체 /stats 응답을 화면에서 팀별로 나눌 수는 없다 — 선수 행은 기간 전체 합 한 줄이고(팀별로 안 갈림),
+//       teamId 필터는 이벤트를 그 팀 것만 세어 출전일·리바 점유 분모까지 그 팀 기준으로 다시 만든다.
+//   - identities[].regular : 그 정체성 분기들의 정규 명단(league_player_quarters.is_regular, 게스트·외부 제외)
+//   - identities[].leader_player_id : 팀 리더(league_team_quarter_leaders, 가장 늦은 분기 값)
+//   - unassigned_players : unassignedQuarterId 기간 /stats 행 중 어느 정체성에도 없는 선수(「비정규 선수」 칸)
+//   - games : 위 승패를 센 경기 집합(마감 정규전) — 승패 흐름 · 팀 평균의 분모
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewLeague } from '@/lib/auth/guard'
 import { computeTeamForm, computeGamesBehind, type FormGame, type TeamForm } from '@/lib/stats/standings'
 import { gameDateRange } from '@/lib/league/currentQuarter'
+import { canViewStats } from '@/lib/auth/guard'
+import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
+import { resolveTeamId } from '@/lib/league/teamScope'
+import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
+import type { PlayerStat } from '@/types/league'
 
 export interface TeamIdentity {
   key: string
@@ -46,7 +61,13 @@ export interface TeamIdentity {
   /** 특정 분기 조회일 때만 — 그 분기에 마감 경기가 없으면 null */
   form?: TeamForm | null
   games_behind?: number | null
+  /** withPlayers 일 때만 */
+  players?: PlayerStat[]
+  regular?: RegularPlayer[]
+  leader_player_id?: string | null
 }
+
+export interface RegularPlayer { id: string; name: string; number: number | null; position: string | null; photo_url: string | null }
 
 export async function GET(
   req: Request,
@@ -59,6 +80,11 @@ export async function GET(
   }
   const sp = new URL(req.url).searchParams
   const quarterId = sp.get('quarterId')
+  const withPlayers = sp.get('withPlayers') === '1'
+  // 선수 기록은 스탯 권한(승인 회원 · 편집 권한자)만 — /stats 라우트와 같은 문
+  if (withPlayers && !(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
 
   const supabase = createClient()
 
@@ -242,5 +268,63 @@ export async function GET(
 
   void quarterMap  // 명시적 사용 (eslint)
 
-  return NextResponse.json({ identities })
+  if (!withPlayers) return NextResponse.json({ identities })
+
+  // ── withPlayers: 선수 기록 · 정규 명단 · 리더 · 비정규 · 경기 (한 응답) ──
+  const allQids = [...new Set(identities.flatMap(id => id.quarter_ids))]
+  const unassignedQid = (() => {
+    const v = sp.get('unassignedQuarterId') ?? (quarterId && quarterId !== 'all' ? quarterId : null)
+    return v && quarters.some(q => q.id === v) ? v : null
+  })()
+  const teamScopeId = await resolveTeamId(leagueId)
+  const [statsByIdentity, unassignedBase, membershipRes, playersRes, leadersRes, externalIds] = await Promise.all([
+    Promise.all(identities.map(id => getCachedLeagueStats(leagueId, { teamId: id.team_id, quarterIds: id.quarter_ids }).then(r => r.players).catch(() => [] as PlayerStat[]))),
+    unassignedQid ? getCachedLeagueStats(leagueId, { quarterId: unassignedQid }).then(r => r.players).catch(() => [] as PlayerStat[]) : Promise.resolve([] as PlayerStat[]),
+    allQids.length > 0
+      ? supabase.from('league_player_quarters').select('league_player_id, team_id, quarter_id, is_regular').in('quarter_id', allQids).eq('is_regular', true)
+      : Promise.resolve({ data: [] as Array<{ league_player_id: string; team_id: string | null; quarter_id: string; is_regular: boolean | null }> }),
+    // 선수는 팀 소유다(087) — league_id 로 찾으면 대회 묶음에서 0명
+    supabase.from('league_players').select('id, name, number, position, photo_url, is_guest').eq('team_id', teamScopeId),
+    allQids.length > 0
+      ? supabase.from('league_team_quarter_leaders').select('quarter_id, team_id, leader_player_id').in('quarter_id', allQids)
+      : Promise.resolve({ data: [] as Array<{ quarter_id: string; team_id: string; leader_player_id: string | null }> }),
+    fetchExternalPlayerIds(supabase, leagueId).catch(() => new Set<string>()),
+  ])
+
+  type PRow = { id: string; name: string; number: number | null; position: string | null; photo_url: string | null; is_guest: boolean | null }
+  const playerById = new Map(((playersRes.data ?? []) as PRow[]).map(p => [p.id, p]))
+  // 게스트는 정규로 등록돼 있어도 뺀다(이름 규칙 포함 — 종전 화면과 같은 판정)
+  const isGuestRow = (p: PRow) => Boolean(p.is_guest) || p.name.includes('게스트')
+  const memberships = (membershipRes.data ?? []) as Array<{ league_player_id: string; team_id: string | null; quarter_id: string }>
+  const leaderRows = (leadersRes.data ?? []) as Array<{ quarter_id: string; team_id: string; leader_player_id: string | null }>
+  const qOrder = new Map(quarters.map((q, i) => [q.id, i]))
+
+  const withData = identities.map((id, i) => {
+    const qset = new Set(id.quarter_ids)
+    const seen = new Set<string>()
+    const regular: RegularPlayer[] = []
+    for (const m of memberships) {
+      if (m.team_id !== id.team_id || !qset.has(m.quarter_id) || seen.has(m.league_player_id)) continue
+      const p = playerById.get(m.league_player_id)
+      if (!p || isGuestRow(p) || externalIds.has(p.id)) continue
+      seen.add(p.id)
+      regular.push({ id: p.id, name: p.name, number: p.number, position: p.position, photo_url: p.photo_url })
+    }
+    const leader = leaderRows
+      .filter(l => l.team_id === id.team_id && qset.has(l.quarter_id) && l.leader_player_id)
+      .sort((a, b) => (qOrder.get(a.quarter_id) ?? 0) - (qOrder.get(b.quarter_id) ?? 0))
+      .at(-1)?.leader_player_id ?? null
+    return { ...id, players: statsByIdentity[i], regular, leader_player_id: leader }
+  })
+
+  const inIdentity = new Set(statsByIdentity.flat().map(p => p.player_id))
+  const unassigned_players = unassignedBase.filter(p => !inIdentity.has(p.player_id))
+
+  const outGames = targetGames.map(g => ({
+    id: g.id, date: g.date, slot_num: g.slot_num, quarter_id: g.quarter_id,
+    home_team_id: g.home_team_id, away_team_id: g.away_team_id,
+    home_score: g.home_score, away_score: g.away_score, is_complete: true, is_exhibition: false,
+  }))
+
+  return NextResponse.json({ identities: withData, unassigned_players, games: outGames })
 }

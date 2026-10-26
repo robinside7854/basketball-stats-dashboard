@@ -20,8 +20,17 @@
 //   (2026-10-14) `immersiveOnly` — 박스스코어 「하이라이트 보기」처럼 화면에 재생기를 두지 않고
 //     버튼 한 번으로 바로 몰입 모드를 여는 곳 전용. 평소엔 화면 밖에 숨어(inert) 영상만 미리 준비하고,
 //     열리기 전에는 재생·키보드 조작을 하지 않는다. 안 넘기면 종전 그대로(파란날개 포함).
+//   (2026-10-26) 포스터 먼저(facade) — 몰입 전용이 아닌 재생기는 처음에 YouTube 를 부르지 않고
+//     썸네일 + ▶ 만 그린다. 누르는 순간(사용자 제스처) 재생기를 만들어 그 클립 위치에서 튼다.
+//     iPhone Safari 는 제스처 없는 playVideo() 를 무시해 화면이 열리자마자 만든 재생기가 검은 상자로
+//     남았다. 한 번 살아난 뒤에는 클립을 바꾸면 종전처럼 바로 시크·재생한다. 파란날개·팝업도 같다.
+//     iframe_api 는 포스터에 손가락·마우스가 닿는 순간 미리 받아 둔다(누른 뒤 대기 줄이기).
+//   (2026-10-26) 클립 끝에서 한 번 멈춤 — 일반 화면에서 clip_end 를 「자연스럽게 지나는 순간」 한 번만
+//     pauseVideo() 하고 「다음 클립 ▶」 를 띄운다. 7/16 에 걷어낸 감시는 끝 지점 뒤에서 500ms 마다
+//     계속 멈춰서 다시 재생이 안 되던 것이었다 — 여기서는 클립당 한 번뿐이라 ▶ 를 누르면 그대로 이어진다.
+//     자동으로 다음 클립으로 넘어가지는 않는다(7/15 결정 유지). ±5초 등으로 끝 지점을 건너뛰면 멈추지 않는다.
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
-import { Play, Pause, SkipBack, SkipForward, HeartCrack } from 'lucide-react'
+import { Play, SkipBack, SkipForward, HeartCrack, RotateCcw } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
 import PlayerName from '@/components/league/ui/PlayerName'
 import { extractYouTubeId, formatTimestamp, seekBy } from '@/lib/youtube/utils'
@@ -76,6 +85,17 @@ function canElementFullscreen(el: HTMLElement): boolean {
   return !!enabled && (typeof el.requestFullscreen === 'function' || typeof (el as FsEl).webkitRequestFullscreen === 'function')
 }
 const ROTATE_HINT_KEY = 'highlights:immersiveRotateHint'
+const YT_API_SRC = 'https://www.youtube.com/iframe_api'
+
+/** iframe_api 스크립트를 한 번만 붙인다 — 포스터에 손이 닿을 때 미리 부르고, 재생기를 만들 때 다시 불러도 안전 */
+function preloadYouTubeApi() {
+  if (typeof document === 'undefined') return
+  if (window.YT && window.YT.Player) return
+  if (document.querySelector(`script[src="${YT_API_SRC}"]`)) return
+  const tag = document.createElement('script')
+  tag.src = YT_API_SRC
+  document.head.appendChild(tag)
+}
 
 export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange, immersiveOnly = false }: Props) {
   // 플레이어 콜백은 1회 생성이라 ref 로 읽는다 (마운트 동안 바뀌지 않는 값이지만 규칙을 맞춘다)
@@ -113,6 +133,24 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   // 몰입 모드에서 클립 끝 → 다음 클립 (플레이어 콜백은 1회 생성이라 ref 로 최신 동작을 잡는다)
   const advanceRef = useRef<() => void>(() => {})
 
+  // ── 포스터(facade) ── 몰입 전용 재생기는 처음부터 만든다(화면 밖에서 미리 준비해야 하므로).
+  const [activated, setActivated] = useState(immersiveOnly)
+  const activatedRef = useRef(immersiveOnly)
+  // 포스터의 ▶ 로 만든 재생기 — playerVars.autoplay 를 켠다(누른 직후라 자동재생이 허용된다)
+  const autoplayOnCreateRef = useRef(false)
+  const activate = useCallback(() => {
+    if (activatedRef.current) return
+    activatedRef.current = true
+    autoplayOnCreateRef.current = true
+    preloadYouTubeApi()
+    setActivated(true)
+  }, [])
+
+  // ── 일반 화면 클립 끝 한 번 멈춤 ──
+  const [endedAtClip, setEndedAtClip] = useState(false)
+  const endHandledRef = useRef(false)          // 이 클립에서 이미 한 번 멈췄다 — 다시 멈추지 않는다
+  const lastTimeRef = useRef<number | null>(null)
+
   // pendingStartRef setter with auto-clear (프리즈 방지)
   const setPendingStart = useCallback((v: number | null) => {
     pendingStartRef.current = v
@@ -145,8 +183,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
 
   const clip = clips[currentIdx] ?? null
 
-  // 플레이어 인스턴스 생성 (1회)
+  // 플레이어 인스턴스 생성 (1회 — 포스터면 ▶ 를 누른 뒤)
   useEffect(() => {
+    if (!activated) return
     if (!containerRef.current) return
     if (!clip) return
 
@@ -163,6 +202,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           modestbranding: 1,
           playsinline: 1,
           fs: 1,   // YouTube 자체 전체화면 버튼 (기본값과 같음 — iPhone 몰입 모드의 대안 경로라 명시)
+          // 포스터 ▶ 로 만든 재생기만 자동 시작 — 몰입 전용(화면 밖 준비)은 절대 켜지 않는다
+          ...(autoplayOnCreateRef.current ? { autoplay: 1 } : {}),
         },
         events: {
           onReady: (e) => {
@@ -231,13 +272,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
 
     if (window.YT && window.YT.Player) initPlayer()
     else {
-      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]')
-      if (!existing) {
-        const tag = document.createElement('script')
-        tag.src = 'https://www.youtube.com/iframe_api'
-        document.head.appendChild(tag)
-      }
+      // 콜백을 먼저 걸고 스크립트를 붙인다(미리 받아 둔 스크립트가 이미 돌고 있어도 준비 완료 때 불린다)
       window.onYouTubeIframeAPIReady = initPlayer
+      preloadYouTubeApi()
     }
 
     return () => {
@@ -250,7 +287,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       if (containerRef.current) containerRef.current.innerHTML = ''
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activated])
 
   // 클립 변경 → loadVideoById 또는 seekTo
   // ⚠ 플레이어 미준비 상태면 아무 것도 안 함 (검은 화면 원인)
@@ -284,6 +321,44 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   //   자동재생도 없어졌으니 클립 종료 후 계속 재생되도록 방치.
   //   다음 클립은 SkipForward 버튼 or 플레이리스트 클릭으로만 이동.
   //   clip_end 는 여전히 참조용 (히스토리 · 하이라이트 릴 구간 표시) 이지만 재생 제어 로직 없음.
+  // (2026-10-26) 위 버그를 되살리지 않는 범위에서 「한 번만」 멈춘다:
+  //   · 직전 표본 < clip_end ≤ 지금 이고 넘어선 폭이 2초 안 = 재생으로 자연스럽게 지남 → pause 1회
+  //   · 멈춘 뒤엔 endHandledRef 로 이 클립 감시를 끈다 — ▶ 를 누르면 경기 영상이 그대로 이어진다
+  //   · ±5초 · 탐색바로 끝 지점을 건너뛰면(폭 > 2초) 멈추지 않는다
+  //   · 몰입 모드는 자기 감시(다음 클립으로 넘김)가 따로 있어 여기서는 쉰다
+  useEffect(() => {
+    endHandledRef.current = false
+    lastTimeRef.current = null
+    setEndedAtClip(false)
+  }, [currentIdx, clips])
+
+  useEffect(() => {
+    if (!activated || immersiveOnly || immersive) return
+    const tick = setInterval(() => {
+      const p = playerRef.current
+      if (!p || !readyRef.current) return
+      if (endHandledRef.current) return
+      if (pendingStartRef.current !== null || Date.now() < seekGraceUntilRef.current) { lastTimeRef.current = null; return }
+      const c = clipsRef.current[currentIdxRef.current]
+      if (!c) return
+      try {
+        if (p.getPlayerState() !== 1) { lastTimeRef.current = null; return }
+        const t = p.getCurrentTime()
+        if (typeof t !== 'number') return
+        const prev = lastTimeRef.current
+        lastTimeRef.current = t
+        if (prev != null && prev < c.clip_end && t >= c.clip_end && t - c.clip_end < 2) {
+          endHandledRef.current = true
+          p.pauseVideo()
+          setEndedAtClip(true)
+        }
+      } catch { /* ignore */ }
+    }, 400)
+    return () => clearInterval(tick)
+  }, [activated, immersiveOnly, immersive])
+
+  // 다시 재생되면 「다음 클립」 안내를 걷는다
+  useEffect(() => { if (playing) setEndedAtClip(false) }, [playing])
 
   // ── 몰입 모드 ────────────────────────────────────────────────
   // 클립이 바뀌면 「끝까지 봄」 해제
@@ -337,6 +412,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     setFinished(false)
     setControlsVisible(true)
     onImmersiveChangeRef.current?.(true)
+    // 포스터 상태에서 바로 전체화면을 눌렀다 — 재생기를 지금 만든다(준비되면 onReady 가 지금 클립을 튼다.
+    //   폰이 자동 시작을 막으면 멈춘 채로 조작부가 떠 있어 ▶ 한 번이면 된다)
+    if (!activatedRef.current) activate()
 
     // ① 요소 전체화면 — 제스처 안에서 동기로 요청해야 한다 (Android Chrome · PC · iPad)
     if (canElementFullscreen(el)) {
@@ -370,7 +448,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         seekGraceUntilRef.current = Date.now() + 1200
       } catch { /* ignore */ }
     }
-  }, [])
+  }, [activate])
 
   useImperativeHandle(ref, () => ({ openImmersive }), [openImmersive])
 
@@ -427,6 +505,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const goPrev = () => { if (currentIdx > 0) onIndexChange(currentIdx - 1) }
   const goNext = () => { if (currentIdx + 1 < clips.length) onIndexChange(currentIdx + 1) }
   const togglePlay = () => {
+    if (!activatedRef.current) { activate(); return }   // 포스터 상태 — 재생기를 만들며 시작
     const player = playerRef.current
     if (!player) return
     try {
@@ -541,6 +620,64 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           : `${clip.player_name} — ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}${clip.assist_player_name ? `, ${clip.assist_player_name} 어시스트` : ''}, ${currentIdx + 1}/${clips.length}`}
       >
         <div ref={containerRef} className="w-full h-full" />
+        {!activated && clip.video_id && (
+          <button
+            type="button"
+            onClick={activate}
+            onPointerEnter={preloadYouTubeApi}
+            onPointerDown={preloadYouTubeApi}
+            onFocus={preloadYouTubeApi}
+            className="group absolute inset-0 z-[5] flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow)]"
+            aria-label={`재생 — ${captionOverride ? captionOverride.primary : `${clip.player_name} ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}`}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- YouTube 썸네일(외부 호스트) · 목록과 같은 주소라 캐시를 같이 쓴다 */}
+            <img
+              src={`https://i.ytimg.com/vi/${clip.video_id}/mqdefault.jpg`}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <span className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.28)' }} aria-hidden />
+            <span
+              className="relative inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '9999px', boxShadow: 'var(--mm-shadow-lg)' }}
+              aria-hidden
+            >
+              <Play size={30} fill="currentColor" className="ml-1" />
+            </span>
+          </button>
+        )}
+        {activated && !immersive && endedAtClip && (
+          <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-2 p-3 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0))' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setEndedAtClip(false)
+                endHandledRef.current = false
+                lastTimeRef.current = null
+                try {
+                  playerRef.current?.seekTo(Math.floor(clip.clip_start), true)
+                  playerRef.current?.playVideo()
+                  seekGraceUntilRef.current = Date.now() + 1200
+                } catch { /* ignore */ }
+              }}
+              className="mm-press pointer-events-auto inline-flex items-center gap-1.5 min-h-11 px-3 text-sm font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 'var(--mm-radius-ctl)' }}
+            >
+              <RotateCcw size={16} aria-hidden /> 다시 보기
+            </button>
+            {currentIdx + 1 < clips.length && (
+              <button
+                type="button"
+                onClick={() => { setEndedAtClip(false); onIndexChange(currentIdx + 1) }}
+                className="mm-press pointer-events-auto inline-flex items-center gap-1.5 min-h-11 px-4 text-sm font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-ctl)', boxShadow: 'var(--mm-shadow-sm)' }}
+              >
+                다음 클립 <Play size={16} fill="currentColor" aria-hidden />
+              </button>
+            )}
+          </div>
+        )}
         {/* 스코어보드 오버레이 (option A — 상단 · 항상 표시 · pointer-events-none 로 클릭 통과) */}
         {!hideScoreboard && hasScore && (clip.home_team_name || clip.away_team_name) && !(immersive && controlsVisible) && (
           <div

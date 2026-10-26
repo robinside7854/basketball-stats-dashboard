@@ -25,12 +25,12 @@ export type CareerStatKey =
   | 'fg3m' | 'fg2m' | 'fgm' | 'ftm' | 'and_one' | 'gp'
 
 export const CAREER_STATS: readonly { key: CareerStatKey; label: string; unit: string }[] = [
-  { key: 'gp',      label: '출전일',   unit: '일' },
+  // 첫 부문 = 기록실 맨 위 큰 카드. 「출전일」이 아니라 「득점」을 먼저 보인다(2026-10-26 점검).
   { key: 'pts',     label: '득점',     unit: '점' },
   { key: 'reb',     label: '리바운드',  unit: '개' },
   { key: 'ast',     label: '어시스트',  unit: '개' },
   { key: 'stl',     label: '스틸',     unit: '개' },
-  { key: 'blk',     label: '블락',     unit: '개' },
+  { key: 'blk',     label: '블록',     unit: '개' },
   { key: 'fg3m',    label: '3점 성공',  unit: '개' },
   { key: 'fg2m',    label: '2점 성공',  unit: '개' },
   { key: 'fgm',     label: '야투 성공', unit: '개' },
@@ -38,6 +38,7 @@ export const CAREER_STATS: readonly { key: CareerStatKey; label: string; unit: s
   { key: 'oreb',    label: '공격 리바', unit: '개' },
   { key: 'dreb',    label: '수비 리바', unit: '개' },
   { key: 'and_one', label: '앤드원',   unit: '개' },
+  { key: 'gp',      label: '출전일',   unit: '일' },
 ]
 
 /** 통산 보드 기본 인원 */

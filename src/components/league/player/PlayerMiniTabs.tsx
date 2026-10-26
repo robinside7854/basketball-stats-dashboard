@@ -1,18 +1,17 @@
 'use client'
 
 // 선수 카드 미니 탭 — 세로 스크롤이 과도하게 길어지는 문제 해결용 (2026-08-03)
-// 모바일은 3열 격자(잘림 없이 전부 보임), 640px 이상은 한 줄.
+// (2026-10-26) 6탭 → 4탭: 요약(지난 경기일·하루 평균·요즘 흐름) / 기록(일별·월별·분기별) /
+//   플레이스타일(다이나믹 듀오 포함) / 커리어 하이. 폰에서도 한 줄(4칸)로 들어간다.
 // sticky 로 붙여 스크롤 중에도 탭 전환이 가능하도록 한다.
 
-export type PlayerTabKey = 'season' | 'quarters' | 'duo' | 'shot' | 'career' | 'trend'
+export type PlayerTabKey = 'summary' | 'records' | 'style' | 'career'
 
 export const PLAYER_TABS: { key: PlayerTabKey; label: string }[] = [
-  { key: 'season', label: '시즌 스탯' },
-  { key: 'quarters', label: '분기·월별' },
-  { key: 'duo',    label: '다이나믹 듀오' },
-  { key: 'shot',   label: '플레이스타일' },
-  { key: 'career', label: '커리어 하이' },
-  { key: 'trend',  label: '최근 트렌드' },
+  { key: 'summary', label: '요약' },
+  { key: 'records', label: '기록' },
+  { key: 'style',   label: '플레이스타일' },
+  { key: 'career',  label: '커리어 하이' },
 ]
 
 export default function PlayerMiniTabs({
@@ -42,7 +41,7 @@ export default function PlayerMiniTabs({
       role="tablist"
       aria-label="선수 카드 섹션"
     >
-      <div className={`grid gap-1.5 ${tabs.length <= 3 ? 'grid-cols-3' : tabs.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : tabs.length === 5 ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-6'}`}>
+      <div className={`grid gap-1.5 ${tabs.length <= 2 ? 'grid-cols-2' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
         {tabs.map(t => {
           const isActive = t.key === active
           return (

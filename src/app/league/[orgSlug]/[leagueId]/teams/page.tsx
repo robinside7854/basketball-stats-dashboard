@@ -16,7 +16,8 @@ import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import RosterEditor from './_components/RosterEditor'
 import type { Team } from './_types'
 import { pickTeamLeader } from './_lib/teamLeaders'
-import { BasketballLoader } from '@/components/league/BasketballIcons'
+import TeamsSkeleton from '@/components/league/teams/TeamsSkeleton'
+import { isPctStatKey, meetsAttemptMin, attemptRuleLabel } from '@/lib/stats/eligibility'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
@@ -50,108 +51,125 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
 }
 import StatHeader from '@/components/league/StatHeader'
 import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
-import type { PlayerStat, Leader } from '@/types/league'
+import type { PlayerStat } from '@/types/league'
 
-type Game = {
-  id: string
-  home_team_id: string | null
-  away_team_id: string | null
-  home_score: number
-  away_score: number
-  is_complete: boolean
-  home_team?: { id: string; name: string; color: string } | null
-  away_team?: { id: string; name: string; color: string } | null
-}
-
-type BasicKey =
-  | 'gp'|'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'
-  | 'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'
-  | 'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'
-  | 'fgm'|'fg3m'|'ftm'
-type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'a1_total'|'orb_pct'|'drb_pct'|'trb_pct'
-type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'
 
-// 2026-10-25 운영진: 「성공 개수와 성공률은 한 칸으로」 — 칩·열이 너무 많았다.
-//   · 누적: FG·3P·FT 는 성공률 한 칸(아래 줄에 성공/시도), 공격·수비 리바는 리바 칸 아래 줄로.
-//   · 하루 평균: 성공률(FG%·3P%·FT%·eFG%)은 「Shooting」 보기에만 둔다(겹쳤다). 공리·수리는 리바 아래 줄.
-const AVG_COLS: { key: BasicKey; label: string }[] = [
-  { key: 'gp',      label: 'R'    },
-  { key: 'ppg',     label: '득점'   },
-  { key: 'rpg',     label: '리바'   },
-  { key: 'apg',     label: '어시'   },
-  { key: 'spg',     label: '스틸'   },
-  { key: 'bpg',     label: '블락'   },
-  { key: 'topg',    label: '턴오버' },
+// 열 이름은 스탯 탭과 같은 한글 한 벌(2026-10-26) — term 은 용어 풀이(glossary) 키라 영어 그대로 둔다.
+// 2026-10-25 운영진: 「성공 개수와 성공률은 한 칸으로」 — 누적의 야투·3점·자유투는 성공률 한 칸(아래 줄 성공/시도),
+//   공격·수비 리바는 리바 칸 아래 줄. 하루 평균의 성공률은 「슈팅」 보기에만 둔다.
+// 2026-08-15: 셀 아래 컬러 막대는 뺐다(뜻이 다른 지표가 같은 길이로 비교돼 보인다) — 숫자만.
+type Col = { key: string; label: string; term: string; desc?: string }
+const AVG_COLS: Col[] = [
+  { key: 'gp',   label: '출전',   term: 'R' },
+  { key: 'ppg',  label: '득점',   term: '득점' },
+  { key: 'rpg',  label: '리바',   term: '리바' },
+  { key: 'apg',  label: '어시',   term: '어시' },
+  { key: 'spg',  label: '스틸',   term: '스틸' },
+  { key: 'bpg',  label: '블록',   term: '블록' },
+  { key: 'topg', label: '턴오버', term: '턴오버' },
 ]
-const TOTAL_COLS: { key: BasicKey; label: string }[] = [
-  { key: 'gp',      label: 'R'    },
-  { key: 'pts',     label: 'PTS'  },
-  { key: 'reb',     label: 'REB'  },
-  { key: 'ast',     label: 'AST'  },
-  { key: 'stl',     label: 'STL'  },
-  { key: 'blk',     label: 'BLK'  },
-  { key: 'tov',     label: 'TOV'  },
-  { key: 'fg_pct',  label: 'FG'   },
-  { key: 'fg3_pct', label: '3P'   },
-  { key: 'ft_pct',  label: 'FT'   },
+const TOTAL_COLS: Col[] = [
+  { key: 'gp',      label: '출전',     term: 'R' },
+  { key: 'pts',     label: '득점',     term: 'PTS' },
+  { key: 'reb',     label: '리바',     term: 'REB' },
+  { key: 'ast',     label: '어시',     term: 'AST' },
+  { key: 'stl',     label: '스틸',     term: 'STL' },
+  { key: 'blk',     label: '블록',     term: 'BLK' },
+  { key: 'tov',     label: '턴오버',   term: 'TOV' },
+  { key: 'fg_pct',  label: '야투율',   term: 'FG%' },
+  { key: 'fg3_pct', label: '3점률',    term: '3P%' },
+  { key: 'ft_pct',  label: '자유투율', term: 'FT%' },
 ]
-const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
-  { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
-  { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
-  { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
-  { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
-  // DRB% 는 100 − ORB% 라 뺐다(2026-10-25 — 같은 정보가 두 칸)
-  { key: 'orb_pct',   label: 'ORB%',  desc: '본인 리바운드 중 공격 리바운드 비중 · OREB/REB (나머지가 수비 리바)' },
-  { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
-]
-// 2026-08-15: 셀 하단 컬러 막대(PercentBar) 삭제. 11개 컬럼이 저마다 0-100 척도의 막대를 깔면
-// 서로 다른 뜻의 지표가 같은 길이로 비교되는 것처럼 보인다(예: FT% 50% 와 MD 비중 50% 는
-// 길이가 같지만 아무 관계도 없다). 숫자만 남긴다 — 리그 스탯 탭도 같은 이유로 이미 뺐다(07-19).
-const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string }[] = [
-  { key: 'fg_pct',      label: 'FG%',   desc: '전체 야투 성공률 · FGM/FGA' },
-  { key: 'fg2_pct',     label: '2P%',   desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
-  { key: 'fg3_pct',     label: '3P%',   desc: '3점 야투 성공률 · 3PM/3PA' },
-  { key: 'efg_pct',     label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
-  { key: 'ft_pct',      label: 'FT%',   desc: '자유투 성공률 · FTM/FTA' },
-  { key: 'ts_pct',      label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
-  { key: 'ft_rate',     label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
+const SHOOTING_COLS: Col[] = [
+  { key: 'fg_pct',      label: '야투율',     term: 'FG%',  desc: '전체 야투 성공률' },
+  { key: 'fg2_pct',     label: '2점률',      term: '2P%',  desc: '2점슛 성공률' },
+  { key: 'fg3_pct',     label: '3점률',      term: '3P%',  desc: '3점슛 성공률' },
+  { key: 'efg_pct',     label: '유효야투',   term: 'eFG%', desc: '3점을 1.5개로 쳐 준 야투율' },
+  { key: 'ft_pct',      label: '자유투율',   term: 'FT%',  desc: '자유투 성공률' },
+  { key: 'ts_pct',      label: '진실야투',   term: 'TS%',  desc: '자유투까지 합친 슛 효율' },
+  { key: 'ft_rate',     label: '자유투 유도', term: 'FTr', desc: '야투 시도 대비 자유투 시도' },
   // 골밑·레이업·미드·3점 비중 4칸 → 「슛 분포」 한 칸(정렬은 3점 비중, 아래 줄에 나머지 셋) — 2026-10-25
-  { key: 'three_share', label: '슛 분포', desc: '야투 시도 비중 · 3점 / 골밑 · 레이업 · 미드 (정렬은 3점 비중)' },
+  { key: 'three_share', label: '슛 분포',    term: '3P share', desc: '야투 시도 비중 · 3점 / 골밑 · 레이업 · 미드 (정렬은 3점 비중)' },
+]
+const ADV_COLS: Col[] = [
+  { key: 'at_ratio', label: '어시/턴오버', term: 'A/T',  desc: '턴오버 하나당 어시스트' },
+  { key: 'ast_pct',  label: '어시 비중',   term: 'AST%', desc: '공격 기회 중 어시스트 비중' },
+  { key: 'tov_pct',  label: '턴오버 비중', term: 'TOV%', desc: '공격 기회 중 턴오버 비중' },
+  { key: 'a1_total', label: '앤드원',      term: 'A1',   desc: '성공한 앤드원 횟수 (누적)' },
+  // 수비 리바 비중은 100 − 공격 리바 비중이라 뺐다(2026-10-25 — 같은 정보가 두 칸)
+  { key: 'orb_pct',  label: '공리 비중',   term: 'ORB%', desc: '내 리바운드 중 공격 리바운드 비중' },
+  { key: 'trb_pct',  label: '리바 비중',   term: 'TRB%', desc: '내가 뛴 경기의 팀 리바운드 중 내 몫' },
 ]
 
-const BASIC_PCT_KEYS = new Set<BasicKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
-const BASIC_INT_KEYS = new Set<BasicKey>(['gp','pts','reb','oreb','dreb','ast','stl','blk','tov','fgm','fg3m','ftm'])
+const COLS_OF = (mode: StatMode, viewMode: 'avg'|'total'): Col[] =>
+  mode === 'shooting' ? SHOOTING_COLS : mode === 'advanced' ? ADV_COLS : viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
+const DEFAULT_SORT = (mode: StatMode, viewMode: 'avg'|'total') =>
+  // 슈팅 기본 정렬은 스탯 탭과 같은 진실야투(ts_pct)
+  mode === 'shooting' ? 'ts_pct' : mode === 'advanced' ? 'at_ratio' : viewMode === 'avg' ? 'ppg' : 'pts'
 
-// 기본 색상 (셀) — mm-* 팔레트에 맞춰 라이트/다크 자동 대응
-// 리뉴얼 1단계(2026-10-12): 열마다 다른 무지개색을 걷고 의미색만 남겼다 —
-// 실책=negative · 공격/수비 리바운드=--mm-or/--mm-dr · 3점 계열=yellow-strong · 나머지는 잉크 단계
-const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
+const INT_KEYS = new Set(['gp','pts','reb','ast','stl','blk','tov','a1_total'])
+const PCT_KEYS = new Set(['fg_pct','fg2_pct','fg3_pct','efg_pct','ft_pct','ts_pct','ft_rate','ast_pct','tov_pct','orb_pct','trb_pct'])
+
+// 리뉴얼 1단계(2026-10-12): 의미색만 — 턴오버=negative · 공격 리바=--mm-or · 3점 계열=yellow-strong · 나머지 잉크 단계
+const CELL_COLOR: Record<string, string> = {
   gp: 'text-[color:var(--mm-muted)]',
   ppg: 'font-black text-[color:var(--mm-ink)]', pts: 'font-black text-[color:var(--mm-ink)]',
-  rpg: 'text-[color:var(--mm-ink-soft)]', reb: 'text-[color:var(--mm-ink-soft)]',
-  orp: 'text-[color:var(--mm-muted)]', oreb: 'text-[color:var(--mm-muted)]',
-  drp: 'text-[color:var(--mm-muted)]', dreb: 'text-[color:var(--mm-muted)]',
-  apg: 'text-[color:var(--mm-ink-soft)]', ast: 'text-[color:var(--mm-ink-soft)]',
-  spg: 'text-[color:var(--mm-ink-soft)]', stl: 'text-[color:var(--mm-ink-soft)]',
-  bpg: 'text-[color:var(--mm-ink-soft)]', blk: 'text-[color:var(--mm-ink-soft)]',
-  topg: 'text-[color:var(--mm-negative)]', tov: 'text-[color:var(--mm-negative)]',
-  fg_pct: 'text-[color:var(--mm-muted)]', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
-  ft_pct: 'text-[color:var(--mm-ink-soft)]', efg_pct: 'text-[color:var(--mm-ink-soft)]',
-  fgm: 'text-[color:var(--mm-muted)]', fg3m: 'text-[color:var(--mm-muted)]', ftm: 'text-[color:var(--mm-muted)]',
+  topg: 'text-[color:var(--mm-negative)]', tov: 'text-[color:var(--mm-negative)]', tov_pct: 'text-[color:var(--mm-negative)]',
+  fg_pct: 'text-[color:var(--mm-muted)]', fg3_pct: 'text-[color:var(--mm-yellow-strong)]', three_share: 'text-[color:var(--mm-yellow-strong)]',
+  orb_pct: 'text-[color:var(--mm-or)]',
 }
-const ADV_COLOR: Partial<Record<AdvKey, string>> = {
-  at_ratio: 'text-[color:var(--mm-ink-soft)]',
-  ast_pct: 'text-[color:var(--mm-ink-soft)]', tov_pct: 'text-[color:var(--mm-negative)]',
-  a1_total: 'text-[color:var(--mm-ink-soft)]',
-  orb_pct: 'text-[color:var(--mm-or)]', drb_pct: 'text-[color:var(--mm-dr)]', trb_pct: 'text-[color:var(--mm-ink-soft)]',
+
+const pct = (n: number, d: number) => (d > 0 ? +(n / d * 100).toFixed(1) : null)
+
+/** 칸 값 — 시도가 0이라 뜻이 없는 값은 null(화면에 「—」, 정렬은 늘 맨 뒤) */
+function metric(p: PlayerStat, key: string): number | null {
+  const poss = p.fga + 0.44 * p.fta + p.tov
+  switch (key) {
+    case 'fg_pct':  return p.fga > 0 ? p.fg_pct : null
+    case 'fg2_pct': return (p.fg2a ?? 0) > 0 ? p.fg2_pct : null
+    case 'fg3_pct': return p.fg3a > 0 ? p.fg3_pct : null
+    case 'ft_pct':  return p.fta > 0 ? p.ft_pct : null
+    case 'efg_pct': return p.fga > 0 ? p.efg_pct : null
+    case 'ts_pct':  return pct(p.pts, 2 * (p.fga + 0.44 * p.fta))
+    case 'ft_rate': return pct(p.fta, p.fga)
+    case 'three_share': return pct(p.fg3a, p.fga)
+    // 턴오버 0 이면 비율이 정의되지 않는다 — 예전엔 ∞ 로 1위에 앉혔다
+    case 'at_ratio': return p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : null
+    case 'ast_pct':  return pct(p.ast, poss + p.ast)
+    case 'tov_pct':  return pct(p.tov, poss)
+    case 'a1_total': return p.and_one ?? 0
+    case 'orb_pct':  return pct(p.oreb, p.reb)
+    case 'trb_pct':  return pct(p.reb, p.team_reb_in_games ?? 0)
+    default: return ((p as unknown as Record<string, number>)[key] ?? 0)
+  }
 }
-const SHOOT_COLOR: Partial<Record<ShootingKey, string>> = {
-  fg_pct: 'text-[color:var(--mm-ink-soft)]', fg2_pct: 'text-[color:var(--mm-ink-soft)]', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
-  efg_pct: 'text-[color:var(--mm-ink-soft)]', ft_pct: 'text-[color:var(--mm-ink-soft)]', ts_pct: 'text-[color:var(--mm-ink-soft)]',
-  ft_rate: 'text-[color:var(--mm-ink-soft)]',
-  ds_pct: 'text-[color:var(--mm-ink-soft)]', lu_pct: 'text-[color:var(--mm-ink-soft)]', md_pct: 'text-[color:var(--mm-yellow-strong)]', three_share: 'text-[color:var(--mm-yellow-strong)]',
+
+function fmt(key: string, v: number | null): string {
+  if (v == null) return '—'
+  if (key === 'three_share') return `3점 ${v.toFixed(0)}%`
+  if (key === 'at_ratio') return v.toFixed(2)
+  if (PCT_KEYS.has(key)) return `${v.toFixed(1)}%`
+  if (INT_KEYS.has(key)) return String(v)
+  return v.toFixed(1)
 }
+
+/** 한 칸에 합친 값의 아래 줄 — 성공/시도 · 공격/수비 리바 · 슛 분포 나머지 (2026-10-25) */
+function subText(p: PlayerStat, key: string): string | null {
+  if (key === 'fg_pct')  return `${p.fgm}/${p.fga}`
+  if (key === 'fg3_pct') return `${p.fg3m}/${p.fg3a}`
+  if (key === 'ft_pct')  return `${p.ftm}/${p.fta}`
+  if (key === 'reb') return `공${p.oreb}·수${p.dreb}`
+  if (key === 'rpg') return `공${(p.orp ?? 0).toFixed(1)}·수${(p.drp ?? 0).toFixed(1)}`
+  if (key === 'three_share') {
+    const s = (a: number | undefined) => (p.fga > 0 ? ((a ?? 0) / p.fga * 100).toFixed(0) : '0')
+    return `골${s(p.ds_a)}·레${s(p.lu_a)}·미${s(p.md_a)}`
+  }
+  return null
+}
+
+/** 성공률 순위 자격 — 정본 meetsAttemptMin(lib/stats/eligibility.ts). 성공률 칸이 아니면 늘 true */
+const qualifies = (p: PlayerStat, key: string) => !isPctStatKey(key) || meetsAttemptMin(p, key)
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
   if (!active) return <ChevronsUpDown size={14} className="inline ml-0.5 opacity-30" />
@@ -160,495 +178,179 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
     : <ChevronUp   size={14} className="inline ml-0.5" style={{ color: 'var(--mm-ink)' }} />
 }
 
-function calcAdv(p: PlayerStat): Record<AdvKey, number> {
-  const poss = p.fga + 0.44 * p.fta + p.tov
-  const a1 = p.and_one ?? 0
-  const teamReb = p.team_reb_in_games ?? 0
-  return {
-    at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
-    ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
-    tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
-    a1_total:  a1,
-    orb_pct:   p.reb > 0 ? +(p.oreb / p.reb * 100).toFixed(1) : 0,
-    drb_pct:   p.reb > 0 ? +(p.dreb / p.reb * 100).toFixed(1) : 0,
-    trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
-  }
-}
-
-function calcShoot(p: PlayerStat): Record<ShootingKey, number> {
-  return {
-    fg_pct:      p.fg_pct ?? 0,
-    fg2_pct:     p.fg2_pct ?? 0,
-    fg3_pct:     p.fg3_pct ?? 0,
-    efg_pct:     p.efg_pct ?? 0,
-    ft_pct:      p.ft_pct ?? 0,
-    ts_pct:      (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
-    ft_rate:     p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
-    ds_pct:      p.fga > 0 ? +((p.ds_a ?? 0) / p.fga * 100).toFixed(1) : 0,
-    lu_pct:      p.fga > 0 ? +((p.lu_a ?? 0) / p.fga * 100).toFixed(1) : 0,
-    md_pct:      p.fga > 0 ? +((p.md_a ?? 0) / p.fga * 100).toFixed(1) : 0,
-    three_share: p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
-  }
-}
-
 function StatsTable({
   players, leaderId, color, viewMode, statMode,
 }: {
   players: PlayerStat[]
-  leagueId: string
   leaderId?: string | null
   color?: string
   viewMode: 'avg'|'total'
   statMode: StatMode
 }) {
-  const defaultBasicSort: BasicKey = viewMode === 'avg' ? 'ppg' : 'pts'
-  const [basicSortKey, setBasicSortKey] = useState<BasicKey>(defaultBasicSort)
-  const [basicSortDir, setBasicSortDir] = useState<'asc'|'desc'>('desc')
-  const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
-  const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
-  const [shootSortKey, setShootSortKey] = useState<ShootingKey>('efg_pct')
-  const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
+  const cols = COLS_OF(statMode, viewMode)
+  const [sort, setSort] = useState<{ key: string; dir: 'asc'|'desc' } | null>(null)
+  // 보기를 바꿔 고른 열이 사라지면 그 보기의 기본 정렬로(별도 effect 없이 파생값)
+  const sortKey = sort && cols.some(c => c.key === sort.key) ? sort.key : DEFAULT_SORT(statMode, viewMode)
+  const sortDir = sort && sort.key === sortKey ? sort.dir : 'desc'
+  const pctSort = isPctStatKey(sortKey)
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
-  // 카드는 이 화면에서 고른 분기로 연다(2026-10-15 — 분기 표를 보다 카드를 열면 전체 기간이 나오던 어긋남)
+  // 카드는 이 화면에서 고른 분기로 연다(2026-10-15)
   const { selectedQuarterId: cardQuarterId } = useLeagueQuarter()
-  const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId: cardQuarterId }) }
+  const openPlayer = (p: PlayerStat) => openPlayerCard?.({ playerId: p.player_id, playerName: p.name, quarterId: cardQuarterId })
 
-  // viewMode 변경 시 basicSortKey가 새 col 셋에 없으면 기본값으로
-  useEffect(() => {
-    const cols = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
-    if (!cols.some(c => c.key === basicSortKey)) {
-      setBasicSortKey(viewMode === 'avg' ? 'ppg' : 'pts')
-      setBasicSortDir('desc')
-    }
-  }, [viewMode, basicSortKey])
-
-  const basicSorted = useMemo(() => {
-    return [...players].sort((a, b) => {
-      const diff = ((a[basicSortKey] as number) ?? 0) - ((b[basicSortKey] as number) ?? 0)
-      return basicSortDir === 'desc' ? -diff : diff
+  const sorted = useMemo(() => {
+    const rows = players.map(p => ({ p, v: metric(p, sortKey), ok: qualifies(p, sortKey) }))
+    rows.sort((a, b) => {
+      // 성공률은 시도 기준을 채운 선수가 먼저 · 값이 없는(시도 0) 선수는 늘 맨 뒤
+      if (a.ok !== b.ok) return a.ok ? -1 : 1
+      if (a.v == null || b.v == null) return a.v == null ? (b.v == null ? 0 : 1) : -1
+      const diff = a.v - b.v
+      return sortDir === 'desc' ? -diff : diff
     })
-  }, [players, basicSortKey, basicSortDir])
+    // 순위 번호는 기준을 채운 선수에게만(미달은 「—」)
+    let n = 0
+    return rows.map(r => ({ ...r, rank: r.ok ? ++n : null }))
+  }, [players, sortKey, sortDir])
 
-  const advSorted = useMemo(() => {
-    return [...players]
-      .map(p => ({ p, adv: calcAdv(p) }))
-      .sort((a, b) => {
-        const diff = a.adv[advSortKey] - b.adv[advSortKey]
-        return advSortDir === 'desc' ? -diff : diff
-      })
-  }, [players, advSortKey, advSortDir])
-
-  const shootSorted = useMemo(() => {
-    return [...players]
-      .map(p => ({ p, sh: calcShoot(p) }))
-      .sort((a, b) => {
-        const diff = a.sh[shootSortKey] - b.sh[shootSortKey]
-        return shootSortDir === 'desc' ? -diff : diff
-      })
-  }, [players, shootSortKey, shootSortDir])
-
-  function handleBasicSort(key: BasicKey) {
-    if (key === basicSortKey) setBasicSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setBasicSortKey(key); setBasicSortDir('desc') }
-  }
-  function handleAdvSort(key: AdvKey) {
-    if (key === advSortKey) setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setAdvSortKey(key); setAdvSortDir('desc') }
-  }
-  function handleShootSort(key: ShootingKey) {
-    if (key === shootSortKey) setShootSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setShootSortKey(key); setShootSortDir('desc') }
+  function handleSort(key: string) {
+    setSort(key === sortKey ? { key, dir: sortDir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' })
   }
 
   if (players.length === 0) {
-    return <p className="text-xs py-4 text-center" style={{ color: 'var(--mm-muted)' }}>기록된 스탯이 없습니다</p>
+    return <p className="text-xs py-4 text-center" style={{ color: 'var(--mm-muted)' }}>아직 기록이 없어요</p>
   }
 
-  // Basic 셀 텍스트 변환
-  function basicVal(p: PlayerStat, key: BasicKey): string {
-    if (BASIC_INT_KEYS.has(key) && !BASIC_PCT_KEYS.has(key)) {
-      if (key === 'fgm')  return `${p.fgm}/${p.fga}`
-      if (key === 'fg3m') return `${p.fg3m}/${p.fg3a}`
-      if (key === 'ftm')  return `${p.ftm}/${p.fta}`
-      return String((p as unknown as Record<string, number>)[key] ?? 0)
-    }
-    if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct.toFixed(1)}%`  : '—'
-    if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct.toFixed(1)}%` : '—'
-    if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct.toFixed(1)}%`  : '—'
-    if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct.toFixed(1)}%` : '—'
-    // 평균 키
-    return ((p as unknown as Record<string, number>)[key] ?? 0).toFixed(1)
-  }
-
-  function advVal(adv: Record<AdvKey, number>, key: AdvKey): string {
-    if (key === 'at_ratio') {
-      return adv.at_ratio >= 99 ? '∞' : adv.at_ratio.toFixed(2)
-    }
-    if (key === 'a1_total') return String(adv.a1_total)
-    return `${adv[key].toFixed(1)}%`
-  }
-
-  function shootVal(sh: Record<ShootingKey, number>, key: ShootingKey): string {
-    if (key === 'three_share') return `3점 ${sh.three_share.toFixed(0)}%`
-    return `${sh[key].toFixed(1)}%`
-  }
-
-  // 한 칸에 합친 값의 아래 줄 — 성공/시도 · 공격/수비 리바 · 슛 분포 나머지 (2026-10-25)
-  function basicSub(p: PlayerStat, key: BasicKey): string | null {
-    if (key === 'fg_pct')  return `${p.fgm}/${p.fga}`
-    if (key === 'fg3_pct') return `${p.fg3m}/${p.fg3a}`
-    if (key === 'ft_pct')  return `${p.ftm}/${p.fta}`
-    if (key === 'reb') return `공${p.oreb}·수${p.dreb}`
-    if (key === 'rpg') return `공${(p.orp ?? 0).toFixed(1)}·수${(p.drp ?? 0).toFixed(1)}`
-    return null
-  }
-  function shootSub(p: PlayerStat, sh: Record<ShootingKey, number>, key: ShootingKey): string | null {
-    if (key === 'fg_pct')  return `${p.fgm}/${p.fga}`
-    if (key === 'fg3_pct') return `${p.fg3m}/${p.fg3a}`
-    if (key === 'ft_pct')  return `${p.ftm}/${p.fta}`
-    if (key === 'three_share') return `골${sh.ds_pct.toFixed(0)}·레${sh.lu_pct.toFixed(0)}·미${sh.md_pct.toFixed(0)}`
-    return null
-  }
   const Sub = ({ text }: { text: string | null }) =>
     text ? <span className="block text-xs font-normal tabular-nums" style={{ color: 'var(--mm-muted)' }}>{text}</span> : null
-
-  const basicCols = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
+  const sortCol = cols.find(c => c.key === sortKey) ?? cols[0]
 
   return (
     <>
-    {/* 모바일 정렬 칩 + 카드뷰 (md 미만) — 칩은 26px 로 눌러지지 않아 스탯 탭 정렬 칩과 같은 36px 로 맞췄다 */}
+    {pctSort && (
+      <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>{attemptRuleLabel(sortKey)} · 모자라면 「시도 부족」으로 뒤에 둬요</p>
+    )}
+    {/* 모바일 정렬 칩 + 카드뷰 (md 미만) — 칩은 스탯 탭 정렬 칩과 같은 36px, 가로 스크롤 없이 줄바꿈(2026-10-25) */}
     <div className="md:hidden">
-      {/* 가로 스크롤 없이 줄바꿈(2026-10-25) */}
       <div className="px-1 pb-2">
         <div className="flex flex-wrap gap-1.5">
-          {statMode === 'basic' ? (
-            basicCols.map(({ key, label }) => {
-              const active = basicSortKey === key
-              return (
-                <button key={key} onClick={() => handleBasicSort(key)}
-                  className="inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                  style={{
-                    background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
-                    color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
-                    border: '1px solid var(--mm-rule)',
-                  }}>
-                  {label}{active && (basicSortDir === 'desc' ? ' ↓' : ' ↑')}
-                </button>
-              )
-            })
-          ) : statMode === 'shooting' ? (
-            SHOOTING_COLS.map(({ key, label }) => {
-              const active = shootSortKey === key
-              return (
-                <button key={key} onClick={() => handleShootSort(key)}
-                  className="inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                  style={{
-                    background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
-                    color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
-                    border: '1px solid var(--mm-rule)',
-                  }}>
-                  {label}{active && (shootSortDir === 'desc' ? ' ↓' : ' ↑')}
-                </button>
-              )
-            })
-          ) : (
-            ADV_COLS.map(({ key, label }) => {
-              const active = advSortKey === key
-              return (
-                <button key={key} onClick={() => handleAdvSort(key)}
-                  className="inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                  style={{
-                    background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
-                    color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
-                    border: '1px solid var(--mm-rule)',
-                  }}>
-                  {label}{active && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
-                </button>
-              )
-            })
-          )}
+          {cols.map(({ key, label }) => {
+            const active = sortKey === key
+            return (
+              <button key={key} onClick={() => handleSort(key)} aria-pressed={active}
+                className="mm-press inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                style={{
+                  background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                  color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
+                  border: '1px solid var(--mm-rule)',
+                }}>
+                {label}{active && (sortDir === 'desc' ? ' ↓' : ' ↑')}
+              </button>
+            )
+          })}
         </div>
       </div>
       <div className="overflow-hidden" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
-        {statMode === 'basic' ? (
-          basicSorted.map((p, i) => {
-            const isLeader = leaderId && p.player_id === leaderId
-            const sortLabel = basicCols.find(c => c.key === basicSortKey)?.label ?? ''
-            const subKeys = basicCols.map(c => c.key).filter(k => k !== basicSortKey).slice(0, 4)
-            const openPlayer = () => setQuickView({ id: p.player_id, name: p.name })
-            return (
-              // StatHelpTooltip 이 카드 안에 버튼으로 들어가므로 카드 자체는 role="button" div
-              // (버튼 안 버튼은 invalid HTML — 클릭 이벤트가 깨짐). 키보드 동작은 그대로 유지.
-              <div key={p.player_id} role="button" tabIndex={0}
-                onClick={openPlayer}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
-                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
-                style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
-                      {p.name}
-                      {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: accentOrInk(color), fontSize: '26px' }}>{basicVal(p, basicSortKey)}</div>
-                    <Sub text={basicSub(p, basicSortKey)} />
-                    <div className="t-label mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
-                      <StatHeader term={basicSortKey === 'gp' ? 'R' : sortLabel} label={sortLabel} />
-                    </div>
+        {sorted.map(({ p, v, ok, rank }) => {
+          const isLeader = leaderId && p.player_id === leaderId
+          const subKeys = cols.map(c => c.key).filter(k => k !== sortKey).slice(0, 4)
+          return (
+            // StatHelpTooltip 이 카드 안에 버튼으로 들어가므로 카드 자체는 role="button" div (버튼 안 버튼 금지)
+            <div key={p.player_id} role="button" tabIndex={0}
+              onClick={() => openPlayer(p)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer(p) } }}
+              className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
+              style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{rank ?? '—'}</span>
+                {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
+                    {p.name}
+                    {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-                  {subKeys.map(k => {
-                    const lbl = basicCols.find(c => c.key === k)?.label ?? k
-                    return (
-                      <div key={k} className="text-center">
-                        <div className="t-label flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                          <StatHeader term={k === 'gp' ? 'R' : lbl} label={lbl} />
-                        </div>
-                        <div className="t-num text-base font-black" style={{ color: 'var(--mm-ink)' }}>{basicVal(p, k)}</div>
-                      </div>
-                    )
-                  })}
+                <div className="text-right shrink-0">
+                  <div className="font-jersey font-black tabular-nums leading-none" style={{ color: ok ? accentOrInk(color) : 'var(--mm-muted)', fontSize: '26px' }}>{fmt(sortKey, v)}</div>
+                  <Sub text={ok ? subText(p, sortKey) : `시도 부족 · ${subText(p, sortKey) ?? ''}`} />
+                  <div className="t-label mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
+                    <StatHeader term={sortCol.term} label={sortCol.label} />
+                  </div>
                 </div>
               </div>
-            )
-          })
-        ) : statMode === 'shooting' ? (
-          shootSorted.map(({ p, sh }, i) => {
-            const isLeader = leaderId && p.player_id === leaderId
-            const sortLabel = SHOOTING_COLS.find(c => c.key === shootSortKey)?.label ?? ''
-            const subKeys = SHOOTING_COLS.map(c => c.key).filter(k => k !== shootSortKey).slice(0, 4)
-            const openPlayer = () => setQuickView({ id: p.player_id, name: p.name })
-            return (
-              <div key={p.player_id} role="button" tabIndex={0}
-                onClick={openPlayer}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
-                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
-                style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
-                      {p.name}
-                      {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: accentOrInk(color), fontSize: '26px' }}>{shootVal(sh, shootSortKey)}</div>
-                    <Sub text={shootSub(p, sh, shootSortKey)} />
-                    <div className="t-label mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
-                      <StatHeader term={sortLabel} label={sortLabel} />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-                  {subKeys.map(k => {
-                    const lbl = SHOOTING_COLS.find(c => c.key === k)?.label ?? k
-                    return (
-                      <div key={k} className="text-center">
-                        <div className="t-label flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                          <StatHeader term={lbl} label={lbl} />
-                        </div>
-                        <div className="t-num text-base font-black" style={{ color: 'var(--mm-ink)' }}>{shootVal(sh, k)}</div>
+              <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+                {subKeys.map(k => {
+                  const c = cols.find(x => x.key === k)!
+                  return (
+                    <div key={k} className="text-center">
+                      <div className="t-label flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
+                        <StatHeader term={c.term} label={c.label} />
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })
-        ) : (
-          advSorted.map(({ p, adv }, i) => {
-            const isLeader = leaderId && p.player_id === leaderId
-            const sortLabel = ADV_COLS.find(c => c.key === advSortKey)?.label ?? ''
-            const subKeys = ADV_COLS.map(c => c.key).filter(k => k !== advSortKey).slice(0, 4)
-            const openPlayer = () => setQuickView({ id: p.player_id, name: p.name })
-            return (
-              <div key={p.player_id} role="button" tabIndex={0}
-                onClick={openPlayer}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
-                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
-                style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
-                      {p.name}
-                      {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
+                      <div className="t-num text-base font-black" style={{ color: 'var(--mm-ink)' }}>{fmt(k, metric(p, k))}</div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: accentOrInk(color), fontSize: '26px' }}>{advVal(adv, advSortKey)}</div>
-                    <div className="t-label mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
-                      <StatHeader term={sortLabel} label={sortLabel} />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-                  {subKeys.map(k => {
-                    const lbl = ADV_COLS.find(c => c.key === k)?.label ?? k
-                    return (
-                      <div key={k} className="text-center">
-                        <div className="t-label flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                          <StatHeader term={lbl} label={lbl} />
-                        </div>
-                        <div className="t-num text-base font-black" style={{ color: 'var(--mm-ink)' }}>{advVal(adv, k)}</div>
-                      </div>
-                    )
-                  })}
-                </div>
+                  )
+                })}
               </div>
-            )
-          })
-        )}
+            </div>
+          )
+        })}
       </div>
     </div>
 
-    {/* 데스크탑 테이블 (md 이상) */}
+    {/* 데스크탑 테이블 (md 이상) — 셀 크기·굵기는 globals.css 의 t-th / t-td 가 정본 */}
     <div className="hidden md:block overflow-x-auto">
-      {/* 셀 크기·굵기는 globals.css 의 t-th / t-td 가 정본이다(가독성 업그레이드 2026-09-18).
-          표 루트의 text-xs 가 셀 바닥값 1rem 을 이겨 이 표만 13.6px 로 떨어져 있었다. */}
       <table className="w-full">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
             <th className="t-th text-left pr-3 sticky left-0 min-w-[90px]" style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)' }}>선수</th>
-            {statMode === 'basic' ? (
-              basicCols.map(({ key, label }) => {
-                const active = basicSortKey === key
-                const term = key === 'gp' ? 'R' : label
-                return (
-                  <th key={key} onClick={() => handleBasicSort(key)}
-                    className="t-th text-right px-1.5 cursor-pointer select-none transition-colors duration-200"
-                    style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
-                    <StatHeader term={term} label={label} />
-                    <SortIcon active={active} dir={basicSortDir} />
-                  </th>
-                )
-              })
-            ) : statMode === 'shooting' ? (
-              SHOOTING_COLS.map(({ key, label, desc }, idx) => {
-                const active = shootSortKey === key
-                const divider = idx === 7 ? { borderLeft: '1px solid var(--mm-rule)' } : {}
-                return (
-                  <th key={key} onClick={() => handleShootSort(key)} title={desc}
-                    className="t-th text-right px-1.5 cursor-pointer select-none transition-colors duration-200"
-                    style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...divider }}>
-                    <StatHeader term={label} label={label} />
-                    <SortIcon active={active} dir={shootSortDir} />
-                  </th>
-                )
-              })
-            ) : (
-              ADV_COLS.map(({ key, label, desc }) => {
-                const active = advSortKey === key
-                return (
-                  <th key={key} onClick={() => handleAdvSort(key)} title={desc}
-                    className="t-th text-right px-1.5 cursor-pointer select-none transition-colors duration-200"
-                    style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
-                    <StatHeader term={label} label={label} />
-                    <SortIcon active={active} dir={advSortDir} />
-                  </th>
-                )
-              })
-            )}
+            {cols.map(({ key, label, term, desc }) => {
+              const active = sortKey === key
+              return (
+                <th key={key} onClick={() => handleSort(key)} title={desc}
+                  aria-sort={active ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}
+                  className="t-th text-right px-1.5 cursor-pointer select-none transition-colors duration-200"
+                  style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...(key === 'three_share' ? { borderLeft: '1px solid var(--mm-rule)' } : {}) }}>
+                  <StatHeader term={term} label={label} />
+                  <SortIcon active={active} dir={sortDir} />
+                </th>
+              )
+            })}
           </tr>
         </thead>
         <tbody>
-          {statMode === 'basic' ? (
-            basicSorted.map(p => {
-              const isLeader = leaderId && p.player_id === leaderId
-              return (
-                <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
-                    <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
-                      {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
-                      <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-                        {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-                        {p.name}
-                      </span>
-                    </button>
-                  </td>
-                  {basicCols.map(({ key }) => {
-                    const isSortLeader = key === basicSortKey
-                    const baseClass = BASIC_COLOR[key] ?? 'text-[color:var(--mm-ink-soft)]'
-                    const style = isSortLeader && color ? { color: accentOrInk(color) } : undefined
-                    return (
-                      <td key={key} className={`t-td text-right px-1.5 ${isSortLeader ? 'font-bold' : ''} ${baseClass}`} style={style}>
-                        {basicVal(p, key)}
-                        <Sub text={basicSub(p, key)} />
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })
-          ) : statMode === 'shooting' ? (
-            shootSorted.map(({ p, sh }) => {
-              const isLeader = leaderId && p.player_id === leaderId
-              return (
-                <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
-                    <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
-                      {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
-                      <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-                        {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-                        {p.name}
-                      </span>
-                    </button>
-                  </td>
-                  {SHOOTING_COLS.map(({ key }, idx) => {
-                    const isSortLeader = key === shootSortKey
-                    const baseClass = SHOOT_COLOR[key] ?? 'text-[color:var(--mm-ink-soft)]'
-                    const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-rule)' } : {}
-                    const style = isSortLeader && color ? { color: accentOrInk(color), ...dividerStyle } : dividerStyle
-                    return (
-                      <td key={key} className={`t-td text-right px-1.5 font-bold ${baseClass}`} style={style}>
-                        {shootVal(sh, key)}
-                        <Sub text={shootSub(p, sh, key)} />
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })
-          ) : (
-            advSorted.map(({ p, adv }) => {
-              const isLeader = leaderId && p.player_id === leaderId
-              return (
-                <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
-                    <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
-                      {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
-                      <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-                        {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-                        {p.name}
-                      </span>
-                    </button>
-                  </td>
-                  {ADV_COLS.map(({ key }) => {
-                    const isSortLeader = key === advSortKey
-                    const baseClass = ADV_COLOR[key] ?? 'text-[color:var(--mm-ink-soft)]'
-                    const style = isSortLeader && color ? { color: accentOrInk(color) } : undefined
-                    return (
-                      <td key={key} className={`t-td text-right px-1.5 ${isSortLeader ? 'font-bold' : ''} ${baseClass}`} style={style}>
-                        {advVal(adv, key)}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })
-          )}
+          {sorted.map(({ p, ok }) => {
+            const isLeader = leaderId && p.player_id === leaderId
+            return (
+              <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
+                  <button onClick={() => openPlayer(p)}
+                    className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
+                    {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
+                    <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+                      {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
+                      {p.name}
+                    </span>
+                  </button>
+                </td>
+                {cols.map(({ key }) => {
+                  const isSortCol = key === sortKey
+                  const short = isSortCol && !ok
+                  const baseClass = CELL_COLOR[key] ?? 'text-[color:var(--mm-ink-soft)]'
+                  const style = {
+                    ...(isSortCol && color && !short ? { color: accentOrInk(color) } : {}),
+                    ...(short ? { color: 'var(--mm-muted)' } : {}),
+                    ...(key === 'three_share' ? { borderLeft: '1px solid var(--mm-rule)' } : {}),
+                  }
+                  return (
+                    <td key={key} className={`t-td text-right px-1.5 ${isSortCol ? 'font-bold' : ''} ${baseClass}`} style={style}>
+                      {fmt(key, metric(p, key))}
+                      <Sub text={short ? '시도 부족' : subText(p, key)} />
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -660,7 +362,7 @@ function StatsTable({
 type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
 
 function TeamDetailPanel({
-  teamId, team, standing, players, regularIds, leagueId, games, quarterId,
+  teamId, team, standing, players, regularIds, leagueId, quarterId,
 }: {
   teamId: string
   team: Team
@@ -671,20 +373,16 @@ function TeamDetailPanel({
   // 팀 내 1위 후보 — 그 분기 정규 명단(team_id 일치 + is_regular)
   regularIds: ReadonlySet<string>
   leagueId: string
-  games: Game[]
   quarterId: string | 'all'
 }) {
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
   const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId }) }
 
-  const teamGames = useMemo(() => {
-    return games.filter(g =>
-      (g.home_team_id === teamId || g.away_team_id === teamId) && g.is_complete
-    )
-  }, [games, teamId])
-
-  const gp = teamGames.length || (standing.w + standing.d + standing.l) || 1
+  // 분모 = 카드에 보이는 그 팀의 마감 정규전 수(친선 제외 — 승패와 같은 경기 집합)
+  const gp = (standing.w + standing.d + standing.l) || 1
+  // 「팀 특성 · 하이라이트 · 4요소 · 공격 리바」는 한 번 접어 둔다(2026-10-26) — 펼칠 때만 요청이 나간다
+  const [moreOpen, setMoreOpen] = useState(false)
 
   const computed = useMemo(() => {
     if (players.length === 0) return null
@@ -709,7 +407,8 @@ function TeamDetailPanel({
     const byRpg   = pickTeamLeader(players, regularIds, p => p.rpg)
     const byApg   = pickTeamLeader(players, regularIds, p => p.apg)
     const byDef   = pickTeamLeader(players, regularIds, p => p.spg + p.bpg)
-    const byEfg   = pickTeamLeader(players.filter(p => p.fga > 0), regularIds, p => p.efg_pct)
+    // 유효야투 1위는 시도 기준(정본 meetsAttemptMin)을 채운 선수만 — 몇 번 안 던진 선수가 100% 로 앉지 않게
+    const byEfg   = pickTeamLeader(players.filter(p => meetsAttemptMin(p, 'efg_pct')), regularIds, p => p.efg_pct)
 
     // Fun: ace dependency
     const topScorer = byPpg
@@ -738,7 +437,7 @@ function TeamDetailPanel({
 
       <div className="px-4 py-4 pl-5 lg:px-6 lg:py-5 space-y-6">
         {players.length === 0 ? (
-          <p className="text-sm text-center py-6" style={{ color: 'var(--mm-muted)' }}>팀 없음 — 스탯이 없습니다</p>
+          <p className="text-sm text-center py-6" style={{ color: 'var(--mm-muted)' }}>이 기간에 이 팀 기록이 아직 없어요</p>
         ) : (
           <>
             {/* B. 팀 스탯 — 득점·실점은 한 막대로 맞대고, 나머지는 타일 (2026-10-12) */}
@@ -764,8 +463,8 @@ function TeamDetailPanel({
                 <div className="grid grid-cols-3 gap-2.5">
                   {[
                     { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: '누적', color: ptsDiff >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
-                    { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: 'var(--mm-positive)' },
-                    { label: 'STL+BLK', value: computed.defPg.toFixed(1), sub: '평균 수비 이벤트', color: 'var(--mm-ink)' },
+                    { label: '팀 야투율', value: `${computed.fgPct.toFixed(1)}%`, sub: '누적', color: 'var(--mm-positive)' },
+                    { label: '스틸+블록', value: computed.defPg.toFixed(1), sub: '평균', color: 'var(--mm-ink)' },
                   ].map(card => (
                     <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '28px' }}>{card.value}</div>
@@ -788,8 +487,8 @@ function TeamDetailPanel({
                     { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)}점` : null },
                     { label: '리바운드', player: computed.byRpg, val: computed.byRpg ? `리바 ${computed.byRpg.rpg.toFixed(1)}` : null },
                     { label: '어시스트', player: computed.byApg, val: computed.byApg ? `어시 ${computed.byApg.apg.toFixed(1)}` : null },
-                    { label: '수비왕', player: computed.byDef, val: computed.byDef ? `스틸+블락 ${(computed.byDef.spg + computed.byDef.bpg).toFixed(1)}` : null },
-                    { label: '효율왕', player: computed.byEfg, val: computed.byEfg ? `${computed.byEfg.efg_pct.toFixed(1)}% eFG` : null },
+                    { label: '수비왕', player: computed.byDef, val: computed.byDef ? `스틸+블록 ${(computed.byDef.spg + computed.byDef.bpg).toFixed(1)}` : null },
+                    { label: '효율왕', player: computed.byEfg, val: computed.byEfg ? `유효야투 ${computed.byEfg.efg_pct.toFixed(1)}%` : null },
                   ].filter(item => item.player && item.val).map(item => (
                     <button
                       key={item.label}
@@ -809,6 +508,18 @@ function TeamDetailPanel({
               </div>
             )}
 
+            {/* 더 보기 — 팀 특성 · 공격 리바 · 하이라이트 · 4요소 · 효율 (2026-10-26 한 번 접음, 지우지 않음) */}
+            <button
+              type="button"
+              onClick={() => setMoreOpen(o => !o)}
+              aria-expanded={moreOpen}
+              className="mm-press w-full min-h-11 px-3 flex items-center justify-center gap-1.5 text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
+              style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
+            >
+              {moreOpen ? '접기' : '더 보기 · 공격 리바운드 · 팀 하이라이트 · 팀 특성'}
+              <ChevronDown size={16} aria-hidden className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {moreOpen && (<>
             {/* D. 팀 특성 — 비율은 고리 게이지, 숫자는 고리 안 (2026-10-12) */}
             {computed && (
               <div>
@@ -870,13 +581,14 @@ function TeamDetailPanel({
               </div>
             )}
 
-            {/* F·G·H. 팀 인사이트 (하이라이트 + Four Factors + Advanced) */}
+            {/* F·G·H. 팀 인사이트 (공격 리바 + 하이라이트 + 승리 4요소 + 효율) */}
             <TeamInsights
               leagueId={leagueId}
               teamId={teamId}
               quarterId={quarterId}
               teamColor={team.color}
             />
+            </>)}
 
             {/* 선수별 표는 패널에 두지 않는다 — 아래 「팀별 선수」 섹션과 같은 표가 두 번 나왔다(2026-10-15) */}
           </>
@@ -894,7 +606,7 @@ function LeagueTeamsPageInner() {
 
   // 명단 편집(옛 /roster 운영자 화면) — URL ?edit=1 이 단일 진실이라 새로고침·/roster 리다이렉트가 그대로 이어진다.
   // 운영자가 아니면 ?edit=1 이 있어도 무시한다(토글도 안 보인다).
-  const { isEditMode } = useLeagueEditMode()
+  const { isEditMode, openLogin } = useLeagueEditMode()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -915,26 +627,27 @@ function LeagueTeamsPageInner() {
     selectedQuarterId: selectedQId, setSelectedQuarterId: setSelectedQId,
     quarters, currentQuarter, ready: quarterCtxReady, reloadQuarters,
   } = useLeagueQuarter()
-  // 기본 팀 목록(/teams) 수신 여부 — 아래 분기별 /teams?quarterId= 응답을 override 없는 기본 목록이 덮어쓰지 않게
-  const [baseTeamsLoaded, setBaseTeamsLoaded] = useState(false)
-  // 분기 목록이 오기 전에 'all' 로 fetch 하면 리더 집계(quarters 순회)가 빈 채로 끝나므로 로드 후에만 데이터 fetch
-  const quartersReady = quarterCtxReady && baseTeamsLoaded
+
+  // 편집기에서 분기를 추가·수정했을 수 있다 — 닫을 때만 컨텍스트의 목록을 다시 받는다(첫 진입은 컨텍스트가 이미 받는 중)
+  useEffect(() => {
+    if (reloadKey > 0) void reloadQuarters()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadKey])
+
+  // 팀 목록(분기 팀명·색 반영)은 명단 편집기만 쓴다 — 편집을 열 때만 받는다(2026-10-26, 보는 화면에선 요청 0)
   const [teams, setTeams] = useState<Team[]>([])
-  const [games, setGames] = useState<Game[]>([])
-  const [allStats, setAllStats] = useState<PlayerStat[]>([])
-  const [leaders, setLeaders] = useState<Leader[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dataLoading, setDataLoading] = useState(false)
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
-  // teamStatsApi 는 이제 identity.key 기준 (기존 team_id 대신)
-  const [teamStatsApi, setTeamStatsApi] = useState<Record<string, PlayerStat[]>>({})
-  // 분기 정규 명단 (team_id + is_regular=true)
-  // — 아직 경기 없는 분기(예: Q3)에도 등록된 선수를 표시하기 위함
-  type RosterRow = { id: string; name: string; number: number | null; position: string | null; team_id: string | null; is_regular: boolean | null; is_guest?: boolean | null }
-  // 게스트는 정규로 등록돼 있어도 뺀다 — 이 API 는 is_guest 를 안 내려줘서 이름 규칙('게스트')으로 거른다.
-  // quarterId → 그 분기 정규 명단. 특정 분기면 그 분기만, 「전체」면 모든 분기(팀 내 1위 후보 판정용)
-  const [rosterByQuarter, setRosterByQuarter] = useState<Record<string, RosterRow[]>>({})
-  // 팀 정체성 그룹 (team_id × override 조합) — 전체 뷰에서 5팀 노출
+  useEffect(() => {
+    if (!editing || !selectedQId) return
+    let cancelled = false
+    const url = selectedQId === 'all' ? `/api/leagues/${leagueId}/teams` : `/api/leagues/${leagueId}/teams?quarterId=${selectedQId}`
+    fetch(url)
+      .then(r => r.ok ? r.json() : null)
+      .then(ts => { if (!cancelled && Array.isArray(ts)) setTeams(ts) })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId, selectedQId, editing, reloadKey])
+
+  // 팀 정체성 그룹 (team_id × 분기 팀명) — 전체 뷰에서 5팀 노출
   type TeamIdentity = {
     key: string
     team_id: string
@@ -952,174 +665,64 @@ function LeagueTeamsPageInner() {
     // 특정 분기일 때만 온다(team-identities 4-1) — 최근 5경기 · 연승/연패 · 최근 경기일 · 승차
     form?: TeamForm | null
     games_behind?: number | null
+    // withPlayers=1 — 이 정체성의 선수 기록(/stats?teamId=&quarterIds= 와 같은 캐시) · 정규 명단 · 리더
+    players?: PlayerStat[]
+    regular?: RegularPlayer[]
+    leader_player_id?: string | null
   }
-  const [identities, setIdentities] = useState<TeamIdentity[]>([])
+  type RegularPlayer = { id: string; name: string; number: number | null; position: string | null; photo_url: string | null }
+  type TeamsData = { identities: TeamIdentity[]; unassigned: PlayerStat[]; games: GridGame[] }
+
+  // 요청 정리(2026-10-26): 종전엔 /teams·/games·/stats·/leaders·/team-identities·정체성마다 /stats?teamId=·
+  //   분기마다 /players·(전체면) 현재 분기 /stats 가 따로 나갔다(특정 분기 11회 · 「전체」 20회 안팎, 일부는 앞 응답을 기다림).
+  //   지금은 team-identities?withPlayers=1 한 번이 같은 내용을 준다(+ 누적 맞대결 1회).
+  const [data, setData] = useState<TeamsData | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ok' | 'login' | 'error'>('loading')
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  // 「전체」에서 비정규·게스트는 시즌 누적이 아니라 현재 분기 기준 — 비정규 참가자는 분기마다 바뀐다.
+  // 「지금 분기」 정본(pickCurrentQuarter) — 컨텍스트가 고른다
+  const currentQuarterId = currentQuarter?.id ?? null
+  useEffect(() => {
+    // 분기 목록이 오기 전엔 기본 분기가 아직 안 정해졌다 — 헛요청을 막는다
+    if (!selectedQId || !quarterCtxReady) return
+    let cancelled = false
+    setStatus('loading')
+    const qs = new URLSearchParams({ withPlayers: '1' })
+    if (selectedQId !== 'all') qs.set('quarterId', selectedQId)
+    else if (currentQuarterId) qs.set('unassignedQuarterId', currentQuarterId)
+    fetch(`/api/leagues/${leagueId}/team-identities?${qs}`)
+      .then(async r => {
+        if (cancelled) return
+        if (r.status === 401) { setStatus('login'); return }
+        if (!r.ok) { setStatus('error'); return }
+        const d = await r.json() as { identities?: TeamIdentity[]; unassigned_players?: PlayerStat[]; games?: GridGame[] }
+        if (cancelled) return
+        setData({ identities: d.identities ?? [], unassigned: d.unassigned_players ?? [], games: d.games ?? [] })
+        setLoadedFor(selectedQId)
+        setStatus('ok')
+      })
+      .catch(() => { if (!cancelled) setStatus('error') })
+    return () => { cancelled = true }
+  }, [leagueId, selectedQId, quarterCtxReady, currentQuarterId, reloadKey])
+
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [statMode, setStatMode] = useState<StatMode>('basic')
   const [viewMode, setViewMode] = useState<'avg'|'total'>('avg')
 
-  // 팀 초기 로드 (+ 편집 닫기 때 분기 목록 재조회)
-  //   기본 분기(저장값이 없으면 「현재 분기」)는 LeagueQuarterContext 가 고른다.
-  useEffect(() => {
-    // 재조회 중엔 분기별 로드를 막는다 — 옛 quarters(분기 0개 포함)로 리더 집계하지 않도록.
-    // 목록이 오면 true 로 돌아가며 데이터 로드가 새 quarters 로 다시 돈다.
-    setBaseTeamsLoaded(false)
-    Promise.all([
-      // 편집기에서 분기를 추가·수정했을 수 있다 — 닫을 때만 컨텍스트의 목록을 다시 받는다(첫 진입은 컨텍스트가 이미 받는 중)
-      reloadKey > 0 ? reloadQuarters() : Promise.resolve(),
-      fetch(`/api/leagues/${leagueId}/teams`).then(r => r.json()),
-    ]).then(([, ts]) => {
-      setTeams(ts ?? [])
-      setBaseTeamsLoaded(true)
-    }).catch(() => setLoading(false))
-  // 마운트(리그) 당 1회 + 편집 닫기(reloadKey)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId, reloadKey])
-
-  // 분기별 데이터 로드
-  // ⚠ race condition fix: 초기 마운트 시 selectedQId='all' 로 fetch 시작 후
-  //    quarters 로드되면서 selectedQId=현재 분기로 바뀌면 새 fetch 시작.
-  //    'all' 응답이 늦게 도착하면 최신 분기 데이터를 덮어써 시즌누적으로 보임.
-  //    → cancelled 플래그로 stale 응답 무시.
-  useEffect(() => {
-    if (!selectedQId || !quartersReady) return
-    setDataLoading(true)
-    let cancelled = false
-
-    if (selectedQId === 'all') {
-      Promise.all([
-        fetch(`/api/leagues/${leagueId}/games?complete=true`).then(r => r.json()),
-        fetch(`/api/leagues/${leagueId}/stats`).then(r => r.json()),
-      ]).then(async ([gs, st]) => {
-        if (cancelled) return
-        setGames(gs ?? [])
-        setAllStats(st.players ?? [])
-
-        if (quarters.length > 0) {
-          const allLeaderResults = await Promise.all(quarters.map(q =>
-            fetch(`/api/leagues/${leagueId}/quarters/${q.id}/leaders`).then(r => r.json())
-          ))
-          if (cancelled) return
-          const leaderTeamMap: Record<string, Leader> = {}
-          for (const ldResult of allLeaderResults) {
-            for (const l of (ldResult ?? []) as Leader[]) {
-              if (l.leader_player_id) leaderTeamMap[l.team_id] = l
-            }
-          }
-          setLeaders(Object.values(leaderTeamMap))
-        } else {
-          setLeaders([])
-        }
-
-        setLoading(false)
-        setDataLoading(false)
-      }).catch(() => { if (!cancelled) { setLoading(false); setDataLoading(false) } })
-    } else {
-      Promise.all([
-        fetch(`/api/leagues/${leagueId}/games?quarterId=${selectedQId}&complete=true`).then(r => r.json()),
-        fetch(`/api/leagues/${leagueId}/stats?quarterId=${selectedQId}`).then(r => r.json()),
-        fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/leaders`).then(r => r.json()),
-      ]).then(([gs, st, ld]) => {
-        if (cancelled) return
-        setGames(gs ?? [])
-        setAllStats(st.players ?? [])
-        setLeaders(ld ?? [])
-        setLoading(false)
-        setDataLoading(false)
-      }).catch(() => { if (!cancelled) { setLoading(false); setDataLoading(false) } })
-    }
-    return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId, selectedQId, quartersReady])
-
-  // 팀 정체성 페치 — 팀명 override 반영한 정체성 그룹
-  useEffect(() => {
-    if (!selectedQId) return
-    let cancelled = false
-    const url = selectedQId === 'all'
-      ? `/api/leagues/${leagueId}/team-identities`
-      : `/api/leagues/${leagueId}/team-identities?quarterId=${selectedQId}`
-    fetch(url)
-      .then(r => r.ok ? r.json() : { identities: [] })
-      .then((d: { identities?: TeamIdentity[] }) => {
-        if (cancelled) return
-        setIdentities(d.identities ?? [])
-      })
-      .catch(() => null)
-    return () => { cancelled = true }
-  }, [leagueId, selectedQId, reloadKey])
-
-  // 정체성별 팀 스탯 페치 — 각 정체성의 quarter_ids 기반 (다중 분기 지원)
-  useEffect(() => {
-    if (identities.length === 0) { setTeamStatsApi({}); return }
-    let cancelled = false
-    Promise.all(identities.map(id => {
-      const qParam = id.quarter_ids.length > 0 ? `&quarterIds=${id.quarter_ids.join(',')}` : ''
-      return fetch(`/api/leagues/${leagueId}/stats?teamId=${id.team_id}${qParam}`)
-        .then(r => r.json())
-        .then(d => [id.key, (d.players ?? []) as PlayerStat[]] as const)
-        .catch(() => [id.key, [] as PlayerStat[]] as const)
-    })).then(results => {
-      if (cancelled) return
-      const m: Record<string, PlayerStat[]> = {}
-      for (const [key, players] of results) m[key] = players
-      setTeamStatsApi(m)
-    })
-    return () => { cancelled = true }
-  }, [leagueId, identities])
-
-  // 분기별 팀명/색상 override 자동 반영 — selectedQId 변경 시 teams 재fetch
-  // quartersReady 를 기다린다 — 초기/재조회의 override 없는 setTeams 가 이 응답을 덮어쓰지 않게
-  useEffect(() => {
-    if (!selectedQId || selectedQId === 'all' || !quartersReady) return
-    fetch(`/api/leagues/${leagueId}/teams?quarterId=${selectedQId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(ts => { if (Array.isArray(ts)) setTeams(ts) })
-      .catch(() => null)
-  }, [leagueId, selectedQId, quartersReady])
-
-  // 분기 정규 명단 페치 — 특정 분기: 스탯 없어도 명단 노출(0-fill) + 팀 내 1위 후보.
-  // 「전체」: 정체성(팀×분기)마다 자기 분기 명단으로 1위 후보를 가려야 해서 전 분기를 받는다.
-  useEffect(() => {
-    // 분기 전환(단일 ↔ 전체) 시 옛 명단으로 1위를 잠깐 잘못 고르지 않게 먼저 비운다
-    setRosterByQuarter({})
-    if (!selectedQId || !quartersReady) return
-    const qids = selectedQId === 'all' ? quarters.map(q => q.id) : [selectedQId]
-    let cancelled = false
-    Promise.all(qids.map(qid =>
-      fetch(`/api/leagues/${leagueId}/quarters/${qid}/players`)
-        .then(r => r.ok ? r.json() : [])
-        .then((rows: RosterRow[]) => [qid, Array.isArray(rows) ? rows.filter(r => r.team_id && r.is_regular !== false && !r.is_guest && !r.name.includes('게스트')) : []] as const)
-        .catch(() => [qid, [] as RosterRow[]] as const)
-    )).then(results => {
-      if (!cancelled) setRosterByQuarter(Object.fromEntries(results))
-    })
-    return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId, selectedQId, quartersReady, reloadKey])
-
-  // 0-fill 은 특정 분기에서만 (예전 동작 유지) — team_id → 정규 명단
-  const quarterRoster = useMemo(() => {
-    const map: Record<string, RosterRow[]> = {}
-    if (selectedQId === 'all') return map
-    for (const r of rosterByQuarter[selectedQId] ?? []) (map[r.team_id!] ??= []).push(r)
-    return map
-  }, [rosterByQuarter, selectedQId])
+  const identities = useMemo(() => data?.identities ?? [], [data])
+  const games = data?.games ?? []
+  // 분기 칩을 바꾼 직후 — 옛 분기 데이터를 새 분기 이름 아래 보이지 않게 아래 섹션을 자리로 바꾼다
+  const dataLoading = status === 'loading' || loadedFor !== selectedQId
 
   // 정체성별 정규 선수 id — 팀 내 1위 후보이자 「비정규 선수 보기」 끔일 때 남길 행
   const regularIdsByIdentity = useMemo(() => {
     const m: Record<string, Set<string>> = {}
-    for (const id of identities) {
-      const qids = selectedQId === 'all' ? id.quarter_ids : [selectedQId]
-      m[id.key] = new Set(qids.flatMap(q => (rosterByQuarter[q] ?? []).filter(r => r.team_id === id.team_id).map(r => r.id)))
-    }
+    for (const id of identities) m[id.key] = new Set((id.regular ?? []).map(r => r.id))
     return m
-  }, [identities, rosterByQuarter, selectedQId])
+  }, [identities])
 
   // ── 데이터 가공 ───────────────────────────────────────────
-  const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
-
-  // 순위표: 정체성 API 데이터로 대체 (팀명 override 반영, 전체 뷰에서 5팀 노출)
-  // identityKey 를 추가해 상대전적 조회에 사용
+  // 순위표: 정체성 API 데이터(팀명 override 반영, 전체 뷰에서 5팀 노출). identityKey 로 상대전적·탭을 고른다.
   const standings = useMemo(() => {
     return identities.map(id => ({
       identityKey: id.key,
@@ -1134,20 +737,22 @@ function LeagueTeamsPageInner() {
       ga: id.goals_against,
       form: id.form ?? null,
       gamesBehind: id.games_behind ?? null,
+      leaderId: id.leader_player_id ?? null,
     }))
   }, [identities])
 
   // 팀 카드의 「상대 전적」 막대는 뺐다(2026-10-15) — 아래 「누적 맞대결」 섹션이 같은 대진 전적을 득실까지 보여 준다.
 
-  // 팀별 선수 스탯: API에서 team_id 이벤트 기준으로 분할된 데이터를 그대로 사용
+  // 팀별 선수 스탯: 이벤트 team_id 기준으로 나뉜 정체성별 기록 그대로
   // → 같은 선수가 여러 팀에서 뛰었으면 각 팀에 그 팀에서의 스탯만 표시됨
-  // + 등록된 정규 명단(quarterRoster)의 선수가 스탯에 없으면 0-fill로 추가 (미경기 분기 대응)
+  // + 특정 분기면 정규 명단 선수가 스탯에 없을 때 0-fill 로 추가 (아직 안 뛴 분기 대응)
   const teamStats = useMemo(() => {
-    const emptyStat = (r: RosterRow): PlayerStat => ({
+    const emptyStat = (r: RegularPlayer): PlayerStat => ({
       player_id: r.id,
       name: r.name,
       number: r.number,
       position: r.position,
+      photo_url: r.photo_url,
       gp: 0,
       pts: 0, ppg: 0,
       reb: 0, rpg: 0,
@@ -1177,36 +782,28 @@ function LeagueTeamsPageInner() {
     })
     const m: Record<string, PlayerStat[]> = {}
     for (const id of identities) {
-      const statsArr = teamStatsApi[id.key] ?? []
-      // 로스터는 team_id 기준. 정체성이 여러 분기를 포함하면 각 분기 로스터 병합.
-      // 현재 quarterRoster 는 특정 분기 선택 시만 페치됨 → 그 분기의 team_id 로스터 사용.
-      const rosterArr = quarterRoster[id.team_id] ?? []
+      const statsArr = id.players ?? []
       const statPids = new Set(statsArr.map(p => p.player_id))
-      const missing = rosterArr.filter(r => !statPids.has(r.id))
+      const missing = selectedQId === 'all' ? [] : (id.regular ?? []).filter(r => !statPids.has(r.id))
       m[id.key] = [...statsArr, ...missing.map(emptyStat)]
     }
     return m
-  }, [identities, teamStatsApi, quarterRoster])
+  }, [identities, selectedQId])
 
   // ── 팀별 선수 스탯 · 팀 탭 (2026-08-13) ────────────────────────────
-  // 팀 3개를 세로로 이어 붙이면 팀당 약 12명 → 한 화면에 37행이 쌓여 이 화면이 가장 길었다.
-  // 한 번에 한 팀만 그려 세로 길이를 1/3 로 줄인다. 데이터는 그대로(추가 페치 없음) —
-  // 이미 받아둔 teamStats 를 화면에서 나눠 보여주기만 한다.
-  //
-  // 기본 선택은 순위 1위 팀. standings 는 정체성 API 가 순위순으로 내려주므로 standings[0].
-  // 사용자가 고른 팀은 유지하되, 분기를 바꿔 그 팀이 사라지면 다시 1위로 폴백한다
-  // (별도 effect 없이 파생값으로 처리 — setState 루프가 생기지 않는다).
+  // 한 번에 한 팀만 그려 세로 길이를 1/3 로 줄인다. 기본 선택은 순위 1위 팀(standings[0]).
+  // 사용자가 고른 팀은 유지하되, 분기를 바꿔 그 팀이 사라지면 다시 1위로 폴백한다(파생값 — setState 루프 없음).
   const [statsTeamKey, setStatsTeamKey] = useState<string | null>(null)
-  // 같은 팀 탭 아래에서 무엇을 볼지 — 선수 기록 / 어시스트 / 공격 유형 (2026-10-18 두 섹션 합침)
-  const [teamView, setTeamView] = useState<'players' | 'assist' | 'shots'>('players')
-  const insights = useTeamInsights(leagueId, selectedQId, teamView !== 'players')
+  // 「어시스트 · 공격 유형」은 「더 보기」로 접어 둔다(2026-10-26) — 열 때만 받는다
+  const [teamView, setTeamView] = useState<'assist' | 'shots'>('assist')
+  const [insightOpen, setInsightOpen] = useState(false)
+  const insights = useTeamInsights(leagueId, selectedQId, insightOpen)
   const activeStatsTeamKey =
     statsTeamKey && standings.some(s => s.identityKey === statsTeamKey)
       ? statsTeamKey
       : (standings[0]?.identityKey ?? null)
 
-  // 탭 전환 시 스크롤 튐 방지 — block:'nearest' 는 탭 바가 이미 보이면 아무것도 하지 않고,
-  // 표 아래로 스크롤한 상태에서만 최소한으로 되돌린다(behavior 기본 auto — 애니메이션 없음).
+  // 탭 전환 시 스크롤 튐 방지 — block:'nearest' 는 탭 바가 이미 보이면 아무것도 하지 않는다.
   const statsTabBarRef = useRef<HTMLDivElement>(null)
   const statsTabSwitched = useRef(false)
   useEffect(() => {
@@ -1216,8 +813,6 @@ function LeagueTeamsPageInner() {
   }, [statsTeamKey])
 
   // 주소의 `#team-<team_id>` 로 들어오면(홈 순위표 링크) 그 팀 카드로 내려가 상세를 펼친다.
-  //   카드 목록은 정체성 API 를 받은 뒤에야 생기므로 standings 가 차고 로딩이 끝난 뒤 한 번만 처리한다.
-  //   「선수단 보기」 같은 접힌 칸은 그대로 둔다 — 여는 것은 팀 카드(상세 패널)뿐이다.
   const handledHash = useRef<string | null>(null)
   useEffect(() => {
     if (dataLoading || standings.length === 0) return
@@ -1240,36 +835,10 @@ function LeagueTeamsPageInner() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [standings, dataLoading])
 
-  // 「전체」에서 비정규·게스트는 시즌 누적이 아니라 현재 분기 기준으로 보여준다 —
-  // 비정규 참가자는 분기마다 바뀌어서 누적으로 합치면 이미 떠난 사람이 목록을 채운다.
-  // 「지금 분기」 정본(pickCurrentQuarter) — is_current 깃발만 보면 운영자가 늦게 옮길 때 화면마다 갈린다
-  const currentQuarterId = currentQuarter?.id ?? null
-  const [currentQuarterStats, setCurrentQuarterStats] = useState<PlayerStat[]>([])
-  useEffect(() => {
-    if (selectedQId !== 'all' || !currentQuarterId) { setCurrentQuarterStats([]); return }
-    let cancelled = false
-    fetch(`/api/leagues/${leagueId}/stats?quarterId=${currentQuarterId}`)
-      .then(r => r.json())
-      .then(st => { if (!cancelled) setCurrentQuarterStats(st.players ?? []) })
-      .catch(() => null)
-    return () => { cancelled = true }
-  }, [leagueId, selectedQId, currentQuarterId])
-
-  // 비정규 섹션 — 어떤 정체성에도 귀속되지 않은 선수 (이벤트의 team_id 가 모두 null)
-  // ponytail: 「전체」일 때 정체성 스탯은 전 분기 합이라, 앞선 분기에 팀으로 뛰고 현재 분기엔
-  // 팀 없이만 뛴 선수는 비정규에서 빠진다. 문제가 되면 현재 분기 team-identities 로 따로 대조.
-  const irregularAll = useMemo(() => {
-    const identityPlayerIds = new Set<string>()
-    for (const key of Object.keys(teamStatsApi)) {
-      for (const p of teamStatsApi[key]) identityPlayerIds.add(p.player_id)
-    }
-    const base = selectedQId === 'all' ? currentQuarterStats : allStats
-    return base.filter(s => !identityPlayerIds.has(s.player_id))
-  }, [allStats, currentQuarterStats, selectedQId, teamStatsApi])
+  // 비정규 섹션 — 어떤 팀 기록에도 들지 않은 선수(서버가 골라 준다).
   // 게스트 판정은 roster/page.tsx 와 같은 규칙(is_guest 또는 이름에 '게스트').
-  // is_guest=true 는 /stats 가 이미 빼고 내려준다(leagueStats.ts guestIds) — 여기선 이름 규칙이 실질 필터.
   const isGuest = (p: { name: string; is_guest?: boolean | null }) => Boolean(p.is_guest) || p.name.includes('게스트')
-  const irregularStats = irregularAll.filter(p => !isGuest(p))
+  const irregularStats = (data?.unassigned ?? []).filter(p => !isGuest(p))
 
   // 「비정규 선수 보기」 — 기본 켬, 끈 상태만 브라우저에 기억(리그별)
   const showIrregularKey = `league:${leagueId}:teams:showIrregular`
@@ -1282,13 +851,12 @@ function LeagueTeamsPageInner() {
     try { localStorage.setItem(showIrregularKey, next ? '1' : '0') } catch { /* private mode */ }
   }
   // 로그인한 회원의 팀 정체성 — 누적 맞대결 기본 대진을 「내 팀」 쪽으로. 이미 받은 명단·스탯에서 찾는다(추가 요청 없음).
-  //   정규 명단 → 없으면 그 기간 그 팀에서 가장 많이 뛴(출전일) 정체성. 「전체」에서는 여러 정체성 중 출전이 많은 쪽.
   const myPlayerId = useOptionalCurrentUser()?.user?.player_id ?? null
   const myIdentityKey = useMemo(() => {
     if (!myPlayerId) return null
     let best: { key: string; gp: number } | null = null
     for (const id of identities) {
-      const row = (teamStatsApi[id.key] ?? []).find(p => p.player_id === myPlayerId)
+      const row = (id.players ?? []).find(p => p.player_id === myPlayerId)
       const regular = regularIdsByIdentity[id.key]?.has(myPlayerId) ?? false
       if (!row && !regular) continue
       // 정규 명단이면 출전이 0이어도 후보 — 출전일로 우열을 가리되 정규에 가산
@@ -1296,7 +864,7 @@ function LeagueTeamsPageInner() {
       if (!best || score > best.gp) best = { key: id.key, gp: score }
     }
     return best?.key ?? null
-  }, [myPlayerId, identities, teamStatsApi, regularIdsByIdentity])
+  }, [myPlayerId, identities, regularIdsByIdentity])
 
   // 팀별 선수 탭에 보일 행 — 게스트는 늘 빼고, 끔이면 정규 명단만
   const visibleTeamPlayers = (key: string) => (teamStats[key] ?? []).filter(p =>
@@ -1305,7 +873,8 @@ function LeagueTeamsPageInner() {
 
   const base = `/league/${orgSlug}/${leagueId}`
 
-  if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
+  // 첫 진입 — 분기 목록·팀 데이터가 오기 전에는 화면 모양 자리만 깐다
+  if (!quarterCtxReady || (status === 'loading' && !data)) return <div className="mm-brand"><TeamsSkeleton /></div>
 
   const editToggle = isEditMode && (
     <button
@@ -1327,7 +896,7 @@ function LeagueTeamsPageInner() {
     <div className="mm-brand space-y-4">
       <SectionCard variant="standalone">
         <div className="text-center py-12">
-          <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>등록된 분기가 없습니다</p>
+          <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>아직 분기가 없어요</p>
           {editToggle && <div className="mt-3 flex justify-center">{editToggle}</div>}
         </div>
       </SectionCard>
@@ -1352,11 +921,27 @@ function LeagueTeamsPageInner() {
         />
       </SectionCard>
 
-      {dataLoading ? (
-        <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
+      {status === 'login' ? (
+        // 401 — 선수 기록은 승인 회원만(리그 비공개 유지). 빈 화면 대신 한 줄 안내
+        <SectionCard variant="standalone">
+          <div className="text-center py-10 space-y-3">
+            <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>팀 기록은 로그인한 회원만 볼 수 있어요</p>
+            <button type="button" onClick={openLogin}
+              className="mm-press inline-flex items-center justify-center min-h-11 px-4 text-sm font-bold cursor-pointer"
+              style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>
+              로그인
+            </button>
+          </div>
+        </SectionCard>
+      ) : status === 'error' ? (
+        <SectionCard variant="standalone">
+          <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>팀 기록을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>
+        </SectionCard>
+      ) : dataLoading ? (
+        <TeamsSkeleton />
       ) : (
         <>
-        {/* ── 섹션 1: 팀별 전적 (상대 전적은 섹션 1.5 「누적 맞대결」) ── */}
+        {/* ── 섹션 1: 팀별 전적 (상대 전적은 섹션 4 「누적 맞대결」) ── */}
         <div className="space-y-3">
           <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
 
@@ -1411,7 +996,7 @@ function LeagueTeamsPageInner() {
                   </button>
                   {/* 승·무·패 막대 — 헤더 바로 아래 전체 폭 (2026-10-12: w-16 미니바 → RecordBar) */}
                   {played === 0 ? (
-                    <p className="px-4 py-3 pl-5 text-xs" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>
+                    <p className="px-4 py-3 pl-5 text-xs" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>아직 마감된 경기가 없어요</p>
                   ) : (
                     <div className="px-4 py-3 pl-5">
                       <OnPanel>
@@ -1452,7 +1037,6 @@ function LeagueTeamsPageInner() {
                   players={teamStats[selectedTeamId] ?? []}
                   regularIds={regularIdsByIdentity[selectedTeamId] ?? EMPTY_IDS}
                   leagueId={leagueId}
-                  games={games}
                   quarterId={selectedQId}
                 />
               </div>
@@ -1462,24 +1046,8 @@ function LeagueTeamsPageInner() {
 
         {/* 명단 편집 중에는 팀별 선수 이하(섹션 2~4)를 편집 화면(아래 RosterEditor)이 대신한다 */}
         {!editing && (<>
-        {/* ── 섹션 1.5: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
-        <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} myTeamKey={myIdentityKey} />
-
-        {/* ── 승패 흐름 (2026-10-25) — 팀마다 경기 단위 점 + 최장 연승·연패 (lib/stats/teamStreaks.ts) ── */}
-        <SectionCard variant="standalone" pad="none" ariaLabel="승패 흐름">
-          <SectionHeader
-            title="승패 흐름"
-            description={`${selectedQId === 'all' ? '시즌 전체' : '이 분기'} 경기마다 승·무·패 점 · 최장 연승·연패`}
-          />
-          <div className="px-4 py-3 lg:px-6 lg:py-4">
-            <TeamDailyRecordGrid
-              games={games as unknown as GridGame[]}
-              teams={identities.map(id => ({ key: id.key, team_id: id.team_id, name: id.display_name, color: id.color, quarter_ids: id.quarter_ids }))}
-            />
-          </div>
-        </SectionCard>
-
-        {/* 「시즌 어시스트 · 공격 유형」 섹션은 2026-10-18 아래 「팀별 선수」의 보기로 합쳤다 — 팀 필터가 두 벌이었다 */}
+        {/* 화면 순서(2026-10-26): 팀 전적 → 팀별 선수 → 승패 흐름 → 누적 맞대결.
+            「어시스트 · 공격 유형」은 팀별 선수 표 아래 「더 보기」에 접어 둔다(2026-10-18 합침 · 팀 필터는 한 벌) */}
 
         {/* ── 섹션 2: 팀별 선수 ── */}
         <div className="space-y-3">
@@ -1487,35 +1055,22 @@ function LeagueTeamsPageInner() {
           <SectionCard variant="standalone" pad="none" ariaLabel="팀별 선수">
           <SectionHeader
             title="팀별 선수"
-            description="팀을 고르고 선수 기록 · 어시스트 · 공격 유형을 바꿔 봐요"
+            description="팀을 고르면 그 팀 선수 기록이 나와요"
           />
           <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-3">
-            {/* 무엇을 볼지 — 팀 탭은 아래 하나만 쓴다 */}
-            <SegmentedTabs
-              ariaLabel="팀별 보기"
-              value={teamView}
-              onChange={setTeamView}
-              fullWidth
-              items={[
-                { key: 'players', label: '선수 기록' },
-                { key: 'assist', label: '어시스트' },
-                { key: 'shots', label: '공격 유형' },
-              ] as const}
-            />
-            {teamView === 'players' && (<>
             {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
                 묶음 단위로 줄바꿈하게 두고 버튼은 44px 터치 높이·줄바꿈 금지. */}
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Basic / Shooting / Advanced */}
+              {/* 기본 / 슈팅 / 고급 — 스탯 탭과 같은 이름 */}
               <div className="flex overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)' }}>
                 {([
-                  { k: 'basic'    as StatMode, label: 'Basic' },
-                  { k: 'shooting' as StatMode, label: 'Shooting' },
-                  { k: 'advanced' as StatMode, label: 'Advanced' },
+                  { k: 'basic'    as StatMode, label: '기본' },
+                  { k: 'shooting' as StatMode, label: '슈팅' },
+                  { k: 'advanced' as StatMode, label: '고급' },
                 ]).map(({ k, label }) => {
                   const active = statMode === k
                   return (
-                    <button key={k} onClick={() => setStatMode(k)}
+                    <button key={k} onClick={() => setStatMode(k)} aria-pressed={active}
                       className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
                       style={{
                         background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
@@ -1526,12 +1081,12 @@ function LeagueTeamsPageInner() {
                   )
                 })}
               </div>
-              {/* 평균 / 누적 (Basic 모드에서만 의미) */}
+              {/* 평균 / 누적 (기본 보기에서만 의미) */}
               <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)' }}>
                 {(['avg','total'] as const).map(m => {
                   const active = viewMode === m
                   return (
-                    <button key={m} onClick={() => setViewMode(m)}
+                    <button key={m} onClick={() => setViewMode(m)} aria-pressed={active}
                       className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
                       style={{
                         background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
@@ -1559,7 +1114,6 @@ function LeagueTeamsPageInner() {
               {/* 「숫자 읽는 법」 — 스탯 탭과 같은 시트(glossary.ts READING_GUIDE 하나). 종전 팀 탭 전용 접힘 상자는 없앴다(2026-10-15) */}
               <StatsGlossarySheet className="shrink-0" />
             </div>
-            </>)}
 
 
           {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).
@@ -1627,7 +1181,7 @@ function LeagueTeamsPageInner() {
 
           {standings.filter(s => s.identityKey === activeStatsTeamKey).map(s => {
             const players = visibleTeamPlayers(s.identityKey)
-            const leaderId = leaderMap[s.teamId] ?? null
+            const leaderId = s.leaderId
             return (
               <div
                 key={s.identityKey}
@@ -1647,14 +1201,6 @@ function LeagueTeamsPageInner() {
                   <span className="text-xs font-bold tracking-wider ml-1" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
                 </div>
                 <div className="px-4 py-3 pl-5 lg:px-6 lg:py-4">
-                  {teamView !== 'players' ? (
-                    <TeamInsightView
-                      data={insights}
-                      teamKey={s.identityKey}
-                      view={teamView}
-                      scopeText={selectedQId === 'all' ? '시즌 전체' : '이 분기'}
-                    />
-                  ) : (<>
                   {/* 2026-08-10: "팀 순위 화면 사진 0건" 피드백 대응 — 로스터의 4:5 사진 + 팀컬러
                       스트립 패턴을 그대로 재사용(새 패턴 만들지 않음). 표 위에 얹되 기본 접힘
                       (<details>, 로 세로 증가 0 — 스탯 읽는 법 안내와 동일한 검증된 패턴 재사용).
@@ -1705,17 +1251,47 @@ function LeagueTeamsPageInner() {
                       </div>
                     </details>
                   )}
-                  {/* 선수가 없는 팀도 탭은 남긴다(개수가 흔들리면 안 되므로).
-                      빈 상태 문구는 StatsTable 이 이미 갖고 있는 "기록된 스탯이 없습니다" 를 그대로 쓴다. */}
+                  {/* 선수가 없는 팀도 탭은 남긴다(개수가 흔들리면 안 되므로). 빈 상태 문구는 StatsTable 이 갖고 있다. */}
                   <StatsTable
                     players={players}
-                    leagueId={leagueId}
                     leaderId={leaderId}
                     color={s.color}
                     viewMode={viewMode}
                     statMode={statMode}
                   />
-                  </>)}
+                  {/* 더 보기 — 시즌 어시스트 · 공격 유형(2026-10-18 이 칸에 합침 · 2026-10-26 접음). 열 때만 받는다 */}
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setInsightOpen(o => !o)}
+                      aria-expanded={insightOpen}
+                      className="mm-press w-full min-h-11 px-3 flex items-center justify-center gap-1.5 text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
+                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
+                    >
+                      {insightOpen ? '접기' : '더 보기 · 어시스트 · 공격 유형'}
+                      <ChevronDown size={16} aria-hidden className={`transition-transform duration-200 ${insightOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {insightOpen && (
+                      <div className="mt-3 space-y-3">
+                        <SegmentedTabs
+                          ariaLabel="더 보기 항목"
+                          value={teamView}
+                          onChange={setTeamView}
+                          fullWidth
+                          items={[
+                            { key: 'assist', label: '어시스트' },
+                            { key: 'shots', label: '공격 유형' },
+                          ] as const}
+                        />
+                        <TeamInsightView
+                          data={insights}
+                          teamKey={s.identityKey}
+                          view={teamView}
+                          scopeText={selectedQId === 'all' ? '시즌 전체' : '이 분기'}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </SectionCard>
               </div>
@@ -1723,13 +1299,13 @@ function LeagueTeamsPageInner() {
           })}
         </div>
 
-        {/* ── 섹션 3: 비정규 선수 스탯 ── */}
-        {teamView === 'players' && showIrregular && irregularStats.length > 0 && (
+        {/* ── 섹션 2-1: 비정규 선수 스탯 ── */}
+        {showIrregular && irregularStats.length > 0 && (
           <div>
             <SectionCard variant="standalone" pad="none" ariaLabel="비정규 선수">
               <SectionHeader
                 title={`비정규 선수${scopeSuffix}`}
-                description="팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)"
+                description="팀을 정하지 않고 경기에 나온 선수예요"
               />
               <div className="px-4 py-3 lg:px-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>
@@ -1738,7 +1314,6 @@ function LeagueTeamsPageInner() {
               <div className="px-4 py-3 lg:px-6 lg:py-4">
                 <StatsTable
                   players={irregularStats}
-                  leagueId={leagueId}
                   viewMode={viewMode}
                   statMode={statMode}
                 />
@@ -1746,6 +1321,23 @@ function LeagueTeamsPageInner() {
             </SectionCard>
           </div>
         )}
+
+        {/* ── 섹션 3: 승패 흐름 (2026-10-25) — 팀마다 경기 단위 점 + 최장 연승·연패 (lib/stats/teamStreaks.ts) ── */}
+        <SectionCard variant="standalone" pad="none" ariaLabel="승패 흐름">
+          <SectionHeader
+            title="승패 흐름"
+            description={`${selectedQId === 'all' ? '시즌 전체' : '이 분기'} 경기마다 승·무·패 점 · 최장 연승·연패`}
+          />
+          <div className="px-4 py-3 lg:px-6 lg:py-4">
+            <TeamDailyRecordGrid
+              games={games}
+              teams={identities.map(id => ({ key: id.key, team_id: id.team_id, name: id.display_name, color: id.color, quarter_ids: id.quarter_ids }))}
+            />
+          </div>
+        </SectionCard>
+
+        {/* ── 섹션 4: 누적 맞대결 (2026-10-10) — 날짜별 「팀별 비교」를 분기·전체로 쌓은 것 ── */}
+        <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} myTeamKey={myIdentityKey} />
 
         </>)}
         </>
@@ -1759,7 +1351,7 @@ function LeagueTeamsPageInner() {
 // useSearchParams 는 Suspense 경계 내에서 호출해야 하므로 default export 에서 감싼다(stats 페이지와 같은 패턴).
 export default function LeagueTeamsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-12"><BasketballLoader size={24} /></div>}>
+    <Suspense fallback={<div className="mm-brand"><TeamsSkeleton /></div>}>
       <LeagueTeamsPageInner />
     </Suspense>
   )

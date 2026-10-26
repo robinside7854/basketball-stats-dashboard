@@ -5,6 +5,7 @@
 //   (반려/비활성 전환된 계정 즉시 차단).
 //   운영자는 편집 권한(CEO/공동관리자 세션 · 어드민 role 회원 · 전환기의 편집 PIN)으로도
 //   통과 — canEditLeague 참조.
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
@@ -15,7 +16,9 @@ import { requireCeoSession } from './ceo'
 // 승인 회원 세션 조회 — 서버 컴포넌트/라우트 공용. 미로그인·미승인 시 null.
 //   판정은 리그(lid) 가 아니라 팀(tid) 기준 — 같은 팀의 다른 경기묶음(리그↔대회)으로
 //   이동해도 로그인이 유지된다. 옛 쿠키 호환은 sessionMatchesLeague 안에서 처리.
-export async function getApprovedSession(leagueId: string): Promise<SessionPayload | null> {
+// ⚠ 2026-10-26: 요청 한 번에 layout·page·generateMetadata 가 각각 불러 같은 DB 조회가 3~4번 났다 →
+//   React cache 로 한 요청(한 번의 서버 렌더) 안에서만 결과를 나눠 쓴다. 요청이 바뀌면 다시 조회한다(강등 즉시 반영 유지).
+export const getApprovedSession = cache(async function getApprovedSession(leagueId: string): Promise<SessionPayload | null> {
   const jar = await cookies()
   const session = verifySession(jar.get(AUTH_COOKIE)?.value)
   if (!session || !(await sessionMatchesLeague(session, leagueId))) return null
@@ -27,7 +30,7 @@ export async function getApprovedSession(leagueId: string): Promise<SessionPaylo
     .maybeSingle()
   if (!acc || acc.status !== 'approved') return null
   return session
-}
+})
 
 // API 라우트용 — 승인 회원 세션 또는 리그 편집 권한이면 접근 허용.
 export async function canViewStats(req: Request, leagueId: string): Promise<boolean> {
@@ -37,7 +40,7 @@ export async function canViewStats(req: Request, leagueId: string): Promise<bool
 
 // 리그(시즌)가 속한 팀이 공개인지. 공개면 로그인 없이도 기본 정보를 볼 수 있다.
 // 리그 → 팀 → is_public 으로 유도한다 — 상태는 팀에만 두고 리그에 복제하지 않는다.
-export async function isLeaguePublic(leagueId: string): Promise<boolean> {
+export const isLeaguePublic = cache(async function isLeaguePublic(leagueId: string): Promise<boolean> {
   const sb = createClient()
   const { data, error } = await sb
     .from('leagues')
@@ -48,7 +51,7 @@ export async function isLeaguePublic(leagueId: string): Promise<boolean> {
   const team = (data as { teams?: { is_public?: boolean } | null } | null)?.teams
   // 팀을 못 찾으면 공개로 취급하지 않는다 — 판정 불가일 때는 닫는 쪽이 안전하다.
   return team?.is_public === true
-}
+})
 
 // API 라우트용 — 공개 리그면 누구나, 비공개면 승인 회원 또는 편집 권한자만.
 // canViewStats 와 같은 규칙을 쓰되, 이쪽은 "리그 자체를 볼 수 있는가"를 본다.
