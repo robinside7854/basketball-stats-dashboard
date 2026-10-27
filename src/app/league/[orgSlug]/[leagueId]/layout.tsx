@@ -5,7 +5,7 @@ import LeagueLayoutClient from './_components/LeagueLayoutClient'
 import PrivateLeagueGate from '@/components/league/auth/PrivateLeagueGate'
 import { resolveLeagueAppIdentity } from '@/lib/pwa/leagueApp'
 import { appleWebAppMetadata } from '@/lib/pwa/appShell'
-import { loadLeagueQuarters } from '@/lib/league/loadQuarters'
+import { getLeagueQuarters } from '@/lib/league/loadQuarters'
 
 export async function generateMetadata({
   params,
@@ -89,7 +89,7 @@ export default async function LeagueLayout({
   //   위 게이트를 통과한 뒤라면 실어 보내도 된다. 실패하면 null → 프로바이더가 종전처럼 직접 받는다.
   const [{ data: leagueRow }, quartersRes] = await Promise.all([
     sb.from('leagues').select('name').eq('id', leagueId).maybeSingle(),
-    loadLeagueQuarters(sb, leagueId).catch(() => ({ quarters: null })),
+    getLeagueQuarters(leagueId).catch(() => ({ quarters: null })),
   ])
   const leagueName = (leagueRow?.name as string | undefined) ?? null
 

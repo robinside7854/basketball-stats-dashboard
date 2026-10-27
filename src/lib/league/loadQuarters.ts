@@ -7,7 +7,8 @@
 // ⚠ 권한 판정은 호출부의 몫이다 — 라우트는 canViewLeague, 레이아웃은 isLeaguePrivateGated 를 먼저 통과한 뒤 부른다.
 // ⚠ 개인 데이터가 아니다(리그 공용 분기 표) — 레이아웃 초기값으로 실어도 된다.
 
-import type { createClient } from '@/lib/supabase/admin'
+import { cache } from 'react'
+import { createClient } from '@/lib/supabase/admin'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import type { Quarter } from '@/types/league'
 
@@ -48,3 +49,9 @@ export async function loadLeagueQuarters(
     error: null,
   }
 }
+
+/**
+ * 한 번의 서버 렌더 안에서 분기 목록을 나눠 쓴다(2026-10-27) — 레이아웃과 스탯 페이지가 같은 렌더에서
+ * 각자 부르면 조회(와 깃발 보정 쓰기)가 두 번 났다. 요청이 바뀌면 다시 읽는다(React cache).
+ */
+export const getLeagueQuarters = cache((leagueId: string) => loadLeagueQuarters(createClient(), leagueId))
