@@ -100,21 +100,21 @@ const getLandingCached = (leagueId: string) =>
     },
     // v4: 카드 썸네일(thumb_video_id) 추가 · v5: 승패 = dayRecord(친선 제외)
     ['highlights-landing-v5', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )
 
 const getRoundCached = (leagueId: string, date: string) =>
   unstable_cache(
     async () => loadRoundDetail(createClient(), leagueId, date),
     ['highlights-round-detail', leagueId, date],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )
 
 const getPlayerCached = (leagueId: string, playerId: string) =>
   unstable_cache(
     async () => loadPlayerHighlights(createClient(), leagueId, playerId),
     ['highlights-player-page', leagueId, playerId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-events`, `league-${leagueId}-players-${playerId}`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-events`, `league-${leagueId}-players-${playerId}`], revalidate: 3600 },
   )
 
 const getBestCached = (leagueId: string) =>
@@ -131,7 +131,7 @@ const getBestCached = (leagueId: string) =>
       return { ...detail, photoMap }
     },
     ['highlights-best-shots-v2', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-events`, `league-${leagueId}-pins`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-events`, `league-${leagueId}-pins`], revalidate: 3600 },
   )
 
 const getClassicsCached = (leagueId: string) =>
@@ -160,7 +160,7 @@ const getMilestonesCached = (leagueId: string) =>
         }))
     },
     ['highlights-milestones-players-v1', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )
 
 // 선수 칩 이름 — 팀 소유 명단에서(league_id 로 찾으면 대회 묶음에서 0명). 캐시 밖, 한 행.

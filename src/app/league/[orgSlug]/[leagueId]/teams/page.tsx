@@ -1,7 +1,7 @@
 'use client'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import PlayerName from '@/components/league/ui/PlayerName'
-import HeadToHeadSection from '@/components/league/HeadToHeadSection'
+import HeadToHeadSection, { prefetchHeadToHead } from '@/components/league/HeadToHeadSection'
 import TeamInsightView, { useTeamInsights } from '@/components/league/TeamInsightsSection'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
@@ -13,7 +13,7 @@ import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigat
 import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users, Pencil } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
-import RosterEditor from './_components/RosterEditor'
+import dynamic from 'next/dynamic'
 import type { Team } from './_types'
 import { pickTeamLeader } from './_lib/teamLeaders'
 import TeamsSkeleton from '@/components/league/teams/TeamsSkeleton'
@@ -52,6 +52,9 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
 import StatHeader from '@/components/league/StatHeader'
 import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
 import type { PlayerStat } from '@/types/league'
+
+// 명단 편집기는 ?edit=1 에서만 쓰인다 — 첫 화면 내려받기에서 뺀다(2026-10-27)
+const RosterEditor = dynamic(() => import('./_components/RosterEditor'), { ssr: false })
 
 type StatMode = 'basic'|'shooting'|'advanced'
 
@@ -687,6 +690,8 @@ function LeagueTeamsPageInner() {
     if (!selectedQId || !quarterCtxReady) return
     let cancelled = false
     setStatus('loading')
+    // 누적 맞대결도 같이 출발시킨다(본문을 기다렸다가 따로 나가지 않게)
+    prefetchHeadToHead(leagueId, selectedQId)
     const qs = new URLSearchParams({ withPlayers: '1' })
     if (selectedQId !== 'all') qs.set('quarterId', selectedQId)
     else if (currentQuarterId) qs.set('unassignedQuarterId', currentQuarterId)

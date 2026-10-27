@@ -335,14 +335,16 @@ export default async function LeagueDetailPage({
   // 비공개 리그 raw HTML 누출 방지 — layout.tsx 의 주석 참조.
   // layout 이 화면(children)은 이미 막지만, Next 가 layout·page 를 병렬 렌더하기 때문에
   // 이 아래 데이터 fetch 를 실제로 실행하기 전에 여기서도 먼저 끊어야 한다.
-  if (await isLeaguePrivateGated(leagueId)) return null
+  //   2026-10-27 속도: mode 조회는 화면에 아무것도 내보내지 않으므로 잠금 확인과 같이 보낸다(차례로 기다리지 않게).
+  const [gated, leagueMode] = await Promise.all([isLeaguePrivateGated(leagueId), fetchLeagueMode(leagueId)])
+  if (gated) return null
 
   // 대회 묶음(mode='tournament')이면 대회 보드로 분기 — 리그 홈(순위표·라운드 중심)의
   // 무거운 프리페치 7종을 전혀 타지 않는다. mode 하나만 필요하므로 fetchTeamCompetitions
   // (형제 묶음 전체 + 묶음별 경기 수까지 가져옴, Task 1) 대신 전용 소형 헬퍼를 쓴다
   // (Task 3 브리프 지적 — 여기서 낭비하지 않는다). 리그(mode='league')면 아래 기존 로직이
   // 한 글자도 안 바뀐 채 그대로 실행된다 — 미라클 리그 홈은 지금과 완전히 동일해야 한다.
-  if ((await fetchLeagueMode(leagueId)) === 'tournament') {
+  if (leagueMode === 'tournament') {
     return <TournamentBoard leagueId={leagueId} orgSlug={orgSlug} />
   }
 

@@ -11,7 +11,7 @@
 //       남은 기간이 REFRESH_BELOW 보다 짧으면 같은 내용으로 새로 서명해 30일을 다시 준다(=30일 동안 안 오면 로그아웃).
 //     · last_seen_at 다시 기록 — 「안 본다」를 잴 수단이 로그인 시각뿐이었다. 쓰기가 화면마다 붙지 않게
 //       SEEN_EVERY 에 한 번만 UPDATE 한다.
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession, signSession, buildAuthCookieHeader } from '@/lib/auth/session'
@@ -50,27 +50,29 @@ export async function GET(
   if (!acc || acc.status !== 'approved') return NextResponse.json({ authenticated: false, ceo: await ceoPromise }, { headers: NO_STORE })
 
   // 마지막 열람 시각 — SEEN_EVERY 에 한 번만 쓴다(best-effort, 실패해도 응답은 그대로)
+  //   2026-10-27 속도: 응답을 기다리게 하지 않고 응답 뒤에 쓴다(after — Vercel 이 끝날 때까지 기다려 준다).
   const lastSeen = (acc as { last_seen_at?: string | null }).last_seen_at
   if (!lastSeen || Date.now() - new Date(lastSeen).getTime() > SEEN_EVERY) {
-    // 서버리스는 응답 뒤 작업이 잘릴 수 있어 기다린다 — 6시간에 한 번이라 비용은 작다
-    await sb.from('league_user_accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', acc.id).then(() => {}, () => {})
+    after(async () => {
+      await sb.from('league_user_accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', acc.id).then(() => {}, () => {})
+    })
   }
-
-  const { data: player } = await sb
-    .from('league_players')
-    .select('id, name, number, position, photo_url')
-    .eq('id', acc.league_player_id)
-    .maybeSingle()
 
   // 편집 권한(role) 은 별도 쿼리로 조회한다.
   //   마이그레이션 072 는 Supabase 에서 수동 실행하는데 Vercel 배포는 push 즉시 일어난다.
   //   위 메인 select 에 role 을 넣으면 컬럼이 아직 없는 동안 쿼리 전체가 실패해
   //   로그인 회원 전원이 로그아웃된다 → 실패해도 member 로 떨어지도록 분리.
-  const { data: roleRow } = await sb
-    .from('league_user_accounts')
-    .select('role')
-    .eq('id', acc.id)
-    .maybeSingle()
+  //   선수 메타와 role 은 서로 기다릴 이유가 없어 같이 보낸다(2026-10-27).
+  const [{ data: player }, { data: roleRow }] = await Promise.all([
+    sb.from('league_players')
+      .select('id, name, number, position, photo_url')
+      .eq('id', acc.league_player_id)
+      .maybeSingle(),
+    sb.from('league_user_accounts')
+      .select('role')
+      .eq('id', acc.id)
+      .maybeSingle(),
+  ])
   const role = (roleRow as { role?: string } | null)?.role === 'admin' ? 'admin' : 'member'
 
   const res = NextResponse.json({

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { fetchAllPaged } from '@/lib/supabase/paged'
 import { NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
@@ -33,6 +34,22 @@ export async function GET(
     return NextResponse.json({ error: 'login_required' }, { status: 401 })
   }
   const quarterId = new URL(req.url).searchParams.get('quarterId')
+  // 2026-10-27 속도: 종전엔 요청마다 리그 이벤트 전량을 다시 읽었다(팀 탭을 열 때마다 수 초).
+  //   리그·분기 단위로 캐시 — 기록·경기·팀 수정 API 가 같은 태그를 무효화한다. 인가는 위에서 요청마다.
+  //   조회 실패는 throw 로 올려 캐시에 남기지 않는다.
+  try {
+    const result = await unstable_cache(
+      () => computeHeadToHead(leagueId, quarterId),
+      ['head-to-head', leagueId, quarterId || 'all', 'v1'],
+      { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
+    )()
+    return NextResponse.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'failed' }, { status: 500 })
+  }
+}
+
+async function computeHeadToHead(leagueId: string, quarterId: string | null): Promise<{ pairs: unknown[] }> {
   const supabase = createClient()
   const oneQuarter = !!quarterId && quarterId !== 'all'
 
@@ -66,26 +83,19 @@ export async function GET(
     fetchScoringRules(supabase, leagueId),
     resolveTeamId(leagueId),
   ])
-  if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 })
-  if (!games || games.length === 0) return NextResponse.json({ pairs: [] })
+  if (gErr) throw new Error(gErr.message)
+  if (!games || games.length === 0) return { pairs: [] }
 
   const gameIds = games.map(g => g.id as string)
-  const PAGE = 1000
   type Ev = { league_game_id: string; league_player_id: string; related_player_id: string | null; team_id: string | null; type: string; result: string | null; quarter: number | null }
-  const events: Ev[] = []
-  for (let page = 0; ; page++) {
-    const { data: chunk, error } = await supabase
-      .from('league_game_events')
-      .select('league_game_id, league_player_id, related_player_id, team_id, type, result, quarter')
-      .in('league_game_id', gameIds)
-      .not('league_player_id', 'is', null)
-      // ⚠ ORDER BY 없으면 페이지네이션 중복/누락
-      .order('id', { ascending: true })
-      .range(page * PAGE, (page + 1) * PAGE - 1)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    if (chunk) events.push(...(chunk as Ev[]))
-    if (!chunk || chunk.length < PAGE) break
-  }
+  const events = await fetchAllPaged<Ev>((from, to) => supabase
+    .from('league_game_events')
+    .select('league_game_id, league_player_id, related_player_id, team_id, type, result, quarter')
+    .in('league_game_id', gameIds)
+    .not('league_player_id', 'is', null)
+    // ⚠ ORDER BY 없으면 페이지네이션 중복/누락
+    .order('id', { ascending: true })
+    .range(from, to))
 
   const [{ data: players }, gpRows, { data: memberships }] = await Promise.all([
     supabase.from('league_players').select('id, plus_one').eq('team_id', teamId),
@@ -164,5 +174,5 @@ export async function GET(
 
   // 최근에 맞붙은 대진부터
   const out = [...pairs.values()].sort((p, q) => q.lastDate.localeCompare(p.lastDate) || q.games - p.games)
-  return NextResponse.json({ pairs: out })
+  return { pairs: out }
 }

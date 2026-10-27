@@ -11,6 +11,26 @@ import SectionHeader from '@/components/league/ui/SectionHeader'
 type Side = { key: string; name: string; color: string; wins: number; totals: H2HTotals }
 type Pair = { a: Side; b: Side; games: number; draws: number; lastDate: string }
 
+// 2026-10-27 속도: 이 칸은 팀 탭 본문(team-identities)이 다 온 뒤에야 그려져서 요청이 줄줄이 나갔다.
+//   페이지가 본문 요청과 같은 때 prefetchHeadToHead 를 불러 두면, 그려질 때 이미 받은(또는 받는 중인) 결과를 쓴다.
+const pending = new Map<string, Promise<Pair[]>>()
+function loadPairs(leagueId: string, quarterId: string): Promise<Pair[]> {
+  const url = `/api/leagues/${leagueId}/head-to-head?quarterId=${encodeURIComponent(quarterId || 'all')}`
+  let p = pending.get(url)
+  if (!p) {
+    p = fetch(url)
+      .then(r => (r.ok ? r.json() : { pairs: [] }))
+      .then((d: { pairs?: Pair[] }) => d.pairs ?? [])
+    // 한 번 쓰고 나면 지운다 — 다음 방문·기록 수정 뒤엔 새로 받는다
+    p.catch(() => {}).finally(() => setTimeout(() => pending.delete(url), 30_000))
+    pending.set(url, p)
+  }
+  return p
+}
+export function prefetchHeadToHead(leagueId: string, quarterId: string) {
+  void loadPairs(leagueId, quarterId).catch(() => {})
+}
+
 const hex = (c: string | null | undefined, fallback: string) => (c && /^#[0-9a-f]{3,8}$/i.test(c) ? c : fallback)
 
 export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = null }: {
@@ -24,11 +44,10 @@ export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = nul
 
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/leagues/${leagueId}/head-to-head?quarterId=${encodeURIComponent(quarterId || 'all')}`)
-      .then(r => (r.ok ? r.json() : { pairs: [] }))
-      .then((d: { pairs?: Pair[] }) => {
+    loadPairs(leagueId, quarterId)
+      .then(list => {
         if (cancelled) return
-        setPairs(d.pairs ?? [])
+        setPairs(list)
         setActiveKey(null)
       })
       .catch(() => { if (!cancelled) setPairs([]) })

@@ -12,6 +12,7 @@
  *     치르는 운영 방식이라 '경기당 평균'이 실제 체감과 어긋났고, 아무도 쓰지 않았다.
  *   - Supabase 서버 max-rows(1000) 제한을 피해 이벤트 페이지네이션
  */
+import { fetchAllPaged } from '@/lib/supabase/paged'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
@@ -158,10 +159,7 @@ export async function computeLeagueStats(
     league_game_id: string
     video_timestamp: number | null
   }
-  const events: EventRow[] = []
-  const PAGE = 1000
-  let page = 0
-  while (true) {
+  const events = await fetchAllPaged<EventRow>((from, to) => {
     let q = sb
       .from('league_game_events')
       .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id, video_timestamp, quarter')
@@ -169,14 +167,10 @@ export async function computeLeagueStats(
       .not('league_player_id', 'is', null)
       // ⚠ ORDER BY 없으면 페이지네이션 중복/누락 발생
       .order('id', { ascending: true })
-      .range(page * PAGE, (page + 1) * PAGE - 1)
+      .range(from, to)
     if (teamId)   q = q.eq('team_id', teamId)
-    const { data: chunk, error: eErr } = await q
-    if (eErr) throw new Error(eErr.message)
-    if (chunk && chunk.length > 0) events.push(...(chunk as EventRow[]))
-    if (!chunk || chunk.length < PAGE) break
-    page++
-  }
+    return q
+  })
 
   // 4) 선수별 집계
   type PlayerStats = {

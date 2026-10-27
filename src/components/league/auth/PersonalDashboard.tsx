@@ -12,7 +12,7 @@ import PlayerName from '@/components/league/ui/PlayerName'
 //   오른쪽: 출석률(이번 분기 + 전체 · 분모는 내 첫 기록일부터) · 내 베스트샷(+ 최근 하이라이트) · 마일스톤 체이서
 //   숫자는 전부 auth/dashboard 하나가 준다(친선 제외 — 화면에서 다시 계산하지 않는다).
 //   ⚠ 평균·연속 단위는 「하루」다 — 「경기당」·「라운드」라 쓰지 말 것.
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
@@ -118,21 +118,30 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
     } catch { /* 무시 */ }
   }, [])
 
+  // 2026-10-27 속도: 종전엔 /auth/me 응답(로그인 확인)을 기다린 뒤에야 대시보드를 요청해 두 번을 줄줄이 기다렸다.
+  //   서버가 쿠키로 다시 확인하므로 로그인 확인과 같이 출발시킨다. 비회원이면 401 — 조용히 넘긴다(화면은 티저).
+  //   로그인 확인이 끝나며 user 가 생겨도 다시 받지 않는다 — 다만 401 을 받은 뒤 로그인했으면(로그인 창) 그때 다시 받는다.
+  const unauthorizedRef = useRef(false)
   const load = useCallback(async () => {
-    if (!user) return
     setLoading(true)
     setError(false)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/auth/dashboard`, { cache: 'no-store' })
+      if (r.status === 401 || r.status === 403) { unauthorizedRef.current = true; setData(null); return }
+      unauthorizedRef.current = false
       if (!r.ok) throw new Error(String(r.status))
       setData(await r.json())
     } catch {
       // 실패하면 「불러오는 중」에 멈추지 않고 다시 시도할 수 있게 알린다
       setError(true)
     } finally { setLoading(false) }
-  }, [leagueId, user])
+  }, [leagueId])
 
   useEffect(() => { load() }, [load])
+  const userId = user?.id ?? null
+  useEffect(() => {
+    if (userId && unauthorizedRef.current) load()
+  }, [userId, load])
 
   if (authLoading) return null
   if (!user) {

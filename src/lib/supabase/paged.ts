@@ -9,16 +9,22 @@
 //     sb.from('league_game_events').select('...').in('league_game_id', ids).order('id').range(from, to))
 
 const PAGE = 1000
+// 2026-10-27 속도: 한 쪽씩 차례로 받으면 리그 기록(2만 줄 넘음)이 왕복 20번 넘게 줄줄이 기다렸다.
+//   한 번에 BATCH 쪽을 같이 요청하고, 짧은 쪽(마지막 쪽)이 나오면 멈춘다. 정렬이 고정이라 순서·결과는 같다.
+const BATCH = 6
 
 export async function fetchAllPaged<T>(
   page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const out: T[] = []
-  for (let p = 0; ; p++) {
-    const { data, error } = await page(p * PAGE, (p + 1) * PAGE - 1)
-    if (error) throw new Error(error.message)
-    if (data) out.push(...(data as T[]))
-    if (!data || data.length < PAGE) break
+  for (let start = 0; ; start += BATCH) {
+    const results = await Promise.all(
+      Array.from({ length: BATCH }, (_, i) => page((start + i) * PAGE, (start + i + 1) * PAGE - 1)),
+    )
+    for (const { data, error } of results) {
+      if (error) throw new Error(error.message)
+      if (data) out.push(...(data as T[]))
+      if (!data || data.length < PAGE) return out
+    }
   }
-  return out
 }
