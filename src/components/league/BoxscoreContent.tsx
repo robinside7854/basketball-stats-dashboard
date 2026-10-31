@@ -8,7 +8,7 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 // 페이지 컨텍스트에서 렌더되도록 조정.
 //
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
-//   · 공격 유형(슛 유형별 비중·야투율) · 팀별 비교 · 어시스트(네트워크). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
+//   · 팀별 비교 · 어시스트(네트워크). 공격 유형 탭은 2026-10-31 운영진 결정으로 뺐다(팀 탭 인사이트에는 남음). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
@@ -23,7 +23,6 @@ import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
 import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
-import ShotTypeBreakdown, { type ShotTypeRow } from '@/components/league/boxscore/ShotTypeBreakdown'
 import DayHighlightsLauncher, { type HighlightScope } from '@/components/league/boxscore/DayHighlightsLauncher'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -31,8 +30,8 @@ import { PenLine } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { tallyDayRecord, identityKeyOf } from '@/lib/stats/dayRecord'
 
-type BoxTab = 'result' | 'players' | 'shots' | 'compare' | 'assist'
-const BOX_TABS: readonly BoxTab[] = ['result', 'players', 'shots', 'compare', 'assist']
+type BoxTab = 'result' | 'players' | 'compare' | 'assist'
+const BOX_TABS: readonly BoxTab[] = ['result', 'players', 'compare', 'assist']
 // 마지막으로 본 탭 — 같은 탭 세션 안에서 다른 날짜 박스스코어로 넘어가도 이어진다(2026-10-15)
 const BOX_TAB_KEY = 'mm_boxscore_tab'
 const isBoxTab = (v: unknown): v is BoxTab => typeof v === 'string' && (BOX_TABS as readonly string[]).includes(v)
@@ -390,20 +389,22 @@ function ShootCell({ label, made, att, pct }: { label: string; made: number; att
 
 function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort = false, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; hideSort?: boolean; total?: TotalLine; totalOpts?: TotalOpts }) {
   const myId = useContext(MyIdCtx)
-  const [sortKey, setSortKey] = useState<'pts' | 'reb' | 'ast'>('pts')
-  const sorted = [...rows].sort((a, b) => {
-    const av = (a as Record<string, unknown>)[sortKey] as number ?? 0
-    const bv = (b as Record<string, unknown>)[sortKey] as number ?? 0
-    return bv - av
-  })
-  const sortBtns: { key: 'pts' | 'reb' | 'ast'; label: string }[] = [
+  // 2026-10-31 운영진: 스틸·블록·3점도 정렬 — 같으면 득점 순
+  type MobileSortKey = 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m'
+  const [sortKey, setSortKey] = useState<MobileSortKey>('pts')
+  const num = (r: unknown, k: string) => ((r as Record<string, unknown>)[k] as number) ?? 0
+  const sorted = [...rows].sort((a, b) => num(b, sortKey) - num(a, sortKey) || num(b, 'pts') - num(a, 'pts'))
+  const sortBtns: { key: MobileSortKey; label: string }[] = [
     { key: 'pts', label: '득점' },
     { key: 'reb', label: '리바' },
     { key: 'ast', label: '어시' },
+    { key: 'stl', label: '스틸' },
+    { key: 'blk', label: '블록' },
+    { key: 'fg3m', label: '3점' },
   ]
   return (
     <div className="space-y-2">
-      {!hideSort && <div className="flex items-center gap-1.5">
+      {!hideSort && <div className="flex flex-wrap items-center gap-1.5">
         <span className="t-label mr-1">정렬</span>
         {sortBtns.map(b => {
           const active = sortKey === b.key
@@ -657,8 +658,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const [teamFilter, setTeamFilter] = useState<string>('all')
   // 경기별 박스스코어는 경기 카드를 펼친 안에 팀별로 있다 — 선수 기록 탭은 하루 합산만 (2026-10-12).
   const [assistLinks, setAssistLinks] = useState<AssistLink[]>([])
-  // 공격 유형 — (경기, 선수, 슛 유형) 시도·성공. 합산은 ShotTypeBreakdown 이 한다.
-  const [shotTypes, setShotTypes] = useState<ShotTypeRow[]>([])
   // 이미지 저장 진행 상태
   const [savingImage, setSavingImage] = useState(false)
   // 공유용 hidden 캡처 대상 ref (실제 캡처는 ShareableBoxscore)
@@ -759,7 +758,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       setRolledUp(d.rolled_up === true)
       setDailyStats(d.daily_stats ?? [])
       setAssistLinks(d.assist_links ?? [])
-      setShotTypes(d.shot_types ?? [])
       // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
       //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
       if (initialGameId) {
@@ -870,7 +868,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             items={[
               { key: 'result',  label: '경기결과',  count: games.length },
               { key: 'players', label: '선수 기록', count: dailyStats.length },
-              { key: 'shots',   label: '공격 유형' },
               { key: 'compare', label: '팀별 비교' },
               { key: 'assist',  label: '어시스트' },
             ]}
@@ -1248,35 +1245,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             )
           })()}
 
-          {/* 탭 3: 공격 유형 — 슛 유형별 시도 비중 · 야투율 (2026-10-12) */}
-          {activeTab === 'shots' && (
-            <div
-              role="tabpanel"
-              id="daily-boxscore-panel-shots"
-              aria-labelledby="daily-boxscore-tab-shots"
-              className="px-4 py-4 lg:px-6 lg:py-5"
-            >
-              <ShotTypeBreakdown
-                rows={shotTypes}
-                games={games.map(g => ({
-                  id: g.id,
-                  numLabel: gameNumLabel(g),
-                  homeName: g.home_team?.name ?? '미정',
-                  awayName: g.away_team?.name ?? '미정',
-                }))}
-                // 경기의 두 팀 + (옛 기록처럼) 그 밖의 팀으로 잡힌 선수의 팀 — 이름을 「팀 미정」으로 잃지 않게
-                teams={[
-                  ...extractTeams(games),
-                  ...dailyStats
-                    .filter(d => d.team_id && d.team_name && !games.some(g => g.home_team?.id === d.team_id || g.away_team?.id === d.team_id))
-                    .map(d => ({ id: d.team_id!, name: d.team_name!, color: d.team_color })),
-                ].filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)}
-                players={new Map(dailyStats.map(d => [d.player_id, { name: d.name, team_id: d.team_id }]))}
-              />
-            </div>
-          )}
-
-          {/* 탭 4: 팀별 비교 — 조합 버튼(팀 3개=3쌍) */}
+          {/* 탭 3: 팀별 비교 — 조합 버튼(팀 3개=3쌍) */}
           {activeTab === 'compare' && (
             <div
               role="tabpanel"
