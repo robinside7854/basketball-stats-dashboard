@@ -9,13 +9,31 @@ import Image from 'next/image'
 import { BadgeCheck, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Chip, EmptyState, SectionCard, SegmentedTabs, Sheet } from '@/components/league/ui'
+import SortSelect from '@/components/league/ui/SortSelect'
+import type { RosterCardLine } from '@/app/api/leagues/[leagueId]/roster-cards/route'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import type { RosterCard, RosterCardsResponse } from '@/app/api/leagues/[leagueId]/roster-cards/route'
 import { POSITION_GROUPS, positionGroupLabel, positionGroupOf, type PositionGroupCode } from '@/lib/league/positionGroup'
 
 type Period = 'quarter' | 'all'
-type SortKey = 'attendance' | 'name'
+// 리뉴얼 R2 (2026-10-31): 선수 탭 = 명단 + 순위. 스탯 탭(리더보드)의 「누가 잘하나」를 여기로 합쳤다.
+//   고르기는 「순위 ▾」 하나 + 기간 2칩. 포지션·가입 회원 칩은 뺐다. 되돌리기: docs/renewal-rollback.md (R2).
+type SortKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'tpg' | 'attendance' | 'name'
+const SORT_OPTIONS: readonly { key: SortKey; label: string; unit?: string }[] = [
+  { key: 'ppg', label: '득점', unit: '점' },
+  { key: 'rpg', label: '리바운드', unit: '개' },
+  { key: 'apg', label: '어시스트', unit: '개' },
+  { key: 'spg', label: '스틸', unit: '개' },
+  { key: 'bpg', label: '블록', unit: '개' },
+  { key: 'tpg', label: '3점 성공', unit: '개' },
+  { key: 'attendance', label: '출석' },
+  { key: 'name', label: '이름' },
+]
+type StatKey = Exclude<SortKey, 'attendance' | 'name'>
+const isStatKey = (k: SortKey): k is StatKey => k !== 'attendance' && k !== 'name'
 
 // 포지션은 가드·포워드·센터 세 가지(2026-10-17). 옛 5코드(PG·SG…)는 positionGroupOf 로 묶어 읽는다.
 const OPTIMIZABLE = /^https:\/\/[^/]+\.supabase\.(co|in)\//
@@ -31,9 +49,8 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const [data, setData] = useState<RosterCardsResponse | null>(null)
   const [error, setError] = useState(false)
   const [period, setPeriod] = useState<Period | null>(null)
-  const [sort, setSort] = useState<SortKey>('attendance')
-  const [pos, setPos] = useState<PositionGroupCode | 'ALL'>('ALL')
-  const [onlyMembers, setOnlyMembers] = useState(false)
+  const [sort, setSort] = useState<SortKey>('ppg')
+  const { orgSlug } = useParams<{ orgSlug: string }>()
   const [addOpen, setAddOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -58,30 +75,32 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const effPeriod: Period = period ?? (data?.quarter && data.quarter.total_rounds > 0 ? 'quarter' : 'all')
   const totalRounds = effPeriod === 'quarter' ? (data?.quarter?.total_rounds ?? 0) : (data?.all_total_rounds ?? 0)
 
-  const positions = useMemo(() => {
-    const s = new Set<PositionGroupCode>()
-    for (const p of data?.players ?? []) { const g = groupOfCard(p); if (g) s.add(g) }
-    return POSITION_GROUPS.filter(g => s.has(g.code))
-  }, [data])
-
   const attOf = useCallback(
     (p: RosterCard) => (effPeriod === 'quarter' ? (p.attendance.quarter ?? { gp: 0, rate: 0 }) : p.attendance.all),
     [effPeriod],
   )
 
-  const list = useMemo(() => {
-    const rows = (data?.players ?? []).filter(p => {
-      if (onlyMembers && !p.has_account) return false
-      if (pos !== 'ALL' && groupOfCard(p) !== pos) return false
-      return true
-    })
+  const lineOf = useCallback(
+    (p: RosterCard): RosterCardLine | null => (effPeriod === 'quarter' ? p.line.quarter : p.line.all),
+    [effPeriod],
+  )
+
+  // 순위(1·2·2·4 공동) — 자격(순위 기준 출전일)을 채운 선수만. 자격 밖은 순위 없이 뒤로.
+  const { list, rankOf } = useMemo(() => {
+    const rows = data?.players ?? []
     const byName = (a: RosterCard, b: RosterCard) => a.name.localeCompare(b.name, 'ko')
-    return [...rows].sort((a, b) => {
-      if (sort === 'name') return byName(a, b)
-      const aa = attOf(a), ba = attOf(b)
-      return ba.rate - aa.rate || ba.gp - aa.gp || byName(a, b)
-    })
-  }, [data, onlyMembers, pos, sort, attOf])
+    const ranks = new Map<string, number>()
+    if (sort === 'name') return { list: [...rows].sort(byName), rankOf: ranks }
+    if (sort === 'attendance') {
+      return { list: [...rows].sort((a, b) => attOf(b).rate - attOf(a).rate || attOf(b).gp - attOf(a).gp || byName(a, b)), rankOf: ranks }
+    }
+    const v = (p: RosterCard) => lineOf(p)?.[sort] ?? -1
+    const ok = (p: RosterCard) => lineOf(p)?.eligible === true
+    const sorted = [...rows].sort((a, b) => Number(ok(b)) - Number(ok(a)) || v(b) - v(a) || byName(a, b))
+    let prev = NaN, rank = 0
+    sorted.forEach((p, i) => { if (!ok(p)) return; if (v(p) !== prev) { rank = i + 1; prev = v(p) } ranks.set(p.id, rank) })
+    return { list: sorted, rankOf: ranks }
+  }, [data, sort, attOf, lineOf])
 
   const total = data?.players.length ?? 0
   const members = (data?.players ?? []).filter(p => p.has_account).length
@@ -124,24 +143,12 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
           </div>
 
           {data && (
-            <div className="space-y-2">
-              <FilterRow label="정렬">
-                <Chip as="button" selected={sort === 'attendance'} onClick={() => setSort('attendance')}>참석률</Chip>
-                <Chip as="button" selected={sort === 'name'} onClick={() => setSort('name')}>이름</Chip>
-              </FilterRow>
-              {positions.length > 0 && (
-                <FilterRow label="포지션">
-                  <Chip as="button" selected={pos === 'ALL'} onClick={() => setPos('ALL')}>전체</Chip>
-                  {positions.map(g => (
-                    <Chip key={g.code} as="button" selected={pos === g.code} onClick={() => setPos(g.code)}>{g.label}</Chip>
-                  ))}
-                </FilterRow>
-              )}
-              <FilterRow label="회원">
-                <Chip as="button" selected={onlyMembers} onClick={() => setOnlyMembers(v => !v)} icon={BadgeCheck}>
-                  가입 회원만
-                </Chip>
-              </FilterRow>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <SortSelect value={sort} options={SORT_OPTIONS} onChange={setSort} label="순위" />
+              {/* PC 에서 숫자를 표로 보고 싶은 사람용 — 옛 스탯 표(메뉴에서는 뺐다) */}
+              <Link href={`/league/${orgSlug}/${leagueId}/stats`} className="hidden lg:inline-flex t-label items-center min-h-11 hover:underline">
+                표로 보기 →
+              </Link>
             </div>
           )}
         </div>
@@ -161,7 +168,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
             icon={total === 0 ? Users : Search}
             title={total === 0 ? '아직 등록된 선수가 없어요' : '조건에 맞는 선수가 없어요'}
             action={total > 0 ? (
-              <Chip as="button" size="md" onClick={() => { setPos('ALL'); setOnlyMembers(false) }}>필터 초기화</Chip>
+              <Chip as="button" size="md" onClick={() => setSort('ppg')}>처음으로</Chip>
             ) : undefined}
           />
         </SectionCard>
@@ -173,6 +180,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
               p={p}
               gp={attOf(p).gp}
               rate={attOf(p).rate}
+              stat={isStatKey(sort) ? { label: SORT_OPTIONS.find(o => o.key === sort)!.label, value: lineOf(p)?.[sort] ?? null, rank: rankOf.get(p.id) ?? null } : null}
               totalRounds={totalRounds}
               priority={i < 4}
               onOpen={openCard ? () => openCard({
@@ -198,21 +206,14 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   )
 }
 
-function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="text-xs font-bold shrink-0 w-11" style={{ color: 'var(--mm-muted)' }}>{label}</span>
-      <div className="flex gap-1.5 overflow-x-auto min-w-0 -my-1 py-1 pr-1">{children}</div>
-    </div>
-  )
-}
-
 function CardGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 lg:gap-3">{children}</div>
 }
 
-function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen }: {
+function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen, stat }: {
   p: RosterCard; gp: number; rate: number; totalRounds: number; priority: boolean; onOpen?: () => void
+  /** 고른 순위 지표 — 없으면(출석·이름 정렬) 종전처럼 출석만 */
+  stat: { label: string; value: number | null; rank: number | null } | null
 }) {
   const pct = Math.round(rate * 100)
   const noRounds = totalRounds === 0
@@ -247,6 +248,17 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen }: {
             {initial}
           </span>
         )}
+        {stat?.rank != null && (
+          <span
+            className="absolute left-2 top-2 min-w-8 h-8 px-1.5 inline-flex items-center justify-center font-jersey font-black text-lg tabular-nums"
+            style={stat.rank <= 3
+              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
+              : { background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
+            aria-label={`${stat.label} ${stat.rank}위`}
+          >
+            {stat.rank}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5 p-2.5 lg:p-3 min-w-0 flex-1">
@@ -264,9 +276,19 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen }: {
             ? <Chip tone="positive" icon={BadgeCheck}>가입</Chip>
             : <Chip tone="neutral">미가입</Chip>}
         </div>
-        <p className="mt-auto text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>
-          출석 {noRounds ? '–' : <>{gp}/{totalRounds}일 · <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{pct}%</span></>}
-        </p>
+        {stat ? (
+          // 고른 지표 숫자 하나를 크게 — 순위 밖(출전일 부족)이면 흐리게
+          <p className="mt-auto flex items-baseline gap-1" style={{ opacity: stat.rank == null ? 0.5 : 1 }}>
+            <span className="font-jersey font-black tabular-nums leading-none text-[26px]" style={{ color: 'var(--mm-ink)' }}>
+              {stat.value == null ? '–' : stat.value.toFixed(1)}
+            </span>
+            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{stat.label} · 하루</span>
+          </p>
+        ) : (
+          <p className="mt-auto text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            출석 {noRounds ? '–' : <>{gp}/{totalRounds}일 · <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{pct}%</span></>}
+          </p>
+        )}
       </div>
     </button>
   )

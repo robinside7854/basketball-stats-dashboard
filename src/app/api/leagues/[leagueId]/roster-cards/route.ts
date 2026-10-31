@@ -21,8 +21,13 @@ import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
 import { loadPeriodStats, quarterPeriod, pickPlayerRow } from '@/lib/stats/playerTotals'
 import type { LeagueStatsResult } from '@/lib/stats/leagueStats'
+import { leagueMinRounds } from '@/lib/stats/eligibility'
 
 export type RosterCardAttendance = { gp: number; rate: number }
+
+/** 리뉴얼 R2 (2026-10-31): 선수 탭이 스탯 리더보드를 겸한다 — 하루 평균 6개 + 순위 자격.
+ *  숫자는 computeLeagueStats 행 그대로(스탯 탭·선수 카드와 같은 캐시 항목). */
+export type RosterCardLine = { ppg: number; rpg: number; apg: number; spg: number; bpg: number; tpg: number; eligible: boolean }
 
 export type RosterCard = {
   id: string
@@ -32,6 +37,7 @@ export type RosterCard = {
   photo_url: string | null
   has_account: boolean
   attendance: { all: RosterCardAttendance; quarter: RosterCardAttendance | null }
+  line: { all: RosterCardLine | null; quarter: RosterCardLine | null }
 }
 
 export type RosterCardsResponse = {
@@ -45,6 +51,18 @@ function att(res: LeagueStatsResult | null, playerId: string): RosterCardAttenda
   const total = res.total_rounds ?? 0
   const gp = pickPlayerRow(res, playerId)?.gp ?? 0
   return { gp, rate: total > 0 ? gp / total : 0 }
+}
+
+function lineOf(res: LeagueStatsResult | null, playerId: string, minGp: number): RosterCardLine | null {
+  if (!res) return null
+  const r = pickPlayerRow(res, playerId)
+  if (!r || !r.gp) return null
+  return {
+    ppg: r.ppg, rpg: r.rpg, apg: r.apg, spg: r.spg, bpg: r.bpg,
+    tpg: Math.round((r.fg3m / r.gp) * 10) / 10,
+    // 게스트 줄(guests)은 순위 모집단 밖 — players 에 있을 때만 자격
+    eligible: r.gp >= minGp && res.players.some(x => x.player_id === playerId),
+  }
 }
 
 export async function GET(
@@ -74,6 +92,8 @@ export async function GET(
     ])
     if (playersRes.error) throw new Error(playersRes.error.message)
 
+    const minAll = leagueMinRounds(allStats.total_rounds ?? 0, allStats.players)
+    const minQ = quarterStats ? leagueMinRounds(quarterStats.total_rounds ?? 0, quarterStats.players) : 0
     const verified = new Set((accountsRes.data ?? []).map(a => a.league_player_id as string))
     const players: RosterCard[] = []
     for (const p of playersRes.data ?? []) {
@@ -90,6 +110,7 @@ export async function GET(
           all: att(allStats, p.id) ?? { gp: 0, rate: 0 },
           quarter: att(quarterStats, p.id),
         },
+        line: { all: lineOf(allStats, p.id, minAll), quarter: lineOf(quarterStats, p.id, minQ) },
       })
     }
 

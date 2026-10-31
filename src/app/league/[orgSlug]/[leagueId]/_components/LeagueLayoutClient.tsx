@@ -8,7 +8,7 @@ import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEdit
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { PlayerCardProvider } from '@/contexts/PlayerCardContext'
-import { Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon, Users } from 'lucide-react'
+import { Unlock, Home, Calendar, PlayCircle, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon, Users } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { Basketball } from '@/components/league/BasketballIcons'
 import type { Quarter } from '@/types/league'
@@ -97,9 +97,11 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     { href: base, label: '홈', match: [] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
     // 선수 명단 탭 부활(2026-10-16 사용자 요청) — 경기와 스탯 사이
-    { href: `${base}/players`, label: '선수', match: [`${base}/players`] },
-    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/teams`, `${base}/records`] },
-    { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
+    // 리뉴얼 R2 (2026-10-31): 「스탯」 탭을 「선수」에 합쳤다 — 선수 탭이 명단 + 순위. 옛 스탯·팀·기록실 화면은
+    //   주소로는 그대로 열리고(선수 탭 「표로 보기」·홈 링크) 선수 탭이 켜진다. 「하이라이트」 → 「영상」.
+    //   되돌리기: docs/renewal-rollback.md (R2).
+    { href: `${base}/players`, label: '선수', match: [`${base}/players`, `${base}/stats`, `${base}/teams`, `${base}/records`] },
+    { href: `${base}/highlights`, label: '영상', match: [`${base}/highlights`] },
     // 드래프트는 주장·운영진 전용 절차다(2026-10-12) — 일반 회원 탭 줄에는 띄우지 않는다.
     ...(showDraft && isEditMode ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
   ]
@@ -335,7 +337,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   const meLabel = user ? (user.name?.trim() || user.login_id) : '가입하기'
   const meAriaLabel = user ? `내 기록 — ${meLabel}` : '내 기록 — 가입하기'
 
-  // 6탭 — 더보기 삭제(Task 4-C), 「선수」 추가(2026-10-16). 인스타그램처럼 계정/개인 화면은 맨 오른쪽.
+  // 5탭(리뉴얼 R2, 2026-10-31 — 스탯은 선수에 합침). 종전: 6탭 — 더보기 삭제(Task 4-C), 「선수」 추가(2026-10-16). 인스타그램처럼 계정/개인 화면은 맨 오른쪽.
   // 선수 명단·팀 순위는 스탯 탭으로 이동(2026-08-08, 아래 isActive 참조) — 경기 탭은 원래대로 경기만.
   // 드래프트·설정은 하단 탭에 없다. 드래프트는 /me 「바로가기」(어드민)와 데스크톱 상단 탭으로,
   //   설정은 헤더의 톱니 버튼(어드민·CEO, 위 「어드민 설정 진입점」) 하나로만 닿는다 — /me 에는 설정 바로가기가 없다.
@@ -343,8 +345,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
     { href: base,                  label: '홈',      Icon: Home },
     { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
     { href: `${base}/players`,     label: '선수',     Icon: Users },
-    { href: `${base}/stats`,       label: '스탯',     Icon: BarChart2 },
-    { href: `${base}/highlights`,  label: '하이라이트', Icon: Newspaper },
+    { href: `${base}/highlights`,  label: '영상',     Icon: PlayCircle },
     { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
   ]
 
@@ -359,7 +360,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   //   (인스타 카드 생성기 /social 은 2026-10-12 폐지)
   const isActive = (href: string) => {
     if (href === base) return pathname === base
-    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`) || pathname.startsWith(`${base}/records`)
+    if (href === `${base}/players`) return pathname.startsWith(`${base}/players`) || pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`) || pathname.startsWith(`${base}/records`)
     if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
     if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`)
     return pathname.startsWith(href)
