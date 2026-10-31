@@ -21,13 +21,23 @@ import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
 import { loadPeriodStats, quarterPeriod, pickPlayerRow } from '@/lib/stats/playerTotals'
 import type { LeagueStatsResult } from '@/lib/stats/leagueStats'
-import { leagueMinRounds } from '@/lib/stats/eligibility'
+import { leagueMinRounds, meetsAttemptMin } from '@/lib/stats/eligibility'
 
 export type RosterCardAttendance = { gp: number; rate: number }
 
 /** 리뉴얼 R2 (2026-10-31): 선수 탭이 스탯 리더보드를 겸한다 — 하루 평균 6개 + 순위 자격.
  *  숫자는 computeLeagueStats 행 그대로(스탯 탭·선수 카드와 같은 캐시 항목). */
-export type RosterCardLine = { ppg: number; rpg: number; apg: number; spg: number; bpg: number; tpg: number; eligible: boolean }
+export type RosterCardLine = {
+  ppg: number; rpg: number; orp: number; drp: number; apg: number; spg: number; bpg: number; topg: number
+  /** 3점 성공 하루 평균 */
+  tpg: number
+  fgm: number; fga: number; fg_pct: number
+  fg3m: number; fg3a: number; fg3_pct: number
+  ftm: number; fta: number; ft_pct: number
+  eligible: boolean
+  /** 성공률 순위 자격(출전 자격 + 최소 시도 — 스탯 탭과 같은 meetsAttemptMin) */
+  fg_ok: boolean; fg3_ok: boolean; ft_ok: boolean
+}
 
 export type RosterCard = {
   id: string
@@ -57,11 +67,18 @@ function lineOf(res: LeagueStatsResult | null, playerId: string, minGp: number):
   if (!res) return null
   const r = pickPlayerRow(res, playerId)
   if (!r || !r.gp) return null
+  const eligible = r.gp >= minGp && res.players.some(x => x.player_id === playerId)
   return {
-    ppg: r.ppg, rpg: r.rpg, apg: r.apg, spg: r.spg, bpg: r.bpg,
+    ppg: r.ppg, rpg: r.rpg, orp: r.orp, drp: r.drp, apg: r.apg, spg: r.spg, bpg: r.bpg, topg: r.topg,
     tpg: Math.round((r.fg3m / r.gp) * 10) / 10,
+    fgm: r.fgm, fga: r.fga, fg_pct: r.fg_pct,
+    fg3m: r.fg3m, fg3a: r.fg3a, fg3_pct: r.fg3_pct,
+    ftm: r.ftm, fta: r.fta, ft_pct: r.ft_pct,
     // 게스트 줄(guests)은 순위 모집단 밖 — players 에 있을 때만 자격
-    eligible: r.gp >= minGp && res.players.some(x => x.player_id === playerId),
+    eligible,
+    fg_ok: eligible && meetsAttemptMin(r, 'fg_pct'),
+    fg3_ok: eligible && meetsAttemptMin(r, 'fg3_pct'),
+    ft_ok: eligible && meetsAttemptMin(r, 'ft_pct'),
   }
 }
 

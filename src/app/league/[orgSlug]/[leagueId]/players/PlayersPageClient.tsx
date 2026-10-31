@@ -21,20 +21,35 @@ import { POSITION_GROUPS, positionGroupLabel, positionGroupOf, type PositionGrou
 
 type Period = 'quarter' | 'all'
 // 리뉴얼 R2 (2026-10-31): 선수 탭 = 명단 + 순위. 스탯 탭(리더보드)의 「누가 잘하나」를 여기로 합쳤다.
-//   고르기는 「순위 ▾」 하나 + 기간 2칩. 포지션·가입 회원 칩은 뺐다. 되돌리기: docs/renewal-rollback.md (R2).
-type SortKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'tpg' | 'attendance' | 'name'
-const SORT_OPTIONS: readonly { key: SortKey; label: string; unit?: string }[] = [
-  { key: 'ppg', label: '득점', unit: '점' },
-  { key: 'rpg', label: '리바운드', unit: '개' },
-  { key: 'apg', label: '어시스트', unit: '개' },
-  { key: 'spg', label: '스틸', unit: '개' },
-  { key: 'bpg', label: '블록', unit: '개' },
-  { key: 'tpg', label: '3점 성공', unit: '개' },
-  { key: 'attendance', label: '출석' },
-  { key: 'name', label: '이름' },
+// 2026-11 운영진: 순위 고르기를 드롭다운 → 필터 칩 12개(출석 … 자유투). 성공률은 %와 성공/시도를 함께.
+//   되돌리기: docs/renewal-rollback.md.
+type SortKey = 'attendance' | 'ppg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'fg_pct' | 'tpg' | 'ft_pct'
+type StatKey = Exclude<SortKey, 'attendance'>
+type Metric = {
+  key: StatKey
+  label: string
+  /** 순위 자격 — 출전일(eligible) 또는 성공률 최소 시도(스탯 탭과 같은 meetsAttemptMin) */
+  ok: (l: RosterCardLine) => boolean
+  /** 낮을수록 위(턴오버) */
+  low?: boolean
+  main: (l: RosterCardLine) => string
+  sub?: (l: RosterCardLine) => string
+}
+const per = (k: 'ppg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'tpg') => (l: RosterCardLine) => l[k].toFixed(1)
+const METRICS: Metric[] = [
+  { key: 'ppg', label: '득점', ok: l => l.eligible, main: per('ppg') },
+  { key: 'rpg', label: '리바운드', ok: l => l.eligible, main: per('rpg') },
+  { key: 'orp', label: '공격 리바운드', ok: l => l.eligible, main: per('orp') },
+  { key: 'drp', label: '수비 리바운드', ok: l => l.eligible, main: per('drp') },
+  { key: 'apg', label: '어시스트', ok: l => l.eligible, main: per('apg') },
+  { key: 'spg', label: '스틸', ok: l => l.eligible, main: per('spg') },
+  { key: 'bpg', label: '블록', ok: l => l.eligible, main: per('bpg') },
+  { key: 'topg', label: '턴오버', ok: l => l.eligible, low: true, main: per('topg'), sub: () => '적을수록 위' },
+  { key: 'fg_pct', label: '야투율', ok: l => l.fg_ok, main: l => `${l.fg_pct.toFixed(1)}%`, sub: l => `${l.fgm}/${l.fga}` },
+  { key: 'tpg', label: '3점 성공', ok: l => l.eligible, main: per('tpg'), sub: l => `${l.fg3_pct.toFixed(1)}% · ${l.fg3m}/${l.fg3a}` },
+  { key: 'ft_pct', label: '자유투', ok: l => l.ft_ok, main: l => `${l.ft_pct.toFixed(1)}%`, sub: l => `${l.ftm}/${l.fta}` },
 ]
-type StatKey = Exclude<SortKey, 'attendance' | 'name'>
-const isStatKey = (k: SortKey): k is StatKey => k !== 'attendance' && k !== 'name'
+const CHIP_ORDER: { key: SortKey; label: string }[] = [{ key: 'attendance', label: '출석' }, ...METRICS.map(m => ({ key: m.key as SortKey, label: m.label }))]
 
 // 포지션은 가드·포워드·센터 세 가지(2026-10-17). 옛 5코드(PG·SG…)는 positionGroupOf 로 묶어 읽는다.
 const OPTIMIZABLE = /^https:\/\/[^/]+\.supabase\.(co|in)\//
@@ -100,12 +115,14 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
     const rows = data?.players ?? []
     const byName = (a: RosterCard, b: RosterCard) => a.name.localeCompare(b.name, 'ko')
     const ranks = new Map<string, number>()
-    if (sort === 'name') return { list: [...rows].sort(byName), rankOf: ranks }
     if (sort === 'attendance') {
       return { list: [...rows].sort((a, b) => attOf(b).rate - attOf(a).rate || attOf(b).gp - attOf(a).gp || byName(a, b)), rankOf: ranks }
     }
-    const v = (p: RosterCard) => lineOf(p)?.[sort] ?? -1
-    const ok = (p: RosterCard) => lineOf(p)?.eligible === true
+    const m = METRICS.find(x => x.key === sort)!
+    const raw = (p: RosterCard) => { const l = lineOf(p); return l ? l[sort] : null }
+    const ok = (p: RosterCard) => { const l = lineOf(p); return !!l && m.ok(l) }
+    // 낮을수록 위(턴오버)면 부호를 뒤집어 같은 내림차순 규칙으로 센다
+    const v = (p: RosterCard) => { const r = raw(p); return r == null ? -Infinity : (m.low ? -r : r) }
     const sorted = [...rows].sort((a, b) => Number(ok(b)) - Number(ok(a)) || v(b) - v(a) || byName(a, b))
     let prev = NaN, rank = 0
     sorted.forEach((p, i) => { if (!ok(p)) return; if (v(p) !== prev) { rank = i + 1; prev = v(p) } ranks.set(p.id, rank) })
@@ -160,7 +177,12 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
 
           {data && (
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <SortSelect value={sort} options={SORT_OPTIONS} onChange={setSort} label="순위" />
+              {/* 순위 필터 칩 — 한 줄 가로 밀기(폰), PC 는 줄바꿈 */}
+              <div role="group" aria-label="순위 기준" className="flex gap-1.5 overflow-x-auto lg:flex-wrap min-w-0 w-full -mx-1 px-1 py-1">
+                {CHIP_ORDER.map(c => (
+                  <Chip key={c.key} as="button" size="md" selected={sort === c.key} onClick={() => setSort(c.key)}>{c.label}</Chip>
+                ))}
+              </div>
               {/* PC 에서 숫자를 표로 보고 싶은 사람용 — 옛 스탯 표(메뉴에서는 뺐다) */}
               <Link href={`/league/${orgSlug}/${leagueId}/stats`} className="hidden lg:inline-flex t-label items-center min-h-11 hover:underline">
                 표로 보기 →
@@ -196,7 +218,12 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
               p={p}
               gp={attOf(p).gp}
               rate={attOf(p).rate}
-              stat={isStatKey(sort) ? { label: SORT_OPTIONS.find(o => o.key === sort)!.label, value: lineOf(p)?.[sort] ?? null, rank: rankOf.get(p.id) ?? null } : null}
+              stat={(() => {
+                const m = METRICS.find(x => x.key === sort)
+                if (!m) return null
+                const l = lineOf(p)
+                return { label: m.label, main: l ? m.main(l) : '–', sub: l && m.sub ? m.sub(l) : null, rank: rankOf.get(p.id) ?? null }
+              })()}
               totalRounds={totalRounds}
               priority={i < 4}
               onOpen={openCard ? () => openCard({
@@ -229,7 +256,7 @@ function CardGrid({ children }: { children: React.ReactNode }) {
 function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen, stat }: {
   p: RosterCard; gp: number; rate: number; totalRounds: number; priority: boolean; onOpen?: () => void
   /** 고른 순위 지표 — 없으면(출석·이름 정렬) 종전처럼 출석만 */
-  stat: { label: string; value: number | null; rank: number | null } | null
+  stat: { label: string; main: string; sub: string | null; rank: number | null } | null
 }) {
   const pct = Math.round(rate * 100)
   const noRounds = totalRounds === 0
@@ -293,13 +320,14 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen, stat }: {
             : <Chip tone="neutral">미가입</Chip>}
         </div>
         {stat ? (
-          // 고른 지표 숫자 하나를 크게 — 순위 밖(출전일 부족)이면 흐리게
-          <p className="mt-auto flex items-baseline gap-1" style={{ opacity: stat.rank == null ? 0.5 : 1 }}>
-            <span className="font-jersey font-black tabular-nums leading-none text-[26px]" style={{ color: 'var(--mm-ink)' }}>
-              {stat.value == null ? '–' : stat.value.toFixed(1)}
-            </span>
-            <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{stat.label} · 하루</span>
-          </p>
+          // 고른 지표 숫자 하나를 크게 + 성공률은 성공/시도 — 순위 밖(출전일·시도 부족)이면 흐리게
+          <div className="mt-auto" style={{ opacity: stat.rank == null ? 0.5 : 1 }}>
+            <p className="flex items-baseline gap-1">
+              <span className="font-jersey font-black tabular-nums leading-none text-[26px]" style={{ color: 'var(--mm-ink)' }}>{stat.main}</span>
+              <span className="text-xs font-bold truncate" style={{ color: 'var(--mm-muted)' }}>{stat.label}</span>
+            </p>
+            {stat.sub && <p className="text-xs tabular-nums mt-0.5" style={{ color: 'var(--mm-muted)' }}>{stat.sub}</p>}
+          </div>
         ) : (
           <p className="mt-auto text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>
             출석 {noRounds ? '–' : <>{gp}/{totalRounds}일 · <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{pct}%</span></>}
