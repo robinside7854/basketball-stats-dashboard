@@ -198,22 +198,22 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const COLS: ColDef[] = [
-    ...(showGP ? [{ key: 'gp', label: 'G', sortKey: 'gp' }] : []),
-    { key: 'pts',     label: 'PTS',  sortKey: 'pts'  },
-    { key: 'reb',     label: 'REB',  sortKey: 'reb'  },
-    { key: 'oreb',    label: 'OR',   sortKey: 'oreb' },
-    { key: 'dreb',    label: 'DR',   sortKey: 'dreb' },
-    { key: 'ast',     label: 'AST',  sortKey: 'ast'  },
-    { key: 'stl',     label: 'STL',  sortKey: 'stl'  },
-    { key: 'blk',     label: 'BLK',  sortKey: 'blk'  },
-    { key: 'tov',     label: 'TOV',  sortKey: 'tov'  },
-    { key: 'fgm_fga', label: 'FG',   sortKey: 'fgm'  },
-    { key: 'fg_pct',  label: 'FG%',  sortKey: 'fg_pct' },
-    { key: 'fg3m_fg3a', label: '3P', sortKey: 'fg3m' },
-    { key: 'fg3_pct', label: '3P%',  sortKey: 'fg3_pct' },
-    { key: 'ftm_fta', label: 'FT',   sortKey: 'ftm'  },
-    { key: 'ft_pct',  label: 'FT%',  sortKey: 'ft_pct' },
-    { key: 'pf',      label: 'PF',   sortKey: 'pf'   },
+    ...(showGP ? [{ key: 'gp', label: '경기', sortKey: 'gp' }] : []),
+    { key: 'pts',     label: '득점',  sortKey: 'pts'  },
+    { key: 'reb',     label: '리바',  sortKey: 'reb'  },
+    { key: 'oreb',    label: '공리',   sortKey: 'oreb' },
+    { key: 'dreb',    label: '수리',   sortKey: 'dreb' },
+    { key: 'ast',     label: '어시',  sortKey: 'ast'  },
+    { key: 'stl',     label: '스틸',  sortKey: 'stl'  },
+    { key: 'blk',     label: '블록',  sortKey: 'blk'  },
+    { key: 'tov',     label: '턴오버',  sortKey: 'tov'  },
+    { key: 'fgm_fga', label: '야투',   sortKey: 'fgm'  },
+    { key: 'fg_pct',  label: '야투율',  sortKey: 'fg_pct' },
+    { key: 'fg3m_fg3a', label: '3점', sortKey: 'fg3m' },
+    { key: 'fg3_pct', label: '3점률',  sortKey: 'fg3_pct' },
+    { key: 'ftm_fta', label: '자유투',   sortKey: 'ftm'  },
+    { key: 'ft_pct',  label: '자유투율',  sortKey: 'ft_pct' },
+    { key: 'pf',      label: '파울',   sortKey: 'pf'   },
   ]
 
   function handleSort(sk: string) {

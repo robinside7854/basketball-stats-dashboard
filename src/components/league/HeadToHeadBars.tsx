@@ -1,5 +1,7 @@
 // 두 팀 비교 막대 — 날짜별 박스스코어 「팀별 비교」와 팀 탭 「누적 맞대결」이 같은 그림을 쓴다.
 //   한쪽만 고치면 두 화면의 항목·색 규칙이 갈라지므로 여기 하나로 둔다 (2026-10-10 분리).
+'use client'
+import { useState } from 'react'
 import { accentOrInk } from '@/lib/util/contrastColor'
 
 export interface H2HTotals {
@@ -24,17 +26,22 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
   const items: { label: string; a: number; b: number; suffix?: string; fraction?: [number, number, number, number] }[] = [
     { label: '득점', a: A.pts, b: B.pts },
     { label: '리바운드', a: A.reb, b: B.reb },
-    { label: '오펜스\n리바운드', a: A.oreb, b: B.oreb },
-    { label: '디펜스\n리바운드', a: A.dreb, b: B.dreb },
+    { label: '공격\n리바운드', a: A.oreb, b: B.oreb },
+    { label: '수비\n리바운드', a: A.dreb, b: B.dreb },
     { label: '어시스트', a: A.ast, b: B.ast },
     { label: '스틸', a: A.stl, b: B.stl },
     { label: '블록', a: A.blk, b: B.blk },
     { label: '턴오버', a: A.tov, b: B.tov },
     { label: '파울', a: A.pf, b: B.pf },
-    { label: 'FG%', a: pct(A.fgm, A.fga), b: pct(B.fgm, B.fga), suffix: '%', fraction: [A.fgm, A.fga, B.fgm, B.fga] },
-    { label: '3P%', a: pct(A.fg3m, A.fg3a), b: pct(B.fg3m, B.fg3a), suffix: '%', fraction: [A.fg3m, A.fg3a, B.fg3m, B.fg3a] },
-    { label: 'FT%', a: pct(A.ftm, A.fta), b: pct(B.ftm, B.fta), suffix: '%', fraction: [A.ftm, A.fta, B.ftm, B.fta] },
+    { label: '야투율', a: pct(A.fgm, A.fga), b: pct(B.fgm, B.fga), suffix: '%', fraction: [A.fgm, A.fga, B.fgm, B.fga] },
+    { label: '3점률', a: pct(A.fg3m, A.fg3a), b: pct(B.fg3m, B.fg3a), suffix: '%', fraction: [A.fg3m, A.fg3a, B.fg3m, B.fg3a] },
+    { label: '자유투율', a: pct(A.ftm, A.fta), b: pct(B.ftm, B.fta), suffix: '%', fraction: [A.ftm, A.fta, B.ftm, B.fta] },
   ]
+
+  // 리뉴얼 R0 (2026-10-31): 처음엔 핵심 4줄(득점·리바운드·어시스트·야투율)만, 나머지는 「더 보기」.
+  const [showAll, setShowAll] = useState(false)
+  const KEY_ROWS = new Set(['득점', '리바운드', '어시스트', '야투율'])
+  const shown = showAll ? items : items.filter(i => KEY_ROWS.has(i.label))
 
   return (
     <>
@@ -59,7 +66,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
 
     {/* 비교 막대 */}
     <div className="space-y-1.5">
-      {items.map(item => {
+      {shown.map(item => {
         const max = Math.max(item.a, item.b, 1)
         const aWin = item.a > item.b
         const bWin = item.b > item.a
@@ -116,6 +123,13 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
         )
       })}
     </div>
+    {!showAll && items.length > shown.length && (
+      <button type="button" onClick={() => setShowAll(true)}
+        className="mm-press mt-2 w-full min-h-11 text-sm font-bold cursor-pointer"
+        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}>
+        {items.length - shown.length}개 항목 더 보기
+      </button>
+    )}
     </>
   )
 }
