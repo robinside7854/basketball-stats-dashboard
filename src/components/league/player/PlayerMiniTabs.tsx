@@ -11,7 +11,7 @@ export const PLAYER_TABS: { key: PlayerTabKey; label: string }[] = [
   { key: 'summary', label: '요약' },
   { key: 'records', label: '기록' },
   { key: 'style',   label: '플레이스타일' },
-  { key: 'career',  label: '커리어 하이' },
+  // 「커리어 하이」 탭은 리뉴얼 R3(2026-10-31)에서 요약 「더 보기」 안으로 옮겼다 — 탭 4 → 3
 ]
 
 export default function PlayerMiniTabs({

@@ -193,6 +193,8 @@ function readStoredTab(leagueId: string): PlayerTabKey | null {
  * 카드 안에서 다른 선수(다이나믹 듀오 짝꿍)로 갈아탈 수 있게 감싼다.
  * 내부 상태(분기·탭·편집 패널·받아 둔 상세 등)를 깨끗이 비우려고 key 로 통째로 다시 만든다.
  */
+const FIRST_TILES = new Set(['득점', '리바', '어시'])
+
 export default function PlayerQuickViewModal(props: Props) {
   const [current, setCurrent] = useState({ id: props.playerId, name: props.playerName })
   // 호출부가 다른 선수를 열면 그쪽을 따른다(렌더 중 동기화 — effect 로 하면 한 번 옛 선수가 그려진다)
@@ -388,11 +390,9 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     const v = anyDetail
     if (v?.player_stats || (v?.game_log?.length ?? 0) > 0 || (v?.monthly_stats?.length ?? 0) > 0 || (quarterRows?.length ?? 0) > 0) s.add('records')
     if ((v?.shot_breakdown?.total_fga ?? 0) > 0 || v?.play_style || (duoSource?.dynamic_duo?.length ?? 0) > 0) s.add('style')
-    // 전체 기간을 아직 안 받았으면 지금 기간에 기록이 있는지로 판단한다(있으면 전체 기간에도 있다)
-    const ch = careerHigh ?? v?.career_high
-    if (ch && Object.keys(ch).length > 0) s.add('career')
+    // 「커리어 하이」 탭은 리뉴얼 R3 에서 요약 「더 보기」로 옮겼다 — 탭으로는 열지 않는다
     return s
-  }, [anyDetail, duoSource, careerHigh, quarterRows])
+  }, [anyDetail, duoSource, quarterRows])
 
   // 고른 탭에 보일 것이 없으면 그동안 요약을 보여 준다. activeTab 은 그대로 두어 데이터가 오면 그 탭으로 돌아간다.
   const shownTab: PlayerTabKey = availableTabs.has(activeTab) ? activeTab : 'summary'
@@ -411,8 +411,9 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
     if (scroller.scrollTop > target) scroller.scrollTo({ top: target, behavior: 'smooth' })
   }
 
-  // 전체 기간 상세 — 분기를 보다 커리어 하이·플레이스타일(듀오)을 열 때만
-  const needAll = !gated && detailKey !== 'all' && (shownTab === 'career' || shownTab === 'style')
+  // 전체 기간 상세 — 분기를 보다 커리어 하이(요약 「더 보기」)·플레이스타일(듀오)을 열 때만
+  const [moreOpen, setMoreOpen] = useState(false)
+  const needAll = !gated && detailKey !== 'all' && ((shownTab === 'summary' && moreOpen) || shownTab === 'style')
   useEffect(() => { if (needAll) requestDetail('all') }, [needAll, requestDetail])
 
   // 분기별 기록표 — 「기록 → 분기별」을 열 때만 한 번
@@ -453,6 +454,82 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const lastLog = viewDetail?.game_log?.length ? viewDetail.game_log[viewDetail.game_log.length - 1] : null
 
   const accent = ACCENT_DEFAULT
+  // 커리어 하이 칸 — 요약 「더 보기」 안(리뉴얼 R3, 2026-10-31. 종전 「커리어 하이」 탭)
+  const renderCareerHigh = () => {
+              if (!careerHigh) return <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
+              const CH_LABEL: Record<string, string> = {
+                pts: '득점', reb: '리바', ast: '어시', stl: '스틸', blk: '블록',
+                fgPct: '야투율', fg3m: '3점 성공',
+              }
+              const CH_ORDER = ['pts', 'reb', 'ast', 'stl', 'blk', 'fg3m', 'fgPct']
+              const entries = CH_ORDER
+                .filter(k => careerHigh[k])
+                .map(k => [k, careerHigh[k]] as const)
+              if (entries.length === 0) {
+                return <div className="px-5 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록이 없어요</div>
+              }
+              return (
+                <div>
+                  <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>
+                    하루 최고 기록
+                    <span className="ml-2 text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 날짜를 누르면 그날 경기 기록</span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {entries.map(([key, ch]) => {
+                      const clickable = Boolean(ch.date)
+                      const inner = (
+                        <>
+                          <div className="flex items-baseline gap-1.5">
+                            <p className="font-jersey text-3xl font-black leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>{ch.value}{key === 'fgPct' ? '%' : ''}</p>
+                            <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{CH_LABEL[key] ?? key}</p>
+                          </div>
+                          {ch.date && (
+                            <p
+                              className="text-xs mt-1.5 font-medium"
+                              style={{ color: clickable ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
+                            >
+                              {ch.date}{clickable && <span className="ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>→</span>}
+                            </p>
+                          )}
+                          {ch.extra && <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{ch.extra}</p>}
+                        </>
+                      )
+                      return clickable ? (
+                        <Link
+                          key={key}
+                          href={`/league/${orgSlug}/${leagueId}/boxscore/${ch.date}`}
+                          onClick={onClose}
+                          className="block text-left rounded-sm px-3 py-2.5 group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-yellow-soft)]"
+                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                          title={`${ch.date} 경기 기록 보기`}
+                        >
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div
+                          key={key}
+                          className="rounded-sm px-3 py-2.5"
+                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                        >
+                          {inner}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+              }
+  // 요약 숫자 칸 — 첫 화면 3개(FIRST_TILES), 나머지는 「더 보기」 안(리뉴얼 R3)
+  const statTiles = viewDetail?.player_stats ? [
+                    // 값은 하루(경기한 날) 평균. 순위도 값과 같은 기간(선택한 분기)의 순위를 쓴다 —
+                    //   예전엔 분기를 골라도 순위만 전체 기간 기준이라 숫자와 순위가 어긋났다(2026-10-11).
+                    { label: '출전일', value: viewDetail!.player_stats!.gp, decimals: 0, rank: rk?.gp?.rank ?? 0, total: rk?.gp?.total ?? 0 },
+                    { label: '득점', value: viewDetail!.player_stats!.ppg, decimals: 1, rank: rk?.ppg ?? 0, total: rk?.total ?? 0 },
+                    { label: '리바', value: viewDetail!.player_stats!.rpg, decimals: 1, rank: rk?.rpg ?? 0, total: rk?.total ?? 0 },
+                    { label: '어시', value: viewDetail!.player_stats!.apg, decimals: 1, rank: rk?.apg ?? 0, total: rk?.total ?? 0 },
+                    { label: '스틸', value: viewDetail!.player_stats!.spg, decimals: 1, rank: rk?.spg ?? 0, total: rk?.total ?? 0 },
+                    { label: '블록', value: viewDetail!.player_stats!.bpg, decimals: 1, rank: rk?.bpg ?? 0, total: rk?.total ?? 0 },
+                  ] : []
 
   return (
     <>
@@ -991,17 +1068,14 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
-                  {[
-                    // 값은 하루(경기한 날) 평균. 순위도 값과 같은 기간(선택한 분기)의 순위를 쓴다 —
-                    //   예전엔 분기를 골라도 순위만 전체 기간 기준이라 숫자와 순위가 어긋났다(2026-10-11).
-                    { label: '출전일', value: viewDetail.player_stats.gp, decimals: 0, rank: rk?.gp?.rank ?? 0, total: rk?.gp?.total ?? 0 },
-                    { label: '득점', value: viewDetail.player_stats.ppg, decimals: 1, rank: rk?.ppg ?? 0, total: rk?.total ?? 0 },
-                    { label: '리바', value: viewDetail.player_stats.rpg, decimals: 1, rank: rk?.rpg ?? 0, total: rk?.total ?? 0 },
-                    { label: '어시', value: viewDetail.player_stats.apg, decimals: 1, rank: rk?.apg ?? 0, total: rk?.total ?? 0 },
-                    { label: '스틸', value: viewDetail.player_stats.spg, decimals: 1, rank: rk?.spg ?? 0, total: rk?.total ?? 0 },
-                    { label: '블록', value: viewDetail.player_stats.bpg, decimals: 1, rank: rk?.bpg ?? 0, total: rk?.total ?? 0 },
-                  ].map(({ label, value, decimals, rank, total }) => {
+                {/* 리뉴얼 R3 (2026-10-31): 첫 화면 = 능력치 레이더 + 숫자 3개(득점·리바·어시). 출전일·스틸·블록은 「더 보기」로. */}
+                {viewDetail.hex_radar && (
+                  <div className="mb-3">
+                    <PlayerHexRadar data={viewDetail.hex_radar} accent={{ stroke: accent.stroke, fillA: accent.fillA, fillB: accent.fillB }} />
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
+                  {statTiles.filter(t => FIRST_TILES.has(t.label)).map(({ label, value, decimals, rank, total }) => {
                     const isChamp = rank === 1
                     return (
                       <div
@@ -1122,17 +1196,55 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                 <details
                   className="group mt-3"
                   style={{ borderTop: '1px solid var(--mm-rule)' }}
-                  onToggle={e => { if ((e.currentTarget as HTMLDetailsElement).open) loadCareer() }}
+                  onToggle={e => { if ((e.currentTarget as HTMLDetailsElement).open) { loadCareer(); setMoreOpen(true) } }}
                 >
                   <summary
                     className="mm-press list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-2 min-h-11 py-2 cursor-pointer text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                     style={{ color: 'var(--mm-ink)' }}
                   >
-                    <span>더 보기 <span className="text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>평소 범위 · 승패 · 누적 · 능력치</span></span>
+                    <span>더 보기 <span className="text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>출전일 · 스틸 · 블록 · 커리어 하이 · 누적</span></span>
                     <ChevronDown size={18} aria-hidden className="transition-transform duration-200 group-open:rotate-180" style={{ color: 'var(--mm-muted)' }} />
                   </summary>
 
                   <div className="pt-1 pb-1 space-y-2">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {statTiles.filter(t => !FIRST_TILES.has(t.label)).map(({ label, value, decimals, rank, total }) => {
+                    const isChamp = rank === 1
+                    return (
+                      <div
+                        key={label}
+                        className="relative rounded-sm px-2 py-2 sm:p-2.5 text-center overflow-hidden"
+                        style={isChamp
+                          ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
+                          : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
+                        }
+                      >
+                        <p
+                          className="relative text-xs font-bold mb-1"
+                          style={{ color: isChamp ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}
+                        >{label}</p>
+                        <p
+                          className="relative font-jersey font-black text-3xl sm:text-4xl leading-none tabular-nums"
+                          style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}
+                        >
+                          <CountUp value={value} decimals={decimals} />
+                        </p>
+                        {rank > 0 && (
+                          <p
+                            className="relative text-xs font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
+                            style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
+                          >
+                            {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
+                            {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
+                            {rank}위{total > 0 && <span className="opacity-60"> · {total}명</span>}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                    </div>
+                    {/* 커리어 하이 — 리뉴얼 R3 에서 탭 대신 여기로(탭 4 → 3) */}
+                    {renderCareerHigh()}
                     {viewDetail.form && <PlayerFormRanges form={viewDetail.form} />}
 
                     {/* 승/패/승률 — 최근 승패 닷은 제거(2026-08-09, 사용자 판단): 한 라운드에 여러 경기를 하는 리그라
@@ -1214,10 +1326,6 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       </div>
                     </div>
 
-                    {/* 능력치 6축 레이더 — 공격·수비·리바운드·슈팅·리딩·효율 (리그 백분위, 선택한 기간 · 막대와 같은 모집단) */}
-                    {viewDetail.hex_radar && (
-                      <PlayerHexRadar data={viewDetail.hex_radar} accent={{ stroke: accent.stroke, fillA: accent.fillA, fillB: accent.fillB }} />
-                    )}
 
                     {/* 세부 능력치 — 묶음별 백분위 (선택한 기간 기준) */}
                     {shownBars && <PercentileBars data={shownBars} scopeLabel={rankScopeOn ? `${posRanks!.label} 백분위` : undefined} />}
@@ -1518,71 +1626,6 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               )
             })()}
 
-            {/* ── 커리어 하이 — 하루(같은 날 여러 경기 합산) 기준 최고 기록 · 늘 전체 기간 ─────── */}
-            {shownTab === 'career' && (() => {
-              if (!careerHigh) return <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
-              const CH_LABEL: Record<string, string> = {
-                pts: '득점', reb: '리바', ast: '어시', stl: '스틸', blk: '블록',
-                fgPct: '야투율', fg3m: '3점 성공',
-              }
-              const CH_ORDER = ['pts', 'reb', 'ast', 'stl', 'blk', 'fg3m', 'fgPct']
-              const entries = CH_ORDER
-                .filter(k => careerHigh[k])
-                .map(k => [k, careerHigh[k]] as const)
-              if (entries.length === 0) {
-                return <div className="px-5 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록이 없어요</div>
-              }
-              return (
-                <div className="px-5 py-4">
-                  <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>
-                    하루 최고 기록
-                    <span className="ml-2 text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>전체 기간 · 날짜를 누르면 그날 경기 기록</span>
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {entries.map(([key, ch]) => {
-                      const clickable = Boolean(ch.date)
-                      const inner = (
-                        <>
-                          <div className="flex items-baseline gap-1.5">
-                            <p className="font-jersey text-3xl font-black leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>{ch.value}{key === 'fgPct' ? '%' : ''}</p>
-                            <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{CH_LABEL[key] ?? key}</p>
-                          </div>
-                          {ch.date && (
-                            <p
-                              className="text-xs mt-1.5 font-medium"
-                              style={{ color: clickable ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
-                            >
-                              {ch.date}{clickable && <span className="ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>→</span>}
-                            </p>
-                          )}
-                          {ch.extra && <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{ch.extra}</p>}
-                        </>
-                      )
-                      return clickable ? (
-                        <Link
-                          key={key}
-                          href={`/league/${orgSlug}/${leagueId}/boxscore/${ch.date}`}
-                          onClick={onClose}
-                          className="block text-left rounded-sm px-3 py-2.5 group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-yellow-soft)]"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                          title={`${ch.date} 경기 기록 보기`}
-                        >
-                          {inner}
-                        </Link>
-                      ) : (
-                        <div
-                          key={key}
-                          className="rounded-sm px-3 py-2.5"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                        >
-                          {inner}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })()}
           </div>
         )}
       </div>
