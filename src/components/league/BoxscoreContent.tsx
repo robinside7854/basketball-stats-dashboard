@@ -22,6 +22,7 @@ import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 // html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
+import SortSelect from '@/components/league/ui/SortSelect'
 import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
 import DayHighlightsLauncher, { type HighlightScope } from '@/components/league/boxscore/DayHighlightsLauncher'
 import Link from 'next/link'
@@ -30,8 +31,8 @@ import { PenLine } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { tallyDayRecord, identityKeyOf } from '@/lib/stats/dayRecord'
 
-type BoxTab = 'result' | 'players' | 'compare' | 'assist'
-const BOX_TABS: readonly BoxTab[] = ['result', 'players', 'compare', 'assist']
+type BoxTab = 'result' | 'players'
+const BOX_TABS: readonly BoxTab[] = ['result', 'players']
 // 마지막으로 본 탭 — 같은 탭 세션 안에서 다른 날짜 박스스코어로 넘어가도 이어진다(2026-10-15)
 const BOX_TAB_KEY = 'mm_boxscore_tab'
 const isBoxTab = (v: unknown): v is BoxTab => typeof v === 'string' && (BOX_TABS as readonly string[]).includes(v)
@@ -404,24 +405,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
   ]
   return (
     <div className="space-y-2">
-      {!hideSort && <div className="flex flex-wrap items-center gap-1.5">
-        <span className="t-label mr-1">정렬</span>
-        {sortBtns.map(b => {
-          const active = sortKey === b.key
-          return (
-            <button
-              key={b.key}
-              onClick={() => setSortKey(b.key)}
-              type="button"
-              aria-pressed={active}
-              className="mm-press px-3 min-h-11 text-sm font-bold transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
-              style={active
-                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
-                : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-chip)' }}
-            >{b.label}</button>
-          )
-        })}
-      </div>}
+      {!hideSort && <SortSelect value={sortKey} options={sortBtns} onChange={setSortKey} />}
       {/* 카드 안의 카드가 세 겹이 되던 것 — 선수 줄은 배경 없이 얇은 구분선만 둔다(2026-10-17) */}
       <div>
       {sorted.map(r => {
@@ -639,11 +623,13 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   // 탭 기억(2026-10-15) — ?tab= 이 우선, 없으면 sessionStorage. 첫 그림이 로딩 스피너라(탭은 데이터 뒤에 그린다)
   //   서버 렌더(늘 'result')와 달라도 하이드레이션 어긋남이 없다.
   const [activeTab, setActiveTabState] = useState<BoxTab>(() => {
+    // 리뉴얼 R1 (2026-10-31): 탭 4 → 2. 옛 ?tab=compare·assist 는 경기결과(그 아래에 같은 내용이 있다)로 연다.
+    if (initialTab === 'compare' || initialTab === 'assist') return 'result'
     if (isBoxTab(initialTab)) return initialTab
     // ?me=1 (홈 「지난 토요일 나」 → 그날 기록표) — 선수 기록 탭으로 연다
     if (initialMe) return 'players'
     if (typeof window === 'undefined') return 'result'
-    try { const v = sessionStorage.getItem(BOX_TAB_KEY); return isBoxTab(v) ? v : 'result' } catch { return 'result' }
+    try { const v = sessionStorage.getItem(BOX_TAB_KEY); return v === 'players' ? 'players' : 'result' } catch { return 'result' }
   })
   // 탭을 바꾸면 주소(?tab=)도 바꾼다 — 공유·새로고침에 남게. replaceState 라 뒤로가기 기록이 쌓이지 않고,
   //   Next 라우터를 거치지 않으므로 다시 그리거나 스크롤이 튀지 않는다.
@@ -868,8 +854,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             items={[
               { key: 'result',  label: '경기결과',  count: games.length },
               { key: 'players', label: '선수 기록', count: dailyStats.length },
-              { key: 'compare', label: '팀별 비교' },
-              { key: 'assist',  label: '어시스트' },
             ]}
             value={activeTab}
             onChange={setActiveTab}
@@ -1162,6 +1146,30 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   )
                 })}
               </section>
+
+              {/* 리뉴얼 R1 (2026-10-31): 종전 3·4번 탭 — 팀 비교는 막대 그림으로 바로, 어시스트 연결은 접어 둔다 */}
+              <section aria-label="팀 비교">
+                <h2 className="text-base font-black mb-2" style={{ color: 'var(--mm-ink)' }}>팀 비교</h2>
+                <TeamComparePanel games={games} />
+              </section>
+              <details className="group" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                <summary className="mm-press list-none cursor-pointer flex items-center justify-between min-h-11 pt-3 text-base font-black" style={{ color: 'var(--mm-ink)' }}>
+                  누가 누구를 도왔나 · 어시스트
+                  <ChevronDown size={18} aria-hidden className="transition-transform group-open:rotate-180" style={{ color: 'var(--mm-muted)' }} />
+                </summary>
+                <div className="pt-3">
+                  <AssistNetwork
+                    links={assistLinks}
+                    games={games.map(g => ({
+                      id: g.id,
+                      numLabel: gameNumLabel(g),
+                      homeName: g.home_team?.name ?? '미정',
+                      awayName: g.away_team?.name ?? '미정',
+                    }))}
+                    players={new Map(dailyStats.map(d => [d.player_id, { name: d.name, photo_url: d.photo_url ?? null }]))}
+                  />
+                </div>
+              </details>
             </div>
           )}
 
@@ -1245,38 +1253,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             )
           })()}
 
-          {/* 탭 3: 팀별 비교 — 조합 버튼(팀 3개=3쌍) */}
-          {activeTab === 'compare' && (
-            <div
-              role="tabpanel"
-              id="daily-boxscore-panel-compare"
-              aria-labelledby="daily-boxscore-tab-compare"
-              className="px-4 py-4 lg:px-6 lg:py-5"
-            >
-              <TeamComparePanel games={games} />
-            </div>
-          )}
-
-          {/* 탭 5: 어시스트 네트워크 — 누가 누구의 득점을 도왔나 (2026-10-12) */}
-          {activeTab === 'assist' && (
-            <div
-              role="tabpanel"
-              id="daily-boxscore-panel-assist"
-              aria-labelledby="daily-boxscore-tab-assist"
-              className="px-4 py-4 lg:px-6 lg:py-5"
-            >
-              <AssistNetwork
-                links={assistLinks}
-                games={games.map(g => ({
-                  id: g.id,
-                  numLabel: gameNumLabel(g),
-                  homeName: g.home_team?.name ?? '미정',
-                  awayName: g.away_team?.name ?? '미정',
-                }))}
-                players={new Map(dailyStats.map(d => [d.player_id, { name: d.name, photo_url: d.photo_url ?? null }]))}
-              />
-            </div>
-          )}
         </div>
       )}
 

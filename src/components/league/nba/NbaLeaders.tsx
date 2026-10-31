@@ -15,7 +15,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import SectionCard from '@/components/league/ui/SectionCard'
 import type { PlayerStat } from '@/types/league'
 import { leaderMinRounds } from '@/lib/stats/eligibility'
-import Chip from '@/components/league/ui/Chip'
+import InfoTip from '@/components/league/ui/InfoTip'
 import EmptyState from '@/components/league/ui/EmptyState'
 
 interface Props {
@@ -73,8 +73,6 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
   const setQuickPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId }) }
-  // 모바일에서 카테고리 chip 으로 하나만 노출 · 데스크탑은 전체 그리드 (2026-07-16 세로 스크롤 축소)
-  const [selectedCatKey, setSelectedCatKey] = useState<keyof PlayerStat>(CATEGORIES[0].key)
 
   useEffect(() => {
     // initial 데이터가 있으면 mount 시 fetch skip — 서버 렌더 결과 그대로 사용
@@ -97,183 +95,76 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
   // 최소 출전 — 정본은 leaderMinRounds (개인 대시보드 순위도 같은 식을 쓴다)
   const effectiveMinGP = minGP ?? leaderMinRounds(players)
 
+  // 리뉴얼 R1 (2026-10-31, 운영진 「간결 · 그림 중심」): 부문마다 1위 사진 한 장 + 숫자 하나 — 6칸 격자.
+  //   종전 「부문 칩 6개(폰) + 부문당 3줄(사진·이름·출전일·값)」을 걷었다. 2·3위는 작은 사진만(누르면 카드).
+  //   「최소 N일 출전」 문구는 ⓘ 안으로. 되돌리기: docs/renewal-rollback.md (R1).
+  const boards = CATEGORIES.map(cat => {
+    const eligible = players.filter(p => p.gp >= effectiveMinGP && (!cat.minAttempts || cat.minAttempts(p)))
+    const top3 = [...eligible].sort((a, b) => valueOf(cat, b) - valueOf(cat, a)).slice(0, 3)
+    return { cat, top3 }
+  }).filter(b => b.top3.length > 0)
+
   return (
-    <>
-      <SectionCard variant="stack" pad="none">
-        <header
-          className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 py-4 md:py-5"
-          style={{ borderBottom: '1px solid var(--mm-rule)' }}
-        >
-          <h3
-            className="font-black break-keep"
-            style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
-          >
-            리그 리더
-          </h3>
-          <span className="t-label break-keep">
-            {quarterLabel ? `${quarterLabel} · ` : ''}하루 평균 · 최소 {effectiveMinGP}일 출전
-          </span>
-        </header>
+    <SectionCard variant="stack" pad="none">
+      <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+        <h3 className="font-black break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}>
+          리그 리더
+        </h3>
+        <span className="flex items-center gap-1">
+          {quarterLabel && <span className="t-label">{quarterLabel}</span>}
+          <InfoTip label="리그 리더 기준" text={`숫자는 하루(경기한 날) 평균이에요. ${effectiveMinGP}일 이상 뛴 선수만 순위에 들어가요.`} />
+        </span>
+      </header>
 
-        {loading ? (
-          <div className="flex justify-center py-10"><BasketballLoader size={24} /></div>
-        ) : players.length === 0 ? (
-          <EmptyState variant="compact" icon={BarChart3} title="아직 기록된 스탯이 없습니다" />
-        ) : (
-          <>
-            {/* 모바일 전용 카테고리 chip 필터 · sm+ 는 그리드로 전체 노출.
-                가로 스크롤 없이 3칸 × 2줄로 다 보이게 한다(2026-10-19) */}
-            <div className="sm:hidden grid grid-cols-3 gap-1.5 px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              {CATEGORIES.map(cat => {
-                const active = cat.key === selectedCatKey
-                return (
-                  <Chip
-                    key={String(cat.key)}
-                    as="button"
-                    size="md"
-                    selected={active}
-                    onClick={() => setSelectedCatKey(cat.key)}
-                  >
-                    {cat.term}
-                  </Chip>
-                )
-              })}
-            </div>
-          {/* PC 폭(1280)에서 2열이면 카드 안 이름과 값 사이가 텅 비었다 → lg 3열 · xl 4열.
-              카드 폭이 ~260px 까지 좁아지므로 lg+ 에서 사진·글자를 한 단계 줄인다. */}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 ${narrow ? '' : 'lg:grid-cols-3'} gap-3 p-4 sm:gap-4 sm:p-5 lg:p-6`}>
-            {CATEGORIES.map(cat => {
-              const eligible = players.filter(p => {
-                if (p.gp < effectiveMinGP) return false
-                if (cat.minAttempts && !cat.minAttempts(p)) return false
-                return true
-              })
-              const sorted = [...eligible].sort((a, b) => valueOf(cat, b) - valueOf(cat, a))
-              const top3 = sorted.slice(0, 3)
-              if (top3.length === 0) return null
-              // 모바일: 선택된 카테고리만 렌더 · sm+: 전체 그리드
-              const mobileHidden = cat.key !== selectedCatKey ? 'hidden sm:block' : ''
-              return (
-                <div
-                  key={String(cat.key)}
-                  className={`${mobileHidden} overflow-hidden`}
-                  style={{
-                    background: 'var(--mm-panel-alt)',
-                    border: '1px solid var(--mm-rule)',
-                    borderRadius: 'var(--mm-radius-ctl)',
-                  }}
-                >
-                  {/* 카테고리 헤더 */}
-                  <div
-                    className="px-4 py-2.5"
-                    style={{ borderBottom: '1px solid var(--mm-rule)' }}
-                  >
-                    {/* "득점 · PPG" 처럼 한글이 섞인 라벨 — uppercase 는 한글에 효과가 없고
-                        track-label(0.14em)은 자간만 벌렸다. t-label 로 통일. */}
-                    <h4 className="text-sm font-black break-keep" style={{ color: 'var(--mm-ink)' }}>
-                      {cat.label}
-                    </h4>
-                  </div>
-
-                  {/* Top3 — 「1위 대비 막대」는 2026-10-19 운영진 요청으로 뺐다(이름 아래 출전일만) */}
-                  <div className="p-1.5 sm:p-2">
-                    {(() => {
-                      return top3.map((p, i) => {
-                      const isTop = i === 0
-                      const photo = photoMap[p.player_id]
-                      const v = valueOf(cat, p)
-                      // 모바일·좁은 카드(lg+)는 작게, sm~md 2열은 넓으니 크게
-                      const avatarCls = isTop
-                        ? 'w-11 h-11 sm:w-[52px] sm:h-[52px] lg:w-11 lg:h-11'
-                        : 'w-9 h-9 sm:w-11 sm:h-11 lg:w-9 lg:h-9'
+      {loading ? (
+        <div className="flex justify-center py-10"><BasketballLoader size={24} /></div>
+      ) : boards.length === 0 ? (
+        <EmptyState variant="compact" icon={BarChart3} title="아직 기록된 스탯이 없습니다" />
+      ) : (
+        <ul className={`grid grid-cols-2 sm:grid-cols-3 ${narrow ? '' : 'lg:grid-cols-6'} gap-2.5 p-3 sm:p-4`}>
+          {boards.map(({ cat, top3 }) => {
+            const [first, ...rest] = top3
+            const photo = photoMap[first.player_id]
+            return (
+              <li key={String(cat.key)} className="overflow-hidden flex flex-col"
+                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                <button type="button" onClick={() => setQuickPlayer({ id: first.player_id, name: first.name })}
+                  className="mm-press relative block w-full aspect-[4/5] cursor-pointer text-left"
+                  aria-label={`${cat.label} 1위 ${first.name} ${cat.format(valueOf(cat, first))}`}>
+                  {photo ? (
+                    <Image src={photo} alt="" fill sizes="(min-width: 1024px) 180px, 50vw" className="object-cover object-top" />
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center font-jersey font-black text-4xl" style={{ color: 'var(--mm-muted)' }}>{initials(first.name)}</span>
+                  )}
+                  {/* 사진 위 글자 — 아래쪽만 어둡게 깔아 읽히게 */}
+                  <span aria-hidden className="absolute inset-x-0 bottom-0 h-2/3" style={{ background: 'linear-gradient(to top, rgba(20,18,15,0.85), transparent)' }} />
+                  <span className="absolute left-2.5 top-2.5 text-xs font-black px-2 py-0.5" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>{cat.label}</span>
+                  <span className="absolute inset-x-2.5 bottom-2 flex items-end justify-between gap-2">
+                    <span className="min-w-0 truncate font-black text-sm sm:text-base" style={{ color: '#fff' }}>{first.name}</span>
+                    <span className="font-jersey font-black tabular-nums leading-none text-[30px]" style={{ color: '#fff' }}>{cat.format(valueOf(cat, first))}</span>
+                  </span>
+                </button>
+                {rest.length > 0 && (
+                  <span className="flex items-center gap-1.5 px-2.5 py-2">
+                    {rest.map((p, i) => {
+                      const ph = photoMap[p.player_id]
                       return (
-                        <button
-                          key={p.player_id}
-                          onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                          className="w-full grid gap-2.5 sm:gap-3 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
-                          style={{
-                            gridTemplateColumns: 'auto auto minmax(0,1fr) auto',
-                            padding: isTop ? '10px 10px' : '8px 10px',
-                            background: isTop ? 'var(--mm-yellow-soft)' : 'transparent',
-                            borderLeft: isTop ? '3px solid var(--mm-yellow-strong)' : '3px solid transparent',
-                            color: 'var(--mm-ink)',
-                          }}
-                        >
-                          {/* 순위 큰 숫자 */}
-                          <span
-                            className={`font-jersey font-black tabular-nums leading-none text-right ${isTop ? 'text-[26px] w-5' : 'text-[20px] w-5'}`}
-                            style={{ color: isTop ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
-                          >
-                            {i + 1}
-                          </span>
-
-                          {/* 프로필 사진 or 이니셜 (원형) - 1위 더 큼 */}
-                          <span
-                            className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 relative ${avatarCls}`}
-                            style={{
-                              background: 'var(--mm-panel)',
-                              border: `${isTop ? 3 : 2}px solid ${isTop ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
-                            }}
-                          >
-                            {photo ? (
-                              // next/image · 리더보드는 below-fold → 기본 lazy · sizes = 최대 52px
-                              <Image
-                                src={photo}
-                                alt={p.name}
-                                fill
-                                sizes="52px"
-                                className="object-cover object-top"
-                              />
-                            ) : (
-                              <span
-                                className={`font-jersey font-black ${isTop ? 'text-lg' : 'text-sm'}`}
-                                style={{ color: 'var(--mm-ink)' }}
-                              >
-                                {initials(p.name)}
-                              </span>
-                            )}
-                          </span>
-
-                          {/* 이름 + 출전일 */}
-                          <span className="min-w-0">
-                            {/* 선수명은 본문체 — 유니폼체(좁음) + 한글에 무효한 uppercase 제거 */}
-                            <span
-                              className={`block truncate ${isTop ? 'font-black text-lg sm:text-xl lg:text-lg' : 'font-semibold text-base sm:text-lg lg:text-base'}`}
-                              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em', lineHeight: '1.15' }}
-                              title={p.name}
-                            >
-                              {p.name}
-                            </span>
-                            <span className="block t-label font-medium mt-1 whitespace-nowrap">{p.gp}일 출전</span>
-                          </span>
-
-                          {/* 값 큰 숫자 + FT% 같은 subFormat (성공/시도) */}
-                          <span className="flex flex-col items-end leading-none shrink-0">
-                            <span
-                              className={`font-jersey font-black tabular-nums leading-none ${isTop ? 'text-[30px] sm:text-[36px] lg:text-[28px]' : 'text-[24px] sm:text-[28px] lg:text-[22px]'}`}
-                              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.015em' }}
-                            >
-                              {cat.format(v)}
-                            </span>
-                            {cat.subFormat && (
-                              <span className="t-num text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
-                                {cat.subFormat(p)}
-                              </span>
-                            )}
+                        <button key={p.player_id} type="button" onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
+                          className="mm-press flex items-center gap-1 min-h-[36px] min-w-0 cursor-pointer" title={`${i + 2}위 ${p.name} ${cat.format(valueOf(cat, p))}`}>
+                          <span className="t-label tabular-nums">{i + 2}</span>
+                          <span className="relative w-7 h-7 rounded-full overflow-hidden shrink-0 flex items-center justify-center" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+                            {ph ? <Image src={ph} alt={p.name} fill sizes="28px" className="object-cover object-top" /> : <span className="text-[10px] font-black">{initials(p.name)}</span>}
                           </span>
                         </button>
                       )
-                    })
-                    })()}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          </>
-        )}
-      </SectionCard>
-
-    </>
+                    })}
+                  </span>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </SectionCard>
   )
 }

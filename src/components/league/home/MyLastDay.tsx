@@ -7,6 +7,7 @@
 import Link from 'next/link'
 import { ArrowRight, PlayCircle } from 'lucide-react'
 import { useHomeMe } from './HomeMeContext'
+import { Ring, RecordBar } from '@/components/league/ui/viz'
 
 function shortDate(date: string): string {
   const d = new Date(date + 'T00:00:00')
@@ -47,11 +48,6 @@ export default function MyLastDay({ base }: { base: string }) {
   const { w, l, d } = day.record
   const games = w + l + d
   const big: Array<[string, number]> = [['득점', line.pts], ['리바', line.reb], ['어시', line.ast]]
-  const extras = [
-    line.stl > 0 ? `스틸 ${line.stl}` : null,
-    line.blk > 0 ? `블록 ${line.blk}` : null,
-    line.fg3m > 0 ? `3점 ${line.fg3m}개` : null,
-  ].filter(Boolean)
 
   return (
     <section aria-labelledby="my-last-day-title" className="px-4 pt-3.5 pb-3 lg:px-6 lg:pt-4" style={cardStyle}>
@@ -59,34 +55,37 @@ export default function MyLastDay({ base }: { base: string }) {
         <h2 id="my-last-day-title" className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>
           {shortDate(day.date)} · 나
         </h2>
+      </div>
+
+      {/* 리뉴얼 R1 (2026-10-31): 숫자 3개 + 그날 득점 순위 고리 + 승패 막대. 스틸·블록·3점·야투 글자 줄은 박스스코어로 넘겼다. */}
+      <div className="mt-1.5 flex items-center gap-3">
+        <dl className="grid grid-cols-3 gap-2 flex-1 min-w-0">
+          {big.map(([label, v]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
+              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(30px, 9vw, 40px)' }}>{v}</dd>
+            </div>
+          ))}
+        </dl>
         {day.ptsRank != null && day.dayPlayers > 1 && (
-          <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
-            그날 득점 <b style={{ color: 'var(--mm-ink)' }}>{day.ptsRank}위</b> / {day.dayPlayers}명
-          </span>
+          <div className="flex flex-col items-center shrink-0">
+            <Ring
+              ratio={1 - (day.ptsRank - 1) / Math.max(1, day.dayPlayers - 1)}
+              size={60}
+              label={`그날 득점 ${day.ptsRank}위 / ${day.dayPlayers}명`}
+            >
+              <span className="text-sm">{day.ptsRank}위</span>
+            </Ring>
+            <span className="text-[11px] font-bold mt-1 tabular-nums" style={{ color: 'var(--mm-muted)' }}>득점 순위 · {day.dayPlayers}명</span>
+          </div>
         )}
       </div>
 
-      <dl className="mt-1.5 grid grid-cols-3 gap-2">
-        {big.map(([label, v]) => (
-          <div key={label} className="min-w-0">
-            <dt className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
-            <dd className="font-jersey font-black tabular-nums leading-none mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(30px, 9vw, 40px)' }}>{v}</dd>
-          </div>
-        ))}
-      </dl>
-
-      <p className="mt-2 text-xs font-bold tabular-nums break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
-        {games > 0 ? (
-          <>
-            {games}경기{' '}
-            <span style={{ color: 'var(--mm-positive)' }}>{w}승</span>{' '}
-            <span style={{ color: 'var(--mm-negative)' }}>{l}패</span>
-            {d > 0 && <> {d}무</>}
-          </>
-        ) : <>{line.gp}경기</>}
-        {extras.length > 0 && <> · {extras.join(' · ')}</>}
-        {line.fga > 0 && <> · 야투 {line.fgm}/{line.fga}</>}
-      </p>
+      {games > 0 && (
+        <div className="mt-2.5">
+          <RecordBar wins={w} losses={l} draws={d} height={22} />
+        </div>
+      )}
 
       <div className="mt-2.5 flex flex-wrap gap-2">
         <Link

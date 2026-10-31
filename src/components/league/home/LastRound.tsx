@@ -14,6 +14,7 @@ import { useState } from 'react'
 import { ArrowRight, ChevronDown, ClipboardList, PlayCircle, Trophy } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
+import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
 import type { RoundSummary, RoundGame } from './roundTypes'
 import { useHomeMe } from './HomeMeContext'
 
@@ -31,49 +32,25 @@ function videoHref(g: RoundGame): string | null {
   return `${g.youtube_url}${g.youtube_url.includes('?') ? '&' : '?'}t=${Math.floor(g.youtube_start_offset)}s`
 }
 
-/** 그날 팀 성적 — 한 팀 한 줄: [색][🏆 팀명] …… [4승 2패 1무] [+15] */
+/** 그날 팀 성적 — 리뉴얼 R1(2026-10-31): 「4승 2패 +15」 글자 → 팀마다 승패 막대(RecordBar) + 득실(MarginFigure).
+ *  운영진 원칙 「그림은 숫자를 대신할 때만」 — 막대 칸 안에 「4승」 글자가 들어가므로 따로 숫자를 겹치지 않는다. */
 function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
   if (teams.length === 0) return null
-  // 폰: 한 팀 한 줄(이름 …… 승패 득실). sm+: 팀 수만큼 칸을 나눠 카드 폭을 고르게 채운다 —
-  //   한 줄로 두면 PC 에서 이름·승패가 왼쪽에 몰리고 오른쪽이 텅 비었다(2026-10-15 사용자 지적).
   return (
-    <ul
-      aria-label="그날 팀 성적"
-      className="px-4 lg:px-5 py-1.5 sm:py-3 sm:grid sm:gap-2"
-      style={{ borderBottom: '1px solid var(--mm-rule)', gridTemplateColumns: `repeat(${Math.min(teams.length, 4)}, minmax(0, 1fr))` }}
-    >
-      {teams.map((t, i) => {
-        const diff = t.ptsFor - t.ptsAgainst
-        const diffColor = diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-ink-soft)'
-        return (
-          <li
-            key={t.key}
-            className={`flex items-center gap-2 min-h-[36px] sm:flex-col sm:items-start sm:gap-1 sm:px-3 sm:py-2.5 sm:rounded-[var(--mm-radius-ctl)] sm:border sm:border-[color:var(--mm-rule)] sm:bg-[color:var(--mm-panel-alt)] ${i > 0 ? 'border-t border-dashed border-[color:var(--mm-rule)] sm:border-solid' : ''}`}
-          >
-            <span className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none sm:w-full">
-              <span aria-hidden className="block h-4 w-1.5 rounded-sm shrink-0" style={{ background: t.color, border: '1px solid var(--mm-rule)' }} />
-              <span className="min-w-0 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
-                {i === 0 && <Trophy size={13} aria-label="그날 1위" className="inline -mt-0.5 mr-1" style={{ color: 'var(--mm-yellow-strong)' }} />}
-                {t.name}
-              </span>
+    <ul aria-label="그날 팀 성적" className="px-4 lg:px-5 py-3 space-y-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+      {teams.map((t, i) => (
+        <li key={t.key} className="grid items-center gap-3" style={{ gridTemplateColumns: 'minmax(4.5rem, 7rem) 1fr auto' }}>
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span aria-hidden className="block h-4 w-1.5 rounded-sm shrink-0" style={{ background: t.color, border: '1px solid var(--mm-rule)' }} />
+            <span className="min-w-0 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
+              {i === 0 && <Trophy size={13} aria-label="그날 1위" className="inline -mt-0.5 mr-1" style={{ color: 'var(--mm-yellow-strong)' }} />}
+              {t.name}
             </span>
-            <span className="flex items-baseline gap-2 shrink-0 sm:pl-3.5">
-              <span className="text-sm sm:text-base font-black tabular-nums whitespace-nowrap">
-                <span style={{ color: 'var(--mm-positive)' }}>{t.wins}승</span>{' '}
-                <span style={{ color: 'var(--mm-negative)' }}>{t.losses}패</span>
-                {t.draws > 0 && <span style={{ color: 'var(--mm-ink-soft)' }}> {t.draws}무</span>}
-              </span>
-              <span
-                className="w-10 sm:w-auto text-right text-sm font-black tabular-nums"
-                style={{ color: diffColor }}
-                title={`득점 ${t.ptsFor} · 실점 ${t.ptsAgainst}`}
-              >
-                {diff > 0 ? `+${diff}` : diff}
-              </span>
-            </span>
-          </li>
-        )
-      })}
+          </span>
+          <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} height={24} />
+          <MarginFigure ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} size="sm" />
+        </li>
+      ))}
     </ul>
   )
 }

@@ -5,7 +5,6 @@
 
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { HeadToHead } from './RecordDisplay'
 import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
@@ -171,14 +170,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                 </div>
               )}
 
-              {/* 상대전적 — 전체 전적 아래 한 줄. 위 칩(전체)과 같은 줄에 두면 어디까지가
-                  전체이고 어디부터가 상대별인지 구분이 안 된다. 줄을 나누고 라벨을 붙인다.
-                  맞붙은 상대가 없으면(첫 경기 전) 컴포넌트가 스스로 아무것도 그리지 않는다. */}
-              {(t.h2h?.length ?? 0) > 0 && (
-                <div className={`mt-2 pl-8 sm:pl-11 ${wide('lg:pl-[242px]')}`}>
-                  <HeadToHead records={t.h2h!} />
-                </div>
-              )}
+              {/* 상대전적 칩 줄은 리뉴얼 R1(2026-10-31)에서 뺐다 — 박스스코어 「팀 비교」가 맡는다. 되돌리기: docs/renewal-rollback.md */}
             </div>
           )
         })}
