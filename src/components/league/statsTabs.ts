@@ -16,8 +16,11 @@ import type { LeagueGroupTab } from './LeagueGroupTabs'
 
 export type StatsTabKey = 'leaderboard' | 'teams' | 'records'
 
+// 2026-11 (리뉴얼 R2 후속): 스탯 탭을 선수 탭에 합친 뒤 이 화면들은 선수 탭 「표로 보기」로만 들어온다 —
+//   돌아갈 길이 없다는 지적으로 맨 앞에 「← 선수」를 둔다(이 화면에서는 켜질 일이 없다).
 export function getStatsGroupTabs(base: string, active: StatsTabKey): LeagueGroupTab[] {
   return [
+    { href: `${base}/players`, label: '← 선수', active: false },
     { href: `${base}/stats`, label: '리더보드', active: active === 'leaderboard' },
     { href: `${base}/teams`, label: '팀', active: active === 'teams' },
     { href: `${base}/records`, label: '기록실', active: active === 'records' },
