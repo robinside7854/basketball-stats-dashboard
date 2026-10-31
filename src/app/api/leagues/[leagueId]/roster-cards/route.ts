@@ -75,7 +75,17 @@ export async function GET(
   }
   const sb = createClient()
   const teamId = await resolveTeamId(leagueId)
-  const q = await loadCurrentQuarter(sb, leagueId)
+  // ?quarterId= — 특정 분기(2026-11 운영진: 선수 탭에서 지난 분기도 보고 싶다). 없으면 지금 분기.
+  const askedQ = new URL(req.url).searchParams.get('quarterId')
+  let q = await loadCurrentQuarter(sb, leagueId)
+  if (askedQ && askedQ !== q?.id) {
+    const { data: row } = await sb.from('league_quarters')
+      .select('id, year, quarter, start_date, end_date, kind')
+      .eq('league_id', leagueId).eq('id', askedQ).maybeSingle()
+    if (row && row.kind !== 'tournament') {
+      q = { id: row.id, year: row.year, quarter: row.quarter, label: `${String(row.year).slice(2)}.${row.quarter}Q`, start_date: row.start_date, end_date: row.end_date }
+    }
+  }
 
   try {
     const [playersRes, accountsRes, externalIds, allStats, quarterStats] = await Promise.all([

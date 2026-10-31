@@ -48,9 +48,9 @@ interface CategoryDef {
 const CATEGORIES: CategoryDef[] = [
   { key: 'ppg',    term: '득점',     label: '득점',       format: v => v.toFixed(1) },
   { key: 'rpg',    term: '리바',     label: '리바운드',   format: v => v.toFixed(1) },
-  // 공격 리바운드는 리바운드 바로 옆, 3점 성공은 뺐다(운영진 2026-10-19 — 칩이 한 줄에 다 안 들어갔다)
-  { key: 'orp',    term: '공격리바', label: '공격 리바운드', format: v => v.toFixed(1) },
+  // 2026-11 운영진: 공격 리바운드 자리에 어시스트, 어시스트 자리에 3점(성공 개수 하루 평균 — 성공률 아님)
   { key: 'apg',    term: '어시',     label: '어시스트',   format: v => v.toFixed(1) },
+  { key: 'fg3m',   term: '3점',      label: '3점 성공',   format: v => v.toFixed(1), get: p => (p.gp > 0 ? p.fg3m / p.gp : 0) },
   { key: 'spg',    term: '스틸',     label: '스틸',       format: v => v.toFixed(1) },
   { key: 'bpg',    term: '블록',     label: '블록',       format: v => v.toFixed(1) },
   // 자유투 성공률 카드는 2026-10-13 사용자 요청으로 홈에서 뺐다(subFormat·minAttempts 는 백분율 카드용으로 남겨 둠).

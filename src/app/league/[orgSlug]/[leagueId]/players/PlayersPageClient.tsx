@@ -8,8 +8,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { BadgeCheck, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
 import { toast } from 'sonner'
-import { Chip, EmptyState, SectionCard, SegmentedTabs, Sheet } from '@/components/league/ui'
+import { Chip, EmptyState, SectionCard, Sheet } from '@/components/league/ui'
 import SortSelect from '@/components/league/ui/SortSelect'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import type { RosterCardLine } from '@/app/api/leagues/[leagueId]/roster-cards/route'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -53,16 +54,25 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const [addOpen, setAddOpen] = useState(false)
 
+  // 특정 분기 보기(2026-11 운영진) — null 이면 서버가 고른 지금 분기. 다른 분기를 고르면 그 분기로 다시 받는다.
+  const [askedQ, setAskedQ] = useState<string | null>(null)
+  const { quarters } = useLeagueQuarter()
+  const quarterOptions = useMemo(() => [...quarters]
+    .filter(q => q.kind !== 'tournament')
+    .sort((a, b) => b.year - a.year || b.quarter - a.quarter)
+    .map(q => ({ key: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` })), [quarters])
+
   const load = useCallback(async () => {
-    const r = await fetch(`/api/leagues/${leagueId}/roster-cards`, { cache: 'no-store' })
+    const qs = askedQ ? `?quarterId=${encodeURIComponent(askedQ)}` : ''
+    const r = await fetch(`/api/leagues/${leagueId}/roster-cards${qs}`, { cache: 'no-store' })
     if (!r.ok) throw new Error(String(r.status))
     return (await r.json()) as RosterCardsResponse
-  }, [leagueId])
+  }, [leagueId, askedQ])
 
   useEffect(() => {
     let alive = true
     load()
-      .then(d => { if (alive) setData(d) })
+      .then(d => { if (alive) { setData(d); setError(false) } })
       .catch(() => { if (alive) setError(true) })
     return () => { alive = false }
   }, [load])
@@ -118,15 +128,21 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {data && (
-                <SegmentedTabs<Period>
-                  ariaLabel="출석 기간"
-                  size="sm"
-                  value={effPeriod}
-                  onChange={setPeriod}
-                  items={[
-                    { key: 'quarter', label: data.quarter ? `이번 분기 (${data.quarter.label})` : '이번 분기', disabled: !data.quarter },
+                // 기간 고르기 — 「전체」 + 분기마다 하나(최신 먼저). 칩을 늘어놓지 않고 하나로(리뉴얼 원칙)
+                <SortSelect
+                  label="기간"
+                  value={effPeriod === 'all' ? 'all' : (data.quarter?.id ?? 'all')}
+                  options={[
                     { key: 'all', label: '전체' },
+                    ...(quarterOptions.length > 0
+                      ? quarterOptions
+                      : data.quarter ? [{ key: data.quarter.id, label: data.quarter.label }] : []),
                   ]}
+                  onChange={k => {
+                    if (k === 'all') { setPeriod('all'); return }
+                    setPeriod('quarter')
+                    if (k !== data.quarter?.id) setAskedQ(k)
+                  }}
                 />
               )}
               {isEditMode && (
