@@ -25,7 +25,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { ProgressBar } from '@/components/league/ui/viz'
 import { Avatar } from '@/components/league/ui'
 import PlayerName from '@/components/league/ui/PlayerName'
-import SectionCard from '@/components/league/ui/SectionCard'
+import InfoTip from '@/components/league/ui/InfoTip'
 import { EmptyState } from '@/components/league/ui'
 import HighlightsBrowser from '@/components/highlights/HighlightsBrowser'
 import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBrowser'
@@ -290,17 +290,12 @@ export default async function HighlightsFeedPage({
     const games = await getClassicsCached(leagueId)()
     body = (
       <>
-        <ModeLine title="명경기" sub={`월별 1경기 · ${games.length}개월`} />
-        {/* 기준을 화면에 적어 둔다. 왜 이 경기가 뽑혔는지 설명할 수 없으면 목록을 신뢰하지 않는다. */}
-        <SectionCard variant="standalone" pad="base">
-          <div className="text-sm leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>뽑는 방법 · </span>
-            위닝샷 · 역전 3회 이상 · 2점 차 이내 · 총 38점 이상 — 이 넷 중{' '}
-            <b style={{ color: 'var(--mm-ink)' }}>3개 이상</b>을 채운 경기를 그 달의 명경기로 골라요.
-            3개를 채운 경기가 없는 달은 2개로 낮춰요. 같은 조건이면{' '}
-            <b style={{ color: 'var(--mm-ink)' }}>위닝샷 → 역전 → 점수차 → 총득점</b> 순으로 앞서요.
-          </div>
-        </SectionCard>
+        {/* 뽑는 기준은 ⓘ 안으로(리뉴얼 R4, 2026-10-31 — 종전엔 화면에 문단으로 적었다).
+            왜 이 경기가 뽑혔는지 설명할 수 있어야 목록을 믿는다 — 기준 자체는 그대로 남긴다. */}
+        <ModeLine
+          title={<span className="inline-flex items-center gap-1">명경기<InfoTip label="명경기 뽑는 방법" text="위닝샷 · 역전 3회 이상 · 2점 차 이내 · 총 38점 이상 — 이 넷 중 3개 이상을 채운 경기를 그 달의 명경기로 골라요. 3개를 채운 경기가 없는 달은 2개로 낮춰요. 같은 조건이면 위닝샷 → 역전 → 점수차 → 총득점 순으로 앞서요." /></span>}
+          sub={`월별 1경기 · ${games.length}개월`}
+        />
         {games.length === 0 ? (
           <EmptyState icon={Trophy} title="아직 명경기가 없어요" description="경기가 쌓이면 달마다 한 경기씩 자동으로 골라요." />
         ) : (

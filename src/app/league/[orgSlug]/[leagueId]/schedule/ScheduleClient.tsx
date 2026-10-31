@@ -434,7 +434,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
   }
 
   const filteredSortedDates = [...dates]
-    .filter(sd => selectedQFilter === 'all' || quarterOf(sd.date) === selectedQFilter)
+    .filter(sd => !isEditMode || selectedQFilter === 'all' || quarterOf(sd.date) === selectedQFilter)
     .sort((a, b) => b.date.localeCompare(a.date))
   const visibleDates = filteredSortedDates.slice(0, visibleCount)
   const hasMoreDates = filteredSortedDates.length > visibleCount
@@ -464,7 +464,8 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
             style={{ color: 'var(--mm-muted)' }}
           >
             {/* 「총 N개 날짜 등록됨」은 운영 지표라 운영진에게만 (2026-10-26) */}
-            {isEditMode ? `총 ${dates.length}개 날짜 등록됨` : '날짜를 누르면 그날 기록을 볼 수 있어요'}
+            {/* 리뉴얼 R4 (2026-10-31): 회원에게는 안내 문장을 뺐다 */}
+            {isEditMode ? `총 ${dates.length}개 날짜 등록됨` : null}
           </p>
         </div>
         {isEditMode ? (
@@ -483,7 +484,8 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
         ) : null}
         </div>
         {/* 분기 필터 — 제목 카드 안으로 (배경 위에 칩만 떠 있지 않게, 2026-10-13) */}
-        {!loading && dates.length > 0 && quarters.length > 0 && (
+        {/* 리뉴얼 R4 (2026-10-31): 분기 칩은 운영진에게만 — 회원은 최신 날짜부터 스크롤한다 */}
+        {isEditMode && !loading && dates.length > 0 && quarters.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap pt-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
             {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => {
               return (
@@ -769,7 +771,8 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
 
               {/* 시간·장소·정원 — 입력된 것만 그린다. 비어 있으면 줄 자체가 없다.
                   '미정'을 나열하면 과거 날짜 32개가 전부 '미정 · 미정'으로 도배된다. */}
-              {hasDetails && (
+              {/* 리뉴얼 R4: 시간·장소·정원은 앞으로 열릴 날에만(지난 날 카드는 결과 막대만) */}
+              {hasDetails && (upcoming || isEditMode) && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[30px] text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
                   {eff.start_time && (
                     <span className="inline-flex items-center gap-1"><Clock size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />{hhmm(eff.start_time)}</span>
@@ -782,7 +785,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                   )}
                   {/* 고정 대관을 그대로 따르는 날인지 밝힌다. 안 밝히면 그 날만 따로 입력해 둔
                       값인 줄 알고, 설정에서 장소를 바꿨을 때 왜 여기까지 바뀌는지 모른다. */}
-                  {upcoming && !hasOwnDetails && (
+                  {isEditMode && upcoming && !hasOwnDetails && (
                     <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>고정 대관</span>
                   )}
                 </div>

@@ -65,7 +65,17 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   const [query, setQuery] = useState('')
   // 내 선수 id — 리그 로그인(회원)일 때만. 게이트 화면 등 프로바이더 밖이면 null(칩을 안 그린다)
   const myId = useOptionalCurrentUser()?.user?.player_id ?? null
-  const quickDays = days.slice(0, QUICK_DAYS)
+  // 리뉴얼 R4 (2026-10-31): 칩 10 → 5. 최근 날짜 바로가기 칩 3개는 「날짜 ▾」 시트 안으로,
+  //   베스트샷·명경기·마일스톤은 「더 보기 ▾」 시트 하나로 묶었다. 되돌리기: docs/renewal-rollback.md (R4).
+  const quickDays: typeof days = []
+  void QUICK_DAYS
+  const [moreOpen, setMoreOpen] = useState(false)
+  const SPECIAL: { key: FeedKind; label: string; Icon: typeof Pin }[] = [
+    { key: 'best', label: '베스트샷', Icon: Pin },
+    { key: 'classics', label: '명경기', Icon: Trophy },
+    { key: 'milestones', label: '마일스톤', Icon: Medal },
+  ]
+  const special = SPECIAL.find(x => x.key === kind)
   const isMine = !!myId && playerId === myId && kind === 'all' && !date
 
   // 선수 목록 — 시트를 열 때, 또는 칩 이름을 서버가 모를 때(안쪽 필터에서 선수를 바꾼 경우)만 받는다
@@ -181,14 +191,10 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
           <ChevronDown size={14} aria-hidden />
         </Chip>
 
-        <Chip as="button" size="md" icon={Pin} selected={kind === 'best'} onClick={() => go({ f: kind === 'best' ? 'all' : 'best', date: null })}>
-          베스트샷
-        </Chip>
-        <Chip as="button" size="md" icon={Trophy} selected={kind === 'classics'} onClick={() => go({ f: kind === 'classics' ? 'all' : 'classics', date: null, player: null })}>
-          명경기
-        </Chip>
-        <Chip as="button" size="md" icon={Medal} selected={kind === 'milestones'} onClick={() => go({ f: kind === 'milestones' ? 'all' : 'milestones', date: null, player: null })}>
-          마일스톤
+        <Chip as="button" size="md" icon={special?.Icon} selected={!!special} onClick={() => setMoreOpen(true)}
+          ariaLabel={special ? `${special.label} — 바꾸기` : '베스트샷 · 명경기 · 마일스톤'}>
+          {special ? special.label : '더 보기'}
+          <ChevronDown size={14} aria-hidden />
         </Chip>
       </div>
 
@@ -308,6 +314,22 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
             </ul>
           )}
         </div>
+      </Sheet>
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="더 보기" width="sm">
+        <ul className="grid gap-2 pb-2">
+          {SPECIAL.map(({ key, label, Icon }) => (
+            <li key={key}>
+              <button type="button"
+                onClick={() => { setMoreOpen(false); go({ f: kind === key ? 'all' : key, date: null, ...(key === 'best' ? {} : { player: null }) }) }}
+                className="mm-press w-full flex items-center gap-3 min-h-12 px-3 text-base font-black cursor-pointer"
+                style={kind === key
+                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }
+                  : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                <Icon size={18} aria-hidden />{label}
+              </button>
+            </li>
+          ))}
+        </ul>
       </Sheet>
     </>
   )
