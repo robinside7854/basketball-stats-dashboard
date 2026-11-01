@@ -398,12 +398,16 @@ function TeamDetailPanel({
     const totFta    = players.reduce((s, p) => s + p.fta, 0)
     const totStl    = players.reduce((s, p) => s + p.stl, 0)
     const totBlk    = players.reduce((s, p) => s + p.blk, 0)
+    // 속공(2026-11, lib/stats/fastBreak.ts) — 선수 행의 fb_pts 합. 옛 캐시 행엔 없을 수 있어 0
+    const totFb     = players.reduce((s, p) => s + (p.fb_pts ?? 0), 0)
 
     const ppg    = totPts / gp
     const fgPct  = totFga  > 0 ? totFgm / totFga * 100 : 0
     const defPg  = (totStl + totBlk) / gp
     const ftPct  = totFta  > 0 ? totFtm / totFta * 100 : 0
     const threePct = totFga > 0 ? totFg3a / totFga * 100 : 0
+    const fbPct  = totPts > 0 ? totFb / totPts * 100 : 0
+    const fbPg   = totFb / gp
 
     // Top performers — 정규 명단만 후보 (비정규·게스트가 1경기로 1위 차지 방지)
     const byPpg   = pickTeamLeader(players, regularIds, p => p.ppg)
@@ -417,7 +421,7 @@ function TeamDetailPanel({
     const topScorer = byPpg
     const acePct = totPts > 0 && topScorer ? topScorer.pts / totPts * 100 : 0
 
-    return { ppg, fgPct, defPg, ftPct, threePct, acePct, byPpg, byRpg, byApg, byDef, byEfg }
+    return { ppg, fgPct, defPg, ftPct, threePct, fbPct, fbPg, acePct, byPpg, byRpg, byApg, byDef, byEfg }
   }, [players, regularIds, gp])
 
   const played = standing.w + standing.d + standing.l
@@ -519,7 +523,7 @@ function TeamDetailPanel({
               className="mm-press w-full min-h-11 px-3 flex items-center justify-center gap-1.5 text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
             >
-              {moreOpen ? '접기' : '더 보기 · 공격 리바운드 · 팀 하이라이트 · 팀 특성'}
+              {moreOpen ? '접기' : '더 보기 · 공격 리바운드 · 팀 하이라이트 · 팀 특성(속공 포함)'}
               <ChevronDown size={16} aria-hidden className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
             </button>
             {moreOpen && (<>
@@ -528,7 +532,7 @@ function TeamDetailPanel({
               <div>
                 <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 특성</p>
                 {/* 에이스 칸이 빠져 3장이면 폰 2열에서 마지막 한 장만 가운데로(왼쪽 반만 차던 것) */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-5px)]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-5px)]">
                   {[
                     // 에이스(정규 득점 1위)가 없으면 0% 가 초록으로 '좋음'처럼 보인다 — 카드째 뺀다
                     ...(computed.byPpg ? [{
@@ -544,6 +548,13 @@ function TeamDetailPanel({
                       value: `${computed.threePct.toFixed(0)}%`,
                       desc: '3점 시도 비율',
                       color: computed.threePct > 35 ? 'var(--mm-neutral-strong)' : 'var(--mm-yellow-strong)',
+                    },
+                    {
+                      title: '속공',
+                      ratio: (computed.fbPct / 100) as number | null,
+                      value: `${computed.fbPct.toFixed(0)}%`,
+                      desc: `팀 득점 중 비중 · 경기당 ${computed.fbPg.toFixed(1)}점`,
+                      color: computed.fbPct > 20 ? 'var(--mm-positive)' : computed.fbPct > 10 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)',
                     },
                     {
                       title: '수비 강도',
