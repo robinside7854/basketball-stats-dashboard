@@ -965,10 +965,55 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     맞대결 기록이 있는 줄도 몰랐다는 신고로 이어졌다(2026-09-18). 안내는 늘 띄운다. */}
                 <p className="text-xs -mt-1.5 mb-2.5 max-w-prose text-pretty" style={{ color: 'var(--mm-muted)' }}>
                   {rolledUp && '쿼터별로 나눠 올린 경기는 한 경기로 묶어 보여 줘요. '}
-                  카드를 누르면 그 경기의 박스스코어가 열려요.
+                  칸을 누르면 그 경기의 박스스코어가 아래에 열려요.
                 </p>
 
-                {games.map(g => {
+                {/* 3열 바둑판 (2026-11 운영진 — 세로로 길게 늘어놓지 말고 3×3). 누르면 그 경기 박스스코어가 판 아래에 펼쳐진다 */}
+                <ol className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                  {games.map(g => {
+                    const on = expandedGame === g.id
+                    const hw = g.is_complete && g.home_score > g.away_score
+                    const aw = g.is_complete && g.away_score > g.home_score
+                    const live = !g.is_complete && g.is_started
+                    const row = (team: GameData['home_team'], score: number, win: boolean) => (
+                      <span className="flex items-center gap-1 min-w-0">
+                        <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: team?.color ?? 'var(--mm-rule)' }} />
+                        <span className={`min-w-0 flex-1 truncate text-[11px] sm:text-xs ${win ? 'font-black' : 'font-semibold'}`}
+                          style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)' }} title={team?.name ?? '미정'}>{team?.name ?? '미정'}</span>
+                        <span className="font-jersey font-black tabular-nums leading-none text-lg sm:text-xl shrink-0"
+                          style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{score}</span>
+                      </span>
+                    )
+                    return (
+                      <li key={g.id}>
+                        <button type="button"
+                          onClick={() => {
+                            setExpandedGame(on ? null : g.id)
+                            if (!on) setTimeout(() => document.getElementById(`game-details-wrap`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                          }}
+                          aria-pressed={on}
+                          aria-label={`${gameNumLabel(g)} ${g.home_team?.name ?? '미정'} ${g.home_score} 대 ${g.away_score} ${g.away_team?.name ?? '미정'} — 박스스코어 ${on ? '접기' : '열기'}`}
+                          className="mm-press w-full h-full text-left px-2 py-2 sm:px-3 sm:py-2.5 flex flex-col gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                          style={{
+                            background: on ? 'var(--mm-yellow-soft)' : live ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
+                            border: on ? '2px solid var(--mm-yellow-strong)' : '1px solid var(--mm-rule)',
+                            borderRadius: 'var(--mm-radius-ctl)',
+                          }}>
+                          <span className="flex items-center justify-between gap-1">
+                            <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{gameNumLabel(g)}</span>
+                            {live && <span className="text-[10px] font-bold" style={{ color: 'var(--mm-live)' }}>진행 중</span>}
+                            {!g.is_started && <span className="text-[10px] font-semibold" style={{ color: 'var(--mm-muted)' }}>예정</span>}
+                          </span>
+                          {row(g.home_team, g.home_score, hw)}
+                          {row(g.away_team, g.away_score, aw)}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ol>
+
+                <div id="game-details-wrap" className="scroll-mt-24">
+                {games.filter(g => g.id === expandedGame).map(g => {
                   const isExpanded = expandedGame === g.id
                   const videoList = (g.videos && g.videos.length > 0)
                     ? g.videos
@@ -1150,6 +1195,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     </div>
                   )
                 })}
+                </div>
               </section>
 
               {/* 리뉴얼 R1 (2026-10-31): 종전 3·4번 탭 — 팀 비교는 막대 그림으로 바로, 어시스트 연결은 접어 둔다 */}
