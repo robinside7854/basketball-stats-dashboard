@@ -26,6 +26,7 @@ import { ProgressBar } from '@/components/league/ui/viz'
 import { Avatar } from '@/components/league/ui'
 import PlayerName from '@/components/league/ui/PlayerName'
 import InfoTip from '@/components/league/ui/InfoTip'
+import VideoAdminTabs from '@/components/league/VideoAdminTabs'
 import { EmptyState } from '@/components/league/ui'
 import HighlightsBrowser from '@/components/highlights/HighlightsBrowser'
 import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBrowser'
@@ -228,6 +229,8 @@ export default async function HighlightsFeedPage({
 
   const header = (
     <div className="space-y-3">
+      {/* 운영진에게만 「하이라이트 · 기록실」 서브탭(2026-11) — 회원에게는 아무것도 안 그린다 */}
+      <VideoAdminTabs base={`/league/${orgSlug}/${leagueId}`} active="highlights" />
       <div className="flex items-center gap-3">
         <Film size={24} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
         <h1 className="font-black text-2xl lg:text-3xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>

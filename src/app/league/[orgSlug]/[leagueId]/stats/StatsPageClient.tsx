@@ -938,7 +938,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
 
   return (
     <div className="mm-brand space-y-5">
-      {/* 스탯 우산 서브탭 — 리더보드 · 팀 · 기록실 */}
+      {/* 「기록」 탭 서브탭 — 리더보드 · 선수 · 팀 (2026-11) */}
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}

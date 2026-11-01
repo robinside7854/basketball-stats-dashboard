@@ -10,9 +10,10 @@ import { ArrowDown, ArrowUp, BadgeCheck, Loader2, Plus, Search, UserX, Users } f
 import { toast } from 'sonner'
 import { Chip, EmptyState, SectionCard, Sheet } from '@/components/league/ui'
 import SortSelect from '@/components/league/ui/SortSelect'
+import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
+import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import type { RosterCardLine } from '@/app/api/leagues/[leagueId]/roster-cards/route'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -157,6 +158,8 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
 
   return (
     <div className="mm-brand space-y-4">
+      {/* 「기록」 탭 서브탭 — 리더보드 · 선수 · 팀 (2026-11 운영진) */}
+      <LeagueGroupTabs tabs={getStatsGroupTabs(`/league/${orgSlug}/${leagueId}`, 'players')} />
       <SectionCard pad="none">
         <div className="px-4 py-4 lg:px-6 lg:py-5 space-y-3">
           <div className="flex items-end justify-between gap-3 flex-wrap">
@@ -223,10 +226,6 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
                   </button>
                 ))}
               </div>
-              {/* PC 에서 숫자를 표로 보고 싶은 사람용 — 옛 스탯 표(메뉴에서는 뺐다) */}
-              <Link href={`/league/${orgSlug}/${leagueId}/stats`} className="hidden lg:inline-flex t-label items-center min-h-11 hover:underline">
-                표로 보기 →
-              </Link>
             </div>
           )}
         </div>

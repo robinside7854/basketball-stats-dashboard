@@ -100,8 +100,9 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     // 리뉴얼 R2 (2026-10-31): 「스탯」 탭을 「선수」에 합쳤다 — 선수 탭이 명단 + 순위. 옛 스탯·팀·기록실 화면은
     //   주소로는 그대로 열리고(선수 탭 「표로 보기」·홈 링크) 선수 탭이 켜진다. 「하이라이트」 → 「영상」.
     //   되돌리기: docs/renewal-rollback.md (R2).
-    { href: `${base}/players`, label: '선수', match: [`${base}/players`, `${base}/stats`, `${base}/teams`, `${base}/records`] },
-    { href: `${base}/highlights`, label: '영상', match: [`${base}/highlights`] },
+    // 2026-11 운영진: 「선수」 → 「기록」(서브탭 리더보드 · 선수 · 팀). 기록실(/records)은 운영진 전용 「영상」 서브탭.
+    { href: `${base}/players`, label: '기록', match: [`${base}/players`, `${base}/stats`, `${base}/teams`] },
+    { href: `${base}/highlights`, label: '영상', match: [`${base}/highlights`, `${base}/records`] },
     // 드래프트는 주장·운영진 전용 절차다(2026-10-12) — 일반 회원 탭 줄에는 띄우지 않는다.
     ...(showDraft && isEditMode ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
   ]
@@ -344,7 +345,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   const mainTabs: { href: string; label: string; Icon: typeof Home; ariaLabel?: string }[] = [
     { href: base,                  label: '홈',      Icon: Home },
     { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
-    { href: `${base}/players`,     label: '선수',     Icon: Users },
+    { href: `${base}/players`,     label: '기록',     Icon: Users },
     { href: `${base}/highlights`,  label: '영상',     Icon: PlayCircle },
     { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
   ]
@@ -360,7 +361,8 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   //   (인스타 카드 생성기 /social 은 2026-10-12 폐지)
   const isActive = (href: string) => {
     if (href === base) return pathname === base
-    if (href === `${base}/players`) return pathname.startsWith(`${base}/players`) || pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`) || pathname.startsWith(`${base}/records`)
+    if (href === `${base}/players`) return pathname.startsWith(`${base}/players`) || pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`)
+    if (href === `${base}/highlights`) return pathname.startsWith(`${base}/highlights`) || pathname.startsWith(`${base}/records`)
     if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
     if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`)
     return pathname.startsWith(href)
