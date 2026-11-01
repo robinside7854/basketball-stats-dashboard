@@ -558,6 +558,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       if (key === 'fgm')  return `${p.fgm}/${p.fga}`
       if (key === 'fg3m') return `${p.fg3m}/${p.fg3a}`
       if (key === 'ftm')  return `${p.ftm}/${p.fta}`
+      // ↑ 표에서는 칸 아래에 % 를 따로 붙인다(basicRow)
       if (key === 'minutes_est') {
         if (!p.minutes_est) return '—'
         return `${Math.round(p.minutes_est)}${p.minutes_est_used ? '*' : ''}`
@@ -817,6 +818,11 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                 style={{ color: cellColor }}
                 title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
               {cellVal(p, key)}
+              {/* 누적 보기의 야투·3점·자유투(성공/시도) 아래에 성공률 % (2026-11 운영진) */}
+              {viewMode === 'total' && (key === 'fgm' || key === 'fg3m' || key === 'ftm') && (() => {
+                const [m, a] = key === 'fgm' ? [p.fgm, p.fga] : key === 'fg3m' ? [p.fg3m, p.fg3a] : [p.ftm, p.fta]
+                return <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{a > 0 ? `${fmt1((m / a) * 100)}%` : '—'}</span>
+              })()}
               {key === 'gp' && isIneligible(p) && !pinned && <IneligibleTag />}
               {key === sortKey && low && <LowAttemptTag />}
             </td>

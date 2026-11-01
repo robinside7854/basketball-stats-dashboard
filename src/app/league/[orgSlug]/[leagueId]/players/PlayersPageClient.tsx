@@ -6,7 +6,7 @@
 //   사용자 피드백(2026-10-16): 등번호·소속팀(분기마다 바뀜)·출석 막대·게스트는 보이지 않는다. 얼굴을 크게.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import { BadgeCheck, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, BadgeCheck, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Chip, EmptyState, SectionCard, Sheet } from '@/components/league/ui'
 import SortSelect from '@/components/league/ui/SortSelect'
@@ -32,22 +32,35 @@ type Metric = {
   ok: (l: RosterCardLine) => boolean
   /** 낮을수록 위(턴오버) */
   low?: boolean
-  main: (l: RosterCardLine) => string
-  sub?: (l: RosterCardLine) => string
+  /** 정렬 값 — 평균·누적 보기마다 */
+  value: (l: RosterCardLine, mode: ViewMode) => number
+  main: (l: RosterCardLine, mode: ViewMode) => string
+  sub?: (l: RosterCardLine, mode: ViewMode) => string
 }
-const per = (k: 'ppg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'tpg') => (l: RosterCardLine) => l[k].toFixed(1)
+type ViewMode = 'avg' | 'total'
+type Avg = 'ppg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'tpg'
+type Tot = 'pts' | 'reb' | 'oreb' | 'dreb' | 'ast' | 'stl' | 'blk' | 'tov' | 'fg3m'
+/** 하루 평균 키 ↔ 누적 키 한 쌍 — 평균은 소수 한 자리, 누적은 정수 */
+const pair = (a: Avg, t: Tot) => ({
+  value: (l: RosterCardLine, m: ViewMode) => (m === 'avg' ? l[a] : l[t]),
+  main: (l: RosterCardLine, m: ViewMode) => (m === 'avg' ? l[a].toFixed(1) : String(l[t])),
+})
+const pctOf = (k: 'fg_pct' | 'ft_pct') => ({
+  value: (l: RosterCardLine) => l[k],
+  main: (l: RosterCardLine) => `${l[k].toFixed(1)}%`,
+})
 const METRICS: Metric[] = [
-  { key: 'ppg', label: '득점', ok: l => l.eligible, main: per('ppg') },
-  { key: 'rpg', label: '리바운드', ok: l => l.eligible, main: per('rpg') },
-  { key: 'orp', label: '공격 리바운드', ok: l => l.eligible, main: per('orp') },
-  { key: 'drp', label: '수비 리바운드', ok: l => l.eligible, main: per('drp') },
-  { key: 'apg', label: '어시스트', ok: l => l.eligible, main: per('apg') },
-  { key: 'spg', label: '스틸', ok: l => l.eligible, main: per('spg') },
-  { key: 'bpg', label: '블록', ok: l => l.eligible, main: per('bpg') },
-  { key: 'topg', label: '턴오버', ok: l => l.eligible, low: true, main: per('topg'), sub: () => '적을수록 위' },
-  { key: 'fg_pct', label: '야투율', ok: l => l.fg_ok, main: l => `${l.fg_pct.toFixed(1)}%`, sub: l => `${l.fgm}/${l.fga}` },
-  { key: 'tpg', label: '3점 성공', ok: l => l.eligible, main: per('tpg'), sub: l => `${l.fg3_pct.toFixed(1)}% · ${l.fg3m}/${l.fg3a}` },
-  { key: 'ft_pct', label: '자유투', ok: l => l.ft_ok, main: l => `${l.ft_pct.toFixed(1)}%`, sub: l => `${l.ftm}/${l.fta}` },
+  { key: 'ppg', label: '득점', ok: l => l.eligible, ...pair('ppg', 'pts') },
+  { key: 'rpg', label: '리바운드', ok: l => l.eligible, ...pair('rpg', 'reb') },
+  { key: 'orp', label: '공격 리바운드', ok: l => l.eligible, ...pair('orp', 'oreb') },
+  { key: 'drp', label: '수비 리바운드', ok: l => l.eligible, ...pair('drp', 'dreb') },
+  { key: 'apg', label: '어시스트', ok: l => l.eligible, ...pair('apg', 'ast') },
+  { key: 'spg', label: '스틸', ok: l => l.eligible, ...pair('spg', 'stl') },
+  { key: 'bpg', label: '블록', ok: l => l.eligible, ...pair('bpg', 'blk') },
+  { key: 'topg', label: '턴오버', ok: l => l.eligible, low: true, ...pair('topg', 'tov') },
+  { key: 'fg_pct', label: '야투율', ok: l => l.fg_ok, ...pctOf('fg_pct'), sub: l => `${l.fgm}/${l.fga}` },
+  { key: 'tpg', label: '3점 성공', ok: l => l.eligible, ...pair('tpg', 'fg3m'), sub: l => `${l.fg3_pct.toFixed(1)}% · ${l.fg3m}/${l.fg3a}` },
+  { key: 'ft_pct', label: '자유투', ok: l => l.ft_ok, ...pctOf('ft_pct'), sub: l => `${l.ftm}/${l.fta}` },
 ]
 const CHIP_ORDER: { key: SortKey; label: string }[] = [{ key: 'attendance', label: '출석' }, ...METRICS.map(m => ({ key: m.key as SortKey, label: m.label }))]
 
@@ -66,6 +79,13 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const [error, setError] = useState(false)
   const [period, setPeriod] = useState<Period | null>(null)
   const [sort, setSort] = useState<SortKey>('ppg')
+  // 같은 칩을 한 번 더 누르면 방향이 뒤집힌다(2026-11 운영진). 'best' = 잘한 순(턴오버는 적은 순)
+  const [dir, setDir] = useState<'best' | 'worst'>('best')
+  const [mode, setMode] = useState<ViewMode>('avg')
+  const pickSort = (k: SortKey) => {
+    if (k === sort) setDir(d => (d === 'best' ? 'worst' : 'best'))
+    else { setSort(k); setDir('best') }
+  }
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const [addOpen, setAddOpen] = useState(false)
 
@@ -116,18 +136,21 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
     const byName = (a: RosterCard, b: RosterCard) => a.name.localeCompare(b.name, 'ko')
     const ranks = new Map<string, number>()
     if (sort === 'attendance') {
-      return { list: [...rows].sort((a, b) => attOf(b).rate - attOf(a).rate || attOf(b).gp - attOf(a).gp || byName(a, b)), rankOf: ranks }
+      const att = [...rows].sort((a, b) => attOf(b).rate - attOf(a).rate || attOf(b).gp - attOf(a).gp || byName(a, b))
+      return { list: dir === 'best' ? att : att.reverse(), rankOf: ranks }
     }
     const m = METRICS.find(x => x.key === sort)!
-    const raw = (p: RosterCard) => { const l = lineOf(p); return l ? l[sort] : null }
     const ok = (p: RosterCard) => { const l = lineOf(p); return !!l && m.ok(l) }
     // 낮을수록 위(턴오버)면 부호를 뒤집어 같은 내림차순 규칙으로 센다
-    const v = (p: RosterCard) => { const r = raw(p); return r == null ? -Infinity : (m.low ? -r : r) }
-    const sorted = [...rows].sort((a, b) => Number(ok(b)) - Number(ok(a)) || v(b) - v(a) || byName(a, b))
+    const v = (p: RosterCard) => { const l = lineOf(p); if (!l) return -Infinity; const r = m.value(l, mode); return m.low ? -r : r }
+    const ranked = [...rows].filter(ok).sort((a, b) => v(b) - v(a) || byName(a, b))
     let prev = NaN, rank = 0
-    sorted.forEach((p, i) => { if (!ok(p)) return; if (v(p) !== prev) { rank = i + 1; prev = v(p) } ranks.set(p.id, rank) })
+    ranked.forEach((p, i) => { if (v(p) !== prev) { rank = i + 1; prev = v(p) } ranks.set(p.id, rank) })
+    // 순위 밖(출전일·시도 부족)은 방향과 상관없이 맨 뒤 — 순위 번호는 늘 「잘한 순」 그대로
+    const rest = [...rows].filter(p => !ok(p)).sort((a, b) => v(b) - v(a) || byName(a, b))
+    const sorted = [...(dir === 'best' ? ranked : [...ranked].reverse()), ...rest]
     return { list: sorted, rankOf: ranks }
-  }, [data, sort, attOf, lineOf])
+  }, [data, sort, dir, mode, attOf, lineOf])
 
   const total = data?.players.length ?? 0
   const members = (data?.players ?? []).filter(p => p.has_account).length
@@ -179,8 +202,25 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               {/* 순위 필터 칩 — 한 줄 가로 밀기(폰), PC 는 줄바꿈 */}
               <div role="group" aria-label="순위 기준" className="flex gap-1.5 overflow-x-auto lg:flex-wrap min-w-0 w-full -mx-1 px-1 py-1">
-                {CHIP_ORDER.map(c => (
-                  <Chip key={c.key} as="button" size="md" selected={sort === c.key} onClick={() => setSort(c.key)}>{c.label}</Chip>
+                {CHIP_ORDER.map(c => {
+                  const on = sort === c.key
+                  return (
+                    <Chip key={c.key} as="button" size="md" selected={on} onClick={() => pickSort(c.key)}
+                      ariaLabel={on ? `${c.label} — ${dir === 'best' ? '높은 순' : '낮은 순'} (누르면 반대로)` : c.label}>
+                      {c.label}
+                      {on && (dir === 'best' ? <ArrowDown size={14} aria-hidden /> : <ArrowUp size={14} aria-hidden />)}
+                    </Chip>
+                  )
+                })}
+              </div>
+              {/* 하루 평균 ↔ 누적(기간 합계). 성공률·출석은 그대로 */}
+              <div role="group" aria-label="숫자 단위" className="inline-flex overflow-hidden" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>
+                {([['avg', '하루 평균'], ['total', '누적']] as const).map(([k, label]) => (
+                  <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
+                    className="mm-press px-3.5 min-h-11 text-sm font-black cursor-pointer"
+                    style={mode === k ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)' } : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }}>
+                    {label}
+                  </button>
                 ))}
               </div>
               {/* PC 에서 숫자를 표로 보고 싶은 사람용 — 옛 스탯 표(메뉴에서는 뺐다) */}
@@ -222,7 +262,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
                 const m = METRICS.find(x => x.key === sort)
                 if (!m) return null
                 const l = lineOf(p)
-                return { label: m.label, main: l ? m.main(l) : '–', sub: l && m.sub ? m.sub(l) : null, rank: rankOf.get(p.id) ?? null }
+                return { label: m.label, main: l ? m.main(l, mode) : '–', sub: l && m.sub ? m.sub(l, mode) : null, rank: rankOf.get(p.id) ?? null }
               })()}
               totalRounds={totalRounds}
               priority={i < 4}
