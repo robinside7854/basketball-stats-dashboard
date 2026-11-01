@@ -7,6 +7,7 @@ import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import { gameDateRange } from '@/lib/league/currentQuarter'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
+import { fastBreakIds } from '@/lib/stats/fastBreak'
 import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, addBoxLine, type BoxLine } from '@/lib/stats/boxLine'
 
 /**
@@ -40,7 +41,7 @@ export async function GET(
   try {
     const result = await unstable_cache(
       () => computeHeadToHead(leagueId, quarterId),
-      ['head-to-head', leagueId, quarterId || 'all', 'v1'],
+      ['head-to-head', leagueId, quarterId || 'all', 'v2'],
       { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
     )()
     return NextResponse.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
@@ -87,15 +88,18 @@ async function computeHeadToHead(leagueId: string, quarterId: string | null): Pr
   if (!games || games.length === 0) return { pairs: [] }
 
   const gameIds = games.map(g => g.id as string)
-  type Ev = { league_game_id: string; league_player_id: string; related_player_id: string | null; team_id: string | null; type: string; result: string | null; quarter: number | null }
+  type Ev = { id: number | string; video_timestamp: number | null; league_game_id: string; league_player_id: string; related_player_id: string | null; team_id: string | null; type: string; result: string | null; quarter: number | null }
   const events = await fetchAllPaged<Ev>((from, to) => supabase
     .from('league_game_events')
-    .select('league_game_id, league_player_id, related_player_id, team_id, type, result, quarter')
+    .select('id, video_timestamp, league_game_id, league_player_id, related_player_id, team_id, type, result, quarter')
     .in('league_game_id', gameIds)
     .not('league_player_id', 'is', null)
     // ⚠ ORDER BY 없으면 페이지네이션 중복/누락
     .order('id', { ascending: true })
     .range(from, to))
+
+  // 속공 판정 — 정본 fastBreak.ts
+  const fbIds = fastBreakIds(events)
 
   const [{ data: players }, gpRows, { data: memberships }] = await Promise.all([
     supabase.from('league_players').select('id, plus_one').eq('team_id', teamId),
@@ -138,7 +142,7 @@ async function computeHeadToHead(leagueId: string, quarterId: string | null): Pr
     const isP1 = isPlusOneFor(e.league_player_id, g as GamePlusOne, plusOneSet, e.quarter ?? null)
     const pts = scorePoints(e.type, e.result, isP1, scoringRules)
     const line = lineFor(g.id as string, tid)
-    applyEventToBoxLine(line, e.type, e.result, pts)
+    applyEventToBoxLine(line, e.type, e.result, pts, fbIds.has(String(e.id)))
     if (isAssistEvent(e.type, e.result, e.related_player_id)) line.ast++
   }
 

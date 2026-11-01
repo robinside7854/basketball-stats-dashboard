@@ -679,6 +679,8 @@ export async function GET(
     fgm: myRow.fgm, fga: myRow.fga, fg3m: myRow.fg3m, fg3a: myRow.fg3a, ftm: myRow.ftm, fta: myRow.fta,
     ppg: myRow.ppg, rpg: myRow.rpg, apg: myRow.apg, spg: myRow.spg, bpg: myRow.bpg, topg: myRow.topg,
     fg_pct: myRow.fg_pct, fg3_pct: myRow.fg3_pct, ft_pct: myRow.ft_pct,
+    // 속공(2026-11, fastBreak.ts) — 옛 캐시 행에는 없을 수 있어 0
+    fb_pts: myRow.fb_pts ?? 0, fbpg: myRow.fbpg ?? 0,
   } : null
 
   // ── Monthly stats — aggregateMap 기반 단위별 → 월별 그룹 ──────────────

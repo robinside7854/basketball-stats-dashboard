@@ -38,6 +38,8 @@ import { positionGroupOf, positionGroupLabel, POSITION_GROUPS, type PositionGrou
 
 // 차트 4종 — 2026-10-12 리뉴얼 5단계에서 recharts 를 자체 인라인 SVG 로 바꿨다(수 KB).
 //   더 이상 따로 쪼개 늦게 받을 이유가 없어 바로 import 한다(모달 자체가 호출부에서 lazy 로드된다).
+import InfoTip from '@/components/league/ui/InfoTip'
+import { Ring } from '@/components/league/ui/viz'
 import { MonthlyStatsChart, GameTrendChart, PlayerHexRadar, PlayerShotDonut } from '@/components/league/charts/PlayerQuickViewCharts'
 
 type PlayerInfo = {
@@ -99,6 +101,8 @@ type Detail = {
     fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
     pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
     fg_pct: number; fg3_pct: number; ft_pct: number
+    /** 속공 득점(2026-11) — 옛 응답엔 없을 수 있다 */
+    fb_pts?: number; fbpg?: number
   } | null
   /** 월별 — 하루 평균. 성공률은 최소 시도 미달이면 null. best = 「최고의 달」(하루 평균 득점) */
   monthly_stats?: MonthRow[]
@@ -1451,6 +1455,28 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                             </p>
                           </div>
                         )}
+                        {/* 속공(2026-11) — 수비 리바운드·스틸 뒤 7초 안 득점. 고리 = 내 득점 중 비중 */}
+                        {(() => {
+                          const ps = viewDetail?.player_stats
+                          if (!ps || !(ps.pts > 0) || ps.fb_pts == null) return null
+                          const share = ps.fb_pts / ps.pts
+                          return (
+                            <div className="sm:col-span-2 px-3 py-2.5 flex items-center gap-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                              <Ring ratio={share} size={56} label={`속공 득점 ${ps.fb_pts}점, 득점의 ${Math.round(share * 100)}%`}>
+                                {Math.round(share * 100)}%
+                              </Ring>
+                              <div className="min-w-0">
+                                <p className="text-xs font-black flex items-center gap-1" style={{ color: 'var(--mm-muted)' }}>
+                                  속공 득점
+                                  <InfoTip label="속공 기준" text="수비 리바운드나 스틸 뒤 7초 안에 같은 팀이 넣은 득점이에요(야투·앤드원, 자유투 제외). 그 사이 상대 기록이 있으면 속공이 아니에요." />
+                                </p>
+                                <p className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '20px' }}>
+                                  하루 {ps.fbpg ?? 0}점 <span className="text-sm font-bold" style={{ color: 'var(--mm-muted)' }}>· 누적 {ps.fb_pts}점</span>
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
 
                       {/* 코트 또는 도넛 (토글) */}

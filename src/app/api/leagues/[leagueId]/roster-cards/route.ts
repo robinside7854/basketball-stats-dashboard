@@ -36,6 +36,8 @@ export type RosterCardLine = {
   ftm: number; fta: number; ft_pct: number
   /** 누적(기간 합계) — 선수 탭 「누적」 보기 */
   gp: number; pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number; tov: number
+  /** 속공 득점 — 하루 평균 · 누적 (fastBreak.ts) */
+  fbpg: number; fb_pts: number
   eligible: boolean
   /** 성공률 순위 자격(출전 자격 + 최소 시도 — 스탯 탭과 같은 meetsAttemptMin) */
   fg_ok: boolean; fg3_ok: boolean; ft_ok: boolean
@@ -76,6 +78,7 @@ function lineOf(res: LeagueStatsResult | null, playerId: string, minGp: number):
     fgm: r.fgm, fga: r.fga, fg_pct: r.fg_pct,
     fg3m: r.fg3m, fg3a: r.fg3a, fg3_pct: r.fg3_pct,
     ftm: r.ftm, fta: r.fta, ft_pct: r.ft_pct,
+    fbpg: r.fbpg ?? 0, fb_pts: r.fb_pts ?? 0,
     gp: r.gp, pts: r.pts, reb: r.reb, oreb: r.oreb, dreb: r.dreb, ast: r.ast, stl: r.stl, blk: r.blk, tov: r.tov,
     // 게스트 줄(guests)은 순위 모집단 밖 — players 에 있을 때만 자격
     eligible,

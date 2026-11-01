@@ -7,6 +7,7 @@ import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { fetchQuarterVideos } from '@/lib/youtube/gameVideo'
+import { fastBreakIds } from '@/lib/stats/fastBreak'
 import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, type BoxLine } from '@/lib/stats/boxLine'
 import { assistPairOf, pickGameSideTeam, assistTeamOf } from '@/lib/stats/gameInsights'
 
@@ -30,7 +31,7 @@ export async function GET(
   //   요청마다 따로 한다 — 캐시에는 로그인과 무관한 리그 공용 데이터만 들어간다.
   const body = await unstable_cache(
     () => computeDailyBoxscore(leagueId, date),
-    ['daily-boxscore', leagueId, date, 'v2'],
+    ['daily-boxscore', leagueId, date, 'v3'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )()
   return NextResponse.json(body, { headers: { 'Cache-Control': 'private, no-store' } })
@@ -78,15 +79,20 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
   const quarterVideos = await fetchQuarterVideos(supabase, gameIds)
   // ⚠ 하루 9경기면 이벤트가 1,000건을 넘는다 — 끝까지 나눠 읽는다(넘치면 뒤쪽 경기가 조용히 빠졌다).
   const events = await fetchAllPaged<{
+    id: number | string
     league_game_id: string; league_player_id: string; related_player_id: string | null
     type: string; result: string | null; points: number | null; quarter: number | null; team_id: string | null
+    video_timestamp: number | null
   }>((from, to) => supabase
     .from('league_game_events')
-    .select('league_game_id, league_player_id, related_player_id, type, result, points, quarter, team_id')
+    .select('id, league_game_id, league_player_id, related_player_id, type, result, points, quarter, team_id, video_timestamp')
     .in('league_game_id', gameIds)
     .not('league_player_id', 'is', null)
     .order('id', { ascending: true })
     .range(from, to))
+
+  // 속공 판정 — 정본 fastBreak.ts(수비 리바운드·스틸 뒤 7초 안 득점)
+  const fbIds = fastBreakIds(events)
 
   // teamMap 제거 — identityResolver 로 대체 (Q3 override 반영)
   const playerMap = Object.fromEntries((players ?? []).map(p => [p.id, p]))
@@ -139,7 +145,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
     if (!gamePlayerStats[gId][pid]) gamePlayerStats[gId][pid] = emptyGS()
     const s = gamePlayerStats[gId][pid]
 
-    applyEventToBoxLine(s, e.type as string, e.result as string | null, pts)
+    applyEventToBoxLine(s, e.type as string, e.result as string | null, pts, fbIds.has(String(e.id)))
     // 쿼터별 스코어 — 득점이 난 이벤트만 홈/어웨이로 가른다.
     if (pts > 0) {
       const gm = gameById[gId] as { quarter_id: string | null; home_team_id: string | null; away_team_id: string | null } | undefined
@@ -216,6 +222,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
         pts: s.pts, reb: s.reb, oreb: s.oreb, dreb: s.dreb,
         ast: s.ast, stl: s.stl, blk: s.blk, tov: s.tov, pf: s.pf,
         fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a, ftm: s.ftm, fta: s.fta,
+        fb_pts: s.fb_pts,
         fg_pct: pct(s.fgm, s.fga),
         fg3_pct: pct(s.fg3m, s.fg3a),
       }
@@ -340,7 +347,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
       cur.pts += r.pts; cur.reb += r.reb; cur.oreb += r.oreb; cur.dreb += r.dreb
       cur.ast += r.ast; cur.stl += r.stl; cur.blk += r.blk; cur.tov += r.tov; cur.pf += r.pf
       cur.fgm += r.fgm; cur.fga += r.fga; cur.fg3m += r.fg3m; cur.fg3a += r.fg3a
-      cur.ftm += r.ftm; cur.fta += r.fta
+      cur.ftm += r.ftm; cur.fta += r.fta; cur.fb_pts += r.fb_pts
     }
   }
 
@@ -384,7 +391,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
       const d = dailyMap[row.player_id]
       d.gp++; d.pts+=row.pts; d.reb+=row.reb; d.oreb+=row.oreb; d.dreb+=row.dreb
       d.ast+=row.ast; d.stl+=row.stl; d.blk+=row.blk; d.tov+=row.tov; d.pf+=row.pf
-      d.fgm+=row.fgm; d.fga+=row.fga; d.fg3m+=row.fg3m; d.fg3a+=row.fg3a; d.ftm+=row.ftm; d.fta+=row.fta
+      d.fgm+=row.fgm; d.fga+=row.fga; d.fg3m+=row.fg3m; d.fg3a+=row.fg3a; d.ftm+=row.ftm; d.fta+=row.fta; d.fb_pts+=row.fb_pts
     }
   }
   const dailyStats = Object.entries(dailyMap)
@@ -392,7 +399,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
       player_id: pid, name: d.name, number: d.number, gp: d.gp,
       team_id: d.team_id, team_name: d.team_name, team_color: d.team_color, photo_url: d.photo_url,
       pts: d.pts, reb: d.reb, oreb: d.oreb, dreb: d.dreb, ast: d.ast, stl: d.stl, blk: d.blk, tov: d.tov, pf: d.pf,
-      fgm: d.fgm, fga: d.fga, fg3m: d.fg3m, fg3a: d.fg3a, ftm: d.ftm, fta: d.fta,
+      fgm: d.fgm, fga: d.fga, fg3m: d.fg3m, fg3a: d.fg3a, ftm: d.ftm, fta: d.fta, fb_pts: d.fb_pts,
       fg_pct: pct(d.fgm, d.fga), fg3_pct: pct(d.fg3m, d.fg3a),
     }))
     .sort((a, b) => b.pts - a.pts)

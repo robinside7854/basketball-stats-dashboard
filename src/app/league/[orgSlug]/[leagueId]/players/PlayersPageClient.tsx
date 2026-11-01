@@ -24,7 +24,7 @@ type Period = 'quarter' | 'all'
 // 리뉴얼 R2 (2026-10-31): 선수 탭 = 명단 + 순위. 스탯 탭(리더보드)의 「누가 잘하나」를 여기로 합쳤다.
 // 2026-11 운영진: 순위 고르기를 드롭다운 → 필터 칩 12개(출석 … 자유투). 성공률은 %와 성공/시도를 함께.
 //   되돌리기: docs/renewal-rollback.md.
-type SortKey = 'attendance' | 'ppg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'fg_pct' | 'tpg' | 'ft_pct'
+type SortKey = 'attendance' | 'ppg' | 'fbpg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'fg_pct' | 'tpg' | 'ft_pct'
 type StatKey = Exclude<SortKey, 'attendance'>
 type Metric = {
   key: StatKey
@@ -39,8 +39,8 @@ type Metric = {
   sub?: (l: RosterCardLine, mode: ViewMode) => string
 }
 type ViewMode = 'avg' | 'total'
-type Avg = 'ppg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'tpg'
-type Tot = 'pts' | 'reb' | 'oreb' | 'dreb' | 'ast' | 'stl' | 'blk' | 'tov' | 'fg3m'
+type Avg = 'ppg' | 'fbpg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'tpg'
+type Tot = 'pts' | 'fb_pts' | 'reb' | 'oreb' | 'dreb' | 'ast' | 'stl' | 'blk' | 'tov' | 'fg3m'
 /** 하루 평균 키 ↔ 누적 키 한 쌍 — 평균은 소수 한 자리, 누적은 정수 */
 const pair = (a: Avg, t: Tot) => ({
   value: (l: RosterCardLine, m: ViewMode) => (m === 'avg' ? l[a] : l[t]),
@@ -52,6 +52,9 @@ const pctOf = (k: 'fg_pct' | 'ft_pct') => ({
 })
 const METRICS: Metric[] = [
   { key: 'ppg', label: '득점', ok: l => l.eligible, ...pair('ppg', 'pts') },
+  // 속공(2026-11) — 수비 리바운드·스틸 뒤 7초 안 득점. 아래 줄에 내 득점 중 비중
+  { key: 'fbpg', label: '속공', ok: l => l.eligible, ...pair('fbpg', 'fb_pts'),
+    sub: l => (l.pts > 0 ? `득점의 ${Math.round((l.fb_pts / l.pts) * 100)}%` : '') },
   { key: 'rpg', label: '리바운드', ok: l => l.eligible, ...pair('rpg', 'reb') },
   { key: 'orp', label: '공격 리바운드', ok: l => l.eligible, ...pair('orp', 'oreb') },
   { key: 'drp', label: '수비 리바운드', ok: l => l.eligible, ...pair('drp', 'dreb') },

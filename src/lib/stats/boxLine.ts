@@ -7,11 +7,13 @@
 export interface BoxLine {
   pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number
   tov: number; pf: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+  /** 속공 득점(2026-11, 판정 정본 fastBreak.ts) */
+  fb_pts: number
 }
 
 export const emptyBoxLine = (): BoxLine => ({
   pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
-  fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+  fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, fb_pts: 0,
 })
 
 /** 야투(필드골) 이벤트 타입 — 자유투·앤드원 제외. 공격 유형 분석도 이 목록을 쓴다. */
@@ -23,8 +25,10 @@ export function isAssistEvent(type: string, result: string | null, relatedPlayer
   return !!relatedPlayerId && result === 'made' && SHOT_TYPES.includes(type)
 }
 
-export function applyEventToBoxLine(s: BoxLine, type: string, result: string | null, pts: number): void {
+/** fastBreak = 이 기록이 속공 득점인가(fastBreakIds 로 판정해 호출부가 넘긴다) */
+export function applyEventToBoxLine(s: BoxLine, type: string, result: string | null, pts: number, fastBreak = false): void {
   const made = result === 'made'
+  if (made && fastBreak) s.fb_pts += pts
   switch (type) {
     case 'shot_3p':
       s.fg3a++; s.fga++

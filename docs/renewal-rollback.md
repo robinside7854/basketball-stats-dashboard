@@ -19,7 +19,7 @@
 | R4++ | `20071ee` | 옛 스탯·팀·기록실 화면 서브탭 맨 앞에 「← 선수」(선수 탭 「표로 보기」로 들어온 뒤 돌아갈 길이 없었다) | `statsTabs.ts` 첫 줄 |
 | R4+++ | `5c5f14a` | 선수 탭 순위: 「순위 ▾」 드롭다운 → 필터 칩 12개(출석·득점·리바운드·공격 리바운드·수비 리바운드·어시스트·스틸·블록·턴오버(적을수록 위)·야투율·3점 성공·자유투). 야투율·자유투는 % + 성공/시도, 3점 성공은 하루 평균 개수 + 3점률·성공/시도. 성공률 순위는 스탯 탭과 같은 최소 시도(`roster-cards` 의 fg_ok·ft_ok). 「이름」 정렬은 뺐다 | `PlayersPageClient.tsx` 의 METRICS·CHIP_ORDER |
 | R4++++ | `60d8eab` | 선수 탭: 같은 칩 한 번 더 → 정렬 방향 반대(↓/↑ 표시, 순위 번호는 늘 잘한 순, 순위 밖은 늘 뒤) · 「하루 평균 / 누적」 전환(`roster-cards` line 에 누적 합계 추가) · 옛 스탯 표 누적 보기의 야투·3점·자유투 칸 아래에 성공률 % | `PlayersPageClient.tsx` 의 dir·mode, `StatsPageClient.tsx` basicRow 의 % 줄 |
-| R4+5 | (이 커밋) | 하단·상단 「선수」 → **「기록」**, 서브탭 **리더보드(/stats) · 선수(/players) · 팀(/teams)** (`statsTabs.ts`). 「← 선수」·「표로 보기」 링크는 서브탭이 대신해 뺐다. **기록실(/records)은 운영진 전용** — 「영상」 탭 안 서브탭(`VideoAdminTabs.tsx`, 하이라이트 · 기록실), 회원이 주소로 열면 「운영진 전용」 안내 | `statsTabs.ts`·`LeagueLayoutClient.tsx` 두 배열·`records/page.tsx` 의 isEditMode 분기 |
+| R4+5 | `1e2c2c3` | 하단·상단 「선수」 → **「기록」**, 서브탭 **리더보드(/stats) · 선수(/players) · 팀(/teams)** (`statsTabs.ts`). 「← 선수」·「표로 보기」 링크는 서브탭이 대신해 뺐다. **기록실(/records)은 운영진 전용** — 「영상」 탭 안 서브탭(`VideoAdminTabs.tsx`, 하이라이트 · 기록실), 회원이 주소로 열면 「운영진 전용」 안내 | `statsTabs.ts`·`LeagueLayoutClient.tsx` 두 배열·`records/page.tsx` 의 isEditMode 분기 |
 
 ## R5 (걷어내기)는 미뤘다
 

@@ -7,6 +7,8 @@ import { accentOrInk } from '@/lib/util/contrastColor'
 export interface H2HTotals {
   pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number
   tov: number; pf: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+  /** 속공 득점(2026-11) — 옛 응답엔 없을 수 있다 */
+  fb_pts?: number
 }
 export interface H2HSide {
   name: string
@@ -25,6 +27,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
   const pct = (m: number, t: number) => t > 0 ? Math.round(m / t * 1000) / 10 : 0
   const items: { label: string; a: number; b: number; suffix?: string; fraction?: [number, number, number, number] }[] = [
     { label: '득점', a: A.pts, b: B.pts },
+    { label: '속공 득점', a: A.fb_pts ?? 0, b: B.fb_pts ?? 0 },
     { label: '리바운드', a: A.reb, b: B.reb },
     { label: '공격\n리바운드', a: A.oreb, b: B.oreb },
     { label: '수비\n리바운드', a: A.dreb, b: B.dreb },
@@ -40,7 +43,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
 
   // 리뉴얼 R0 (2026-10-31): 처음엔 핵심 4줄(득점·리바운드·어시스트·야투율)만, 나머지는 「더 보기」.
   const [showAll, setShowAll] = useState(false)
-  const KEY_ROWS = new Set(['득점', '리바운드', '어시스트', '야투율'])
+  const KEY_ROWS = new Set(['득점', '속공 득점', '리바운드', '어시스트', '야투율'])
   const shown = showAll ? items : items.filter(i => KEY_ROWS.has(i.label))
 
   return (

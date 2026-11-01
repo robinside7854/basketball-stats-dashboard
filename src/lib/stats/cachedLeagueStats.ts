@@ -35,7 +35,8 @@ export function getCachedLeagueStats(leagueId: string, raw: CachedStatOpts = {})
   return unstable_cache(
     async () => computeLeagueStats(null, leagueId, opts),
     [
-      'api-league-stats', leagueId,
+      // v2 (2026-11): 속공 fb_pts·fbpg 추가 — 옛 항목에는 없어서 키를 바꿨다
+      'api-league-stats', 'v2', leagueId,
       opts.quarterId ?? '', (opts.quarterIds ?? []).join(','),
       opts.teamId ?? '', opts.playerId ?? '', opts.from ?? '', opts.to ?? '', opts.unit,
     ],

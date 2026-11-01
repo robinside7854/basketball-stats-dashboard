@@ -22,6 +22,7 @@ import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinu
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadIdentityResolver } from './teamIdentity'
 import { isAssistEvent, FIELD_SHOT_TYPES } from './boxLine'
+import { fastBreakIds } from './fastBreak'
 
 export type LeagueStatsUnit = 'round'
 
@@ -149,6 +150,7 @@ export async function computeLeagueStats(
 
   // 3) 이벤트 페이지네이션
   type EventRow = {
+    id: number | string
     league_player_id: string | null
     quarter: number | null
     related_player_id: string | null
@@ -162,7 +164,7 @@ export async function computeLeagueStats(
   const events = await fetchAllPaged<EventRow>((from, to) => {
     let q = sb
       .from('league_game_events')
-      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id, video_timestamp, quarter')
+      .select('id, league_player_id, related_player_id, team_id, type, result, points, league_game_id, video_timestamp, quarter')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       // ⚠ ORDER BY 없으면 페이지네이션 중복/누락 발생
@@ -171,6 +173,9 @@ export async function computeLeagueStats(
     if (teamId)   q = q.eq('team_id', teamId)
     return q
   })
+
+  // 속공 판정 — 정본 fastBreak.ts. ⚠ teamId 로 거른 조회는 상대 기록이 없어 「끊김」 판정이 느슨해진다(팀 단위 화면 전용).
+  const fbIds = fastBreakIds(events)
 
   // 4) 선수별 집계
   type PlayerStats = {
@@ -184,6 +189,8 @@ export async function computeLeagueStats(
     ast: number; stl: number; blk: number
     tov: number; pf: number
     and_one: number
+    /** 속공 득점·속공 야투 성공 (fastBreak.ts — 수비 리바운드·스틸 뒤 7초 안) */
+    fb_pts: number; fb_fgm: number
     ds_a: number; ds_m: number
     lu_a: number; lu_m: number
     md_a: number; md_m: number
@@ -229,6 +236,7 @@ export async function computeLeagueStats(
         pts: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
         oreb: 0, dreb: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
         and_one: 0,
+        fb_pts: 0, fb_fgm: 0,
         ds_a: 0, ds_m: 0, lu_a: 0, lu_m: 0, md_a: 0, md_m: 0,
         team_reb_in_games: 0,
         team_poss_in_games: 0,
@@ -295,6 +303,11 @@ export async function computeLeagueStats(
     const isPlusOne = isPlusOneFor(pid, gamePlusOneMap[e.league_game_id], plusOneSet, e.quarter ?? null)
 
     const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
+    // 속공 — 점수는 위와 같은 pts(+1 판정 포함)를 그대로 속공 몫으로도 센다
+    if (made && fbIds.has(String(e.id))) {
+      s.fb_pts += pts
+      if (e.type.startsWith('shot_')) s.fb_fgm++
+    }
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++
@@ -542,6 +555,7 @@ export async function computeLeagueStats(
         spg:  s.gp > 0 ? +(s.stl  / s.gp).toFixed(1) : 0,
         bpg:  s.gp > 0 ? +(s.blk  / s.gp).toFixed(1) : 0,
         topg: s.gp > 0 ? +(s.tov  / s.gp).toFixed(1) : 0,
+        fbpg: s.gp > 0 ? +(s.fb_pts / s.gp).toFixed(1) : 0,
         fg_pct:  s.fga  > 0 ? +(s.fgm  / s.fga  * 100).toFixed(1) : 0,
         fg3_pct: s.fg3a > 0 ? +(s.fg3m / s.fg3a * 100).toFixed(1) : 0,
         ft_pct:  s.fta  > 0 ? +(s.ftm  / s.fta  * 100).toFixed(1) : 0,

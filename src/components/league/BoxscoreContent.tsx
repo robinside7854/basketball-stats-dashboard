@@ -87,6 +87,8 @@ type PlayerRow = {
   pts: number; reb: number; oreb: number; dreb: number
   ast: number; stl: number; blk: number; tov: number; pf: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+  /** 속공 득점(2026-11) — 옛 캐시 응답엔 없을 수 있다 */
+  fb_pts?: number
   fg_pct: number | null; fg3_pct: number | null
 }
 
@@ -126,7 +128,7 @@ type TeamAgg = {
   id: string; name: string; color: string | null
   pts: number; reb: number; oreb: number; dreb: number
   ast: number; stl: number; blk: number; tov: number; pf: number
-  fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+  fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number; fb_pts: number
 }
 
 // 5·6 은 league_game_events.quarter CHECK(1~6) 상한에서 온 연장 슬롯이다.
@@ -184,7 +186,7 @@ const ftPct = (r: { ftm: number; fta: number }) => r.fta > 0 ? Math.round(r.ftm 
 type TotalLine = Omit<PlayerRow, 'player_id' | 'name' | 'number' | 'photo_url' | 'team_id' | 'team_name' | 'team_color'>
 
 function sumLine(rows: PlayerRow[]): TotalLine {
-  const t = { pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0 }
+  const t = { pts: 0, fb_pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0 }
   for (const r of rows) for (const k of Object.keys(t) as (keyof typeof t)[]) t[k] += r[k] ?? 0
   const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 1000) / 10 : null
   return { ...t, fg_pct: pct(t.fgm, t.fga), fg3_pct: pct(t.fg3m, t.fg3a) }
@@ -201,6 +203,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
   const COLS: ColDef[] = [
     ...(showGP ? [{ key: 'gp', label: '경기', sortKey: 'gp' }] : []),
     { key: 'pts',     label: '득점',  sortKey: 'pts'  },
+    { key: 'fb_pts',  label: '속공',  sortKey: 'fb_pts' },
     { key: 'reb',     label: '리바',  sortKey: 'reb'  },
     { key: 'oreb',    label: '공리',   sortKey: 'oreb' },
     { key: 'dreb',    label: '수리',   sortKey: 'dreb' },
@@ -231,6 +234,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
   function cellVal(rr: TotalLine & { gp?: number }, key: string): string {
     if (key === 'gp')       return String(rr.gp ?? 1)
     if (key === 'pts')      return String(rr.pts)
+    if (key === 'fb_pts')   return String(rr.fb_pts ?? 0)
     if (key === 'reb')      return String(rr.reb)
     if (key === 'oreb')     return String(rr.oreb ?? 0)
     if (key === 'dreb')     return String(rr.dreb ?? 0)
@@ -391,12 +395,13 @@ function ShootCell({ label, made, att, pct }: { label: string; made: number; att
 function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort = false, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; hideSort?: boolean; total?: TotalLine; totalOpts?: TotalOpts }) {
   const myId = useContext(MyIdCtx)
   // 2026-10-31 운영진: 스틸·블록·3점도 정렬 — 같으면 득점 순
-  type MobileSortKey = 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m'
+  type MobileSortKey = 'pts' | 'fb_pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m'
   const [sortKey, setSortKey] = useState<MobileSortKey>('pts')
   const num = (r: unknown, k: string) => ((r as Record<string, unknown>)[k] as number) ?? 0
   const sorted = [...rows].sort((a, b) => num(b, sortKey) - num(a, sortKey) || num(b, 'pts') - num(a, 'pts'))
   const sortBtns: { key: MobileSortKey; label: string }[] = [
     { key: 'pts', label: '득점' },
+    { key: 'fb_pts', label: '속공' },
     { key: 'reb', label: '리바' },
     { key: 'ast', label: '어시' },
     { key: 'stl', label: '스틸' },
@@ -1314,7 +1319,7 @@ function aggregateHeadToHead(
     name: meta.get(id)?.name ?? '?',
     color: meta.get(id)?.color ?? null,
     pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
-    fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+    fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, fb_pts: 0,
   })
   const A = init(teamAId)
   const B = init(teamBId)
@@ -1326,7 +1331,7 @@ function aggregateHeadToHead(
       target.pts += p.pts; target.reb += p.reb; target.oreb += p.oreb; target.dreb += p.dreb
       target.ast += p.ast; target.stl += p.stl; target.blk += p.blk; target.tov += p.tov; target.pf += (p.pf ?? 0)
       target.fgm += p.fgm; target.fga += p.fga; target.fg3m += p.fg3m; target.fg3a += p.fg3a
-      target.ftm += p.ftm; target.fta += p.fta
+      target.ftm += p.ftm; target.fta += p.fta; target.fb_pts += p.fb_pts ?? 0
     }
   }
 
