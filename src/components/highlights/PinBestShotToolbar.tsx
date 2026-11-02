@@ -1,6 +1,6 @@
 'use client'
 // 선수 하이라이트 페이지 재생기 하단 · 현재 클립을 "내 베스트샷"에 핀/해제
-// 최대 3개 · 편집은 **본인(로그인 회원의 player_id) ∥ 팀 어드민·CEO** 만 (2026-10-12).
+// 개수 제한 없음(2026-11-02 운영진 — 종전 3개) · 편집은 **본인(로그인 회원의 player_id) ∥ 팀 어드민·CEO** 만 (2026-10-12).
 //   종전엔 로그인 없이 누구나 남의 카드 핀을 바꿀 수 있었다. 서버(pins route)가 같은 규칙으로
 //   재확인한다 — 여기서 숨기는 것은 표시용일 뿐이다.
 //   ⚠ 리그 화면(LeagueAuthProvider 안) 전용 — useCurrentUser 가 프로바이더 밖에서는 throw 한다.
@@ -12,8 +12,6 @@ import { NumberedBasketball } from '@/components/league/BasketballIcons'
 import type { HighlightClip } from '@/lib/highlights/types'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-
-const MAX_PINS = 3
 
 interface Props {
   leagueId: string
@@ -33,7 +31,6 @@ export default function PinBestShotToolbar({
   const canPin = isEditMode || (!!user && user.player_id === playerId)
   const eventId = currentClip.event_id
   const isPinned = pinnedEventIds.includes(eventId)
-  const atCap = !isPinned && pinnedEventIds.length >= MAX_PINS
 
   const toggle = async () => {
     if (busy) return
@@ -67,7 +64,7 @@ export default function PinBestShotToolbar({
   // 현재 클립이 핀된 위치 (1-indexed) · 안 됐으면 null
   if (!canPin) return null
 
-  const currentSlot = isPinned ? (pinnedEventIds.indexOf(eventId) + 1) as 1 | 2 | 3 : null
+  const currentSlot = isPinned ? pinnedEventIds.indexOf(eventId) + 1 : null
 
   return (
     <div
@@ -75,30 +72,22 @@ export default function PinBestShotToolbar({
       style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
     >
       <div className="flex items-center gap-2 min-w-0">
-        {/* 슬롯 3개 · 채워진 자리는 노란 농구공, 빈 자리는 회색 */}
+        {/* 핀 개수 — 번호 농구공 하나에 개수(개수 제한 없음) */}
         <span className="inline-flex items-center gap-1" aria-hidden>
-          {([1, 2, 3] as const).map(n => (
-            <NumberedBasketball
-              key={n}
-              size={18}
-              number={n}
-              filled={n <= pinnedEventIds.length}
-              className={n <= pinnedEventIds.length ? '' : 'text-[color:var(--mm-muted)]'}
-            />
-          ))}
+          <NumberedBasketball size={18} number={pinnedEventIds.length} filled={pinnedEventIds.length > 0} className={pinnedEventIds.length > 0 ? '' : 'text-[color:var(--mm-muted)]'} />
         </span>
         <span className="text-xs font-black shrink-0" style={{ color: 'var(--mm-ink)' }}>
           {playerName} 베스트샷
         </span>
         <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>
-          {pinnedEventIds.length}/{MAX_PINS}
+          {pinnedEventIds.length}개
           {currentSlot && ` · 현재 클립: ${currentSlot}번`}
         </span>
       </div>
       <button
         type="button"
         onClick={toggle}
-        disabled={busy || (atCap && !isPinned)}
+        disabled={busy}
         className="min-h-[36px] px-3 py-1.5 text-xs font-black cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           background: isPinned ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
@@ -110,22 +99,16 @@ export default function PinBestShotToolbar({
         aria-label={
           isPinned
             ? `이 클립(${currentSlot}번)을 내 베스트샷에서 해제`
-            : atCap
-              ? `핀 최대 ${MAX_PINS}개 · 다른 핀을 먼저 해제하세요`
-              : '이 클립을 내 베스트샷에 핀'
+            : '이 클립을 내 베스트샷에 핀'
         }
-        title={
-          atCap && !isPinned
-            ? `최대 ${MAX_PINS}개 · 기존 핀을 먼저 해제`
-            : (isPinned ? `${currentSlot}번 핀 해제` : '이 클립을 내 프로필카드에 핀')
-        }
+        title={isPinned ? `${currentSlot}번 핀 해제` : '이 클립을 내 프로필카드에 핀'}
       >
         {isPinned && currentSlot ? (
           <NumberedBasketball size={12} number={currentSlot} filled={false} className="text-[color:var(--mm-black)]" />
         ) : (
-          <NumberedBasketball size={12} number={Math.min(pinnedEventIds.length + 1, 3) as 1 | 2 | 3} filled={false} />
+          <NumberedBasketball size={12} number={pinnedEventIds.length + 1} filled={false} />
         )}
-        {isPinned ? '핀 해제' : atCap ? '핀 가득' : '이 클립 핀'}
+        {isPinned ? '핀 해제' : '이 클립 핀'}
       </button>
     </div>
   )

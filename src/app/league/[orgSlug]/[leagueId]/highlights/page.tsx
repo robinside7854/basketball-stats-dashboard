@@ -35,12 +35,10 @@ import { formatFeedDate } from '@/components/league/highlights/feedFormat'
 import FeedKeyed from '@/components/league/highlights/FeedKeyed'
 import MyClipsCard, { MarkMyClipsSeen } from '@/components/league/highlights/MyClipsCard'
 import ClassicGameCard from '@/components/league/highlights/ClassicGameCard'
-import PlayerMilestoneChart, { type PlayerMilestoneData } from '@/components/league/highlights/PlayerMilestoneChart'
 import { loadRecentRounds, loadRoundDetail, loadPlayerHighlights, loadLeagueBestShots } from '@/lib/highlights/loader'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import { tallyDayRecord, type DayRecord, type DayRecordGame } from '@/lib/stats/dayRecord'
 import { computeClassicGames } from '@/lib/stats/classicGames'
-import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -142,28 +140,6 @@ const getClassicsCached = (leagueId: string) =>
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 300 },
   )
 
-const getMilestonesCached = (leagueId: string) =>
-  unstable_cache(
-    async (): Promise<PlayerMilestoneData[]> => {
-      const sb = createClient()
-      const { players } = await computeLeagueStats(sb, leagueId)
-      const { data: pMeta } = await sb
-        .from('league_players')
-        .select('id, is_guest')
-        .eq('league_id', leagueId)
-      const guestIds = new Set(((pMeta ?? []) as Array<{ id: string; is_guest: boolean | null }>).filter(p => p.is_guest).map(p => p.id))
-      return players
-        .filter(p => !guestIds.has(p.player_id))
-        .map(p => ({
-          player_id: p.player_id, name: p.name, number: p.number, position: p.position,
-          photo_url: p.photo_url ?? null,
-          pts: p.pts, reb: p.reb, ast: p.ast, stl: p.stl, blk: p.blk,
-        }))
-    },
-    ['highlights-milestones-players-v1', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
-  )
-
 // 선수 칩 이름 — 팀 소유 명단에서(league_id 로 찾으면 대회 묶음에서 0명). 캐시 밖, 한 행.
 async function loadPlayerLabel(leagueId: string, playerId: string): Promise<FeedPlayerLabel | null> {
   const sb = createClient()
@@ -188,7 +164,6 @@ function one(v: string | string[] | undefined): string | null {
 const GATE_COPY: Record<Exclude<FeedKind, 'best'>, { title: string; description: string }> = {
   all:        { title: '하이라이트는 회원 전용', description: '클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요.' },
   classics:   { title: '명경기는 회원 전용',     description: '월별 명경기와 선정 이유는 가입 승인된 회원만 볼 수 있어요.' },
-  milestones: { title: '마일스톤은 회원 전용',   description: '선수들의 누적 기록 추적은 가입 승인된 회원만 볼 수 있어요.' },
 }
 
 export default async function HighlightsFeedPage({
@@ -205,7 +180,7 @@ export default async function HighlightsFeedPage({
   if (await isLeaguePrivateGated(leagueId)) return null
 
   const fRaw = one(sp.f)
-  const kind: FeedKind = fRaw === 'best' || fRaw === 'classics' || fRaw === 'milestones' ? fRaw : 'all'
+  const kind: FeedKind = fRaw === 'best' || fRaw === 'classics' ? fRaw : 'all'
   const dateRaw = one(sp.date)
   const date = kind === 'all' && dateRaw && /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null
   const playerRaw = one(sp.player)
@@ -305,22 +280,6 @@ export default async function HighlightsFeedPage({
           <div className="grid gap-3 lg:grid-cols-2">
             {games.map(g => <ClassicGameCard key={g.gameId} g={g} leagueId={leagueId} />)}
           </div>
-        )}
-      </>
-    )
-  } else if (kind === 'milestones') {
-    const players = await getMilestonesCached(leagueId)()
-    body = (
-      <>
-        <ModeLine title="커리어 마일스톤" sub="선수별 5대 지표 진행도 · 리그 기록에 맞춰 눈금이 늘어나요" />
-        {players.length === 0 ? (
-          <EmptyState
-            icon={Trophy}
-            title="아직 활동 기록이 없어요"
-            description="경기가 진행되면 선수마다 누적 득점·리바운드·어시스트·스틸·블록 진행도가 여기 보여요."
-          />
-        ) : (
-          <PlayerMilestoneChart players={players} orgSlug={orgSlug} leagueId={leagueId} />
         )}
       </>
     )

@@ -11,19 +11,17 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 //   · 팀별 비교 · 어시스트(네트워크). 공격 유형 탭은 2026-10-31 운영진 결정으로 뺐다(팀 탭 인사이트에는 남음). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
-import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
-import { toast } from 'sonner'
+import { ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 import { ProgressBar } from '@/components/league/ui/viz'
 import Avatar from '@/components/league/ui/Avatar'
 import EmptyState from '@/components/league/ui/EmptyState'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
-// html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
-import ShareableBoxscore from '@/components/league/ShareableBoxscore'
+// 「이미지 공유」(ShareableBoxscore + html-to-image)와 「어시스트 연결 그림」(AssistNetwork)은
+//   2026-11-02 운영진 결정으로 뺐다 — 파일은 남아 있다(되돌리기: docs/renewal-rollback.md R6).
 import HeadToHeadBars from '@/components/league/HeadToHeadBars'
 import SortSelect from '@/components/league/ui/SortSelect'
-import AssistNetwork, { type AssistLink } from '@/components/league/boxscore/AssistNetwork'
 import DayHighlightsLauncher, { type HighlightScope } from '@/components/league/boxscore/DayHighlightsLauncher'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -139,7 +137,7 @@ type ColDef = { key: string; label: string; sortKey?: string }
 interface Props {
   leagueId: string
   date: string
-  /** 공유 이미지 헤더에 표기할 리그 이름 (없으면 기본값) */
+  /** (2026-11-02 이미지 공유 삭제 뒤 쓰지 않음 — 호출부 호환용) */
   leagueName?: string
   /** 이 경기를 펼친 채로 연다. 명경기 카드처럼 "그날"이 아니라 "그 경기"로 보내는 진입점용.
    *  하루에 여러 경기가 열리므로, 날짜만 넘기면 어느 경기였는지 다시 찾아야 한다. */
@@ -611,7 +609,7 @@ function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: P
 
 // 멀티테넌트 전환(온볼): leagueName 은 항상 호출부(boxscore page)에서 DB league.name 을 넘겨받음 —
 // 기본값은 다른 클럽명이 아닌 빈 문자열로 폴백 (호출부 fallback 미전달 시에도 특정 클럽명 노출 방지)
-export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId, initialHl, initialTab, initialMe = false }: Props) {
+export default function BoxscoreContent({ leagueId, date, initialGameId, initialHl, initialTab, initialMe = false }: Props) {
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const myId = useOptionalCurrentUser()?.user?.player_id ?? null
   // 팀 어드민 · CEO — 펼친 경기 카드에 「기록 수정」(→ 기록 화면 · 기록 내역)
@@ -648,13 +646,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   }, [])
   const [teamFilter, setTeamFilter] = useState<string>('all')
   // 경기별 박스스코어는 경기 카드를 펼친 안에 팀별로 있다 — 선수 기록 탭은 하루 합산만 (2026-10-12).
-  const [assistLinks, setAssistLinks] = useState<AssistLink[]>([])
-  // 이미지 저장 진행 상태
-  const [savingImage, setSavingImage] = useState(false)
-  // 공유용 hidden 캡처 대상 ref (실제 캡처는 ShareableBoxscore)
-  const shareCaptureRef = useRef<HTMLDivElement>(null)
-  // 공유 렌더링 표시 flag — true 일 때만 off-screen 렌더
-  const [renderingShare, setRenderingShare] = useState(false)
   // 이름을 눌러 연 선수 카드. 탭·필터·스크롤 state 와 독립이라 닫으면 보던 화면 그대로다.
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
@@ -673,58 +664,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
     if (el) { scrolledToMe.current = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
   })
 
-  const dateLabel = (() => {
-    const d = new Date(date + 'T00:00:00')
-    const days = ['일','월','화','수','목','금','토']
-    return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`
-  })()
-
-  async function saveAsImage() {
-    if (games.length === 0) {
-      toast.error('저장할 경기 데이터가 없어요')
-      return
-    }
-    setSavingImage(true)
-    setRenderingShare(true)
-    try {
-      // React 가 hidden ShareableBoxscore 를 커밋할 때까지 대기 (2 rAF)
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-      if (!shareCaptureRef.current) throw new Error('render 실패')
-      const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(shareCaptureRef.current, {
-        backgroundColor: '#0a0f1c',
-        pixelRatio: 2,
-        cacheBust: true,
-      })
-      // 폰이면 공유 시트(카톡 등)로 바로 — 「다운로드 → 갤러리 → 카톡」 세 단계를 한 번으로 (2026-10-26 점검 MVP 1).
-      //   파일 공유를 못 하는 브라우저(대부분의 PC)는 종전처럼 내려받는다. 공유 창을 닫은 것(AbortError)은 실패가 아니다.
-      const fileName = `boxscore-${date}.png`
-      const blob = await (await fetch(dataUrl)).blob()
-      const file = new File([blob], fileName, { type: 'image/png' })
-      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
-      if (nav.share && nav.canShare?.({ files: [file] })) {
-        try {
-          await nav.share({ files: [file], title: `${dateLabel} 박스스코어` })
-        } catch (err) {
-          if ((err as { name?: string })?.name !== 'AbortError') throw err
-        }
-      } else {
-        const link = document.createElement('a')
-        link.download = fileName
-        link.href = dataUrl
-        link.click()
-        toast.success('박스스코어 공유 이미지를 저장했어요')
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      toast.error(`이미지를 저장하지 못했어요: ${msg}`)
-    } finally {
-      setSavingImage(false)
-      setRenderingShare(false)
-    }
-  }
-
-  // 팀 전적 (공유 이미지용 + 경기결과 탭 요약) — 정본 lib/stats/dayRecord.ts. 홈·일정·하이라이트와 같은 규칙:
+  // 팀 전적 (경기결과 탭 요약) — 정본 lib/stats/dayRecord.ts. 홈·일정·하이라이트와 같은 규칙:
   //   친선전 제외(친선전뿐인 날은 친선전으로 세고 「친선전」 표시) · 정체성 키(team_id + 그 분기 이름)로 묶음 · 승률 → 득실.
   //   팀 이름은 daily-boxscore 가 이미 (team_id, quarter_id) 로 풀어 준 값이다.
   const dayRecord = tallyDayRecord(games.map(g => ({
@@ -748,7 +688,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       setGames(gs)
       setRolledUp(d.rolled_up === true)
       setDailyStats(d.daily_stats ?? [])
-      setAssistLinks(d.assist_links ?? [])
       // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
       //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
       if (initialGameId) {
@@ -771,7 +710,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   return (
     <MyIdCtx.Provider value={myId}>
     <div className="mm-brand overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)' }}>
-      {/* 요약 서브헤더 — 경기 수 · 이미지 저장 버튼 */}
+      {/* 요약 서브헤더 — 경기 수 (이미지 공유 버튼은 2026-11-02 뺐다) */}
       <div
         className="shrink-0 px-4 lg:px-6 py-2.5 flex items-center justify-between gap-2"
         style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
@@ -783,22 +722,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{recordedCount}경기</span>
             {recordedCount - completedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · 기록 중 {recordedCount - completedCount}</span>}
           </p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* 이미지 저장 — 팀 카톡방 공유용 클린 레이아웃 PNG */}
-          {!loading && games.length > 0 && (
-            <button
-              onClick={saveAsImage}
-              disabled={savingImage}
-              title="팀 카톡방 공유용 박스스코어 PNG 저장"
-              aria-label="박스스코어 이미지 저장"
-              className="mm-press inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:opacity-50 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
-              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
-            >
-              {savingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-              <span className="hidden sm:inline">이미지 공유</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -1198,29 +1121,11 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                 </div>
               </section>
 
-              {/* 리뉴얼 R1 (2026-10-31): 종전 3·4번 탭 — 팀 비교는 막대 그림으로 바로, 어시스트 연결은 접어 둔다 */}
+              {/* 리뉴얼 R1 (2026-10-31): 종전 3번 탭 팀 비교는 막대 그림으로 바로. 어시스트 연결 그림은 2026-11-02 뺐다(R6) */}
               <section aria-label="팀 비교">
                 <h2 className="text-base font-black mb-2" style={{ color: 'var(--mm-ink)' }}>팀 비교</h2>
                 <TeamComparePanel games={games} />
               </section>
-              <details className="group" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                <summary className="mm-press list-none cursor-pointer flex items-center justify-between min-h-11 pt-3 text-base font-black" style={{ color: 'var(--mm-ink)' }}>
-                  누가 누구를 도왔나 · 어시스트
-                  <ChevronDown size={18} aria-hidden className="transition-transform group-open:rotate-180" style={{ color: 'var(--mm-muted)' }} />
-                </summary>
-                <div className="pt-3">
-                  <AssistNetwork
-                    links={assistLinks}
-                    games={games.map(g => ({
-                      id: g.id,
-                      numLabel: gameNumLabel(g),
-                      homeName: g.home_team?.name ?? '미정',
-                      awayName: g.away_team?.name ?? '미정',
-                    }))}
-                    players={new Map(dailyStats.map(d => [d.player_id, { name: d.name, photo_url: d.photo_url ?? null }]))}
-                  />
-                </div>
-              </details>
             </div>
           )}
 
@@ -1308,29 +1213,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       )}
 
 
-      {/* Hidden 공유용 캡처 대상 — 저장 클릭 시에만 렌더 (off-screen) */}
-      {renderingShare && (
-        <div style={{
-          position: 'fixed', left: '-99999px', top: 0,
-          pointerEvents: 'none', opacity: 1,  // opacity 0 이면 html-to-image 가 놓칠 수 있음
-        }} aria-hidden>
-          <div ref={shareCaptureRef}>
-            <ShareableBoxscore
-              dateLabel={dateLabel}
-              games={games.map(g => ({
-                id: g.id, slot_num: g.slot_num,
-                home_team: g.home_team, away_team: g.away_team,
-                home_score: g.home_score, away_score: g.away_score,
-                is_complete: g.is_complete,
-                is_started: g.is_started,
-              }))}
-              dailyStats={dailyStats}
-              teamRecords={teamRecords}
-              leagueName={leagueName}
-            />
-          </div>
-        </div>
-      )}
     </div>
     </MyIdCtx.Provider>
   )

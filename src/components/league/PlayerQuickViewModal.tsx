@@ -1338,9 +1338,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                         위 누적은 지금 보고 있는 묶음 기준. 아래는 같은 정의(그 묶음 스탯 탭의 그 선수 행)로
                         ① 리그 시즌이 둘 이상이면 리그 시즌끼리만 더한 「리그 통산」,
                         ② 대회는 일시적인 이벤트라 통산에 **더하지 않고** 따로 「대회 기록 (통산 미포함)」. */}
-                    {career && career.leagues.length >= 2 && (
-                      <CareerBlock title="리그 통산" total={career.league_career} rows={career.leagues} />
-                    )}
+                    {/* 「리그 통산」 블록은 2026-11-02 운영진 결정으로 뺐다(시즌이 하나라 위 누적과 같은 숫자였다). 되돌리기: R6 */}
                     {career && career.tournaments.length > 0 && (
                       <CareerBlock title="대회 기록 (통산 미포함)" total={null} rows={career.tournaments} />
                     )}

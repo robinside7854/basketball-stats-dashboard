@@ -164,11 +164,11 @@ async function loadPinnedClips(
       .eq('id', pid)
       .eq('team_id', await resolveTeamId(leagueId))
       .maybeSingle()
-    const ids = ((data as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? []).slice(0, 3)
+    const ids = ((data as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? [])
     if (ids.length === 0) return []
     const clips = await loadClipsByEventIds(sb, leagueId, ids)
     const byId = new Map(clips.map(c => [c.event_id, c]))
-    // 핀 슬롯 순서(1→3) 유지
+    // 핀 순서 유지(개수 제한 없음 — 2026-11-02)
     return ids.map(id => byId.get(id)).filter((c): c is HighlightClip => !!c)
   } catch {
     return []

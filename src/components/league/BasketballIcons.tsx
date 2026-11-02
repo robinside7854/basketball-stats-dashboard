@@ -43,7 +43,7 @@ export function NumberedBasketball({
   number,
   filled = true,
   className = '',
-}: { size?: number; number: 1 | 2 | 3; filled?: boolean; className?: string }) {
+}: { size?: number; number: number; filled?: boolean; className?: string }) {
   const fillBg = filled ? 'var(--mm-yellow)' : 'transparent'
   const strokeColor = filled ? 'var(--mm-black)' : 'currentColor'
   const numberColor = filled ? 'var(--mm-black)' : 'currentColor'

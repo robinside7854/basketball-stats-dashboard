@@ -1,7 +1,7 @@
 // GET/POST /api/leagues/[leagueId]/players/[playerId]/pins
 // 선수 프로필카드에 노출할 "내 베스트샷" 핀 관리.
 // - 저장 형태: league_players.pinned_event_ids uuid[]
-// - 최대 3개 · 서버측 캡 (열려있는 편집이지만 배열 폭주만 방지)
+// - 개수 제한 없음(2026-11-02 운영진 — 종전 3개). 배열 폭주만 200 에서 막는다
 // - 이벤트 소유권 검증: 해당 이벤트가 이 선수(league_player_id) + 이 리그의 game 인지만 확인
 // - 권한 (2026-10-12 · 종전엔 로그인 없는 오픈 편집이었다 — 누구나 남의 카드 핀을 바꿀 수 있었다)
 //   · 읽기: canViewLeague (비공개 리그는 회원만)
@@ -14,7 +14,7 @@ import { resolveTeamId } from '@/lib/league/teamScope'
 import { canViewLeague, getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
-const MAX_PINS = 3
+const MAX_PINS = 200
 
 // 핀은 league_players.pinned_event_ids 에 저장되는 개인 속성이고, 그 행은 이제 팀 소유다.
 //   league_id 로 소속을 확인하면 대회 화면에서 이 선수 카드를 열었을 때(행의 출생 league_id
@@ -101,7 +101,7 @@ export async function POST(
     if (current.includes(eventId)) {
       next = current   // 이미 핀됨 → no-op
     } else if (current.length >= MAX_PINS) {
-      return NextResponse.json({ error: `핀은 최대 ${MAX_PINS}개까지 가능합니다` }, { status: 400 })
+      return NextResponse.json({ error: `핀이 너무 많아요(${MAX_PINS}개)` }, { status: 400 })
     } else {
       next = [...current, eventId]
     }

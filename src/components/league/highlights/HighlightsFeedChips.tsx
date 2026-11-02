@@ -19,7 +19,7 @@
 //   · 최근 날짜 3개 — 날짜 시트를 열지 않고 한 번에. 나머지 날짜는 그대로 「날짜 ▾」 시트에 있다.
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { CalendarDays, ChevronDown, Pin, Search, Trophy, User, X, Medal, RotateCw } from 'lucide-react'
+import { CalendarDays, ChevronDown, Pin, Search, Trophy, User, X, RotateCw } from 'lucide-react'
 import { Avatar, Chip, Sheet } from '@/components/league/ui'
 import { formatFeedDate } from './feedFormat'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
@@ -27,7 +27,7 @@ import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 // 칩 줄에 바로 꺼내 둘 최근 날짜 수 — 360px 에서 가로 스크롤 한 번이면 닿는 만큼
 const QUICK_DAYS = 3
 
-export type FeedKind = 'all' | 'best' | 'classics' | 'milestones'
+export type FeedKind = 'all' | 'best' | 'classics'   // 'milestones' 는 2026-11-02 뺐다(R6)
 
 export type FeedDay = { date: string; clips: number }
 export type FeedPlayerLabel = { id: string; name: string; number: number | null; photo_url: string | null }
@@ -53,7 +53,7 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   const pathname = usePathname()
   const sp = useSearchParams()
   const fRaw = sp.get('f')
-  const kind: FeedKind = fRaw === 'best' || fRaw === 'classics' || fRaw === 'milestones' ? fRaw : 'all'
+  const kind: FeedKind = fRaw === 'best' || fRaw === 'classics' ? fRaw : 'all'
   const date = sp.get('date')
   const playerId = sp.get('player')
 
@@ -73,7 +73,6 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   const SPECIAL: { key: FeedKind; label: string; Icon: typeof Pin }[] = [
     { key: 'best', label: '베스트샷', Icon: Pin },
     { key: 'classics', label: '명경기', Icon: Trophy },
-    { key: 'milestones', label: '마일스톤', Icon: Medal },
   ]
   const special = SPECIAL.find(x => x.key === kind)
   const isMine = !!myId && playerId === myId && kind === 'all' && !date

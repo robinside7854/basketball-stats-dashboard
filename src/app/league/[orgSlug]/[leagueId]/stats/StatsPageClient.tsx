@@ -1,15 +1,14 @@
 'use client'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
-import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowLeftRight, ArrowDown, ArrowUp, RotateCw } from 'lucide-react'
+import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users, ArrowDown, ArrowUp, RotateCw, FlaskConical } from 'lucide-react'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import StatsSkeleton from '@/components/league/stats/StatsSkeleton'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
 
-// 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
-const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompareModal'), { ssr: false })
+// 선수 비교(PlayerCompareModal)·용어 시트(StatsGlossarySheet)·「슈팅」 모드는 2026-11-02 운영진 결정으로 뺐다
+//   — 파일은 남아 있다(되돌리기: docs/renewal-rollback.md R6). 성공률 열은 기본 표에, TS%·2점률은 「고급」에.
 import StatHeader from '@/components/league/StatHeader'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
@@ -18,8 +17,6 @@ import SectionHeader from '@/components/league/ui/SectionHeader'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
 import Avatar from '@/components/league/ui/Avatar'
-import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
-import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import { POSITION_GROUPS, positionGroupOf, positionGroupLabel, positionLabelOf, type PositionGroupCode } from '@/lib/league/positionGroup'
@@ -45,9 +42,8 @@ export type StatsInitial = { quarterId: string; players: PlayerStat[]; totalRoun
 const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
-type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'
-type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'ts_pct'|'shot_mix'
-type StatMode = 'basic'|'shooting'|'advanced'
+type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'
+type StatMode = 'basic'|'advanced'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
 const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
@@ -78,25 +74,6 @@ const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
 }
 
 // 슛 분포 — 막대 없이 글자로만(2026-10-25 운영진: 막대가 화면을 복잡하게 만든다).
-function ShotMixText({ p }: { p: PlayerStat }) {
-  const fga = p.fga
-  if (fga <= 0) {
-    return <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>—</span>
-  }
-  const parts = [
-    { label: '골밑', a: p.ds_a ?? 0 },
-    { label: '레이업', a: p.lu_a ?? 0 },
-    { label: '미드', a: p.md_a ?? 0 },
-    { label: '3점', a: p.fg3a ?? 0 },
-  ].filter(x => x.a > 0).map(x => `${x.label} ${Math.round((x.a / fga) * 100)}%`)
-  return <span className="text-xs font-bold tabular-nums whitespace-nowrap">{parts.join(' · ')}</span>
-}
-
-// 순위 티어링 — 1위 골드 · 2위 실버 · 3위 브론즈 · 4-10위 에메랄드 · 11위+ 뉴트럴
-// (auth/PersonalDashboard.tsx rankStyle 동일 팔레트 · 도미노 확장 통일 · 옐로우 실색상 1곳 원칙 준수)
-// border: 라이트 모드에서 rank-*-bg 가 흰 행 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는 문제
-// (2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
-// 미달 행은 흐리게 하지 않는다(대비가 4.5:1 아래로 떨어짐) — 「자격 미달」 글자 + 왼쪽 강조 막대 없음으로 구분.
 function IneligibleTag() {
   return <span className="ml-1 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 자격 미달</span>
 }
@@ -262,8 +239,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   }, [legacyRecords, router, orgSlug, leagueId])
   const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
-  const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
-  const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
   // 「전체 순위 | 같은 포지션」 (2026-10-17) — 같은 포지션이면 그 그룹 선수만 모아 같은 규칙으로 순위를 다시 센다.
   //   자격 커트라인(leagueMinRounds)은 리그 전체 기준 그대로 — 그룹마다 기준이 달라지면 「가드 1위」가 다른 잣대가 된다.
@@ -278,8 +253,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   const setQuickViewPlayer = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId: selectedQuarterId }) }
   // 최소 출전 임계값 — 자동으로 리그 최다 출전의 2/3 로 고정 (사용자 수동 조작 제거 · 2026-07-15)
   // 이전엔 수동 입력 + '전체 선수' 토글이 있어 "왜 내 값이 안 먹지" 혼란 유발 → 자동 임계값 하나만 유지
-  const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
-  const [compareModalOpen, setCompareModalOpen] = useState(false)
   // "더 보기" 노출 상한 — 모바일 카드뷰와 데스크탑 표뷰가 **한 상태를 공유**한다.
   // 뷰마다 따로 두면 화면 폭이 바뀔 때(회전·창 크기) 보이는 인원이 튄다.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
@@ -295,22 +268,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     setShowAll(next)
     try { localStorage.setItem(showAllKey, next ? '1' : '0') } catch { /* private mode */ }
   }
-
-  const toggleCompare = (player: PlayerStat) => {
-    setCompareIds(prev => {
-      const next = new Set(prev)
-      if (next.has(player.player_id)) next.delete(player.player_id)
-      else if (next.size < 2) next.add(player.player_id)
-      return next
-    })
-  }
-  const compareList = Array.from(compareIds)
-  const compareNamesById: Record<string, string> = Object.fromEntries(players.map(p => [p.player_id, p.name]))
-  // 비교 시트의 고르기 목록 — 자격 미달 포함 전원, 가나다순(검색과 함께 쓰므로 순위순보다 찾기 쉽다)
-  const compareCandidates = useMemo(() => [...players]
-    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
-    .map(p => ({ id: p.player_id, name: p.name, photo_url: p.photo_url, team_name: p.team_name, team_color: p.team_color, gp: p.gp })),
-  [players])
 
   // 선택 분기가 확정되기 전(quarterReady=false)에는 조회하지 않는다 —
   //   종전엔 첫 렌더의 'all' 로 한 번, 지금 분기로 또 한 번 불러 시즌 전체 집계가 헛돌았다.
@@ -341,7 +298,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // 엉뚱한 구간이 이어서 보인다.
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE)
-  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, shootSortKey, shootSortDir, selectedQuarterId, showAll, rankScope, posGroup])
+  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, selectedQuarterId, showAll, rankScope, posGroup])
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -420,9 +377,11 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'gp', label: '출전', term: 'R' }, { key: 'ppg', label: '득점', term: '득점' },
     { key: 'rpg', label: '리바', term: '리바' }, { key: 'apg', label: '어시', term: '어시' },
     { key: 'spg', label: '스틸', term: '스틸' }, { key: 'bpg', label: '블록', term: '블록' },
+    { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' }, { key: 'ft_pct', label: '자유투율', term: 'FT%' },
     { key: 'orp', label: '공리', term: '공리', more: true }, { key: 'drp', label: '수리', term: '수리', more: true },
     { key: 'topg', label: '턴오버', term: '턴오버', more: true },
-    // 성공률(야투·3점·자유투·eFG)은 「슈팅」 탭에만 둔다 — 기본과 슈팅에 같은 열이 겹쳤다(운영진 2026-10-19)
+    { key: 'efg_pct', label: '유효야투', term: 'eFG%', more: true },
+    // (2026-11-02) 「슈팅」 모드를 기본에 합쳤다 — 성공률 세 개는 보이는 열, eFG 는 「더 보기」. TS%·2점률은 「고급」.
   ]
   const TOTAL_COLS: BasicCol[] = [
     { key: 'gp', label: '출전', term: 'R' }, { key: 'pts', label: '득점', term: 'PTS' },
@@ -434,21 +393,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'minutes_est', label: '시간', term: 'MIN' },
     { key: 'oreb', label: '공리', term: 'OREB', more: true }, { key: 'dreb', label: '수리', term: 'DREB', more: true },
     { key: 'tov', label: '턴오버', term: 'TOV', more: true },
-  ]
-
-  // Shooting stats 컬럼 — 슈팅 정확도 + 야투 분포
-  // SHOOTING 컬럼 (2026-07-19 재개편)
-  //   · 개별 % 지표는 텍스트 (모바일 카드는 2026-10-12 부터 숫자 아래 미니 막대 + 자격자 평균 기준선)
-  //   · 야투 존별 비중 (DS/LU/MD/3P) 4개 컬럼 → SHOT MIX 스택 막대 단일 컬럼으로 통합
-  //     한 선수의 슛 성향을 한눈에 파악
-  const SHOOTING_COLS: { key: ShootingKey; label: string; term: string; desc: string }[] = [
-    { key: 'fg_pct',   label: '야투율',   term: 'FG%', desc: '전체 야투 성공률 · FGM/FGA' },
-    { key: 'fg2_pct',  label: '2점률',    term: '2P%', desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
-    { key: 'fg3_pct',  label: '3점률',    term: '3P%', desc: '3점 야투 성공률 · 3PM/3PA' },
-    { key: 'ft_pct',   label: '자유투율', term: 'FT%', desc: '자유투 성공률 · FTM/FTA' },
-    { key: 'efg_pct',  label: '유효야투', term: 'eFG%', desc: '유효 야투율 · (FGM+0.5×3PM)/FGA' },
-    { key: 'ts_pct',   label: '진실야투', term: 'TS%', desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
-    { key: 'shot_mix', label: '슛 분포',  term: '3P share', desc: '골밑 · 레이업 · 미들 · 3점 시도 비중 (정렬은 3점 비중)' },
+    { key: 'efg_pct', label: '유효야투', term: 'eFG%', more: true },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
@@ -457,6 +402,9 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'a1_total',  label: '앤드원',      term: 'A1',   desc: '성공한 앤드원(And-One) 횟수 (누적)' },
     { key: 'trb_pct',   label: '리바 비중',   term: 'TRB%', desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
     { key: 'usg_pct',   label: '공격 점유',   term: 'USG%', desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
+    { key: 'ts_pct',    label: '진실야투',    term: 'TS%',  desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
+    { key: 'efg_pct',   label: '유효야투',    term: 'eFG%', desc: '유효 야투율 · (FGM+0.5×3PM)/FGA' },
+    { key: 'fg2_pct',   label: '2점률',       term: '2P%',  desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
   ]
 
   // usg_pct·at_ratio 는 null 가능(분모 0) — 0% 로 찍으면 "공격을 안 했다"로 읽혀 거짓이 된다
@@ -469,19 +417,10 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       a1_total:  a1,
       trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
       usg_pct:   calcUsg(p, p.team_poss_in_games ?? 0),
-    }
-  }
-
-  function calcShoot(p: PlayerStat): Record<ShootingKey, number> {
-    return {
-      fg_pct:      p.fg_pct ?? 0,
-      fg2_pct:     p.fg2_pct ?? 0,
-      fg3_pct:     p.fg3_pct ?? 0,
-      ft_pct:      p.ft_pct ?? 0,
-      efg_pct:     p.efg_pct ?? 0,
-      ts_pct:      (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
-      // shot_mix 정렬용 프록시 = 3점 비중 (내부적으로 스택 막대는 DS/LU/MD/3P 모두 렌더)
-      shot_mix:    p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
+      // 슈팅 효율 — 종전 「슈팅」 모드에서 옮겨 왔다(2026-11-02). 시도가 없으면 null(「—」)
+      ts_pct:    (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : null,
+      efg_pct:   p.fga > 0 ? (p.efg_pct ?? 0) : null,
+      fg2_pct:   (p.fga - p.fg3a) > 0 ? (p.fg2_pct ?? 0) : null,
     }
   }
 
@@ -496,33 +435,11 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       return advSortDir === 'desc' ? -diff : diff
     })
 
-  // Shooting 정렬된 리스트 — 성공률 정렬이면 시도 부족을 맨 아래로(기본 표와 같은 규칙)
-  const shootPctKey: PctStatKey | null = pctKeyOf(shootSortKey)
-  const filteredShoot = [...filtered]
-    .map(p => ({ p, sh: calcShoot(p) }))
-    .sort((a, b) => {
-      const la = lowAttempts(a.p, shootPctKey), lb = lowAttempts(b.p, shootPctKey)
-      if (la !== lb) return la ? 1 : -1
-      const diff = a.sh[shootSortKey] - b.sh[shootSortKey]
-      return shootSortDir === 'desc' ? -diff : diff
-    })
-
   // 노출 상한 적용 — 세 모드가 **같은 visibleCount** 를 쓴다. 모드마다 따로 두면
   // Basic → Shooting 으로 옮길 때 보이는 인원이 튄다. 셋 다 같은 자격자 목록(filtered)에서
   // 정렬만 다시 한 것이라 남은 인원 수도 항상 같다.
   const visibleBasic = filtered.slice(0, visibleCount)
-  const visibleShoot = filteredShoot.slice(0, visibleCount)
 
-  // 그 지표의 분모(시도 수) — 0 이면 값 대신 「—」
-  const SHOOT_ATTEMPTS: Record<ShootingKey, (p: PlayerStat) => number> = {
-    fg_pct: p => p.fga,
-    fg2_pct: p => p.fga - p.fg3a,
-    fg3_pct: p => p.fg3a,
-    ft_pct: p => p.fta,
-    efg_pct: p => p.fga,
-    ts_pct: p => p.fga + p.fta,
-    shot_mix: p => p.fga,
-  }
   const visibleAdv = filteredAdv.slice(0, visibleCount)
   const hiddenCount = Math.max(0, filtered.length - visibleCount)
 
@@ -530,11 +447,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     if (key === advSortKey) setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setAdvSortKey(key); setAdvSortDir('desc') }
   }
-  function handleShootSort(key: ShootingKey) {
-    if (key === shootSortKey) setShootSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setShootSortKey(key); setShootSortDir('desc') }
-  }
-
   const ALL_COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
   // 접힌 열로 정렬 중이면(모바일 선택에서 골랐을 때) 표에서도 펼쳐 보인다
   const moreOpen = showMoreCols || ALL_COLS.some(c => c.more && c.key === sortKey)
@@ -596,30 +508,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       }
     }
 
-    if (statMode === 'shooting') {
-      const col = SHOOTING_COLS.find(c => c.key === shootSortKey)
-      const label = col?.label ?? shootSortKey
-      const fullLabel = (col?.desc ?? label).split('·')[0].trim() || label
-      // 성공률은 하루 평균 최소 시도를 채운 선수만 (eligibility.ts). 슛 분포(3점 비중)는 야투가 있으면 된다
-      const pk = pctKeyOf(shootSortKey)
-      const pool = eligibleBase.filter(p => (pk ? meetsAttemptMin(p, pk) : p.fga > 0))
-      const withVals = pool.map(p => ({ p, val: calcShoot(p)[shootSortKey] }))
-      const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
-      // shot_mix 는 3P 비중 프록시로 정렬 · 값은 "3P {n}%" 표기 (혼동 방지)
-      const isMix = shootSortKey === 'shot_mix'
-      return {
-        key: `shooting:${shootSortKey}`,
-        label,
-        fullLabel,
-        players: sorted.map(({ p, val }) => ({
-          id: p.player_id,
-          name: p.name,
-          photo_url: p.photo_url,
-          value: isMix ? `3P ${fmt1(val)}%` : `${fmt1(val)}%`,
-        })),
-      }
-    }
-
     // advanced
     const col = ADV_COLS.find(c => c.key === advSortKey)
     const label = col?.label ?? advSortKey
@@ -642,7 +530,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statMode, sortKey, shootSortKey, advSortKey, rankPlayers, effectiveMinGP, viewMode])
+  }, [statMode, sortKey, advSortKey, rankPlayers, effectiveMinGP, viewMode])
 
   const base = `/league/${orgSlug}/${leagueId}`
   // 리더보드·팀·기록실 3개 서브탭 (2026-09-28 명단 → 팀 화면 · 2026-10-14 어워즈 삭제 · 2026-10-16 기록실 승격).
@@ -650,18 +538,22 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // 복제되면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다.
   const groupTabs = getStatsGroupTabs(base, 'leaderboard')
 
-  // 기본 / 슈팅 / 고급 토글 — 헤더(분기 칩 아래)에 한 번만 둔다.
+  // 「고급 지표」 — 기본 표(출전·득점·…·성공률) ↔ 고급 표(어시/턴오버·앤드원·리바 비중·공격 점유·TS%·eFG%·2점률).
+  //   종전 「기본 / 슈팅 / 고급」 세 칸 중 슈팅을 기본에 합치고 고급만 버튼 하나로(2026-11-02 운영진).
+  const advOn = statMode === 'advanced'
   const modeChips = (
-    <SegmentedTabs<StatMode>
-      items={[
-        { key: 'basic',    label: '기본' },
-        { key: 'shooting', label: '슈팅' },
-        { key: 'advanced', label: '고급' },
-      ]}
-      value={statMode}
-      onChange={setStatMode}
-      ariaLabel="표 모드"
-    />
+    <button
+      type="button"
+      onClick={() => setStatMode(advOn ? 'basic' : 'advanced')}
+      aria-pressed={advOn}
+      className="mm-press inline-flex items-center gap-1.5 px-3 py-2 min-h-11 text-sm font-bold whitespace-nowrap cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+      style={advOn
+        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }
+        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+    >
+      <FlaskConical size={16} aria-hidden />
+      {advOn ? '기본 표로' : '고급 지표'}
+    </button>
   )
 
   // ─── 「내 기록」 (2026-10-26) ───────────────────────────────────────────
@@ -675,12 +567,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     if (!me) return null
     const i = filtered.indexOf(me)
     return i >= 0 && !lowAttempts(me, basicPctKey) ? i + 1 : null
-  })()
-  const myShoot = me ? { p: me, sh: calcShoot(me) } : null
-  const myShootRank = (() => {
-    if (!me) return null
-    const i = filteredShoot.findIndex(r => r.p === me)
-    return i >= 0 && !lowAttempts(me, shootPctKey) ? i + 1 : null
   })()
   const myAdv = me ? { p: me, adv: calcAdv(me) } : null
   // 고급 표에서 값이 없는 줄(턴오버 0 의 어시/턴오버 등)은 맨 뒤 · 순위 없음
@@ -710,32 +596,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       <MobileStatCard key={opts.key ?? p.player_id} rank={low ? null : rank} p={p} ineligible={isIneligible(p)} lowAttempts={low}
         bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)}
         items={items} mine={isMe(p)} pinned={opts.pinned} note={opts.pinned ? myNote : undefined}
-        onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
-    )
-  }
-  function shootCard(p: PlayerStat, sh: Record<ShootingKey, number>, rank: number | null, opts: { pinned?: boolean; key?: string } = {}) {
-    const sortCol = SHOOTING_COLS.find(c => c.key === shootSortKey)
-    const isMix = shootSortKey === 'shot_mix'
-    const pref: ShootingKey[] = ['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct', 'fg2_pct']
-    const items: CardItem[] = pref
-      .filter(k => k !== shootSortKey)
-      .slice(0, 4)
-      .map(k => {
-        const c = SHOOTING_COLS.find(x => x.key === k)!
-        return { key: k, label: c.label, value: SHOOT_ATTEMPTS[k](p) > 0 ? `${fmt1(sh[k])}%` : '—' }
-      })
-    const low = lowAttempts(p, shootPctKey)
-    return (
-      <MobileStatCard key={opts.key ?? p.player_id} rank={low ? null : rank} p={p} ineligible={isIneligible(p)} lowAttempts={low}
-        bigLabel={isMix ? '3점 비중' : (sortCol?.label ?? '')} bigTerm={sortCol?.term ?? ''}
-        bigValue={SHOOT_ATTEMPTS[shootSortKey](p) > 0 ? `${fmt1(sh[shootSortKey])}%` : '—'}
-        items={items} mine={isMe(p)} pinned={opts.pinned} note={opts.pinned ? myNote : undefined}
-        footer={
-          <div className="flex items-center gap-2 mt-3">
-            <span className="text-xs font-semibold shrink-0" style={{ color: isMix ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>슛 분포</span>
-            <div className="flex-1 min-w-0" style={{ color: 'var(--mm-ink-soft)' }}><ShotMixText p={p} /></div>
-          </div>
-        }
         onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
     )
   }
@@ -795,13 +655,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
         className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
         style={rowStyle(p, pinned)}>
         {rankCell(rank, lowAttempts(p, basicPctKey) ? '시도 부족 — 순위 없음' : undefined)}
-        <td className="px-2 py-3 text-center">
-          <input type="checkbox" checked={compareIds.has(p.player_id)}
-            disabled={!compareIds.has(p.player_id) && compareIds.size >= 2}
-            onChange={() => toggleCompare(p)} aria-label={`${p.name} 비교 선택`}
-            className="cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
-            style={{ accentColor: 'var(--mm-yellow-strong)' }} />
-        </td>
         {nameCell(p, pinned)}
         {COLS.map(({ key }) => {
           const leader = isLeader(p, key as string)
@@ -825,31 +678,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
               })()}
               {key === 'gp' && isIneligible(p) && !pinned && <IneligibleTag />}
               {key === sortKey && low && <LowAttemptTag />}
-            </td>
-          )
-        })}
-      </tr>
-    )
-  }
-  function shootRow(p: PlayerStat, sh: Record<ShootingKey, number>, rank: number | null, pinned = false) {
-    return (
-      <tr key={pinned ? 'mine' : p.player_id}
-        className="group transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-        style={rowStyle(p, pinned)}>
-        {rankCell(rank, lowAttempts(p, shootPctKey) ? '시도 부족 — 순위 없음' : undefined)}
-        {nameCell(p, pinned)}
-        <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && !pinned && <IneligibleTag />}</td>
-        {SHOOTING_COLS.map(({ key }) => {
-          const val = sh[key]
-          const active = shootSortKey === key
-          const low = lowAttempts(p, pctKeyOf(key))
-          return (
-            <td key={key}
-                className={active && !low ? 't-td-key' : 't-td'}
-                style={{ color: low ? 'var(--mm-muted)' : active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}
-                title={low ? '시도 부족 — 순위 대상 아님' : undefined}>
-              {key === 'shot_mix' ? <ShotMixText p={p} /> : `${fmt1(val)}%`}
-              {active && low && <LowAttemptTag />}
             </td>
           )
         })}
@@ -881,8 +709,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   //   PC 는 표 머리를 눌러 정렬하므로 정렬 선택은 폰에만 둔다.
   const sortOpts = statMode === 'basic'
     ? { cols: ALL_COLS.map(c => ({ key: c.key as string, label: c.label, more: !!c.more })), active: sortKey as string, dir: sortDir, onPick: (k: string) => { setSortKey(k as SortKey); setSortDir('desc') }, flip: () => setSortDir(d => d === 'desc' ? 'asc' : 'desc') }
-    : statMode === 'shooting'
-    ? { cols: SHOOTING_COLS.map(c => ({ key: c.key as string, label: c.label, more: false })), active: shootSortKey as string, dir: shootSortDir, onPick: (k: string) => { setShootSortKey(k as ShootingKey); setShootSortDir('desc') }, flip: () => setShootSortDir(d => d === 'desc' ? 'asc' : 'desc') }
     : { cols: ADV_COLS.map(c => ({ key: c.key as string, label: c.label, more: false })), active: advSortKey as string, dir: advSortDir, onPick: (k: string) => { setAdvSortKey(k as AdvKey); setAdvSortDir('desc') }, flip: () => setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc') }
   const selectCls = 'min-w-0 flex-1 md:flex-none min-h-11 px-2 text-base font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]'
   const selectStyle: React.CSSProperties = { background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }
@@ -928,7 +754,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
           {POSITION_GROUPS.map(g => <option key={g.code} value={g.code}>{g.label} 중 순위</option>)}
         </select>
       </div>
-      <AttemptRuleCaption k={statMode === 'basic' ? basicPctKey : statMode === 'shooting' ? shootPctKey : null} />
+      <AttemptRuleCaption k={statMode === 'basic' ? basicPctKey : null} />
     </div>
   )
 
@@ -944,18 +770,14 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
       {/* 제목 · 분기 · 표 모드를 한 카드에 — 배경 위에 칩만 떠 있지 않게 (2026-10-13) */}
       <SectionCard variant="standalone" className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-black text-[28px] leading-[1.15] tracking-[-0.005em] text-[color:var(--mm-ink)]">리그 스탯</h2>
-          {/* 「숫자 읽는 법」 — 하루 평균·+1·자유투 룰·친선 제외·최소 출전/시도 기준 (glossary.ts READING_GUIDE) */}
-          <StatsGlossarySheet className="shrink-0" />
-        </div>
+        <h2 className="font-black text-[28px] leading-[1.15] tracking-[-0.005em] text-[color:var(--mm-ink)]">리그 스탯</h2>
         {/* 1줄: 분기 선택 */}
         <QuarterChips
           quarters={quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q`, isCurrent: q.is_current }))}
           value={selectedQuarterId}
           onChange={setSelectedQuarterId}
         />
-        {/* 2줄: 표 모드 — 표 카드 안에 두면 375px 에서 4번째 칩이 잘려서, 모든 모드 공통 위치로 뺐다 */}
+        {/* 2줄: 고급 지표 버튼 */}
         <div className="flex">{modeChips}</div>
       </SectionCard>
 
@@ -1006,30 +828,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
             footer={topFiveFooter}
           />
 
-          {/* 비교하기 버튼 */}
-          {compareIds.size > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 lg:px-6" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-card)' }}>
-              <span className="text-xs font-semibold" style={{ color: 'var(--mm-ink)' }}>선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
-              <button
-                onClick={() => setCompareModalOpen(true)}
-                disabled={compareIds.size === 0}
-                type="button"
-                className="mm-press ml-auto sm:ml-3 px-3 py-1 min-h-11 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}
-              >
-                비교하기 ({compareIds.size}/2)
-              </button>
-              <button
-                onClick={() => setCompareIds(new Set())}
-                type="button"
-                className="mm-press px-3 py-1 min-h-11 text-xs font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
-              >
-                초기화
-              </button>
-            </div>
-          )}
-
           {/* 「이 표 읽는 법」 접힘 상자는 머리의 「숫자 읽는 법」 시트로 합쳤다(2026-10-14) */}
 
           {/* 전체 스탯 테이블 */}
@@ -1076,21 +874,11 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   <Users size={16} aria-hidden="true" />
                   전체 명단 보기
                 </button>
-                {/* 선수 비교 — 폰·PC 공통 진입점. PC 표에서 체크한 선수가 있으면 그 선수로 채워 연다 */}
-                <button
-                  type="button"
-                  onClick={() => setCompareModalOpen(true)}
-                  className="flex-1 sm:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer transition-colors mm-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-ctl)' }}
-                >
-                  <ArrowLeftRight size={16} aria-hidden="true" />
-                  선수 비교
-                </button>
               </>}
             />
 
             {(() => {
-              const k = statMode === 'basic' ? basicPctKey : statMode === 'shooting' ? shootPctKey : null
+              const k = statMode === 'basic' ? basicPctKey : null
               return k ? (
                 <div className="px-4 py-2 lg:px-6" style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
                   <AttemptRuleCaption k={k} />
@@ -1124,7 +912,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
-                    <th scope="col" className="t-th px-2 w-8" style={{ color: 'var(--mm-ink)' }}>비교</th>
                     <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
                     {COLS.map(({ key, label, term }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
@@ -1214,52 +1001,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                 </div>
               )}
             </div>
-            </>) : statMode === 'shooting' ? (<>
-            {/* Shooting — 모바일 카드뷰 (정렬 지표 크게 + 보조 4칸 + 슛 분포 글자). 맨 위는 「내 기록」 고정 */}
-            <div className="md:hidden p-2.5 space-y-2">
-              {myShoot && shootCard(myShoot.p, myShoot.sh, myShootRank, { pinned: true, key: 'mine' })}
-              {visibleShoot.map(({ p, sh }, i) => shootCard(p, sh, i + 1))}
-            </div>
-
-            {/* Shooting — 데스크탑 테이블 */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
-                    <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
-                    <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    <th scope="col" className="t-th px-3"><StatHeader term="R" label="출전" /></th>
-                    {SHOOTING_COLS.map(({ key, label, term, desc }, idx) => {
-                      // 구분선: 슈팅 효율(0-6) | 야투 분포(7-10)
-                      const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-ink)' } : {}
-                      return (
-                        <th key={key} scope="col" aria-sort={ariaSort(shootSortKey === key, shootSortDir)} title={desc}
-                          className="t-th px-1.5 select-none transition-colors duration-200"
-                          style={{
-                            color: shootSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
-                            background: shootSortKey === key ? 'var(--mm-ink)' : 'transparent',
-                            ...dividerStyle,
-                          }}>
-                          <SortHeader term={term} label={label} active={shootSortKey === key} dir={shootSortDir} onSort={() => handleShootSort(key)} />
-                        </th>
-                      )
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {myShoot && shootRow(myShoot.p, myShoot.sh, myShootRank, true)}
-                  {visibleShoot.map(({ p, sh }, i) => shootRow(p, sh, lowAttempts(p, shootPctKey) ? null : i + 1))}
-                </tbody>
-              </table>
-              {/* 지표 설명 범례 */}
-              <div className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                {SHOOTING_COLS.map(({ key, label, desc }) => (
-                  <span key={key} className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                    <span className="font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>{label}</span> {desc}
-                  </span>
-                ))}
-              </div>
-            </div>
             </>) : (<>
             {/* Advanced — 모바일 카드뷰 (정렬 지표 크게 + 나머지 3칸). 맨 위는 「내 기록」 고정 */}
             <div className="md:hidden p-2.5 space-y-2">
@@ -1326,15 +1067,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       )}
 
 
-      {compareModalOpen && (
-        <PlayerCompareModal
-          leagueId={leagueId}
-          candidates={compareCandidates}
-          initialIds={compareList}
-          quarterId={selectedQuarterId}
-          onClose={() => setCompareModalOpen(false)}
-        />
-      )}
     </div>
   )
 }

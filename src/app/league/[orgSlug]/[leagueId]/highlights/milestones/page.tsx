@@ -1,4 +1,4 @@
-// 옛 「milestones」 탭 → 피드 ?f=milestones (리뉴얼 4단계, 2026-10-12). 접근 판정은 피드가 옛 페이지와 같게 한다.
+// 옛 「milestones」 탭 → 피드 첫 화면. 마일스톤 보기는 2026-11-02 운영진 결정으로 뺐다(R6) — 옛 링크는 피드로 보낸다.
 import { redirect } from 'next/navigation'
 import { highlightsFeedHref } from '@/lib/highlights/feedRedirect'
 
@@ -10,5 +10,5 @@ export default async function MilestonesRedirect({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { orgSlug, leagueId } = await params
-  redirect(highlightsFeedHref(orgSlug, leagueId, { f: 'milestones' }, await searchParams))
+  redirect(highlightsFeedHref(orgSlug, leagueId, {}, await searchParams))
 }

@@ -12,7 +12,8 @@ import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 import PendingSignupsAlert from '@/components/league/PendingSignupsAlert'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import type { RoundSummary, RoundTeamSummary, RoundGame } from '@/components/league/home/roundTypes'
-import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
+// 홈 순위표(NbaTeamStandings)는 2026-11-02 운영진 결정으로 뺐다 — 팀 순위는 「기록 → 팀」 탭. 되돌리기: docs/renewal-rollback.md R6
+import { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import { HomeMeProvider } from '@/components/league/home/HomeMeContext'
 import { LastRoundTimeline } from '@/components/league/home/LastRound'
 import MyLastDay from '@/components/league/home/MyLastDay'
@@ -387,7 +388,6 @@ export default async function LeagueDetailPage({
   const isMember = !!approvedSession
   // 「지난 토요일」 = 기록이 있는 최근 경기일(최근 라운드 첫 카드와 같은 날)
   const latestRound = recentRounds[0] ?? null
-  const hasStandings = quarterStandings.standings.length > 0
 
   return (
     <div className="space-y-4 lg:space-y-5">
@@ -434,22 +434,10 @@ export default async function LeagueDetailPage({
           >
             이번 분기
           </h2>
-          <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{quarterStandings.quarterLabel} · 순위와 하루 평균 리더</span>
+          <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{quarterStandings.quarterLabel} · 하루 평균 리더</span>
         </div>
-        <div className={`grid gap-4 lg:gap-5 lg:items-start ${hasStandings ? 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}>
-          {hasStandings && (
-            // 표가 짧아(팀 3개) 오른쪽 리더를 훑는 동안 따라오게 둔다 — 상단 네비(sticky) 아래로.
-            <div className="min-w-0 lg:sticky lg:top-20">
-              <NbaTeamStandings
-                standings={quarterStandings.standings}
-                quarterLabel={quarterStandings.quarterLabel}
-                gamesCount={quarterStandings.gamesCount}
-                orgSlug={orgSlug}
-                leagueId={leagueId}
-                narrow
-              />
-            </div>
-          )}
+        <div className="grid gap-4 lg:gap-5 lg:items-start">
+          {/* 순위표(NbaTeamStandings)는 2026-11-02 뺐다 — 「기록 → 팀」 탭에 있다 */}
           <div className="min-w-0">
             <NbaLeaders
               leagueId={leagueId}
@@ -459,7 +447,7 @@ export default async function LeagueDetailPage({
               // 최소 출전 = 스탯 탭·선수 카드와 같은 leagueMinRounds(열린 날 기준) — 넘기지 않으면 최다 출전을 분모로 써 하루쯤 어긋난다
               minGP={leagueMinRounds(leaderStats.total_rounds ?? 0, leaderStats.players)}
               initialPhotoMap={initialPhotoMap}
-              narrow={hasStandings}
+              narrow={false}
             />
           </div>
         </div>
@@ -474,7 +462,7 @@ export default async function LeagueDetailPage({
           className="mm-press inline-flex items-center gap-1 min-h-[44px] text-sm font-black"
           style={{ color: 'var(--mm-ink)' }}
         >
-          하이라이트 · 마일스톤 모아 보기 <ArrowRight size={15} aria-hidden />
+          하이라이트 모아 보기 <ArrowRight size={15} aria-hidden />
         </Link>
         <ShareLeagueButton leagueName={l.name} />
       </div>

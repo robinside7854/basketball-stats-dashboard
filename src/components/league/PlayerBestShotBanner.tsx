@@ -1,6 +1,6 @@
 'use client'
 // 선수 프로필카드 상단 (포지션 옆) · "내 베스트샷" 재생 chip
-// - 핀된 클립 개수만큼 번호 매긴 농구공 아이콘 (1/2/3)
+// - 농구공 아이콘 하나에 핀 개수(개수 제한 없음 — 2026-11-02, 종전 최대 3개)
 // - 클릭 → clips-by-events API hydrate → HighlightsClipModal
 // - 상위에서 pinned_event_ids.length > 0 일 때만 렌더
 
@@ -45,8 +45,6 @@ export default function PlayerBestShotBanner({ leagueId, playerName, pinnedEvent
     }
   }
 
-  const shownCount = Math.min(pinnedEventIds.length, 3)
-
   return (
     <>
       <button
@@ -66,15 +64,7 @@ export default function PlayerBestShotBanner({ leagueId, playerName, pinnedEvent
           <BasketballLoader size={14} className="text-[color:var(--mm-black)]" />
         ) : (
           <span className="inline-flex items-center gap-0.5" aria-hidden>
-            {Array.from({ length: shownCount }, (_, i) => (
-              <NumberedBasketball
-                key={i}
-                size={14}
-                number={(i + 1) as 1 | 2 | 3}
-                filled={false}
-                className="text-[color:var(--mm-black)]"
-              />
-            ))}
+            <NumberedBasketball size={14} number={pinnedEventIds.length} filled={false} className="text-[color:var(--mm-black)]" />
           </span>
         )}
         베스트샷

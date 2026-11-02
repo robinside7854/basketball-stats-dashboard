@@ -17,14 +17,12 @@ import type { LucideIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import {
-  Trophy, Film, User as UserIcon, ChevronRight, IdCard, Flame, X, KeyRound,
+  Film, User as UserIcon, ChevronRight, IdCard, Flame, X, KeyRound,
   CalendarCheck, Pin, Play, AlertCircle, LogOut,
 } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import SectionCard from '@/components/league/ui/SectionCard'
-import CountUp from '@/components/league/ui/CountUp'
-import GrowBar from '@/components/league/ui/GrowBar'
 import Avatar from '@/components/league/ui/Avatar'
 import Chip from '@/components/league/ui/Chip'
 import EmptyState from '@/components/league/ui/EmptyState'
@@ -37,8 +35,7 @@ import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlay
 import { Ring } from '@/components/league/ui/viz'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
-// 폭죽은 canvas + rAF 라 첫 화면 번들에 들어갈 이유가 없다. 실제로 터질 때만 받아온다.
-const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
+// (폭죽 Confetti 는 마일스톤 체이서와 함께 2026-11-02 뺐다 — 컴포넌트 파일은 남아 있다)
 
 // 비밀번호 변경 모달 · 클릭 시에만 로드
 const PasswordChangeModal = dynamic(() => import('./PasswordChangeModal'), { ssr: false })
@@ -86,19 +83,6 @@ interface Props {
   orgSlug: string
   /** 브라우저 경로 기준 리그 base(`/league/<org>/<slug>`) — 없으면 UUID 경로로 만든다 */
   base?: string
-}
-
-// 지표 표시 점 — 차트 팔레트 토큰만 쓴다(글자색은 ink — 2026-10-16 Taste 리디자인)
-const METRIC_DOT: Record<Chaser['metric'], string> = {
-  pts: 'var(--mm-series-1)', reb: 'var(--mm-series-2)', ast: 'var(--mm-series-3)', stl: 'var(--mm-series-4)', blk: 'var(--mm-series-5)',
-}
-const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블록' }
-
-// 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (배경/전경 쌍 · 캐주얼 전환 2026-08-06)
-function proximityStyle(progressPct: number): { bg: string; fg: string } {
-  if (progressPct >= 80) return { bg: 'var(--milestone-near-bg)', fg: 'var(--milestone-near-fg)' }
-  if (progressPct >= 60) return { bg: 'var(--milestone-mid-bg)', fg: 'var(--milestone-mid-fg)' }
-  return { bg: 'var(--milestone-far-bg)', fg: 'var(--milestone-far-fg)' }
 }
 
 export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
@@ -261,9 +245,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
               weekly={data.weekly}
               recentHref={highlightsHref}
             />
-            <SectionCard variant="standalone" pad="none">
-              <MilestoneChaser chasers={data.milestoneChasers} playerId={user?.player_id ?? null} />
-            </SectionCard>
+            {/* 마일스톤 체이서는 2026-11-02 운영진 결정으로 뺐다(R6) */}
           </div>
         )}
       </div>
@@ -563,7 +545,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
         <div className="flex-1 min-w-0">
           <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
           <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-            우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>내 선수 카드·출석률</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>마일스톤·베스트샷</b>을 확인하세요.
+            우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>내 선수 카드·출석률</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>베스트샷</b>을 확인하세요.
             <br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
           </p>
           <button
@@ -617,76 +599,6 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
   )
   if (!available || !href) return content
   return <Link href={href} className="mm-press block cursor-pointer transition-colors [&>div]:transition-colors hover:[&>div]:!bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]">{content}</Link>
-}
-
-function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: number | string | null }) {
-  const shown = chasers.slice(0, 5)
-
-  // 마일스톤 달성 축하 — 폭죽 컴포넌트는 드래프트에만 갇혀 있었다. 개인 화면으로 확장한다.
-  //
-  // 달성을 어떻게 아는가: 서버가 '방금 넘었다'를 알려주지 않는다. 대신 지표별 다음 목표치
-  //   (nextThreshold)를 저장해 뒀다가, 이번에 그 값이 **올라가 있으면** 이전 목표를 넘은 것이다.
-  //   ⚠ 첫 방문(저장값 없음)에는 절대 터뜨리지 않는다 — 모두가 첫 로그인에 폭죽을 보게 된다.
-  //     조용히 저장만 하고 넘어간다.
-  //   ⚠ 키에 playerId 를 넣는다. 가족이 한 기기를 쓰면 남의 달성으로 내 폭죽이 터진다.
-  const [celebrate, setCelebrate] = useState<number | null>(null)
-  useEffect(() => {
-    if (!playerId || shown.length === 0) return
-    const key = `mm_milestone_seen_${playerId}`
-    const snapshot: Record<string, number> = {}
-    for (const c of shown) snapshot[c.metric] = c.nextThreshold
-
-    let prev: Record<string, number> | null = null
-    try {
-      const raw = localStorage.getItem(key)
-      if (raw) prev = JSON.parse(raw) as Record<string, number>
-    } catch { /* 저장소가 막혀 있으면(시크릿 모드 등) 축하만 생략한다 */ }
-
-    if (prev && shown.some(c => typeof prev[c.metric] === 'number' && c.nextThreshold > prev[c.metric])) {
-      setCelebrate(Date.now())
-    }
-    try { localStorage.setItem(key, JSON.stringify(snapshot)) } catch { /* 무시 */ }
-    // shown 은 매 렌더 새 배열이라 의존성에 넣으면 매번 재실행된다. 값이 바뀌는 신호는
-    // playerId 와 목표치 조합뿐이므로 그것만 본다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerId, shown.map(c => `${c.metric}:${c.nextThreshold}`).join(',')])
-  return (
-    <div className="p-4 md:p-5">
-      {/* 폭죽은 화면 전체를 덮는 캔버스라 레이아웃에 영향을 주지 않는다. trigger 가 null 이면 비활성 */}
-      <Confetti trigger={celebrate} />
-      <CardTitle icon={Trophy} title="마일스톤 체이서" sub="가까운 것부터" />
-      {shown.length === 0 ? (
-        <EmptyState variant="compact" icon={Trophy} title="아직 통계 데이터가 부족해요" />
-      ) : (
-        // PC 두 칸 — 오른쪽 칼럼 전폭이면 지표명과 「현재 / 목표」가 양 끝으로 벌어졌다
-        <div className="space-y-2.5 md:space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-3">
-          {shown.map((c, idx) => {
-            const prox = proximityStyle(c.progressPct)
-            return (
-              <div key={c.metric}>
-                <div className="flex items-center justify-between text-xs md:text-sm mb-1">
-                  <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: 'var(--mm-ink)' }}>
-                    <span aria-hidden className="inline-block w-2 h-2 shrink-0" style={{ borderRadius: 'var(--mm-radius-chip)', background: METRIC_DOT[c.metric] }} />
-                    <b>{c.metricLabel}</b>
-                    <span style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
-                  </span>
-                  <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                    {/* 누적 기록만 카운트업한다 — 목표치(nextThreshold)와 남은 수(-remaining)는
-                        고정된 기준값이라 같이 움직이면 무엇이 오르는 중인지 흐려진다. */}
-                    <b><CountUp value={c.current} delay={idx * 60} /></b> / {c.nextThreshold}
-                    <span className="ml-1.5 text-xs font-black px-1.5 py-0.5" style={{ background: prox.bg, color: prox.fg, borderRadius: 'var(--mm-radius-chip)' }}>
-                      -{c.remaining}
-                    </span>
-                  </span>
-                </div>
-                <GrowBar pct={c.progressPct} color={prox.fg} delay={idx * 60} />
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function formatDate(iso?: string): string {
