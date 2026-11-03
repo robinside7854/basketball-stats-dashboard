@@ -136,7 +136,7 @@ export default function VideoColumn({
                   {label}
                 </button>
               ))}
-              <span className="text-xs text-[color:var(--mm-muted)] ml-1 hidden lg:inline">Space·←·→</span>
+              <span className="text-xs text-[color:var(--mm-muted)] ml-1 hidden lg:inline">Space·←·→·[ ]</span>
             </div>
           )}
           {/* 재생 속도 — 영상 우하단 (2026-11-03). 10분 경기를 8분에 기록하고 있어

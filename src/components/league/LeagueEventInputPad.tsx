@@ -97,6 +97,19 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
 ]
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
+
+// ── PC 단축키 (2026-11-03) — 숙련 기록원이 영상에서 눈을 떼지 않게 ─────────
+//   선수: 왼쪽 팀 1~5 · 오른쪽 팀 6~9,0 (코트 격자 순서). 피커(어시스트·리바운드·턴오버)에서도 같은 번호.
+//   슛 종류: Q 3점 · W 미들 · E 레이업 · R 골밑 → 그 뒤 A 성공 / S 실패(기존).
+//   그 외: D 수비 리바 · C 공격 리바 · F 스틸 · G 턴오버 · B 블록 · V 앤드원.
+//   힌트 글자는 PC(lg↑)에서만 보인다. 입력칸에 커서가 있으면 무시.
+const SHOT_HOTKEYS: Record<string, string> = { shot_3p: 'Q', shot_2p_mid: 'W', shot_layup: 'E', shot_post: 'R' }
+const EVENT_HOTKEYS: Record<string, string> = { dreb: 'D', oreb: 'C', steal: 'F', turnover: 'G', block: 'B', and_one: 'V' }
+const HOME_KEYS = ['1', '2', '3', '4', '5']
+const AWAY_KEYS = ['6', '7', '8', '9', '0']
+function playerHotkey(side: 'home' | 'away', index: number): string | null {
+  return (side === 'home' ? HOME_KEYS : AWAY_KEYS)[index] ?? null
+}
 const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 
 type LastEventDetails = {
@@ -128,7 +141,6 @@ export default function LeagueEventInputPad({
   const [lastEvent, setLastEvent] = useState<LastEventDetails | null>(null)
   const [showLastMenu, setShowLastMenu] = useState(false)
   const [addingAssistForLast, setAddingAssistForLast] = useState(false)
-  const [assistCountdown, setAssistCountdown] = useState(0)
   const [awaitingRebound, setAwaitingRebound] = useState(false)
   const [reboundShooterTeamId, setReboundShooterTeamId] = useState<string | null>(null)
   const [lastReboundId, setLastReboundId] = useState<string | null>(null) // 슛 직후 저장된 리바운드 ID
@@ -161,17 +173,11 @@ export default function LeagueEventInputPad({
     ? activePlusOneIds.includes(selectedPlayer ?? '')
     : !!(selectedObj as LeaguePlayer | null)?.plus_one
 
-  // 후보 순서는 명단(이름순) 그대로 — 기록원이 같은 선수를 코트 버튼과 같은 자리에서 찾게 한다.
-  const assistCandidates = allPlayers
-    .filter(p => p.id !== selectedPlayer && selectedTeamId && p.team_id === selectedTeamId)
   // 어시스트 추가 모드일 때는 마지막 이벤트 선수의 팀 동료
   const assistForLastCandidates = addingAssistForLast && lastEvent
     ? allPlayers.filter(p => p.id !== lastEvent.playerId && allPlayers.find(a => a.id === lastEvent.playerId)?.team_id && p.team_id === allPlayers.find(a => a.id === lastEvent.playerId)?.team_id)
     : []
 
-  // 항상 최신 상태를 참조하는 ref (어시스트 타임아웃용)
-  const liveRef = useRef({ selectedPlayer, pendingShot, pendingResult, isPlusOne, selectedTeamId })
-  liveRef.current = { selectedPlayer, pendingShot, pendingResult, isPlusOne, selectedTeamId }
 
   function selectPlayer(id: string) {
     setSelectedPlayer(id)
@@ -261,51 +267,9 @@ export default function LeagueEventInputPad({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingShot, awaitingRebound, awaitingAssist, awaitingTovPair, addingAssistForLast])
 
-  // ── 어시스트 2초 자동 타임아웃 ──────────────────────────────
-  useEffect(() => {
-    if (!awaitingAssist) { setAssistCountdown(0); return }
-    setAssistCountdown(3)
-    const tick = setInterval(() => setAssistCountdown(n => Math.max(0, n - 1)), 1000)
-    const timer = setTimeout(() => {
-      clearInterval(tick)
-      const { selectedPlayer: pid, pendingShot: shot, pendingResult: res, selectedTeamId: tid } = liveRef.current
-      if (!pid || !shot || !res) return
-      const tempId = `opt-${crypto.randomUUID()}`
-      const pName = allPlayers.find(p => p.id === pid)?.name ?? ''
-      const lbl = `${pName} — ${shot.label} ✓ (어시스트 없음)`
-      // 즉시 UI 반영
-      setLastEvent({ id: tempId, type: shot.type, result: res, playerId: pid, label: lbl })
-      setLastReboundId(null)
-      setLastEventPending(true)
-      toast.success(`기록: ${lbl}`)
-      setAwaitingAssist(false)
-      setPendingResult(null)
-      if (!FT_TYPES.includes(shot.type) || shot.type === 'ft_2pt') setPendingShot(null)
-      // 백그라운드 저장
-      fetch(`/api/leagues/${leagueId}/events`, {
-        method: 'POST', headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null }),
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(saved => {
-          if (saved?.id) {
-            setLastEvent(prev => prev?.id === tempId ? { ...prev, id: saved.id } : prev)
-            setLastEventPending(false)
-            onEventSaved(shot.type)
-          } else {
-            toast.error('저장 실패 - 되돌립니다')
-            setLastEvent(prev => prev?.id === tempId ? null : prev)
-            setLastEventPending(false)
-          }
-        })
-        .catch(() => {
-          toast.error('저장 실패 - 되돌립니다')
-          setLastEvent(prev => prev?.id === tempId ? null : prev)
-          setLastEventPending(false)
-        })
-    }, 3000)
-    return () => { clearTimeout(timer); clearInterval(tick) }
-  }, [awaitingAssist]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ── 어시스트 자동 타임아웃은 2026-11-03 에 뺐다 ──────────────────
+  //   성공 슛의 27% 가 어시스트 없음 → 매번 3초를 기다렸다(경기당 약 35초). 이제는 피커에서
+  //   상대 선수를 누르는 것이 곧 「어시스트 없음」이다(resolveAssistWithPlayer).
 
   // ── API ──────────────────────────────────────────────────────
   async function saveEvent(body: object): Promise<string | null> {
@@ -314,18 +278,21 @@ export default function LeagueEventInputPad({
     return (await r.json()).id
   }
 
-  function saveShot(result: 'made' | 'missed', assistId?: string) {
-    if (!selectedPlayer || !pendingShot) return
+  // shotArg: 슛 종류 상자의 ✓/✗ 는 pendingShot 상태를 거치지 않고 종류를 직접 넘긴다(2026-11-03).
+  //   상태를 먼저 set 하고 바로 읽으면 옛 값이라, 인자가 정본이고 상태는 폴백이다.
+  function saveShot(result: 'made' | 'missed', assistId?: string, shotArg?: EventBtn) {
+    const shot = shotArg ?? pendingShot
+    if (!selectedPlayer || !shot) return
     const body = {
       league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
-      type: pendingShot.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
+      type: shot.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
       result, related_player_id: assistId ?? null,
     }
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const aPName = assistId ? allPlayers.find(p => p.id === assistId)?.name : null
     const mark  = result === 'made' ? ' ✓' : ' ✗'
-    const lbl   = `${pName} — ${pendingShot.label}${mark}${aPName ? ` (A: ${aPName})` : ''}`
-    const shotType = pendingShot.type  // capture before potential clear
+    const lbl   = `${pName} — ${shot.label}${mark}${aPName ? ` (A: ${aPName})` : ''}`
+    const shotType = shot.type  // capture before potential clear
     const shooterTeamId = selectedTeamId
     // ── 즉시 UI 반영 (Optimistic) ──
     const tempId = `opt-${crypto.randomUUID()}`
@@ -449,20 +416,37 @@ export default function LeagueEventInputPad({
       })
   }
 
-  function handleResult(result: 'made' | 'missed') {
-    if (!pendingShot) return
-    if (result === 'missed' && SHOT_TYPES.includes(pendingShot.type)) {
+  function handleResult(result: 'made' | 'missed', shotArg?: EventBtn) {
+    const shot = shotArg ?? pendingShot
+    if (!shot) return
+    if (result === 'missed' && SHOT_TYPES.includes(shot.type)) {
       // 필드골 실패 → saveShot 내부에서 리바운드 피커 자동 활성 (LAST_FT 로직과 별개)
       // 여기선 명시적으로 리바운드 대기 세팅 (필드골은 saveShot 의 LAST_FT 체크에 걸리지 않음)
       const shooterTeamId = selectedTeamId
-      saveShot('missed')  // Optimistic · 즉시 반환
+      saveShot('missed', undefined, shot)  // Optimistic · 즉시 반환
       setReboundShooterTeamId(shooterTeamId)
       setAwaitingRebound(true)
-    } else if (result === 'missed' || !pendingShot.needsRelated) {
-      saveShot(result)
+    } else if (result === 'missed' || !shot.needsRelated) {
+      saveShot(result, undefined, shot)
     } else {
+      // 어시스트 피커로 — 피커는 pendingShot 상태를 읽으므로 여기서 맞춰 둔다
+      setPendingShot(shot)
       setPendingResult('made')
       setAwaitingAssist(true)
+    }
+  }
+
+  // ── 어시스트 피커에서 「다음 터치가 곧 답」 (2026-11-03, 3초 대기 폐지) ──
+  //   같은 팀 선수 = 어시스트. 상대 팀 선수 = 어시스트 없이 저장하고 그 선수를 바로 선택해
+  //   다음 기록의 첫 터치로 쓴다. 득점 직후 다음 장면은 항상 상대 공격이라 다른 뜻으로 읽힐 수 없다.
+  function resolveAssistWithPlayer(pid: string) {
+    const p = allPlayers.find(x => x.id === pid)
+    setAwaitingAssist(false)
+    if (p && p.team_id === selectedTeamId && pid !== selectedPlayer) {
+      saveShot(pendingResult ?? 'made', pid)
+    } else {
+      saveShot(pendingResult ?? 'made')
+      selectPlayer(pid)
     }
   }
 
@@ -550,8 +534,50 @@ export default function LeagueEventInputPad({
 
   const canAddAssist = lastEvent && SHOT_TYPES.includes(lastEvent.type) && lastEvent.result === 'made'
 
+  // ── PC 단축키 — 최신 상태를 ref 로 보고 한 번만 리스너를 건다 ───────────
+  const keyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  keyRef.current = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement | null
+    const tag = t?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+    const k = e.key
+    // 선수 번호
+    const hi = HOME_KEYS.indexOf(k), ai = AWAY_KEYS.indexOf(k)
+    if (hi >= 0 || ai >= 0) {
+      const p = hi >= 0 ? homeDisplay[hi] : awayDisplay[ai]
+      if (!p) return
+      e.preventDefault()
+      if (awaitingRebound) doRebound(p.id)
+      else if (awaitingAssist) resolveAssistWithPlayer(p.id)
+      else if (awaitingTovPair) { if (p.team_id !== stealerTeamId) handleTovPair(p.id) }
+      else if (addingAssistForLast) { if (assistForLastCandidates.some(c => c.id === p.id)) finishAssistForLast(p.id) }
+      else selectPlayer(p.id)
+      return
+    }
+    // 종류 — 선수가 있고 다른 단계 대기 중이 아닐 때만
+    if (!selectedPlayer || awaitingRebound || awaitingAssist || awaitingTovPair || addingAssistForLast) return
+    const up = k.length === 1 ? k.toUpperCase() : k
+    const shotType = Object.keys(SHOT_HOTKEYS).find(tp => SHOT_HOTKEYS[tp] === up)
+    if (shotType && !pendingShot) {
+      const btn = EVENT_GROUPS.flatMap(g => g.buttons).find(b => b.type === shotType)
+      if (btn) { e.preventDefault(); handleShotClick(btn) }
+      return
+    }
+    const evType = Object.keys(EVENT_HOTKEYS).find(tp => EVENT_HOTKEYS[tp] === up)
+    if (evType && !pendingShot) {
+      const btn = EVENT_GROUPS.flatMap(g => g.buttons).find(b => b.type === evType)
+      if (btn) { e.preventDefault(); saveInstant(btn) }
+    }
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyRef.current(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // ── 선수 카드 렌더 ────────────────────────────────────────────
-  function renderPlayerBtn(p: RosterPlayer, teamColor: string) {
+  function renderPlayerBtn(p: RosterPlayer, teamColor: string, hotkey: string | null = null) {
     const isSelected = selectedPlayer === p.id
     const hasPossession = possessionPlayerId === p.id
     const fouls = foulCounts?.[p.id] ?? 0
@@ -578,8 +604,10 @@ export default function LeagueEventInputPad({
           style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
           {hasPossession ? `▶ ${p.name}` : p.name}
         </div>
-        {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) && (
+        {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? (
           <span className="absolute top-1 right-1 text-xs font-black text-amber-300 leading-none">+1</span>
+        ) : hotkey && (
+          <kbd className="absolute top-1 right-1 hidden lg:inline text-[10px] font-mono leading-none opacity-60">{hotkey}</kbd>
         )}
         {/* 개인 파울 — 0개면 안 그린다. 4개 주의 · 5개 퇴장 기준(경고) */}
         {fouls > 0 && (
@@ -726,7 +754,7 @@ export default function LeagueEventInputPad({
             <span className="text-xs font-bold" style={{ color: accentOrInk(homeTeam?.color ?? '#3b82f6') }}>코트 {homeDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
-            {homeDisplay.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
+            {homeDisplay.map((p, i) => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6', playerHotkey('home', i)))}
           </div>
           {renderOpponentRegister('home')}
         </div>
@@ -737,7 +765,7 @@ export default function LeagueEventInputPad({
             <span className="text-xs font-bold" style={{ color: accentOrInk(awayTeam?.color ?? '#ef4444') }}>코트 {awayDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
-            {awayDisplay.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
+            {awayDisplay.map((p, i) => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444', playerHotkey('away', i)))}
           </div>
           {renderOpponentRegister('away')}
         </div>
@@ -754,25 +782,30 @@ export default function LeagueEventInputPad({
           >
             <span className="inline-flex items-center gap-1.5 justify-center"><CircleDashed size={14} aria-hidden /> 아웃바운드 / 미기록</span>
           </button>
+          {/* 수비 팀(수비 리바)을 위에 크게 — 실측 수비 리바 69% : 공격 리바 31% (2026-11-03). 눈이 가는 거리를 줄인다. */}
           {[
-            { players: homeDisplay, team: homeTeam, isShooterTeam: reboundShooterTeamId === homeTeam?.id },
-            { players: awayDisplay, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
-          ].map(({ players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
-            <div key={team?.id ?? 'team'}>
+            { side: 'home' as const, players: homeDisplay, team: homeTeam, isShooterTeam: reboundShooterTeamId === homeTeam?.id },
+            { side: 'away' as const, players: awayDisplay, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
+          ].sort((a, b) => Number(a.isShooterTeam) - Number(b.isShooterTeam))
+          .map(({ side, players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
+            <div key={team?.id ?? side}>
               {/* 팀 색이 없을 때 회색 리터럴로 떨어뜨리면 라이트 모드에서 3:1 이 안 나온다 —
                   accentOrInk 는 인자가 없으면 테마 잉크로 간다. */}
               <p className="t-label mb-1.5 px-1" style={{ color: accentOrInk(team?.color) }}>
                 {team?.name ?? '팀'} — {isShooterTeam ? '공격 리바' : '수비 리바'}
               </p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {tPlayers.map(p => {
+              <div className={`grid gap-1.5 ${isShooterTeam ? 'grid-cols-5' : 'grid-cols-3'}`}>
+                {tPlayers.map((p, i) => {
                   const bg = teamInk(team?.color).bg
                   const fg = textOnBg(bg)
+                  const hk = playerHotkey(side, i)
                   return (
                     <button key={p.id} onClick={() => doRebound(p.id)}
-                      className="py-2 min-h-11 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
+                      className={`relative rounded-xl font-bold cursor-pointer active:scale-95 transition-all truncate px-1 ${
+                        isShooterTeam ? 'py-1.5 min-h-11 text-xs' : 'py-3 min-h-[52px] text-sm'}`}
                       style={{ backgroundColor: `${bg}cc`, color: fg }}>
                       {p.name}
+                      {hk && <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{hk}</kbd>}
                     </button>
                   )
                 })}
@@ -840,6 +873,34 @@ export default function LeagueEventInputPad({
                       <kbd className="absolute top-1 right-2 text-xs font-mono bg-black/25 rounded px-1">S</kbd>
                     </button>
                   </div>
+                ) : group.label === '슈팅' ? (
+                  /* 슛 종류 상자 — 종류 밑에 ✓/✗ 를 같이 둔다(2026-11-03, 운영진 결정).
+                     종전엔 종류를 누른 뒤 성공/실패를 한 번 더 눌렀다(슛마다 1터치 · 경기당 35번).
+                     기록원은 공이 들어가는 걸 보고 누르므로 결과를 이미 안다 — 한 번에 묻는다.
+                     키보드(Q/W/E/R → A/S)는 종전 경로(pendingShot 오버레이)를 그대로 쓴다. */
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {group.buttons.map(btn => (
+                      <div key={btn.type}
+                        className={`relative rounded-xl border-2 border-transparent overflow-hidden ${btn.color.split(' ')[0]}`}>
+                        <div className="pt-1.5 pb-1 px-1 text-center text-xs font-bold leading-tight break-keep text-[color:var(--mm-ink)]">
+                          {btn.label}
+                          {SHOT_HOTKEYS[btn.type] && <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{SHOT_HOTKEYS[btn.type]}</kbd>}
+                        </div>
+                        <div className="grid grid-cols-2 gap-px bg-black/20">
+                          <button onClick={() => handleResult('made', btn)}
+                            aria-label={`${btn.label} 성공`}
+                            className="min-h-[44px] bg-green-600/90 hover:bg-green-500 text-[#fff] text-lg font-black cursor-pointer active:scale-95 transition-all">
+                            O
+                          </button>
+                          <button onClick={() => handleResult('missed', btn)}
+                            aria-label={`${btn.label} 실패`}
+                            className="min-h-[44px] bg-red-700/90 hover:bg-red-600 text-[#fff] text-lg font-black cursor-pointer active:scale-95 transition-all">
+                            X
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className={`grid gap-1.5 ${
                     group.cols === 5 ? 'grid-cols-5'
@@ -854,9 +915,10 @@ export default function LeagueEventInputPad({
                           if (btn.needsResult) handleShotClick(btn)
                           else saveInstant(btn)
                         }}
-                        className={`py-3 px-1 min-h-[44px] rounded-xl text-sm font-bold leading-tight break-keep text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
+                        className={`relative py-3 px-1 min-h-[44px] rounded-xl text-sm font-bold leading-tight break-keep text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
                       >
                         {btn.label}
+                        {EVENT_HOTKEYS[btn.type] && <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{EVENT_HOTKEYS[btn.type]}</kbd>}
                       </button>
                     ))}
                   </div>
@@ -867,24 +929,45 @@ export default function LeagueEventInputPad({
         </div>
       )}
 
-      {/* ── 어시스트 선택 (+ 타임아웃 카운트다운) ── */}
+      {/* ── 어시스트 선택 — 대기 없음. 같은 팀 = 어시스트 · 상대 팀 = 없음으로 저장 + 그 선수 선택 ── */}
       {awaitingAssist && (
         <div className="pt-1 space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-[color:var(--mm-ink-soft)]">어시스트 선수</p>
-            <span className={`text-xs font-bold tabular-nums ${assistCountdown <= 1 ? 'text-red-400' : 'text-[color:var(--mm-ink-soft)]'}`}>
-              {assistCountdown}초 후 자동 없음 처리
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
+            <p className="text-xs text-[color:var(--mm-ink-soft)]">누가 어시스트? <span className="text-[color:var(--mm-muted)]">· 상대 선수를 누르면 어시스트 없이 넘어갑니다</span></p>
             <button onClick={() => { setAwaitingAssist(false); saveShot(pendingResult ?? 'made') }}
-              className="py-3 rounded-xl text-sm font-medium bg-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] cursor-pointer border-2 border-transparent">없음</button>
-            {assistCandidates.map(p => (
-              <button key={p.id} onClick={() => { setAwaitingAssist(false); saveShot(pendingResult ?? 'made', p.id) }}
-                className="py-3 rounded-xl text-sm font-bold bg-blue-800 text-blue-200 hover:bg-blue-700 cursor-pointer truncate px-1 border-2 border-transparent">
-                {p.name}
-              </button>
-            ))}
+              className="shrink-0 px-3 min-h-11 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer">없음</button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { players: homeDisplay, team: homeTeam },
+              { players: awayDisplay, team: awayTeam },
+            ].map(({ players: tPlayers, team }) => {
+              const isShooterTeam = team?.id === selectedTeamId
+              return (
+                <div key={team?.id ?? 'team'}>
+                  <p className="t-label mb-1.5 px-1" style={{ color: accentOrInk(team?.color) }}>
+                    {team?.name ?? '팀'} {isShooterTeam ? '— 어시스트' : '— 다음 공격'}
+                  </p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {tPlayers.map((p, i) => {
+                      const isShooter = p.id === selectedPlayer
+                      const base = teamInk(team?.color).bg
+                      return (
+                        <button key={p.id} onClick={() => resolveAssistWithPlayer(p.id)} disabled={isShooter}
+                          className={`relative py-2 min-h-11 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all truncate px-1 disabled:opacity-30 disabled:cursor-not-allowed ${
+                            isShooterTeam ? '' : 'opacity-70'}`}
+                          style={{ backgroundColor: `${base}cc`, color: textOnBg(base) }}>
+                          {p.name}
+                          {playerHotkey(team?.id === homeTeam?.id ? 'home' : 'away', i) && (
+                            <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{playerHotkey(team?.id === homeTeam?.id ? 'home' : 'away', i)}</kbd>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
