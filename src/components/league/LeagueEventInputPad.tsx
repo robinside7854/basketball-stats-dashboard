@@ -56,7 +56,7 @@ type EventBtn = {
 }
 
 // 순서: 슈팅 → 리바운드 → 기타 → 자유투
-const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
+const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[]; small?: boolean }[] = [
   {
     label: '슈팅', cols: 4,
     buttons: [
@@ -67,19 +67,11 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
     ],
   },
   {
-    label: '리바운드', cols: 2,
-    buttons: [
-      { type: 'oreb', label: '공격 리바', color: 'bg-green-700 hover:bg-green-600', activeColor: 'bg-green-600' },
-      { type: 'dreb', label: '수비 리바', color: 'bg-green-600 hover:bg-green-500', activeColor: 'bg-green-500' },
-    ],
-  },
-  {
     // 「파울」 버튼은 2026-11-03 운영진 결정으로 뺐다 — 2.2만 건 중 파울 기록 3건.
     //   미라클은 파울을 기록하지 않는다. 옛 foul 이벤트·개인 파울 표시(선수 버튼 F4/F5)는 그대로 둔다.
-    label: '기타', cols: 3,
+    label: '기타', cols: 2,
     buttons: [
       { type: 'steal',    label: '스틸', color: 'bg-purple-600 hover:bg-purple-500', activeColor: 'bg-purple-500' },
-      { type: 'block',    label: '블록', color: 'bg-indigo-600 hover:bg-indigo-500', activeColor: 'bg-indigo-500' },
       { type: 'turnover', label: '턴오버', color: 'bg-red-700 hover:bg-red-600',       activeColor: 'bg-red-600' },
     ],
   },
@@ -100,16 +92,27 @@ const FT_CHOICES: (EventBtn & { hint: string })[] = [
   // 정식 룰(1구 1점). 미라클 자체룰 경기와 한 화면에 공존하므로 라벨에 득점을 박아 둔다.
   { type: 'free_throw', label: '정식 자유투', hint: '1구 · 1점',   color: 'bg-teal-500 hover:bg-teal-400', activeColor: 'bg-teal-400', needsResult: true },
 ]
+// 드문 보정용 작은 줄(2026-11-03, 운영진 「불필요한 버튼」 검토). 실측: 리바운드 6,399건 중 96.5% 가 실패 슛 피커에서,
+//   블록 352건 중 89% 가 실패 슛 짝에서 찍힌다 — 직접 누르는 건 경기당 각각 0.7건·0.1건.
+//   「리바운드」는 공격/수비를 묻지 않는다: 직전 실패 슛 팀(lastMissTeamId)으로 자동 판정, 없을 때만 묻는다.
+const EXTRA_GROUP: { label: string; cols: number; buttons: EventBtn[]; small: true } = {
+  label: '그 외 (드문 보정)', cols: 2, small: true,
+  buttons: [
+    { type: 'reb_auto', label: '리바운드', color: 'bg-green-700/70 hover:bg-green-600', activeColor: 'bg-green-600' },
+    { type: 'block',    label: '블록',     color: 'bg-indigo-600/70 hover:bg-indigo-500', activeColor: 'bg-indigo-500' },
+  ],
+}
+EVENT_GROUPS.push(EXTRA_GROUP)
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 
 // ── PC 단축키 (2026-11-03) — 숙련 기록원이 영상에서 눈을 떼지 않게 ─────────
 //   선수: 왼쪽 팀 1~5 · 오른쪽 팀 6~9,0 (코트 격자 순서). 피커(어시스트·리바운드·턴오버)에서도 같은 번호.
 //   슛 종류: Q 3점 · W 미들 · E 레이업 · R 골밑 → 그 뒤 A 성공 / S 실패(기존).
-//   그 외: D 수비 리바 · C 공격 리바 · F 스틸 · G 턴오버 · B 블록 · T 자유투(종류 고르기).
+//   그 외: D 리바운드(공격/수비 자동) · F 스틸 · G 턴오버 · B 블록 · T 자유투(종류 고르기).
 //   힌트 글자는 PC(lg↑)에서만 보인다. 입력칸에 커서가 있으면 무시.
 const SHOT_HOTKEYS: Record<string, string> = { shot_3p: 'Q', shot_2p_mid: 'W', shot_layup: 'E', shot_post: 'R' }
-const EVENT_HOTKEYS: Record<string, string> = { dreb: 'D', oreb: 'C', steal: 'F', turnover: 'G', block: 'B', ft_menu: 'T' }
+const EVENT_HOTKEYS: Record<string, string> = { reb_auto: 'D', steal: 'F', turnover: 'G', block: 'B', ft_menu: 'T' }
 const HOME_KEYS = ['1', '2', '3', '4', '5']
 const AWAY_KEYS = ['6', '7', '8', '9', '0']
 /** 단축키 배지 — 검은 바탕에 흰 글자로 PC(lg↑)에서만. 종전 흐린 모노 글자는 눈에 안 띄었다(운영진 2026-11-03). */
@@ -161,6 +164,8 @@ export default function LeagueEventInputPad({
   const [addingAssistForLast, setAddingAssistForLast] = useState(false)
   const [awaitingRebound, setAwaitingRebound] = useState(false)
   const [ftChooser, setFtChooser] = useState(false)   // 「자유투」 눌러 종류 고르는 중
+  const [lastMissTeamId, setLastMissTeamId] = useState<string | null>(null) // 직전 실패 슛의 팀 — 단독 「리바운드」 공격/수비 판정용
+  const [rebChooser, setRebChooser] = useState(false) // 직전 실패 슛이 없어 공격/수비를 묻는 중
   // 블록 짝(2026-11-03): 야투 실패 뒤 리바운드 피커에 수비 팀 「블록」 칩을 보인다. 실측 블록 352건 중 89% 가
   //   6초 안 상대 실패 슛과 같이 있었다 — 한 장면을 두 번(7터치) 찍던 것을 4터치로. 블록 시각 = 슛 시각, related = 슈터.
   const [blockCtx, setBlockCtx] = useState<{ shooterId: string; ts: number } | null>(null)
@@ -210,6 +215,7 @@ export default function LeagueEventInputPad({
 
   function selectPlayer(id: string) {
     setFtChooser(false)
+    setRebChooser(false)
     setSelectedPlayer(id)
     setPossessionPlayerId(null)
     setPendingShot(null)
@@ -326,6 +332,7 @@ export default function LeagueEventInputPad({
     const lbl   = `${pName} — ${shot.label}${mark}${aPName ? ` (A: ${aPName})` : ''}`
     const shotType = shot.type  // capture before potential clear
     const shooterTeamId = selectedTeamId
+    if (result === 'missed') setLastMissTeamId(shooterTeamId)
     // ── 즉시 UI 반영 (Optimistic) ──
     const tempId = `opt-${crypto.randomUUID()}`
     setLastEvent({ id: tempId, type: shotType, result, playerId: selectedPlayer, label: lbl })
@@ -403,6 +410,13 @@ export default function LeagueEventInputPad({
   function saveInstant(btn: EventBtn) {
     if (!selectedPlayer) return
     if (btn.type === 'ft_menu') { setFtChooser(v => !v); return }
+    if (btn.type === 'reb_auto') {
+      if (!lastMissTeamId) { setRebChooser(v => !v); return }
+      const rebType = selectedTeamId === lastMissTeamId ? 'oreb' : 'dreb'
+      saveInstant({ type: rebType, label: rebType === 'oreb' ? '공격 리바' : '수비 리바', color: '', activeColor: '' })
+      return
+    }
+    setRebChooser(false)
     const isAndOne = btn.type === 'and_one'
     const body = {
       league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
@@ -953,6 +967,10 @@ export default function LeagueEventInputPad({
               <div key={group.label}>
                 <div className="flex items-center justify-between mb-0.5">
                   <p className="text-xs font-semibold text-[color:var(--mm-ink-soft)]">{group.label}</p>
+                  {group.small && rebChooser && (
+                    <button onClick={() => setRebChooser(false)}
+                      className="text-xs text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer min-h-11 px-2 inline-flex items-center">취소</button>
+                  )}
                   {group.label === '자유투' && ftChooser && !groupHasPending && (
                     <button onClick={() => setFtChooser(false)}
                       className="text-xs text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer min-h-11 px-2 inline-flex items-center">취소</button>
@@ -977,6 +995,15 @@ export default function LeagueEventInputPad({
                       ✗ 실패
                       <kbd className="absolute top-1 right-2 text-xs font-mono bg-black/25 rounded px-1">S</kbd>
                     </button>
+                  </div>
+                ) : group.small && rebChooser ? (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(['oreb', 'dreb'] as const).map(t => (
+                      <button key={t} onClick={() => { setRebChooser(false); saveInstant({ type: t, label: t === 'oreb' ? '공격 리바' : '수비 리바', color: '', activeColor: '' }) }}
+                        className="py-2 min-h-[44px] rounded-xl text-sm font-bold text-[#fff] bg-green-700 hover:bg-green-600 cursor-pointer active:scale-95 transition-all">
+                        {t === 'oreb' ? '공격 리바' : '수비 리바'}
+                      </button>
+                    ))}
                   </div>
                 ) : group.label === '자유투' && ftChooser ? (
                   <div className="grid grid-cols-4 gap-1.5">
@@ -1032,7 +1059,8 @@ export default function LeagueEventInputPad({
                           if (btn.needsResult) handleShotClick(btn)
                           else saveInstant(btn)
                         }}
-                        className={`relative py-3 px-1 min-h-[44px] rounded-xl text-sm font-bold leading-tight break-keep text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
+                        className={`relative px-1 rounded-xl font-bold leading-tight break-keep text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent ${
+                          group.small ? 'py-1.5 min-h-[36px] text-xs opacity-90' : 'py-3 min-h-[44px] text-sm'}`}
                       >
                         {btn.label}
                         {EVENT_HOTKEYS[btn.type] && <Kbd k={EVENT_HOTKEYS[btn.type]} />}
