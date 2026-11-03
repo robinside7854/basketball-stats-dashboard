@@ -30,6 +30,7 @@ import { usePrepActions } from './_hooks/usePrepActions'
 import { useVideoActions } from './_hooks/useVideoActions'
 import { useGameSession } from './_hooks/useGameSession'
 import { useStarterActions } from './_hooks/useStarterActions'
+import { useAutoPrevStarters } from './_hooks/useAutoPrevStarters'
 import RecordLanding from './_components/RecordLanding'
 import DateHeader from './_components/DateHeader'
 import SlotGrid from './_components/SlotGrid'
@@ -211,6 +212,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   })
   const { toggleStarter, selectAllTeam, prevStarterSources, applyPrevStarters, handleDrop } = useStarterActions({
     ...st, leagueId, selectedSlot, addIrregularToTeam,
+  })
+  useAutoPrevStarters({
+    selectedSlot, gameStarted: st.gameStarted,
+    rosterReady: st.homeRoster.length > 0 || st.awayRoster.length > 0,
+    hasSources: prevStarterSources.length > 0, applyPrevStarters,
   })
 
   // 이미 홈/어웨이 명단에 들어있는지 체크

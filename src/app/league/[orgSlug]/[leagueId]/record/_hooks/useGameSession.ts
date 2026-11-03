@@ -191,10 +191,14 @@ export function useGameSession(ctx: UseGameSessionCtx) {
       const next = cur
         ? [...slots].filter(s => s.slot_num > cur.slot_num && !s.is_complete).sort((a, b) => a.slot_num - b.slot_num)[0]
         : undefined
-      toast.success('경기 완료 처리됨', next ? {
-        duration: 10000,
-        action: { label: `${next.slot_num}경기 기록하기 →`, onClick: () => { selectSlot(next) } },
-      } : undefined)
+      // 2026-11-03(운영진): 토스트 버튼을 누르지 않아도 다음 경기를 바로 연다. 선발은 앞 경기 선발로
+      //   **체크만** 된다(useAutoPrevStarters) — 시작은 기록원이 확인하고 누른다.
+      if (next) {
+        toast.success(`경기 완료 · ${next.slot_num}경기를 열었어요`, { description: '선발을 확인하고 시작하세요' })
+        selectSlot(next)
+      } else {
+        toast.success('경기 완료 처리됨 · 이날 마지막 경기예요')
+      }
       refreshSlots()
     } catch (e) {
       toast.error(`마감 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })

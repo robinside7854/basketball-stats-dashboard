@@ -63,7 +63,9 @@ export function useStarterActions(ctx: UseStarterActionsCtx) {
     return out
   })()
 
-  async function applyPrevStarters() {
+  // auto: 다음 경기로 넘어올 때 자동으로 부른다(2026-11-03, 운영진 — 체크만 해 두고 기록원이 1~2명 바꾼다).
+  //   자동일 때는 못 찾아도 조용히 넘어가고(정규 전원 기본 체크가 남는다), 바뀐 슬롯이면 덮지 않는다.
+  async function applyPrevStarters(opts?: { auto?: boolean; slotId?: string; isCurrent?: (id: string) => boolean }) {
     if (prevStarterSources.length === 0) return
     setApplyingPrevStarters(true)
     try {
@@ -82,8 +84,9 @@ export function useStarterActions(ctx: UseStarterActionsCtx) {
         picks.push({ rosterIds: roster.map(p => p.id), pick })
         filled.push(`${teamName} ${pick.length}명 (${src.slot_num}경기 선발)`)
       }
+      if (opts?.slotId && opts.isCurrent && !opts.isCurrent(opts.slotId)) return
       if (picks.length === 0) {
-        toast.info('앞 경기의 선발 기록을 찾지 못했습니다', { description: '직접 체크해 주세요' })
+        if (!opts?.auto) toast.info('앞 경기의 선발 기록을 찾지 못했습니다', { description: '직접 체크해 주세요' })
         return
       }
       setSelectedStarters(prev => {
@@ -94,7 +97,7 @@ export function useStarterActions(ctx: UseStarterActionsCtx) {
         }
         return next
       })
-      toast.success('지난 경기와 같은 선발로 체크했습니다', { description: filled.join(' · ') })
+      toast.success(opts?.auto ? '앞 경기 선발로 미리 체크했어요 — 바뀐 사람만 고치세요' : '지난 경기와 같은 선발로 체크했습니다', { description: filled.join(' · ') })
     } finally {
       setApplyingPrevStarters(false)
     }
