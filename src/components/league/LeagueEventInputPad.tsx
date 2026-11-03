@@ -55,15 +55,21 @@ type EventBtn = {
   needsRelated?: boolean
 }
 
-// 순서: 슈팅 → 리바운드 → 기타 → 자유투
+// 버튼 색은 하나(2026-11-03, 운영진). 색은 뜻이 있는 곳에만 쓴다 — O 초록 · X 빨강 · 선수의 팀 색.
+//   종전엔 종류마다 원색 8가지였는데 색으로 알 수 있는 게 없었고, 턴오버 빨강이 X 와 같아 「실패」로 읽혔다.
+//   묶음 구분은 간격과 작은 제목이 맡는다.
+const NEUTRAL_BTN = 'bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] border border-[color:var(--mm-rule)]'
+const NEUTRAL_ACTIVE = 'bg-[color:var(--mm-rule)]'
+
+// 순서: 슈팅 → 기타 → 자유투 → 그 외(드문 보정)
 const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[]; small?: boolean }[] = [
   {
     label: '슈팅', cols: 4,
     buttons: [
-      { type: 'shot_3p',       label: '3점슛',  color: 'bg-yellow-600 hover:bg-yellow-500', activeColor: 'bg-yellow-500', needsResult: true, needsRelated: true },
-      { type: 'shot_2p_mid',   label: '미들슛',  color: 'bg-blue-600 hover:bg-blue-500',    activeColor: 'bg-blue-500',   needsResult: true, needsRelated: true },
-      { type: 'shot_layup',    label: '레이업',  color: 'bg-blue-700 hover:bg-blue-600',    activeColor: 'bg-blue-600',   needsResult: true, needsRelated: true },
-      { type: 'shot_post',     label: '골밑슛',  color: 'bg-violet-700 hover:bg-violet-600', activeColor: 'bg-violet-600', needsResult: true, needsRelated: true },
+      { type: 'shot_3p',       label: '3점슛',  color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true, needsRelated: true },
+      { type: 'shot_2p_mid',   label: '미들슛',  color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE,   needsResult: true, needsRelated: true },
+      { type: 'shot_layup',    label: '레이업',  color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE,   needsResult: true, needsRelated: true },
+      { type: 'shot_post',     label: '골밑슛',  color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true, needsRelated: true },
     ],
   },
   {
@@ -71,8 +77,8 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[]; small?: 
     //   미라클은 파울을 기록하지 않는다. 옛 foul 이벤트·개인 파울 표시(선수 버튼 F4/F5)는 그대로 둔다.
     label: '기타', cols: 2,
     buttons: [
-      { type: 'steal',    label: '스틸', color: 'bg-purple-600 hover:bg-purple-500', activeColor: 'bg-purple-500' },
-      { type: 'turnover', label: '턴오버', color: 'bg-red-700 hover:bg-red-600',       activeColor: 'bg-red-600' },
+      { type: 'steal',    label: '스틸', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE },
+      { type: 'turnover', label: '턴오버', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE },
     ],
   },
   {
@@ -80,17 +86,17 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[]; small?: 
     //   4종이 나란히 있으면 미라클 자체 룰(1구 2점)을 모르는 새 기록원이 고를 수 없었다.
     label: '자유투', cols: 1,
     buttons: [
-      { type: 'ft_menu', label: '자유투', color: 'bg-teal-600 hover:bg-teal-500', activeColor: 'bg-teal-500' },
+      { type: 'ft_menu', label: '자유투', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE },
     ],
   },
 ]
 // 「자유투」를 누르면 보이는 종류. 실측(2.2만 건): 2점 파울 470 · 앤드원 117 · 3점 파울 21 · 정식 1점 1.
 const FT_CHOICES: (EventBtn & { hint: string })[] = [
-  { type: 'ft_2pt',     label: '2점슛 파울', hint: '1구 · 2점',   color: 'bg-teal-600 hover:bg-teal-500', activeColor: 'bg-teal-500', needsResult: true },
-  { type: 'ft_3pt_1',   label: '3점슛 파울', hint: '2구 · 2+1점', color: 'bg-teal-700 hover:bg-teal-600', activeColor: 'bg-teal-600', needsResult: true },
-  { type: 'and_one',    label: '앤드원',     hint: '1점 · 바로 저장', color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500' },
+  { type: 'ft_2pt',     label: '2점슛 파울', hint: '1구 · 2점',   color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true },
+  { type: 'ft_3pt_1',   label: '3점슛 파울', hint: '2구 · 2+1점', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true },
+  { type: 'and_one',    label: '앤드원',     hint: '1점 · 바로 저장', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE },
   // 정식 룰(1구 1점). 미라클 자체룰 경기와 한 화면에 공존하므로 라벨에 득점을 박아 둔다.
-  { type: 'free_throw', label: '정식 자유투', hint: '1구 · 1점',   color: 'bg-teal-500 hover:bg-teal-400', activeColor: 'bg-teal-400', needsResult: true },
+  { type: 'free_throw', label: '정식 자유투', hint: '1구 · 1점',   color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true },
 ]
 // 드문 보정용 작은 줄(2026-11-03, 운영진 「불필요한 버튼」 검토). 실측: 리바운드 6,399건 중 96.5% 가 실패 슛 피커에서,
 //   블록 352건 중 89% 가 실패 슛 짝에서 찍힌다 — 직접 누르는 건 경기당 각각 0.7건·0.1건.
@@ -98,8 +104,8 @@ const FT_CHOICES: (EventBtn & { hint: string })[] = [
 const EXTRA_GROUP: { label: string; cols: number; buttons: EventBtn[]; small: true } = {
   label: '그 외 (드문 보정)', cols: 2, small: true,
   buttons: [
-    { type: 'reb_auto', label: '리바운드', color: 'bg-green-700/70 hover:bg-green-600', activeColor: 'bg-green-600' },
-    { type: 'block',    label: '블록',     color: 'bg-indigo-600/70 hover:bg-indigo-500', activeColor: 'bg-indigo-500' },
+    { type: 'reb_auto', label: '리바운드', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE },
+    { type: 'block',    label: '블록',     color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE },
   ],
 }
 EVENT_GROUPS.push(EXTRA_GROUP)
@@ -344,7 +350,7 @@ export default function LeagueEventInputPad({
     setPendingResult(null)
     if (shotType === 'ft_3pt_1') {
       // 2구 자동 진입
-      setPendingShot({ type: 'ft_3pt_2', label: '3점슛 파울 2구째', color: 'bg-teal-800 hover:bg-teal-700', activeColor: 'bg-teal-700', needsResult: true })
+      setPendingShot({ type: 'ft_3pt_2', label: '3점슛 파울 2구째', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true })
       setPendingResult(null)
     } else if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt' || shotType === 'ft_3pt_2') {
       setPendingShot(null)
@@ -736,7 +742,7 @@ export default function LeagueEventInputPad({
             onClick={() => registerOpponent(side)}
             disabled={draft.busy || draft.number.trim() === ''}
             aria-label={`${team.name} 상대 선수 등록`}
-            className="flex-1 min-h-11 rounded-lg text-xs font-bold text-blue-100 bg-blue-700 hover:bg-blue-600 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 inline-flex items-center justify-center gap-1"
+            className="flex-1 min-h-11 rounded-lg text-xs font-bold text-[color:var(--mm-ink)] bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] border border-[color:var(--mm-rule)] cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 inline-flex items-center justify-center gap-1"
           >
             <UserPlus size={14} aria-hidden />
             {draft.busy ? '등록 중' : '상대 등록'}
@@ -868,7 +874,7 @@ export default function LeagueEventInputPad({
             if (defenders.length === 0) return null
             const blocker = blockedById ? allPlayers.find(p => p.id === blockedById) : null
             return (
-              <div className={`rounded-xl px-2 py-1.5 ${blockKeyMode ? 'ring-2 ring-indigo-400' : ''}`} style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+              <div className={`rounded-xl px-2 py-1.5 ${blockKeyMode ? 'ring-2 ring-[color:var(--mm-yellow)]' : ''}`} style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-semibold text-[color:var(--mm-ink-soft)]">
                     블록이 있었나요? <span className="font-normal text-[color:var(--mm-muted)]">· 없으면 아래에서 리바운드만</span>
@@ -876,12 +882,12 @@ export default function LeagueEventInputPad({
                   <span className="hidden lg:inline text-[11px] text-[color:var(--mm-muted)]">B 누른 뒤 번호</span>
                 </div>
                 {blocker ? (
-                  <p className="text-sm font-bold text-indigo-300 px-1">🛡 {blocker.name} 블록 기록됨</p>
+                  <p className="text-sm font-bold text-[color:var(--mm-ink)] px-1">🛡 {blocker.name} 블록 기록됨</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {defenders.map(p => (
                       <button key={p.id} onClick={() => doBlock(p.id)}
-                        className="px-2.5 min-h-9 rounded-lg text-xs font-bold cursor-pointer active:scale-95 transition-all bg-indigo-600 hover:bg-indigo-500 text-[#fff]">
+                        className="px-2.5 min-h-9 rounded-lg text-xs font-bold cursor-pointer active:scale-95 transition-all bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)]">
                         {p.name} <span className="opacity-80">· {defTeam?.name ?? ''}</span>
                       </button>
                     ))}
@@ -1000,7 +1006,7 @@ export default function LeagueEventInputPad({
                   <div className="grid grid-cols-2 gap-1.5">
                     {(['oreb', 'dreb'] as const).map(t => (
                       <button key={t} onClick={() => { setRebChooser(false); saveInstant({ type: t, label: t === 'oreb' ? '공격 리바' : '수비 리바', color: '', activeColor: '' }) }}
-                        className="py-2 min-h-[44px] rounded-xl text-sm font-bold text-[#fff] bg-green-700 hover:bg-green-600 cursor-pointer active:scale-95 transition-all">
+                        className="py-2 min-h-[44px] rounded-xl text-sm font-bold text-[color:var(--mm-ink)] bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] border border-[color:var(--mm-rule)] cursor-pointer active:scale-95 transition-all">
                         {t === 'oreb' ? '공격 리바' : '수비 리바'}
                       </button>
                     ))}
@@ -1010,7 +1016,7 @@ export default function LeagueEventInputPad({
                     {FT_CHOICES.map(c => (
                       <button key={c.type}
                         onClick={() => { setFtChooser(false); if (c.needsResult) handleShotClick(c); else saveInstant(c) }}
-                        className={`py-2 px-1 min-h-[52px] rounded-xl text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 border-transparent ${c.color}`}>
+                        className={`py-2 px-1 min-h-[52px] rounded-xl text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer ${c.color}`}>
                         <div className="text-sm font-bold leading-tight break-keep">{c.label}</div>
                         <div className="text-[11px] opacity-85 leading-tight mt-0.5">{c.hint}</div>
                       </button>
@@ -1024,7 +1030,7 @@ export default function LeagueEventInputPad({
                   <div className="grid grid-cols-4 gap-1.5">
                     {group.buttons.map(btn => (
                       <div key={btn.type}
-                        className={`relative rounded-xl border-2 border-transparent overflow-hidden ${btn.color.split(' ')[0]}`}>
+                        className="relative rounded-xl overflow-hidden border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)]">
                         <div className="pt-1.5 pb-1 px-1 text-center text-xs font-bold leading-tight break-keep text-[color:var(--mm-ink)]">
                           {btn.label}
                           {SHOT_HOTKEYS[btn.type] && <Kbd k={SHOT_HOTKEYS[btn.type]} />}
@@ -1059,7 +1065,7 @@ export default function LeagueEventInputPad({
                           if (btn.needsResult) handleShotClick(btn)
                           else saveInstant(btn)
                         }}
-                        className={`relative px-1 rounded-xl font-bold leading-tight break-keep text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent ${
+                        className={`relative px-1 rounded-xl font-bold leading-tight break-keep text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer ${btn.color} ${
                           group.small ? 'py-1.5 min-h-[36px] text-xs opacity-90' : 'py-3 min-h-[44px] text-sm'}`}
                       >
                         {btn.label}
@@ -1118,13 +1124,13 @@ export default function LeagueEventInputPad({
       {/* ── 어시스트 추가 모드 (마지막 이벤트 보정용) ── */}
       {addingAssistForLast && lastEvent && (
         <div className="pt-1 space-y-2">
-          <p className="text-xs text-blue-400">어시스트 선수 선택 (보정 모드)</p>
+          <p className="text-xs text-[color:var(--mm-ink-soft)]">어시스트 선수 선택 (보정 모드)</p>
           <div className="grid grid-cols-3 gap-1.5">
             <button onClick={() => finishAssistForLast()}
               className="py-3 rounded-xl text-sm font-medium bg-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] cursor-pointer">없음</button>
             {assistForLastCandidates.map(p => (
               <button key={p.id} onClick={() => finishAssistForLast(p.id)}
-                className="py-3 rounded-xl text-sm font-bold bg-blue-800 text-blue-200 hover:bg-blue-700 cursor-pointer truncate px-1">
+                className="py-3 rounded-xl text-sm font-bold text-[color:var(--mm-ink)] bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] border border-[color:var(--mm-rule)] cursor-pointer truncate px-1">
                 {p.name}
               </button>
             ))}
