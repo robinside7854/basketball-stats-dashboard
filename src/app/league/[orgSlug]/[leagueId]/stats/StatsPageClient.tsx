@@ -378,10 +378,9 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'rpg', label: '리바', term: '리바' }, { key: 'apg', label: '어시', term: '어시' },
     { key: 'spg', label: '스틸', term: '스틸' }, { key: 'bpg', label: '블록', term: '블록' },
     { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' }, { key: 'ft_pct', label: '자유투율', term: 'FT%' },
-    { key: 'orp', label: '공리', term: '공리', more: true }, { key: 'drp', label: '수리', term: '수리', more: true },
-    { key: 'topg', label: '턴오버', term: '턴오버', more: true },
-    { key: 'efg_pct', label: '유효야투', term: 'eFG%', more: true },
-    // (2026-11-02) 「슈팅」 모드를 기본에 합쳤다 — 성공률 세 개는 보이는 열, eFG 는 「더 보기」. TS%·2점률은 「고급」.
+    { key: 'orp', label: '공리', term: '공리' }, { key: 'drp', label: '수리', term: '수리' },
+    { key: 'topg', label: '턴오버', term: '턴오버' },
+    // (2026-11-03 운영진) 공리·수리·턴오버는 기본으로 보이고, 유효야투(eFG)는 「고급」으로. 「더 보기」 접힘 열은 없다.
   ]
   const TOTAL_COLS: BasicCol[] = [
     { key: 'gp', label: '출전', term: 'R' }, { key: 'pts', label: '득점', term: 'PTS' },
@@ -391,9 +390,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     // MIN 은 누적 뷰에만 둔다 — 교체 기록이 거의 없어 이벤트 시각으로 추정한 값이라
     // 하루 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
     { key: 'minutes_est', label: '시간', term: 'MIN' },
-    { key: 'oreb', label: '공리', term: 'OREB', more: true }, { key: 'dreb', label: '수리', term: 'DREB', more: true },
-    { key: 'tov', label: '턴오버', term: 'TOV', more: true },
-    { key: 'efg_pct', label: '유효야투', term: 'eFG%', more: true },
+    { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
+    { key: 'tov', label: '턴오버', term: 'TOV' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
@@ -895,8 +893,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
 
             {/* Basic — 데스크탑 테이블 */}
             <div className="hidden md:block overflow-x-auto">
-              {/* 덜 보는 열(공리·수리·턴오버)은 접어 둔다 — 정렬·데이터는 그대로 */}
-              <div className="flex justify-end px-4 pt-2 lg:px-6">
+              {/* 접힌 열이 있을 때만 「더 보기」 — 2026-11-03 부터 기본 표는 전부 펼쳐져 있어 보통 안 그려진다 */}
+              {moreLabels && <div className="flex justify-end px-4 pt-2 lg:px-6">
                 <button
                   type="button"
                   onClick={() => setShowMoreCols(v => !v)}
@@ -907,7 +905,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   {moreOpen ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
                   {moreOpen ? `${moreLabels} 접기` : `더 보기 (${moreLabels})`}
                 </button>
-              </div>
+              </div>}
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
