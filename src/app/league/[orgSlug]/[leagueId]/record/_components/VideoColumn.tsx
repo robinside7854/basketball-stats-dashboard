@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Play, PlayCircle, Square } from 'lucide-re
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import type { SideView } from '../_lib/sides'
 import type { ActiveVideo, GameSlot } from '../_lib/types'
+import { PLAYBACK_RATES, formatPlaybackRate, type PlaybackRate } from '@/lib/youtube/playbackRate'
 
 // ── 좌측: 비디오 + 경기 제어 (sticky, 뷰포트 높이 고정) ──
 //   모바일: display:contents → 비디오 sticky 기준이 그리드 전체가 되어 기록 중에도 항상 보임
@@ -12,7 +13,7 @@ import type { ActiveVideo, GameSlot } from '../_lib/types'
 //     · 신규: max-h + overflow-y-auto 로 컨테이너 내부에서 스크롤 가능
 export default function VideoColumn({
   selectedSlot, gameStarted, activeVideo, showQuarterUi, currentQuarter,
-  leftSide, rightSide, sideView, ytPlayer, seekRelative, togglePlay, openCompleteModal,
+  leftSide, rightSide, sideView, ytPlayer, seekRelative, togglePlay, playbackRate, setPlaybackRate, openCompleteModal,
 }: {
   selectedSlot: GameSlot
   gameStarted: boolean
@@ -25,6 +26,8 @@ export default function VideoColumn({
   ytPlayer: YT.Player | null
   seekRelative: (delta: number) => void
   togglePlay: () => void
+  playbackRate: PlaybackRate
+  setPlaybackRate: (rate: PlaybackRate) => void
   openCompleteModal: () => Promise<void>
 }) {
   return (
@@ -134,6 +137,29 @@ export default function VideoColumn({
                 </button>
               ))}
               <span className="text-xs text-[color:var(--mm-muted)] ml-1 hidden lg:inline">Space·←·→</span>
+            </div>
+          )}
+          {/* 재생 속도 — 영상 우하단 (2026-11-03). 10분 경기를 8분에 기록하고 있어
+              손보다 영상 재생 시간이 병목이었다. 기기별로 마지막 속도를 기억하고 쿼터를 넘겨도 유지된다.
+              단축키 [ / ]. 유튜브 자체 메뉴와 달리 한 번 누르면 끝. */}
+          {ytPlayer && (
+            <div
+              className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-black/75 backdrop-blur-sm rounded-xl px-1 py-1"
+              role="group" aria-label="재생 속도"
+            >
+              {PLAYBACK_RATES.map(rate => {
+                const on = rate === playbackRate
+                return (
+                  <button key={rate} onClick={() => setPlaybackRate(rate)}
+                    aria-pressed={on}
+                    aria-label={`재생 속도 ${formatPlaybackRate(rate)}`}
+                    className={`min-h-[44px] min-w-[44px] px-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors inline-flex items-center justify-center ${
+                      on ? 'bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]' : 'text-[color:var(--mm-ink)] hover:bg-white/15'
+                    }`}>
+                    {formatPlaybackRate(rate)}
+                  </button>
+                )
+              })}
             </div>
           )}
           {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}

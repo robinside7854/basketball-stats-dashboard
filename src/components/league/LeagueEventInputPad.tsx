@@ -74,12 +74,13 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
     ],
   },
   {
-    label: '기타', cols: 4,
+    // 「파울」 버튼은 2026-11-03 운영진 결정으로 뺐다 — 2.2만 건 중 파울 기록 3건.
+    //   미라클은 파울을 기록하지 않는다. 옛 foul 이벤트·개인 파울 표시(선수 버튼 F4/F5)는 그대로 둔다.
+    label: '기타', cols: 3,
     buttons: [
       { type: 'steal',    label: '스틸', color: 'bg-purple-600 hover:bg-purple-500', activeColor: 'bg-purple-500' },
       { type: 'block',    label: '블록', color: 'bg-indigo-600 hover:bg-indigo-500', activeColor: 'bg-indigo-500' },
       { type: 'turnover', label: '턴오버', color: 'bg-red-700 hover:bg-red-600',       activeColor: 'bg-red-600' },
-      { type: 'foul',     label: '파울', color: 'bg-orange-600 hover:bg-orange-500', activeColor: 'bg-orange-500' },
     ],
   },
   {

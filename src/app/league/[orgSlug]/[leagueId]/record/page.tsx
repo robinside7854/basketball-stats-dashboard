@@ -94,7 +94,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   //   ⑥ 분기 팀 ⑦ 임시팀 ⑧~⑫ 쿼터 영상(목록 캐시·영상 표·패널 열기·링크 대상·시작 쿼터)
   //   ⑬~⑯ 이어서 기록(장면 저장·이탈 경고·장면 복원·영상 위치) ⑰ 이벤트 기반 쿼터 복원
   //   effect 가 없는 동작 묶음(use*Actions·useSlotCore)은 매 렌더 새로 만드는 함수라 위치와 무관하다.
-  const { seekRelative, togglePlay } = useYoutubeRemote({ ytPlayer }) // ①
+  const { seekRelative, togglePlay, playbackRate, setPlaybackRate } = useYoutubeRemote({ ytPlayer }) // ①
 
   const st = useRecordState()
   const {
@@ -402,6 +402,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 ytPlayer={ytPlayer}
                 seekRelative={seekRelative}
                 togglePlay={togglePlay}
+                playbackRate={playbackRate}
+                setPlaybackRate={setPlaybackRate}
                 openCompleteModal={openCompleteModal}
               />
 
