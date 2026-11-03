@@ -84,16 +84,21 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
     ],
   },
   {
-    label: '자유투', cols: 4,
+    // 자유투는 패드에 「자유투」 한 칸만(2026-11-03, 운영진). 누르면 아래 FT_CHOICES 에서 종류를 고른다 —
+    //   4종이 나란히 있으면 미라클 자체 룰(1구 2점)을 모르는 새 기록원이 고를 수 없었다.
+    label: '자유투', cols: 1,
     buttons: [
-      { type: 'and_one',    label: '앤드원',      color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500' },
-      // 정식 룰(1구 1점). 미라클 자체룰 경기와 한 화면에 공존하므로 라벨에 득점을 박아 둔다 —
-      // 버튼만 보고는 어느 룰인지 구분되지 않아 잘못 누르면 그대로 점수가 어긋난다.
-      { type: 'free_throw', label: '자유투 1점',  color: 'bg-teal-500 hover:bg-teal-400',   activeColor: 'bg-teal-400',  needsResult: true },
-      { type: 'ft_2pt',     label: '2점슛 파울(2점)',  color: 'bg-teal-600 hover:bg-teal-500',   activeColor: 'bg-teal-500',  needsResult: true },
-      { type: 'ft_3pt_1',   label: '3점슛 파울(2+1)',  color: 'bg-teal-700 hover:bg-teal-600',   activeColor: 'bg-teal-600',  needsResult: true },
+      { type: 'ft_menu', label: '자유투', color: 'bg-teal-600 hover:bg-teal-500', activeColor: 'bg-teal-500' },
     ],
   },
+]
+// 「자유투」를 누르면 보이는 종류. 실측(2.2만 건): 2점 파울 470 · 앤드원 117 · 3점 파울 21 · 정식 1점 1.
+const FT_CHOICES: (EventBtn & { hint: string })[] = [
+  { type: 'ft_2pt',     label: '2점슛 파울', hint: '1구 · 2점',   color: 'bg-teal-600 hover:bg-teal-500', activeColor: 'bg-teal-500', needsResult: true },
+  { type: 'ft_3pt_1',   label: '3점슛 파울', hint: '2구 · 2+1점', color: 'bg-teal-700 hover:bg-teal-600', activeColor: 'bg-teal-600', needsResult: true },
+  { type: 'and_one',    label: '앤드원',     hint: '1점 · 바로 저장', color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500' },
+  // 정식 룰(1구 1점). 미라클 자체룰 경기와 한 화면에 공존하므로 라벨에 득점을 박아 둔다.
+  { type: 'free_throw', label: '정식 자유투', hint: '1구 · 1점',   color: 'bg-teal-500 hover:bg-teal-400', activeColor: 'bg-teal-400', needsResult: true },
 ]
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
@@ -101,12 +106,25 @@ const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 // ── PC 단축키 (2026-11-03) — 숙련 기록원이 영상에서 눈을 떼지 않게 ─────────
 //   선수: 왼쪽 팀 1~5 · 오른쪽 팀 6~9,0 (코트 격자 순서). 피커(어시스트·리바운드·턴오버)에서도 같은 번호.
 //   슛 종류: Q 3점 · W 미들 · E 레이업 · R 골밑 → 그 뒤 A 성공 / S 실패(기존).
-//   그 외: D 수비 리바 · C 공격 리바 · F 스틸 · G 턴오버 · B 블록 · V 앤드원.
+//   그 외: D 수비 리바 · C 공격 리바 · F 스틸 · G 턴오버 · B 블록 · T 자유투(종류 고르기).
 //   힌트 글자는 PC(lg↑)에서만 보인다. 입력칸에 커서가 있으면 무시.
 const SHOT_HOTKEYS: Record<string, string> = { shot_3p: 'Q', shot_2p_mid: 'W', shot_layup: 'E', shot_post: 'R' }
-const EVENT_HOTKEYS: Record<string, string> = { dreb: 'D', oreb: 'C', steal: 'F', turnover: 'G', block: 'B', and_one: 'V' }
+const EVENT_HOTKEYS: Record<string, string> = { dreb: 'D', oreb: 'C', steal: 'F', turnover: 'G', block: 'B', ft_menu: 'T' }
 const HOME_KEYS = ['1', '2', '3', '4', '5']
 const AWAY_KEYS = ['6', '7', '8', '9', '0']
+/** 단축키 배지 — 검은 바탕에 흰 글자로 PC(lg↑)에서만. 종전 흐린 모노 글자는 눈에 안 띄었다(운영진 2026-11-03). */
+function Kbd({ k, className = '' }: { k: string; className?: string }) {
+  return (
+    <kbd aria-hidden className={`hidden lg:inline-flex absolute top-1 right-1 min-w-[20px] h-5 px-1 items-center justify-center rounded-md bg-black/60 text-white text-[11px] font-bold leading-none shadow-sm ${className}`}>
+      {k}
+    </kbd>
+  )
+}
+/** pendingShot 이 이 묶음 것인가 — 자유투 종류(FT_CHOICES)는 「자유투」 묶음 소속으로 본다 */
+function groupOwns(group: { label: string; buttons: EventBtn[] }, type: string): boolean {
+  if (group.buttons.some(b => b.type === type)) return true
+  return group.label === '자유투' && FT_CHOICES.some(c => c.type === type)
+}
 function playerHotkey(side: 'home' | 'away', index: number): string | null {
   return (side === 'home' ? HOME_KEYS : AWAY_KEYS)[index] ?? null
 }
@@ -142,6 +160,11 @@ export default function LeagueEventInputPad({
   const [showLastMenu, setShowLastMenu] = useState(false)
   const [addingAssistForLast, setAddingAssistForLast] = useState(false)
   const [awaitingRebound, setAwaitingRebound] = useState(false)
+  const [ftChooser, setFtChooser] = useState(false)   // 「자유투」 눌러 종류 고르는 중
+  // 영상 시각은 **첫 터치** 순간에 잡는다(2026-11-03). 어시스트·턴오버 짝을 고르는 동안 영상이 흘러
+  //   저장 시각이 장면보다 몇 초 뒤로 밀리던 것을 막는다. 리바운드는 제 장면이 따로 있어 제 순간을 쓴다.
+  const [pendingTs, setPendingTs] = useState<number | null>(null)   // 슛 O 누른 순간(어시스트 대기용)
+  const [stealTs, setStealTs] = useState<number | null>(null)       // 스틸 누른 순간(턴오버 짝용)
   const [reboundShooterTeamId, setReboundShooterTeamId] = useState<string | null>(null)
   const [lastReboundId, setLastReboundId] = useState<string | null>(null) // 슛 직후 저장된 리바운드 ID
   const [awaitingTovPair, setAwaitingTovPair] = useState(false)    // Phase 2-G
@@ -180,6 +203,7 @@ export default function LeagueEventInputPad({
 
 
   function selectPlayer(id: string) {
+    setFtChooser(false)
     setSelectedPlayer(id)
     setPossessionPlayerId(null)
     setPendingShot(null)
@@ -280,11 +304,13 @@ export default function LeagueEventInputPad({
 
   // shotArg: 슛 종류 상자의 ✓/✗ 는 pendingShot 상태를 거치지 않고 종류를 직접 넘긴다(2026-11-03).
   //   상태를 먼저 set 하고 바로 읽으면 옛 값이라, 인자가 정본이고 상태는 폴백이다.
-  function saveShot(result: 'made' | 'missed', assistId?: string, shotArg?: EventBtn) {
+  function saveShot(result: 'made' | 'missed', assistId?: string, shotArg?: EventBtn, tsArg?: number | null) {
     const shot = shotArg ?? pendingShot
     if (!selectedPlayer || !shot) return
+    const ts = tsArg ?? pendingTs ?? getCurrentTimestamp()
+    setPendingTs(null)
     const body = {
-      league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
+      league_game_id: gameId, quarter: currentQuarter, video_timestamp: ts,
       type: shot.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
       result, related_player_id: assistId ?? null,
     }
@@ -344,7 +370,7 @@ export default function LeagueEventInputPad({
     if (tovPlayerId) {
       const p = allPlayers.find(x => x.id === tovPlayerId)
       const id = await saveEvent({
-        league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
+        league_game_id: gameId, quarter: currentQuarter, video_timestamp: stealTs ?? getCurrentTimestamp(),
         type: 'turnover', league_player_id: tovPlayerId,
         team_id: p?.team_id ?? null, result: null, related_player_id: null,
       })
@@ -364,10 +390,12 @@ export default function LeagueEventInputPad({
     setLastStlEventId(null)
     setAwaitingTovPair(false)
     setStealerTeamId(null)
+    setStealTs(null)
   }
 
   function saveInstant(btn: EventBtn) {
     if (!selectedPlayer) return
+    if (btn.type === 'ft_menu') { setFtChooser(v => !v); return }
     const isAndOne = btn.type === 'and_one'
     const body = {
       league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
@@ -389,6 +417,7 @@ export default function LeagueEventInputPad({
     if (btn.type === 'steal') {
       setLastStlEventId(tempId)
       setStealerTeamId(selectedTeamId)
+      setStealTs(body.video_timestamp)
       setAwaitingTovPair(true)
     }
     // ── 백그라운드 저장 ──
@@ -419,19 +448,22 @@ export default function LeagueEventInputPad({
   function handleResult(result: 'made' | 'missed', shotArg?: EventBtn) {
     const shot = shotArg ?? pendingShot
     if (!shot) return
+    const ts = getCurrentTimestamp()   // 첫 터치 = O/X 누른 순간
+    setFtChooser(false)
     if (result === 'missed' && SHOT_TYPES.includes(shot.type)) {
       // 필드골 실패 → saveShot 내부에서 리바운드 피커 자동 활성 (LAST_FT 로직과 별개)
       // 여기선 명시적으로 리바운드 대기 세팅 (필드골은 saveShot 의 LAST_FT 체크에 걸리지 않음)
       const shooterTeamId = selectedTeamId
-      saveShot('missed', undefined, shot)  // Optimistic · 즉시 반환
+      saveShot('missed', undefined, shot, ts)  // Optimistic · 즉시 반환
       setReboundShooterTeamId(shooterTeamId)
       setAwaitingRebound(true)
     } else if (result === 'missed' || !shot.needsRelated) {
-      saveShot(result, undefined, shot)
+      saveShot(result, undefined, shot, ts)
     } else {
-      // 어시스트 피커로 — 피커는 pendingShot 상태를 읽으므로 여기서 맞춰 둔다
+      // 어시스트 피커로 — 피커는 pendingShot 상태를 읽으므로 여기서 맞춰 둔다. 시각은 지금 것.
       setPendingShot(shot)
       setPendingResult('made')
+      setPendingTs(ts)
       setAwaitingAssist(true)
     }
   }
@@ -606,11 +638,10 @@ export default function LeagueEventInputPad({
         </div>
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? (
           <span className="absolute top-1 right-1 text-xs font-black text-amber-300 leading-none">+1</span>
-        ) : hotkey && (
-          <kbd className="absolute top-1 right-1 hidden lg:inline text-[10px] font-mono leading-none opacity-60">{hotkey}</kbd>
-        )}
-        {/* 개인 파울 — 0개면 안 그린다. 4개 주의 · 5개 퇴장 기준(경고) */}
-        {fouls > 0 && (
+        ) : hotkey && <Kbd k={hotkey} />}
+        {/* 개인 파울 — 4개 주의 · 5개 퇴장 기준만 보인다. 파울 버튼을 뺀 뒤(2026-11-03) 옛 기록 1건이 「F1」로
+            크게 보여 오류로 오인됐다. 경고가 필요한 수부터만 그린다. */}
+        {fouls >= 4 && (
           <span
             className="absolute top-1 left-1 px-1 text-xs font-black leading-tight tabular-nums"
             style={fouls >= 5
@@ -805,7 +836,7 @@ export default function LeagueEventInputPad({
                         isShooterTeam ? 'py-1.5 min-h-11 text-xs' : 'py-3 min-h-[52px] text-sm'}`}
                       style={{ backgroundColor: `${bg}cc`, color: fg }}>
                       {p.name}
-                      {hk && <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{hk}</kbd>}
+                      {hk && <Kbd k={hk} />}
                     </button>
                   )
                 })}
@@ -845,13 +876,17 @@ export default function LeagueEventInputPad({
               </div>
             </div>
           ) : EVENT_GROUPS
-            .filter(group => !pendingShot || group.buttons.some(b => b.type === pendingShot.type))
+            .filter(group => !pendingShot || groupOwns(group, pendingShot.type))
             .map(group => {
-            const groupHasPending = pendingShot && group.buttons.some(b => b.type === pendingShot.type)
+            const groupHasPending = !!pendingShot && groupOwns(group, pendingShot.type)
             return (
               <div key={group.label}>
                 <div className="flex items-center justify-between mb-0.5">
                   <p className="text-xs font-semibold text-[color:var(--mm-ink-soft)]">{group.label}</p>
+                  {group.label === '자유투' && ftChooser && !groupHasPending && (
+                    <button onClick={() => setFtChooser(false)}
+                      className="text-xs text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer min-h-11 px-2 inline-flex items-center">취소</button>
+                  )}
                   {groupHasPending && (
                     <button onClick={() => { setPendingShot(null); setAwaitingAssist(false) }}
                       className="text-xs text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer min-h-11 px-2 inline-flex items-center">취소</button>
@@ -873,6 +908,17 @@ export default function LeagueEventInputPad({
                       <kbd className="absolute top-1 right-2 text-xs font-mono bg-black/25 rounded px-1">S</kbd>
                     </button>
                   </div>
+                ) : group.label === '자유투' && ftChooser ? (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {FT_CHOICES.map(c => (
+                      <button key={c.type}
+                        onClick={() => { setFtChooser(false); if (c.needsResult) handleShotClick(c); else saveInstant(c) }}
+                        className={`py-2 px-1 min-h-[52px] rounded-xl text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 border-transparent ${c.color}`}>
+                        <div className="text-sm font-bold leading-tight break-keep">{c.label}</div>
+                        <div className="text-[11px] opacity-85 leading-tight mt-0.5">{c.hint}</div>
+                      </button>
+                    ))}
+                  </div>
                 ) : group.label === '슈팅' ? (
                   /* 슛 종류 상자 — 종류 밑에 ✓/✗ 를 같이 둔다(2026-11-03, 운영진 결정).
                      종전엔 종류를 누른 뒤 성공/실패를 한 번 더 눌렀다(슛마다 1터치 · 경기당 35번).
@@ -884,7 +930,7 @@ export default function LeagueEventInputPad({
                         className={`relative rounded-xl border-2 border-transparent overflow-hidden ${btn.color.split(' ')[0]}`}>
                         <div className="pt-1.5 pb-1 px-1 text-center text-xs font-bold leading-tight break-keep text-[color:var(--mm-ink)]">
                           {btn.label}
-                          {SHOT_HOTKEYS[btn.type] && <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{SHOT_HOTKEYS[btn.type]}</kbd>}
+                          {SHOT_HOTKEYS[btn.type] && <Kbd k={SHOT_HOTKEYS[btn.type]} />}
                         </div>
                         <div className="grid grid-cols-2 gap-px bg-black/20">
                           <button onClick={() => handleResult('made', btn)}
@@ -906,6 +952,7 @@ export default function LeagueEventInputPad({
                     group.cols === 5 ? 'grid-cols-5'
                     : group.cols === 4 ? 'grid-cols-4'
                     : group.cols === 3 ? 'grid-cols-3'
+                    : group.cols === 1 ? 'grid-cols-1'
                     : 'grid-cols-2'
                   }`}>
                     {group.buttons.map(btn => (
@@ -918,7 +965,7 @@ export default function LeagueEventInputPad({
                         className={`relative py-3 px-1 min-h-[44px] rounded-xl text-sm font-bold leading-tight break-keep text-[color:var(--mm-ink)] transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
                       >
                         {btn.label}
-                        {EVENT_HOTKEYS[btn.type] && <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{EVENT_HOTKEYS[btn.type]}</kbd>}
+                        {EVENT_HOTKEYS[btn.type] && <Kbd k={EVENT_HOTKEYS[btn.type]} />}
                       </button>
                     ))}
                   </div>
@@ -958,9 +1005,7 @@ export default function LeagueEventInputPad({
                             isShooterTeam ? '' : 'opacity-70'}`}
                           style={{ backgroundColor: `${base}cc`, color: textOnBg(base) }}>
                           {p.name}
-                          {playerHotkey(team?.id === homeTeam?.id ? 'home' : 'away', i) && (
-                            <kbd className="absolute top-0.5 right-1 hidden lg:inline text-[10px] font-mono opacity-70">{playerHotkey(team?.id === homeTeam?.id ? 'home' : 'away', i)}</kbd>
-                          )}
+                          {(() => { const hk = playerHotkey(team?.id === homeTeam?.id ? 'home' : 'away', i); return hk ? <Kbd k={hk} /> : null })()}
                         </button>
                       )
                     })}

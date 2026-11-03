@@ -456,7 +456,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       {/* 쿼터 선택 — 영상 한 편이 곧 한 경기(한 쿼터)인 경기에서는 감춘다(singleSegment) */}
                       {!singleSegment && <QuarterSelector currentQuarter={currentQuarter} setCurrentQuarter={setCurrentQuarter} />}
 
-                      {/* 입력 패드 · 상대 점수 안내(대회) · 게스트·임시 선수 · 타팀 임시 출전 */}
+                      {/* 입력 패드 · 상대 점수 안내(대회) · 실시간 요약 (게스트·타팀 임시 출전은 교체 모달 안) */}
                       <RecordingTools
                         leagueId={leagueId}
                         leagueHeaders={leagueHeaders}
@@ -468,17 +468,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         rightSide={rightSide}
                         sideView={sideView}
                         onCourt={onCourt}
-                        homeRoster={homeRoster}
-                        awayRoster={awayRoster}
-                        irregularRoster={irregularRoster}
-                        assignedIds={assignedIds}
                         foulCounts={foulCounts}
                         activePlusOneIds={activePlusOneIds}
                         oppTeam={oppTeam}
+                        statsRefresh={statsRefresh}
                         handleEventSaved={handleEventSaved}
                         fetchLiveScore={fetchLiveScore}
                         loadRoster={loadRoster}
-                        setPendingIrregular={setPendingIrregular}
                       />
                     </>
                   ) : (
@@ -560,6 +556,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   setMinutes={setMinutes}
                   setHomeRoster={setHomeRoster}
                   setAwayRoster={setAwayRoster}
+                  isTournament={isTournament}
+                  irregularRoster={irregularRoster}
+                  assignedIds={assignedIds}
+                  setPendingIrregular={setPendingIrregular}
                 />
               )}
 

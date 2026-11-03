@@ -1,14 +1,14 @@
-import { RefreshCw, UserPlus } from 'lucide-react'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
+import LiveStatStrip from './LiveStatStrip'
 import type { SideView } from '../_lib/sides'
-import type { GameSlot, IrregularPlayer, RosterPlayer, Setter } from '../_lib/types'
+import type { GameSlot } from '../_lib/types'
 
-// 기록 중 입력 영역 — 입력 패드 · (대회) 상대 점수 안내 · 게스트·임시 선수 추가 · 타팀 임시 출전
+// 기록 중 입력 영역 — 입력 패드 · (대회) 상대 점수 안내 · 실시간 요약
 export default function RecordingTools({
   leagueId, leagueHeaders, selectedSlot, selectedSlotId, currentQuarter, isTournament,
-  leftSide, rightSide, sideView, onCourt, homeRoster, awayRoster, irregularRoster, assignedIds,
-  foulCounts, activePlusOneIds, oppTeam,
-  handleEventSaved, fetchLiveScore, loadRoster, setPendingIrregular,
+  leftSide, rightSide, sideView, onCourt,
+  foulCounts, activePlusOneIds, oppTeam, statsRefresh,
+  handleEventSaved, fetchLiveScore, loadRoster,
 }: {
   leagueId: string
   leagueHeaders: Record<string, string>
@@ -20,17 +20,13 @@ export default function RecordingTools({
   rightSide: 'home' | 'away'
   sideView: (side: 'home' | 'away') => SideView
   onCourt: string[]
-  homeRoster: RosterPlayer[]
-  awayRoster: RosterPlayer[]
-  irregularRoster: IrregularPlayer[]
-  assignedIds: Set<string>
   foulCounts: Record<string, number>
   activePlusOneIds: string[]
   oppTeam: GameSlot['home_team']
+  statsRefresh: number
   handleEventSaved: (eventType?: string) => void
   fetchLiveScore: () => Promise<void>
   loadRoster: (slot: GameSlot) => Promise<void>
-  setPendingIrregular: Setter<IrregularPlayer | null>
 }) {
   return (
     <>
@@ -74,81 +70,16 @@ export default function RecordingTools({
         </div>
       )}
 
-      {/* 비정규 선수 추가 — 대회에는 비정규 개념이 없다(참가 등록이 곧 명단) */}
-      {!isTournament && irregularRoster.length > 0 && (
-        <div
-          className="p-3"
-          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-        >
-          <div className="flex items-center gap-1.5 mb-2">
-            <UserPlus size={14} style={{ color: 'var(--mm-muted)' }} />
-            <p className="t-label" style={{ color: 'var(--mm-muted)' }}>게스트·임시 선수 추가</p>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {irregularRoster.map(p => {
-              const isAdded = assignedIds.has(p.id)
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => !isAdded && setPendingIrregular(p)}
-                  disabled={isAdded}
-                  className="px-2.5 py-1 text-xs font-medium transition-colors"
-                  style={isAdded
-                    ? { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', cursor: 'not-allowed', textDecoration: 'line-through', borderRadius: '4px' }
-                    : { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', cursor: 'pointer', borderRadius: '4px' }
-                  }
-                >
-                  {p.number ? `#${p.number} ` : ''}{p.name}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* 게스트·임시 선수 추가 · 타팀 임시 출전은 2026-11-03 부터 「교체」 모달 안에 있다(운영진 — 자주 있는 일이 아니다). */}
 
-      {/* 타팀 임시 출전 (경기 진행 중) — 칩 클릭 시 팀 선택 모달 사용.
-          ⚠ 대회에는 "타 팀" 이 없다(미라클 원팀 vs 외부 상대). 여기에 상대팀으로
-            선수를 보내면 우리 선수 기록이 상대 점수로 들어간다. */}
-      {(() => {
-        if (isTournament) return null
-        const homeLendable = homeRoster.filter(p => p.is_regular !== false)
-        const awayLendable = awayRoster.filter(p => p.is_regular !== false)
-        if (homeLendable.length === 0 && awayLendable.length === 0) return null
-        return (
-          <div
-            className="p-3 space-y-2"
-            style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
-          >
-            <div className="flex items-center gap-1.5">
-              <RefreshCw size={14} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-              <p className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>타팀 임시 출전</p>
-              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>이번 경기에만 적용</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {homeLendable.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setPendingIrregular(p as IrregularPlayer)}
-                  className="px-2 py-1 text-xs font-medium cursor-pointer transition-colors"
-                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-yellow)', color: 'var(--mm-yellow-strong)', borderRadius: '4px' }}
-                >
-                  {p.name} <span style={{ color: 'var(--mm-muted)' }}>→ {selectedSlot?.away_team?.name}</span>
-                </button>
-              ))}
-              {awayLendable.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setPendingIrregular(p as IrregularPlayer)}
-                  className="px-2 py-1 text-xs font-medium cursor-pointer transition-colors"
-                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-yellow)', color: 'var(--mm-yellow-strong)', borderRadius: '4px' }}
-                >
-                  {p.name} <span style={{ color: 'var(--mm-muted)' }}>→ {selectedSlot?.home_team?.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )
-      })()}
+      {/* 실시간 요약 — 기록이 쌓이는 것이 바로 보이게(운영진 2026-11-03). 코트 위 선수만, 숫자 6개. */}
+      <LiveStatStrip
+        leagueId={leagueId}
+        gameId={selectedSlotId}
+        refreshKey={statsRefresh}
+        left={{ team: sideView(leftSide).team ?? undefined, players: sideView(leftSide).roster.filter(p => onCourt.includes(p.id)) }}
+        right={{ team: sideView(rightSide).team ?? undefined, players: sideView(rightSide).roster.filter(p => onCourt.includes(p.id)) }}
+      />
     </>
   )
 }
