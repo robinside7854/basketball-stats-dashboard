@@ -924,3 +924,50 @@
   .mm-fit td { font-size: 0.8125rem; letter-spacing: -0.02em; }
   .mm-fit thead th { font-size: 0.6875rem; letter-spacing: 0; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   스킨 교체 D1 「밝고 담백하게」 (2026-11-03 운영진 — 기능·배치는 그대로, 보이는 모양만)
+   레퍼런스: FotMob·ESPN 실측 — 바탕 #FAFAFA/#EDEEF0 · 흰 카드 + 1px 옅은 선 · 그림자 거의 없음 ·
+   모서리 카드 16/작은 것 8 · 글꼴 하나 · 무채색 글자. 강조색은 노랑 유지(운영진 선택 3번), 쓰는 곳만 줄인다.
+   ⚠ 이 블록 하나가 앞의 값들을 덮어쓴다 — 되돌리려면 이 블록을 지우고 layout.tsx 의 defaultTheme 을 'dark' 로.
+   ══════════════════════════════════════════════════════════════════════════════ */
+:root {
+  --mm-ground: #F4F5F7;        /* 차가운 연회색 — 종전 웜 아이보리 #FAF7F0 */
+  --mm-panel: #FFFFFF;
+  --mm-panel-alt: #F7F8FA;
+  --mm-ink: #191F28;
+  --mm-ink-soft: #4E5968;
+  --mm-muted: #6B7684;         /* 흰 바탕 4.6:1 */
+  --mm-rule: #E8EBEE;
+  --mm-black: #191F28;
+  --mm-neutral-bg: #F2F3F5;
+  --mm-radius-card: 16px;
+  --mm-radius-ctl: 10px;
+  --mm-radius-chip: 8px;       /* 알약(999) → 둥근 사각 — 점수·필터 칩 */
+  --mm-shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --mm-shadow-md: 0 6px 16px -6px rgba(17, 24, 39, 0.10), 0 1px 2px rgba(17, 24, 39, 0.04);
+  --mm-shadow-lg: 0 16px 36px -12px rgba(17, 24, 39, 0.16), 0 2px 6px rgba(17, 24, 39, 0.05);
+  --mm-edge-light: 0 0 0 0 transparent;
+  --mm-ground-glow: transparent;
+  --mm-grain: none;            /* 종이 질감 끔 */
+  --font-weight-heavy: 700;
+}
+.dark {
+  --mm-ground: #111317;
+  --mm-panel: #1A1D22;
+  --mm-panel-alt: #16191D;
+  --mm-ink: #F2F4F6;
+  --mm-ink-soft: #C9CDD2;
+  --mm-muted: #9AA1A9;
+  --mm-rule: #2A2E34;
+  --mm-black: #0B0C0E;
+  --mm-ground-glow: transparent;
+  --mm-grain: none;
+}
+/* 질감 없이 단색 바탕 */
+.mm-shell { background: var(--mm-ground); }
+/* 좁은 유니폼 글꼴·전광판 글꼴 → 본문 글꼴 하나 (레퍼런스는 글꼴 하나로 위계를 만든다) */
+.mm-shell .font-jersey,
+.mm-shell .font-display,
+.mm-shell ~ * .font-jersey,
+.mm-shell ~ * .font-display { font-family: var(--font-sans); letter-spacing: -0.01em; }

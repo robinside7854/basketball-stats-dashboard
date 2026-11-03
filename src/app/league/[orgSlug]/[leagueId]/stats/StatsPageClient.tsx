@@ -908,7 +908,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
               </div>}
               <table className="mm-fit">
                 <thead>
-                  <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
+                  <tr style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
                     {COLS.map(({ key, label, term }) => (
@@ -1009,7 +1009,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
             <div className="hidden lg:block">
               <table className="mm-fit">
                 <thead>
-                  <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
+                  <tr style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
                     <th scope="col" className="t-th"><StatHeader term="R" label="출전" /></th>

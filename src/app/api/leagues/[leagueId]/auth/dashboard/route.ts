@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { getCachedMeBundle } from '@/lib/stats/dashboardBase'
-import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
+import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { MILESTONE_LADDER, nextMilestone } from '@/lib/stats/milestoneLadder'
 import { loadClipsByEventIds } from '@/lib/highlights/loader'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -45,16 +45,24 @@ export async function GET(
   const pinnedP = loadPinnedClips(sb, leagueId, pid)
   // 마지막 출전일(친선 포함) — 내 이벤트만 읽는 가벼운 조회. 실패해도 null
   const lastPlayedP = computeLastPlayed(sb, leagueId, pid)
-  const q = await loadCurrentQuarter(sb, leagueId)
-  const range = q ? gameDateRange(q) : null
-  const [seasonStats, base, quarterDates, pinnedClips, lastPlayed] = await Promise.all([
+  // 분기 목록 — 출석률을 분기마다 고를 수 있게(2026-11-03 운영진). 지금 분기 판정은 정본 pickCurrentQuarter
+  const quartersP = sb.from('league_quarters')
+    .select('id, year, quarter, is_current, start_date, end_date, kind')
+    .eq('league_id', leagueId)
+    .then(r => ((r.data ?? []) as QRow[]).filter(x => x.kind !== 'tournament')
+      .sort((a, b) => a.year - b.year || a.quarter - b.quarter))
+  const [seasonStats, base, quarterRows, quarterDateMap, pinnedClips, lastPlayed] = await Promise.all([
     seasonStatsP,
     baseP,
-    // 분기에 기간이 없을 때만 quarter_id 로 그 분기 경기일을 따로 읽는다(기간이 있으면 날짜로 거른다)
-    q && !range ? loadQuarterDates(sb, leagueId, q.id) : Promise.resolve(null),
+    quartersP,
+    // 기간 없는 분기용 — 경기일 → quarter_id (정규 · 기록 시작된 경기만). 한 번에 읽는다
+    loadQuarterDateMap(sb, leagueId),
     pinnedP,
     lastPlayedP,
   ])
+  const curRow = pickCurrentQuarter(quarterRows)
+  const qLabel = (x: QRow) => `${String(x.year).slice(2)}.${x.quarter}Q`
+  const q = curRow ? { id: curRow.id, label: qLabel(curRow) } : null
   // 게스트도 자기 줄은 있다(순위 모집단에서만 빠진다) — 선수 카드와 같은 「선수 숫자는 한 벌」
   const me = pickPlayerRow(seasonStats, pid)
   const myAtt = base.streaks.attendance.find(a => a.player_id === pid)
@@ -66,10 +74,17 @@ export async function GET(
   const joinedOn: string | null = [...myDays].sort()[0] ?? null
   const sinceJoin = (d: string): boolean => joinedOn != null && d >= joinedOn
 
-  const inQuarter = (d: string): boolean =>
-    range ? d >= range.from && d <= range.to : quarterDates ? quarterDates.has(d) : true
+  // 그 분기의 경기일 — 기간이 있으면 날짜로, 없으면 quarter_id 로(gameDateRange 와 같은 규칙)
+  const inQuarterOf = (x: QRow) => (d: string): boolean =>
+    x.start_date && x.end_date ? d >= x.start_date && d <= x.end_date : quarterDateMap.get(d)?.has(x.id) ?? false
   const seasonDays = [...base.allDates].sort()
-  const quarterDays = seasonDays.filter(inQuarter)
+  const periodOf = (days: string[]) => ({
+    attended: days.filter(d => myDays.has(d)).length,
+    total: days.length,
+    since_join: days.filter(sinceJoin).length,
+    days: days.filter(sinceJoin).map(d => ({ date: d, played: myDays.has(d) })),
+  })
+  const quarterDays = curRow ? seasonDays.filter(inQuarterOf(curRow)) : seasonDays
 
   // 출석률 — 「리그가 열린 날」 = 정규(친선 제외) 경기일(allDates)
   const attendance = {
@@ -90,6 +105,10 @@ export async function GET(
       since_join: seasonDays.filter(sinceJoin).length,
       days: seasonDays.filter(sinceJoin).map(d => ({ date: d, played: myDays.has(d) })),
     },
+    /** 분기마다(오래된 → 최근) — 카드에서 「전체 / 분기」를 골라 본다. 리그가 연 날이 없는 분기는 뺀다 */
+    quarters: quarterRows
+      .map(x => ({ id: x.id, label: qLabel(x), is_current: x.id === curRow?.id, ...periodOf(seasonDays.filter(inQuarterOf(x))) }))
+      .filter(x => x.total > 0),
     current_streak: myAtt?.current_streak ?? 0,
     longest_streak: myAtt?.longest_streak ?? 0,
   }
@@ -139,18 +158,25 @@ export async function GET(
   })
 }
 
-/** 기간 없는 분기의 경기일 — quarter_id 기준(정규 · 기록 시작된 경기만) */
-async function loadQuarterDates(
-  sb: ReturnType<typeof createClient>, leagueId: string, quarterId: string,
-): Promise<Set<string>> {
+type QRow = { id: string; year: number; quarter: number; is_current: boolean | null; start_date: string | null; end_date: string | null; kind: string | null }
+
+/** 기간 없는 분기용 — 경기일 → 그날 경기의 quarter_id 들(정규 · 기록 시작된 경기만) */
+async function loadQuarterDateMap(
+  sb: ReturnType<typeof createClient>, leagueId: string,
+): Promise<Map<string, Set<string>>> {
   const { data } = await sb
     .from('league_games')
-    .select('date')
+    .select('date, quarter_id')
     .eq('league_id', leagueId)
-    .eq('quarter_id', quarterId)
     .eq('is_started', true)
     .eq('is_exhibition', false)
-  return new Set(((data ?? []) as Array<{ date: string }>).map(r => r.date))
+  const m = new Map<string, Set<string>>()
+  for (const r of (data ?? []) as Array<{ date: string; quarter_id: string | null }>) {
+    if (!r.quarter_id) continue
+    if (!m.has(r.date)) m.set(r.date, new Set())
+    m.get(r.date)!.add(r.quarter_id)
+  }
+  return m
 }
 
 /** 내 베스트샷 핀(최대 3) → 재생 가능한 클립. 실패해도 대시보드 전체를 막지 않는다. */

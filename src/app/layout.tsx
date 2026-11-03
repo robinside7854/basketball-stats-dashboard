@@ -102,7 +102,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${firaSans.variable} ${bebasNeue.variable} ${barlowCondensed.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          // 2026-11-03 스킨 교체: 밝은 화면이 기본. storageKey 를 바꿔 예전에 저장된 「다크」 선택도 한 번 초기화한다(토글로 다시 고를 수 있다)
+          defaultTheme="light"
+          storageKey="mm-theme-v2"
           enableSystem={false}
         >
           <TooltipProvider>

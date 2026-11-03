@@ -442,7 +442,7 @@ export default async function LeagueDetailPage({
           <h2
             id="home-quarter-title"
             className="font-black break-keep pl-2.5"
-            style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 26px)', lineHeight: 1.15, borderLeft: '4px solid var(--mm-yellow-strong)' }}
+            style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 26px)', lineHeight: 1.15 }}
           >
             이번 분기
           </h2>

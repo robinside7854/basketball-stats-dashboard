@@ -64,6 +64,8 @@ interface AttendanceData {
   joined_on?: string | null
   quarter: AttendancePeriod
   season: AttendancePeriod
+  /** 분기마다(오래된 → 최근, 2026-11-03) — 옛 응답엔 없다 */
+  quarters?: Array<AttendancePeriod & { id: string; label: string; is_current: boolean }>
   current_streak: number
   longest_streak: number
 }
@@ -343,18 +345,25 @@ function CardTitle({ icon: Icon, title, sub, right }: {
 // 내가 뛴 날 / 리그가 열린 날(정규 경기일 · 친선 제외). 경기일마다 칸 하나.
 //   분모는 내 첫 기록일부터 센다(2026-10-12) — 중간에 들어온 회원이 들어오기 전 경기일을 결장으로 잡히지 않게.
 //   날짜 칸도 첫 기록일부터만 그린다.
-//   (2026-10-15) 기간 토글을 뺐다 — 이번 분기를 크게, 전체는 한 줄로 늘 같이 보인다. 분기에 아직 열린 날이 없으면 전체를 크게.
-type Period = 'quarter' | 'career'
-function AttendanceCard({ attendance, quarterLabel }: {
-  attendance?: AttendanceData; quarterLabel: string | null
+//   (2026-11-03 운영진) 「전체 · 분기마다」 칩으로 골라 본다 — 기본은 지금 분기(열린 날이 없으면 전체).
+//   고른 기간을 크게, 아래 한 줄에 비교용으로 전체(분기를 골랐을 때) 또는 지금 분기(전체를 골랐을 때).
+type PeriodKey = 'all' | string
+function AttendanceCard({ attendance }: {
+  attendance?: AttendanceData; quarterLabel?: string | null
 }) {
-  const period: Period = attendance && attendance.quarter.total > 0 ? 'quarter' : 'career'
   const pct = (a: number, t: number) => (t > 0 ? Math.round((a / t) * 100) : 0)
   const denom = (x: AttendancePeriod) => x.since_join ?? x.total
-  const periodName = (p: Period) => (p === 'quarter' ? '이번 분기' : '전체')
-  const cur = attendance ? (period === 'quarter' ? attendance.quarter : attendance.season) : null
-  const other = attendance ? (period === 'quarter' ? attendance.season : attendance.quarter) : null
-  const otherPeriod: Period = period === 'quarter' ? 'career' : 'quarter'
+  // 옛 응답(quarters 없음)이면 지금 분기 하나만 있는 것으로 본다
+  const quarters = attendance?.quarters
+    ?? (attendance && attendance.quarter.total > 0 ? [{ ...attendance.quarter, id: 'current', label: '이번 분기', is_current: true }] : [])
+  const currentQ = quarters.find(x => x.is_current) ?? null
+  const [picked, setPicked] = useState<PeriodKey | null>(null)
+  const key: PeriodKey = picked ?? (currentQ ? currentQ.id : 'all')
+  const pickedQ = key === 'all' ? null : quarters.find(x => x.id === key) ?? null
+  const cur: AttendancePeriod | null = attendance ? (pickedQ ?? attendance.season) : null
+  const periodName = pickedQ ? (pickedQ.is_current ? `이번 분기(${pickedQ.label})` : pickedQ.label) : '전체'
+  // 비교 한 줄 — 분기를 보면 전체, 전체를 보면 지금 분기
+  const other = attendance ? (pickedQ ? { name: '전체', p: attendance.season } : currentQ ? { name: '이번 분기', p: currentQ as AttendancePeriod } : null) : null
   const joinedOn = attendance?.joined_on ?? null
   const joinedMid = !!cur && !!joinedOn && denom(cur) < cur.total
   const days = cur?.days ?? []
@@ -364,33 +373,42 @@ function AttendanceCard({ attendance, quarterLabel }: {
         icon={CalendarCheck}
         title="출석률"
         sub="내가 뛴 날 / 리그가 열린 날"
-        right={<Chip tone="neutral">{period === 'quarter' ? (quarterLabel ?? '이번 분기') : '전체'}</Chip>}
       />
-      {!attendance || !cur || !other || attendance.season.total === 0 ? (
+      {!attendance || !cur || attendance.season.total === 0 ? (
         <EmptyState variant="compact" icon={CalendarCheck} title="아직 열린 경기일이 없어요" />
       ) : (
         <>
+          {/* 기간 고르기 — 전체 + 분기마다(줄바꿈, 가로 스크롤 없음) */}
+          {quarters.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3" role="group" aria-label="출석률 기간">
+              {[{ id: 'all', label: '전체' }, ...quarters.map(x => ({ id: x.id, label: x.label }))].map(o => (
+                <Chip key={o.id} as="button" size="sm" selected={key === o.id} onClick={() => setPicked(o.id)}>{o.label}</Chip>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-4">
             <Ring
               ratio={denom(cur) > 0 ? cur.attended / denom(cur) : 0}
               size={76}
               stroke={8}
-              label={`${periodName(period)} 출석률 ${pct(cur.attended, denom(cur))}%`}
+              label={`${periodName} 출석률 ${pct(cur.attended, denom(cur))}%`}
             >
               <span className="text-sm">{pct(cur.attended, denom(cur))}%</span>
             </Ring>
             <div className="min-w-0 flex-1 space-y-1">
               <div className="text-sm md:text-base font-bold tabular-nums break-keep" style={{ color: 'var(--mm-ink)' }}>
-                {periodName(period)} {denom(cur)}일 중 <b className="font-black">{cur.attended}</b>일
+                {periodName} {denom(cur)}일 중 <b className="font-black">{cur.attended}</b>일
               </div>
               {joinedMid && joinedOn && (
                 <div className="text-xs font-medium tabular-nums break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
                   첫 기록 {formatDate(joinedOn)}부터 셌어요 · 그 전 {cur.total - denom(cur)}일은 빼요
                 </div>
               )}
-              <div className="text-xs font-medium tabular-nums break-keep" style={{ color: 'var(--mm-muted)' }}>
-                {periodName(otherPeriod)} {other.attended} / {denom(other)}일 · {pct(other.attended, denom(other))}%
-              </div>
+              {other && other.p.total > 0 && (
+                <div className="text-xs font-medium tabular-nums break-keep" style={{ color: 'var(--mm-muted)' }}>
+                  {other.name} {other.p.attended} / {denom(other.p)}일 · {pct(other.p.attended, denom(other.p))}%
+                </div>
+              )}
               {(attendance.current_streak >= 2 || attendance.longest_streak >= 2) && (
                 <div className="flex flex-wrap gap-1.5 pt-0.5">
                   {attendance.current_streak >= 2 && (
@@ -405,7 +423,7 @@ function AttendanceCard({ attendance, quarterLabel }: {
           </div>
           {days.length > 0 && (
             <div className="mt-4">
-              <ul className="flex flex-wrap gap-1.5" aria-label={`${periodName(period)} 경기일별 출전${joinedMid ? ' (내 첫 기록일부터)' : ''}`}>
+              <ul className="flex flex-wrap gap-1.5" aria-label={`${periodName} 경기일별 출전${joinedMid ? ' (내 첫 기록일부터)' : ''}`}>
                 {days.map(d => (
                   <li
                     key={d.date}
