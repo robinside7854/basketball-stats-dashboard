@@ -161,6 +161,12 @@ export default function LeagueEventInputPad({
   const [addingAssistForLast, setAddingAssistForLast] = useState(false)
   const [awaitingRebound, setAwaitingRebound] = useState(false)
   const [ftChooser, setFtChooser] = useState(false)   // 「자유투」 눌러 종류 고르는 중
+  // 블록 짝(2026-11-03): 야투 실패 뒤 리바운드 피커에 수비 팀 「블록」 칩을 보인다. 실측 블록 352건 중 89% 가
+  //   6초 안 상대 실패 슛과 같이 있었다 — 한 장면을 두 번(7터치) 찍던 것을 4터치로. 블록 시각 = 슛 시각, related = 슈터.
+  const [blockCtx, setBlockCtx] = useState<{ shooterId: string; ts: number } | null>(null)
+  const [blockedById, setBlockedById] = useState<string | null>(null)   // 이 피커에서 고른 블로커(표시용)
+  const [lastBlockId, setLastBlockId] = useState<string | null>(null)   // 슛 취소 때 같이 지운다
+  const [blockKeyMode, setBlockKeyMode] = useState(false)               // PC: B 누른 뒤 숫자 = 블로커
   // 영상 시각은 **첫 터치** 순간에 잡는다(2026-11-03). 어시스트·턴오버 짝을 고르는 동안 영상이 흘러
   //   저장 시각이 장면보다 몇 초 뒤로 밀리던 것을 막는다. 리바운드는 제 장면이 따로 있어 제 순간을 쓴다.
   const [pendingTs, setPendingTs] = useState<number | null>(null)   // 슛 O 누른 순간(어시스트 대기용)
@@ -324,6 +330,7 @@ export default function LeagueEventInputPad({
     const tempId = `opt-${crypto.randomUUID()}`
     setLastEvent({ id: tempId, type: shotType, result, playerId: selectedPlayer, label: lbl })
     setLastReboundId(null)
+    setLastBlockId(null)
     setLastEventPending(true)
     toast.success(`기록: ${lbl}`)
     setAwaitingAssist(false)
@@ -408,6 +415,7 @@ export default function LeagueEventInputPad({
     const tempId = `opt-${crypto.randomUUID()}`
     setLastEvent({ id: tempId, type: btn.type, result: isAndOne ? 'made' : 'missed', playerId: selectedPlayer, label: lbl })
     setLastReboundId(null)
+    setLastBlockId(null)
     setLastEventPending(true)
     toast.success(`기록: ${lbl}`)
     const POSSESSION_TYPES = new Set(['oreb', 'dreb', 'steal'])
@@ -456,6 +464,8 @@ export default function LeagueEventInputPad({
       const shooterTeamId = selectedTeamId
       saveShot('missed', undefined, shot, ts)  // Optimistic · 즉시 반환
       setReboundShooterTeamId(shooterTeamId)
+      if (selectedPlayer) setBlockCtx({ shooterId: selectedPlayer, ts })
+      setBlockedById(null)
       setAwaitingRebound(true)
     } else if (result === 'missed' || !shot.needsRelated) {
       saveShot(result, undefined, shot, ts)
@@ -506,6 +516,30 @@ export default function LeagueEventInputPad({
     }
     setAwaitingRebound(false)
     setReboundShooterTeamId(null)
+    setBlockCtx(null)
+    setBlockedById(null)
+    setBlockKeyMode(false)
+  }
+
+  // 리바운드 피커 안 「블록」 칩 — 블록을 저장하고 피커는 그대로 둔다(이어서 리바운드를 고른다)
+  async function doBlock(blockerId: string) {
+    if (!blockCtx || blockedById) return
+    const blocker = allPlayers.find(p => p.id === blockerId)
+    if (!blocker) return
+    setBlockedById(blockerId)
+    setBlockKeyMode(false)
+    const id = await saveEvent({
+      league_game_id: gameId, quarter: currentQuarter, video_timestamp: blockCtx.ts,
+      type: 'block', league_player_id: blockerId, team_id: blocker.team_id ?? null,
+      result: null, related_player_id: blockCtx.shooterId,
+    })
+    if (id) {
+      setLastBlockId(id)
+      toast.success(`기록: ${blocker.name} — 블록`)
+      onEventSaved('block')
+    } else {
+      setBlockedById(null)
+    }
   }
 
   async function undoLast() {
@@ -515,15 +549,20 @@ export default function LeagueEventInputPad({
       toast('저장 중 - 잠시 후 다시 시도', { icon: '⏳' })
       return
     }
-    // 슛 취소 시 연계된 리바운드도 함께 삭제
+    // 슛 취소 시 연계된 리바운드·블록도 함께 삭제
     const rebId = lastReboundId
     if (rebId) {
       await fetch(`/api/leagues/${leagueId}/events/${rebId}`, { method: 'DELETE', headers: leagueHeaders })
       setLastReboundId(null)
     }
+    const blkId = lastBlockId
+    if (blkId) {
+      await fetch(`/api/leagues/${leagueId}/events/${blkId}`, { method: 'DELETE', headers: leagueHeaders })
+      setLastBlockId(null)
+    }
     const r = await fetch(`/api/leagues/${leagueId}/events/${lastEvent.id}`, { method: 'DELETE', headers: leagueHeaders })
     if (!r.ok) { toast.error('취소 실패'); return }
-    toast(`↩ 취소: ${lastEvent.label}${rebId ? ' + 리바운드' : ''}`)
+    toast(`↩ 취소: ${lastEvent.label}${rebId ? ' + 리바운드' : ''}${blkId ? ' + 블록' : ''}`)
     const undoneType = lastEvent.type
     setLastEvent(null)
     setShowLastMenu(false)
@@ -580,13 +619,14 @@ export default function LeagueEventInputPad({
       const p = hi >= 0 ? homeDisplay[hi] : awayDisplay[ai]
       if (!p) return
       e.preventDefault()
-      if (awaitingRebound) doRebound(p.id)
+      if (awaitingRebound) { if (blockKeyMode && blockCtx) doBlock(p.id); else doRebound(p.id) }
       else if (awaitingAssist) resolveAssistWithPlayer(p.id)
       else if (awaitingTovPair) { if (p.team_id !== stealerTeamId) handleTovPair(p.id) }
       else if (addingAssistForLast) { if (assistForLastCandidates.some(c => c.id === p.id)) finishAssistForLast(p.id) }
       else selectPlayer(p.id)
       return
     }
+    if (awaitingRebound && blockCtx && !blockedById && (k === 'b' || k === 'B')) { e.preventDefault(); setBlockKeyMode(v => !v); return }
     // 종류 — 선수가 있고 다른 단계 대기 중이 아닐 때만
     if (!selectedPlayer || awaitingRebound || awaitingAssist || awaitingTovPair || addingAssistForLast) return
     const up = k.length === 1 ? k.toUpperCase() : k
@@ -806,6 +846,36 @@ export default function LeagueEventInputPad({
       {/* ── 리바운드 선택 (슛 실패 / 블록 / FT 미스 공통) ── */}
       {awaitingRebound && (
         <div className="pt-1 space-y-2">
+          {/* 블록 칩 — 야투 실패일 때만(blockCtx). 없으면 그냥 리바운드를 고른다(터치 추가 0). */}
+          {blockCtx && (() => {
+            const defSide = reboundShooterTeamId === homeTeam?.id ? 'away' : 'home'
+            const defenders = defSide === 'home' ? homeDisplay : awayDisplay
+            const defTeam = defSide === 'home' ? homeTeam : awayTeam
+            if (defenders.length === 0) return null
+            const blocker = blockedById ? allPlayers.find(p => p.id === blockedById) : null
+            return (
+              <div className={`rounded-xl px-2 py-1.5 ${blockKeyMode ? 'ring-2 ring-indigo-400' : ''}`} style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold text-[color:var(--mm-ink-soft)]">
+                    블록이 있었나요? <span className="font-normal text-[color:var(--mm-muted)]">· 없으면 아래에서 리바운드만</span>
+                  </p>
+                  <span className="hidden lg:inline text-[11px] text-[color:var(--mm-muted)]">B 누른 뒤 번호</span>
+                </div>
+                {blocker ? (
+                  <p className="text-sm font-bold text-indigo-300 px-1">🛡 {blocker.name} 블록 기록됨</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {defenders.map(p => (
+                      <button key={p.id} onClick={() => doBlock(p.id)}
+                        className="px-2.5 min-h-9 rounded-lg text-xs font-bold cursor-pointer active:scale-95 transition-all bg-indigo-600 hover:bg-indigo-500 text-[#fff]">
+                        {p.name} <span className="opacity-80">· {defTeam?.name ?? ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
           <p className="text-xs text-[color:var(--mm-ink-soft)]">리바운드 선수 선택</p>
           <button
             onClick={() => doRebound(null)}
