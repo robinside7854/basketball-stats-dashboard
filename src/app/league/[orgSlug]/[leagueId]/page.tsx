@@ -259,6 +259,7 @@ const getCachedRecentRounds = (leagueId: string) =>
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 홈 순위표는 R6 에서 뺐다(되돌리기용으로 남김)
 const getCachedQuarterStandings = (leagueId: string) =>
   unstable_cache(
     async () => {
@@ -326,6 +327,25 @@ const getCachedLeagueMeta = (leagueId: string, orgSlug: string) =>
     { tags: [`league-${leagueId}`], revalidate: 3600 },
   )
 
+// (2026-11-03 ISR Reads) 홈이 위 캐시 4개를 따로 읽으면 Vercel 이 방문 1회를 4회로 센다 — 10월에 무료 한도(100만)를
+//   넘겨 사이트가 멈춘 원인 중 하나. 묶음 하나로 감싸 **방문 1회 = 캐시 읽기 1회**. 안쪽 캐시는 묶음이 비었을 때만
+//   다시 읽힌다(그때도 안쪽이 살아 있으면 재계산 없이 채운다). 무효화 태그는 안쪽의 합집합.
+//   순위표(getCachedQuarterStandings)는 홈에서 뺐으므로(R6) 여기 넣지 않는다.
+const getCachedHome = (leagueId: string, orgSlug: string) =>
+  unstable_cache(
+    async () => {
+      const [meta, recentRounds, leaderStats, photoMap] = await Promise.all([
+        getCachedLeagueMeta(leagueId, orgSlug)(),
+        getCachedRecentRounds(leagueId)(),
+        getCachedLeaderStats(leagueId)(),
+        getCachedPhotoMap(leagueId)(),
+      ])
+      return { meta, recentRounds, leaderStats, photoMap }
+    },
+    ['home-bundle-v1', leagueId, orgSlug],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
+  )
+
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -355,19 +375,11 @@ export default async function LeagueDetailPage({
   //   - 편집 API(events/games/players/quarters 등)가 `revalidateTag('league-${leagueId}[-games]')`
   //     로 무효화하므로 편집 반영 최대 지연은 순간(태그 무효화 후 다음 요청).
   const [
-    { league },
-    recentRounds,
-    quarterStandings,
-    leaderStats,
-    initialPhotoMap,
+    { meta: { league }, recentRounds, leaderStats, photoMap: initialPhotoMap },
     approvedSession,
     draftLive,
   ] = await Promise.all([
-    getCachedLeagueMeta(leagueId, orgSlug)(),
-    getCachedRecentRounds(leagueId)(),
-    getCachedQuarterStandings(leagueId)(),
-    getCachedLeaderStats(leagueId)(),
-    getCachedPhotoMap(leagueId)(),
+    getCachedHome(leagueId, orgSlug)(),
     // 스탯 게이팅 — 쿠키 접근이라 unstable_cache 밖에서 호출 (2026-07-28)
     getApprovedSession(leagueId),
     // 진행 중인 드래프트가 있는가 — 한 줄 조회(캐시 밖: 시작·마감이 바로 보여야 한다). 띠는 어드민에게만 그린다.
@@ -434,7 +446,7 @@ export default async function LeagueDetailPage({
           >
             이번 분기
           </h2>
-          <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{quarterStandings.quarterLabel} · 하루 평균 리더</span>
+          <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{leaderStats.quarterLabel} · 하루 평균 리더</span>
         </div>
         <div className="grid gap-4 lg:gap-5 lg:items-start">
           {/* 순위표(NbaTeamStandings)는 2026-11-02 뺐다 — 「기록 → 팀」 탭에 있다 */}

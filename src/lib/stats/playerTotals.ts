@@ -13,7 +13,7 @@
 
 import type { PlayerStat } from '@/types/league'
 import type { LeagueStatsResult } from './leagueStats'
-import { getCachedLeagueStats } from './cachedLeagueStats'
+import { getCachedLeagueStats, getCachedLeagueStatsMany } from './cachedLeagueStats'
 import { periodOpts, pickPlayerRow, type StatsPeriod } from './playerPeriod'
 
 export * from './playerPeriod'
@@ -25,6 +25,11 @@ export * from './playerPeriod'
  */
 export function loadPeriodStats(leagueId: string, period: StatsPeriod): Promise<LeagueStatsResult> {
   return getCachedLeagueStats(leagueId, periodOpts(period))
+}
+
+/** 여러 기간을 캐시 **한 번**에 — 한 화면이 전체+분기, 분기 전부처럼 묶어 읽을 때(ISR Reads 1회). 순서 = 입력 순서 */
+export function loadPeriodStatsMany(leagueId: string, periods: StatsPeriod[]): Promise<LeagueStatsResult[]> {
+  return getCachedLeagueStatsMany(leagueId, periods.map(periodOpts))
 }
 
 /** 선수 한 명의 기간 줄 — 스탯 탭 그 선수 행과 같은 숫자. 안 뛰었으면 null */

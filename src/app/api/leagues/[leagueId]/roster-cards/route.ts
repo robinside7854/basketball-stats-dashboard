@@ -19,7 +19,7 @@ import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
-import { loadPeriodStats, quarterPeriod, pickPlayerRow } from '@/lib/stats/playerTotals'
+import { loadPeriodStatsMany, quarterPeriod, pickPlayerRow } from '@/lib/stats/playerTotals'
 import type { LeagueStatsResult } from '@/lib/stats/leagueStats'
 import { leagueMinRounds, meetsAttemptMin } from '@/lib/stats/eligibility'
 
@@ -111,7 +111,9 @@ export async function GET(
   }
 
   try {
-    const [playersRes, accountsRes, externalIds, allStats, quarterStats] = await Promise.all([
+    // 전체 + 분기를 캐시 항목 하나로(2026-11-03 ISR Reads — 종전 2회)
+    const statsPairP = loadPeriodStatsMany(leagueId, q ? ['all', quarterPeriod(q)] : ['all'])
+    const [playersRes, accountsRes, externalIds, statsPair] = await Promise.all([
       sb.from('league_players')
         .select('id, name, position, photo_url, is_guest, is_active')
         .eq('team_id', teamId),
@@ -120,9 +122,10 @@ export async function GET(
         .eq('team_id', teamId)
         .eq('status', 'approved'),
       fetchExternalPlayerIds(sb, leagueId),
-      loadPeriodStats(leagueId, 'all'),
-      q ? loadPeriodStats(leagueId, quarterPeriod(q)) : Promise.resolve(null),
+      statsPairP,
     ])
+    const allStats = statsPair[0]
+    const quarterStats = q ? statsPair[1] ?? null : null
     if (playersRes.error) throw new Error(playersRes.error.message)
 
     const minAll = leagueMinRounds(allStats.total_rounds ?? 0, allStats.players)

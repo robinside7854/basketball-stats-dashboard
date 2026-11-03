@@ -11,7 +11,7 @@ import { rateIfQualified } from '@/lib/stats/eligibility'
 import { isAssistEvent, FIELD_SHOT_TYPES } from '@/lib/stats/boxLine'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import {
-  loadPeriodStats, quarterPeriod, gameInPeriod, pickPlayerRow, type StatsPeriod,
+  loadPeriodStats, loadPeriodStatsMany, quarterPeriod, gameInPeriod, pickPlayerRow, type StatsPeriod,
 } from '@/lib/stats/playerTotals'
 import { leagueMinRounds, competitionRank, meetsAttemptMin, type PctStatKey } from '@/lib/stats/eligibility'
 import { getCachedDashboardBase, ongoingStreaksFor, type OngoingStreak } from '@/lib/stats/dashboardBase'
@@ -56,10 +56,9 @@ export async function GET(
   // (2026-10-14) 분기별 기록표만 따로 — `?quarterRows=only`. 분기마다 computeLeagueStats 를 병렬로 돌려
   //   무겁다(분기 수는 한 자릿수). 선수 카드가 첫 화면을 그린 뒤 따로 받는다 — 본 응답을 늦추지 않으려고.
   if (searchParams.get('quarterRows') === 'only') {
-    const [quarter_rows, quarter_total] = await Promise.all([
-      loadQuarterRows(supabase, leagueId, playerId).catch(() => [] as QuarterTableRow[]),
-      loadQuarterTotal(leagueId, playerId).catch(() => null),
-    ])
+    // 분기 N개 + 전체를 캐시 **1회**로 읽는다(2026-11-03 ISR Reads — 종전 N+1회)
+    const { quarter_rows, quarter_total } = await loadQuarterTable(supabase, leagueId, playerId)
+      .catch(() => ({ quarter_rows: [] as QuarterTableRow[], quarter_total: null }))
     return NextResponse.json({ quarter_rows, quarter_total })
   }
 
@@ -491,7 +490,8 @@ export async function GET(
     const idx = leagueQuarters.findIndex(q => q.id === target.id)
     const prev = idx > 0 ? leagueQuarters[idx - 1] : null
     if (!prev) return null
-    const [cr, pr] = await Promise.all([loadPeriodStats(leagueId, quarterPeriod(target)), loadPeriodStats(leagueId, quarterPeriod(prev))])
+    // 두 분기를 캐시 1회로(2026-11-03 ISR Reads)
+    const [cr, pr] = await loadPeriodStatsMany(leagueId, [quarterPeriod(target), quarterPeriod(prev)])
     const c = pickPlayerRow(cr, playerId), p = pickPlayerRow(pr, playerId)
     if (!c || !p || c.gp <= 0 || p.gp <= 0) return null
     const avg = (r: PlayerStat) => ({ pts: +(r.pts / r.gp).toFixed(1), reb: +(r.reb / r.gp).toFixed(1), ast: +(r.ast / r.gp).toFixed(1) })
@@ -805,7 +805,7 @@ export async function GET(
 
 // 분기별 기록표 — 정규 분기마다 그 분기 전원 스탯(computeLeagueStats)을 받아 이 선수 한 줄을 만든다.
 //   분기 경기는 **날짜 범위**로 고른다(gameDateRange). 기간이 없는 분기만 quarter_id 로 폴백.
-async function loadQuarterRows(supabase: SupabaseClient, leagueId: string, playerId: string): Promise<QuarterTableRow[]> {
+async function loadQuarterTable(supabase: SupabaseClient, leagueId: string, playerId: string) {
   const { data } = await supabase
     .from('league_quarters')
     .select('id, year, quarter, start_date, end_date, kind')
@@ -814,19 +814,22 @@ async function loadQuarterRows(supabase: SupabaseClient, leagueId: string, playe
   const quarters = ((data ?? []) as QRow[])
     .filter(q => q.kind !== 'tournament')
     .sort((a, b) => a.year - b.year || a.quarter - b.quarter)
-  const rows = await Promise.all(quarters.map(async q => {
-    const res = await loadPeriodStats(leagueId, quarterPeriod(q))
+  const results = await loadPeriodStatsMany(leagueId, [...quarters.map(quarterPeriod), 'all'])
+  const rows = quarters.map((q, i) => {
+    const res = results[i]
     return buildQuarterRow(q, res.players, res.total_rounds ?? 0, playerId, res.guests)
-  }))
-  return rows.filter((r): r is QuarterTableRow => r !== null)
+  })
+  return {
+    quarter_rows: rows.filter((r): r is QuarterTableRow => r !== null),
+    quarter_total: quarterTotalFrom(results[results.length - 1], playerId),
+  }
 }
 
 // 분기별 기록표의 「전체」 줄 — 이 묶음 전체 기간('all') 의 그 선수 줄(스탯 탭 전체 기간 행과 같은 숫자).
 //   ⚠ 분기 줄을 더하지 않는다 — 분기 밖 날짜 경기·출전일 중복 없이 정본(computeLeagueStats) 한 벌에서 가져온다.
 //   대회 묶음은 다른 league_id 라 여기 섞이지 않는다(리그 통산에 대회를 더하지 않는 규칙 그대로).
 //   avg = 하루 평균 줄(분기 줄과 같은 형식 · 굵게 = 전체 기간 리그 최고), sums = 누적 합계.
-async function loadQuarterTotal(leagueId: string, playerId: string) {
-  const res = await loadPeriodStats(leagueId, 'all')
+function quarterTotalFrom(res: Awaited<ReturnType<typeof loadPeriodStats>>, playerId: string) {
   const avg = buildQuarterRow({ id: 'all', year: 0, quarter: 0 }, res.players, res.total_rounds ?? 0, playerId, res.guests)
   const me = pickPlayerRow(res, playerId)
   if (!avg || !me) return null

@@ -312,6 +312,16 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   친선 제외 · 정체성 키로 묶음 · 승률→득실 순)도 각각 한 벌이다. 화면에서 다시 세지 말 것.
 - 선수 맞대결·팀 누적 맞대결·팀 탭 전적은 「마감된 정규전」만(팀 탭도 2026-10-15 부터 진행 중 경기 제외 · 분기는 날짜 범위).
 
+### Vercel ISR Reads = 「캐시 읽은 횟수」 (2026-11-02 사이트 정지 사고) ⚠
+
+- 2026-11-02 무료(Hobby) 한도 **ISR Reads 100만/월**을 넘겨 사이트가 「This deployment is temporarily paused」(HTTP 402)로 멈췄다 →
+  운영진이 **Pro($20/월, 한도 1,000만)** 로 올렸다. Vercel 은 `unstable_cache` 를 **읽을 때마다 1회**로 센다(TTL 과 무관).
+- 그래서 **한 화면(요청) = 캐시 읽기 1회**가 원칙이다. 같이 쓰는 조합은 묶음 캐시 하나로:
+  홈 `getCachedHome`(안쪽 4개를 감쌈 — 비었을 때만 안쪽을 읽음) · /me `getCachedMeBundle`(시즌 스탯+하루 집계) ·
+  여러 기간·필터는 `getCachedLeagueStatsMany`/`loadPeriodStatsMany`(선수 탭 전체+분기 · 팀 탭 정체성 12개+미배정 · 선수 카드 분기표·분기 비교).
+  ⚠ 한 화면에서 개별(`getCachedLeagueStats`)과 묶음을 섞어 부르면 항목이 둘이 돼 읽기도 두 배 — 한 화면이면 묶음 하나로.
+- 새 화면을 만들 때 `unstable_cache` 를 두 번 이상 읽으면 묶어라. 추이는 Vercel → Usage → ISR Reads(월 10% 안쪽이 목표).
+
 ### 역할 라벨(「플레이 스타일」)은 폐지 (2026-10-16) — 되살리지 말 것
 
 - 선수 카드 칩·CEO 미리보기 `/admin/leagues/[leagueId]/role-labels`·그 API·`roleLabels.ts` 를 모두 지웠다. 아래 「폐지된 기능」 참고.

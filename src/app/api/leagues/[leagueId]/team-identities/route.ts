@@ -39,7 +39,7 @@ import { canViewLeague } from '@/lib/auth/guard'
 import { computeTeamForm, computeGamesBehind, type FormGame, type TeamForm } from '@/lib/stats/standings'
 import { gameDateRange } from '@/lib/league/currentQuarter'
 import { canViewStats } from '@/lib/auth/guard'
-import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
+import { getCachedLeagueStatsMany } from '@/lib/stats/cachedLeagueStats'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import type { PlayerStat } from '@/types/league'
@@ -283,9 +283,13 @@ export async function GET(
     return v && quarters.some(q => q.id === v) ? v : null
   })()
   const teamScopeId = await resolveTeamId(leagueId)
-  const [statsByIdentity, unassignedBase, membershipRes, playersRes, leadersRes, externalIds] = await Promise.all([
-    Promise.all(identities.map(id => getCachedLeagueStats(leagueId, { teamId: id.team_id, quarterIds: id.quarter_ids }).then(r => r.players).catch(() => [] as PlayerStat[]))),
-    unassignedQid ? getCachedLeagueStats(leagueId, { quarterId: unassignedQid }).then(r => r.players).catch(() => [] as PlayerStat[]) : Promise.resolve([] as PlayerStat[]),
+  // 정체성마다 하나씩(12개 안팎) + 미배정 분기 = 캐시 **1회**(2026-11-03 ISR Reads — 종전 13회)
+  const statsManyP = getCachedLeagueStatsMany(leagueId, [
+    ...identities.map(id => ({ teamId: id.team_id, quarterIds: id.quarter_ids })),
+    ...(unassignedQid ? [{ quarterId: unassignedQid }] : []),
+  ]).then(rs => rs.map(r => r.players)).catch(() => null)
+  const [statsMany, membershipRes, playersRes, leadersRes, externalIds] = await Promise.all([
+    statsManyP,
     allQids.length > 0
       ? supabase.from('league_player_quarters').select('league_player_id, team_id, quarter_id, is_regular').in('quarter_id', allQids).eq('is_regular', true)
       : Promise.resolve({ data: [] as Array<{ league_player_id: string; team_id: string | null; quarter_id: string; is_regular: boolean | null }> }),
@@ -297,6 +301,8 @@ export async function GET(
     fetchExternalPlayerIds(supabase, leagueId).catch(() => new Set<string>()),
   ])
 
+  const statsByIdentity: PlayerStat[][] = identities.map((_, i) => statsMany?.[i] ?? [])
+  const unassignedBase: PlayerStat[] = unassignedQid ? (statsMany?.[identities.length] ?? []) : []
   type PRow = { id: string; name: string; number: number | null; position: string | null; photo_url: string | null; is_guest: boolean | null }
   const playerById = new Map(((playersRes.data ?? []) as PRow[]).map(p => [p.id, p]))
   // 게스트는 정규로 등록돼 있어도 뺀다(이름 규칙 포함 — 종전 화면과 같은 판정)

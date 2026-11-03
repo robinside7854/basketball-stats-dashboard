@@ -13,6 +13,7 @@ import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/admin'
 import { computePerDayStats } from './perDayStats'
 import { computeStreaks, type StreakCategory, type StreaksResult } from './streaks'
+import { computeLeagueStats, type LeagueStatsResult } from './leagueStats'
 
 export type DayPoint = { pts: number; reb: number; ast: number }
 export type DashboardBase = {
@@ -24,9 +25,7 @@ export type DashboardBase = {
 }
 
 /** 리그 공용 · 하루 집계(득점·리바·어시) + 스트릭. 하루 집계를 스트릭 계산에 넘겨 리그 이벤트를 한 번만 훑는다. */
-export function getCachedDashboardBase(leagueId: string): Promise<DashboardBase> {
-  return unstable_cache(
-    async (): Promise<DashboardBase> => {
+async function computeDashboardBase(leagueId: string): Promise<DashboardBase> {
       const sb = createClient()
       const perDay = await computePerDayStats(sb, leagueId)
       const streaks = await computeStreaks(sb, leagueId, { minStreak: 2, perDay })
@@ -37,8 +36,24 @@ export function getCachedDashboardBase(leagueId: string): Promise<DashboardBase>
         days[p] = row
       }
       return { allDates: perDay.allDates, days, streaks }
-    },
+}
+
+export function getCachedDashboardBase(leagueId: string): Promise<DashboardBase> {
+  return unstable_cache(
+    () => computeDashboardBase(leagueId),
     ['auth-dashboard-base-v1', leagueId],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
+  )()
+}
+
+/** /me 묶음 — 시즌 전체 스탯 + 하루 집계·스트릭을 캐시 **1회**로(2026-11-03 ISR Reads — 종전 2회) */
+export function getCachedMeBundle(leagueId: string): Promise<{ season: LeagueStatsResult; base: DashboardBase }> {
+  return unstable_cache(
+    async () => {
+      const [season, base] = await Promise.all([computeLeagueStats(null, leagueId, { unit: 'round' }), computeDashboardBase(leagueId)])
+      return { season, base }
+    },
+    ['auth-me-bundle-v1', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )()
 }

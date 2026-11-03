@@ -9,8 +9,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
-import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
-import { getCachedDashboardBase } from '@/lib/stats/dashboardBase'
+import { getCachedMeBundle } from '@/lib/stats/dashboardBase'
 import { loadCurrentQuarter, gameDateRange } from '@/lib/league/currentQuarter'
 import { MILESTONE_LADDER, nextMilestone } from '@/lib/stats/milestoneLadder'
 import { loadClipsByEventIds } from '@/lib/highlights/loader'
@@ -39,8 +38,10 @@ export async function GET(
   // 1) 리그 전체 집계는 **캐시**에서 읽는다 (2026-10-14 — 「내 기록」이 열릴 때마다 수 초씩 걸리던 원인).
   //   리그 공용 집계라 캐시해도 개인 정보가 섞이지 않는다 — 여기서 내 줄(pid)만 골라낸다.
   //   시즌 스탯은 스탯 탭·선수 카드와 **같은 캐시 항목**이다. 무효화는 `league-{id}-games` 태그로 자동.
-  const seasonStatsP = getCachedLeagueStats(leagueId)
-  const baseP = getCachedDashboardBase(leagueId)
+  //   (2026-11-03) 시즌 스탯 + 하루 집계를 캐시 항목 하나로 — ISR Reads 2회 → 1회
+  const bundleP = getCachedMeBundle(leagueId)
+  const seasonStatsP = bundleP.then(b => b.season)
+  const baseP = bundleP.then(b => b.base)
   const pinnedP = loadPinnedClips(sb, leagueId, pid)
   // 마지막 출전일(친선 포함) — 내 이벤트만 읽는 가벼운 조회. 실패해도 null
   const lastPlayedP = computeLastPlayed(sb, leagueId, pid)
