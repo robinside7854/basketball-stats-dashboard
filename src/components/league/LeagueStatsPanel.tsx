@@ -276,8 +276,8 @@ export default function LeagueStatsPanel({
         ))}
       </div>
       {/* 데스크탑 테이블 */}
-      <div className="hidden md:block bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl p-3 overflow-x-auto">
-        <table className="w-full">
+      <div className="hidden md:block bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl p-3">
+        <table className="mm-fit">
           <thead>{renderThead()}</thead>
           <tbody className="divide-y divide-[color:var(--mm-rule)]">
             {sorted.map(s => renderRow(s, playerMap[s.player_id] as RosterPlayer | undefined))}
@@ -369,8 +369,8 @@ export default function LeagueStatsPanel({
       )}
     </div>
     {/* 데스크탑 테이블 */}
-    <div className="hidden md:block bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl p-3 overflow-x-auto">
-      <table className="w-full">
+    <div className="hidden md:block bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl p-3">
+      <table className="mm-fit">
         <thead>{renderThead()}</thead>
         <tbody className="divide-y divide-[color:var(--mm-rule)]">
           {homePlayers.length > 0 && renderHeader(homeTeam?.name ?? '홈팀', homeTeam?.color)}

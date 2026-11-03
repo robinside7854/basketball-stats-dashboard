@@ -5,13 +5,14 @@
 import { MIN_ATTEMPTS_PER_DAY } from '@/lib/stats/eligibility'
 import type { QuarterTableKey, QuarterTableRow } from '@/lib/stats/quarterTable'
 
-const COLS: { key: QuarterTableKey; label: string; pct?: boolean; int?: boolean }[] = [
+// wide = 폰(<640px)에서는 감추는 칸 — 9칸이면 폰 폭에서 숫자가 칸을 넘친다(2026-11-03 가로 스크롤 금지)
+const COLS: { key: QuarterTableKey; label: string; pct?: boolean; int?: boolean; wide?: boolean }[] = [
   { key: 'gp',      label: '출전일', int: true },
   { key: 'ppg',     label: '득점' },
   { key: 'rpg',     label: '리바' },
   { key: 'apg',     label: '어시' },
-  { key: 'spg',     label: '스틸' },
-  { key: 'bpg',     label: '블록' },
+  { key: 'spg',     label: '스틸', wide: true },
+  { key: 'bpg',     label: '블록', wide: true },
   { key: 'fg_pct',  label: '야투율', pct: true },
   { key: 'fg3_pct', label: '3점률', pct: true },
 ]
@@ -43,21 +44,21 @@ export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[];
       <p className="text-xs mb-3" style={{ color: 'var(--mm-muted)' }}>
         하루 평균 · <b style={{ color: 'var(--mm-ink)' }}>굵은 글씨</b> = 그 분기 리그 최고(출전일이 열린 날의 30% 이상인 선수 중)
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div>
+        <table className="mm-fit">
           <caption className="sr-only">분기별 하루 평균 기록. 굵은 글씨는 그 분기 리그 최고.</caption>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <th scope="col" className="t-th text-left sticky left-0" style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)' }}>분기</th>
+              <th scope="col" className="t-th text-left w-11 sm:w-16" style={{ color: 'var(--mm-muted)' }}>분기</th>
               {COLS.map(c => (
-                <th key={c.key} scope="col" className="t-th text-right whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{c.label}</th>
+                <th key={c.key} scope="col" className={`t-th text-right ${c.wide ? 'hidden sm:table-cell' : ''}`} style={{ color: 'var(--mm-muted)' }}>{c.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map(r => (
               <tr key={r.quarter_id} style={{ borderBottom: '1px solid var(--mm-rule)' }} className="last:border-0">
-                <th scope="row" className="t-td text-left pr-2 sticky left-0 font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}>
+                <th scope="row" className="t-td text-left pr-2 font-bold" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}>
                   {r.label}
                 </th>
                 {COLS.map(c => {
@@ -68,7 +69,7 @@ export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[];
                   return (
                     <td
                       key={c.key}
-                      className={`t-td text-right tabular-nums whitespace-nowrap ${best ? 'font-black' : ''}`}
+                      className={`t-td text-right tabular-nums ${best ? 'font-black' : ''} ${c.wide ? 'hidden sm:table-cell' : ''}`}
                       style={{ color: best ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}
                       title={title}
                     >
@@ -83,13 +84,13 @@ export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[];
           {total && sumCells && (
             <tfoot>
               <tr style={{ borderTop: '2px solid var(--mm-ink)' }}>
-                <th scope="row" className="t-td text-left pr-2 sticky left-0 font-black whitespace-nowrap" style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel)' }}>
+                <th scope="row" className="t-td text-left pr-2 font-black" style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel)' }}>
                   전체<span className="sr-only"> 기간 하루 평균</span>
                 </th>
                 {COLS.map(c => {
                   const best = total.avg.best.includes(c.key)
                   return (
-                    <td key={c.key} className={`t-td text-right tabular-nums whitespace-nowrap ${best ? 'font-black' : 'font-bold'}`} style={{ color: 'var(--mm-ink)' }}>
+                    <td key={c.key} className={`t-td text-right tabular-nums ${best ? 'font-black' : 'font-bold'} ${c.wide ? 'hidden sm:table-cell' : ''}`} style={{ color: 'var(--mm-ink)' }}>
                       {cellText(c, total.avg.values[c.key])}
                       {best && <span className="sr-only"> (리그 최고)</span>}
                     </td>
@@ -97,12 +98,13 @@ export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[];
                 })}
               </tr>
               <tr>
-                <th scope="row" className="t-td text-left pr-2 sticky left-0 font-black whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}>
+                <th scope="row" className="t-td text-left pr-2 font-black" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}>
                   합계<span className="sr-only"> (누적)</span>
                 </th>
                 {COLS.map(c => (
-                  <td key={c.key} className="t-td text-right tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>
-                    {sumCells[c.key]}
+                  <td key={c.key} className={`t-td text-right tabular-nums ${c.wide ? 'hidden sm:table-cell' : ''} ${c.pct ? 'text-[11px]' : ''}`} style={{ color: 'var(--mm-ink-soft)' }}>
+                    {/* 성공/시도는 「/」 뒤에서 줄을 넘길 수 있게 — 폰 폭에서 「104/170」 이 칸을 넘치지 않게 */}
+                    {c.pct ? sumCells[c.key].split('/').map((x, i) => i === 0 ? <span key={i}>{x}/<wbr /></span> : <span key={i}>{x}</span>) : sumCells[c.key]}
                   </td>
                 ))}
               </tr>

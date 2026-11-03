@@ -206,8 +206,8 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
 
           {data && (
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              {/* 순위 필터 칩 — 한 줄 가로 밀기(폰), PC 는 줄바꿈 */}
-              <div role="group" aria-label="순위 기준" className="flex gap-1.5 overflow-x-auto lg:flex-wrap min-w-0 w-full -mx-1 px-1 py-1">
+              {/* 순위 필터 칩 — 폰·PC 모두 줄바꿈(가로 스크롤 없음, 2026-11-03) */}
+              <div role="group" aria-label="순위 기준" className="flex flex-wrap gap-1.5 min-w-0 w-full py-1">
                 {CHIP_ORDER.map(c => {
                   const on = sort === c.key
                   return (

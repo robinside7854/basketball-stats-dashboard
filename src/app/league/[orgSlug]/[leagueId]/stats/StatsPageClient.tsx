@@ -94,11 +94,11 @@ function ariaSort(active: boolean, dir: 'asc' | 'desc'): 'ascending' | 'descendi
 }
 function SortHeader({ term, label, active, dir, onSort }: { term: string; label: string; active: boolean; dir: 'asc' | 'desc'; onSort: () => void }) {
   return (
-    <StatHeader term={term} label={label} className="w-full justify-center">
+    <StatHeader term={term} label={label} className="w-full justify-center flex-wrap">
       <button
         type="button"
         onClick={onSort}
-        className="inline-flex items-center justify-center w-full min-h-6 cursor-pointer select-none bg-transparent border-0 p-0 [font:inherit] text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+        className="inline-flex flex-wrap items-center justify-center min-h-6 break-keep cursor-pointer select-none bg-transparent border-0 p-0 [font:inherit] text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
         style={{ borderRadius: 4 }}
       >
         {label}
@@ -627,12 +627,12 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     const mine = isMe(p)
     return (
       <th scope="row"
-        className={`px-2 py-3 sticky left-0 text-left font-normal align-middle transition-colors ${mine ? '' : 'bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]'}`}
+        className={`px-2 py-3 text-left font-normal align-middle transition-colors ${mine ? '' : 'bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]'}`}
         style={mine ? { background: MINE_BG, boxShadow: MINE_EDGE } : undefined}>
         {pinned && <MyRecordLabel />}
         <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
           className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
-          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+          style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', maxWidth: '100%', lineHeight: 1.2, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {p.name}
         </button>
         <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>
@@ -665,7 +665,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
               : 'var(--mm-ink-soft)'
           return (
             <td key={key}
-                className={`px-1.5 ${(sortKey === key || leader) && !low ? 't-td-key' : 't-td'}`}
+                className={(sortKey === key || leader) && !low ? 't-td-key' : 't-td'}
                 style={{ color: cellColor }}
                 title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
               {cellVal(p, key)}
@@ -886,13 +886,13 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
 
             {statMode === 'basic' ? (<>
             {/* Basic — 모바일 카드뷰 (정렬 지표 크게 + 보조 4칸). 맨 위는 「내 기록」 고정 */}
-            <div className="md:hidden p-2.5 space-y-2">
+            <div className="lg:hidden p-2.5 space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
               {me && basicCard(me, myBasicRank, { pinned: true, key: 'mine' })}
               {visibleBasic.map((p, i) => basicCard(p, i + 1))}
             </div>
 
             {/* Basic — 데스크탑 테이블 */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden lg:block">
               {/* 접힌 열이 있을 때만 「더 보기」 — 2026-11-03 부터 기본 표는 전부 펼쳐져 있어 보통 안 그려진다 */}
               {moreLabels && <div className="flex justify-end px-4 pt-2 lg:px-6">
                 <button
@@ -906,14 +906,14 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   {moreOpen ? `${moreLabels} 접기` : `더 보기 (${moreLabels})`}
                 </button>
               </div>}
-              <table className="w-full">
+              <table className="mm-fit">
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
-                    <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
-                    <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
+                    <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
+                    <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
                     {COLS.map(({ key, label, term }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
-                        className="t-th px-1.5 select-none transition-colors duration-200"
+                        className="t-th select-none transition-colors duration-200"
                         style={{
                           color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
@@ -975,8 +975,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                     <tfoot>
                       <tr style={{ borderTop: '2px solid var(--mm-ink)', background: 'var(--mm-panel-alt)' }}>
                         <td className="py-3 pl-2 pr-1"></td>
-                        <td className="px-2 py-3"></td>
-                        <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel-alt)' }}>
+                        <td className="px-2 py-3">
                           <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)' }}>
                             {viewMode === 'avg' ? '리그 평균' : '리그 총합'}
                           </span>
@@ -1001,22 +1000,22 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
             </div>
             </>) : (<>
             {/* Advanced — 모바일 카드뷰 (정렬 지표 크게 + 나머지 3칸). 맨 위는 「내 기록」 고정 */}
-            <div className="md:hidden p-2.5 space-y-2">
+            <div className="lg:hidden p-2.5 space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
               {myAdv && advCard(myAdv.p, myAdv.adv, myAdvRank, { pinned: true, key: 'mine' })}
               {visibleAdv.map(({ p, adv }, i) => advCard(p, adv, advRank(adv, i)))}
             </div>
 
             {/* Advanced — 데스크탑 테이블 */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
+            <div className="hidden lg:block">
+              <table className="mm-fit">
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
-                    <th scope="col" className="t-th text-right pl-2 pr-1 w-8" style={{ color: 'var(--mm-ink)' }}>#</th>
-                    <th scope="col" className="t-th text-left px-2 sticky left-0 min-w-[120px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)' }}>선수</th>
-                    <th scope="col" className="t-th px-3"><StatHeader term="R" label="출전" /></th>
+                    <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
+                    <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
+                    <th scope="col" className="t-th"><StatHeader term="R" label="출전" /></th>
                     {ADV_COLS.map(({ key, label, term, desc }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(advSortKey === key, advSortDir)} title={desc}
-                        className="t-th px-1.5 select-none transition-colors duration-200"
+                        className="t-th select-none transition-colors duration-200"
                         style={{
                           color: advSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: advSortKey === key ? 'var(--mm-ink)' : 'transparent',

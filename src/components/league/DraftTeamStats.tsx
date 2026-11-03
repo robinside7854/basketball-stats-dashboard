@@ -68,13 +68,13 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
           </button>
         </div>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div>
+        <table className="mm-fit text-sm">
           <thead>
             <tr className="border-b border-[color:var(--mm-rule)]/50 text-[color:var(--mm-muted)]">
               <th className="text-left p-2 font-bold">팀</th>
               <th className="text-center p-2 font-bold">인원</th>
-              {COLS.map(c => <th key={String(c.key)} className="text-center p-2 font-bold min-w-[52px]">{c.label}</th>)}
+              {COLS.map(c => <th key={String(c.key)} className="text-center p-2 font-bold">{c.label}</th>)}
             </tr>
           </thead>
           <tbody>

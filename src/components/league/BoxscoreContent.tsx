@@ -193,6 +193,14 @@ function sumLine(rows: PlayerRow[]): TotalLine {
 /** 합계 줄 옵션 — label 기본 「팀 합계」, gp 를 주면 G 칸에 그 값(하루 합산표 = 그날 경기 수) */
 type TotalOpts = { label?: string; gp?: number }
 
+// 성공/시도 칸 아래 성공률 한 줄 — 표에서 「~율」 칸을 따로 두지 않으려고(2026-11-03)
+function PctUnder({ rr, k }: { rr: TotalLine; k: string }) {
+  const pair = k === 'fgm_fga' ? [rr.fgm, rr.fga] : k === 'fg3m_fg3a' ? [rr.fg3m, rr.fg3a] : k === 'ftm_fta' ? [rr.ftm, rr.fta] : null
+  if (!pair) return null
+  const [m, a] = pair
+  return <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{a > 0 ? `${Math.round((m / a) * 1000) / 10}%` : '—'}</span>
+}
+
 function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; total?: TotalLine; totalOpts?: TotalOpts }) {
   const myId = useContext(MyIdCtx)
   const [sortKey, setSortKey] = useState('pts')
@@ -209,12 +217,10 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
     { key: 'stl',     label: '스틸',  sortKey: 'stl'  },
     { key: 'blk',     label: '블록',  sortKey: 'blk'  },
     { key: 'tov',     label: '턴오버',  sortKey: 'tov'  },
+    // 성공/시도 아래 줄에 성공률 — 「야투율·3점률·자유투율」 칸을 따로 두면 PC 에서도 표가 넘쳤다(2026-11-03 가로 스크롤 금지)
     { key: 'fgm_fga', label: '야투',   sortKey: 'fgm'  },
-    { key: 'fg_pct',  label: '야투율',  sortKey: 'fg_pct' },
     { key: 'fg3m_fg3a', label: '3점', sortKey: 'fg3m' },
-    { key: 'fg3_pct', label: '3점률',  sortKey: 'fg3_pct' },
     { key: 'ftm_fta', label: '자유투',   sortKey: 'ftm'  },
-    { key: 'ft_pct',  label: '자유투율',  sortKey: 'ft_pct' },
     { key: 'pf',      label: '파울',   sortKey: 'pf'   },
   ]
 
@@ -251,16 +257,16 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div>
       {/* 셀 크기·굵기는 globals.css 의 t-th / t-td / t-td-key 가 정본이다(가독성 업그레이드 2026-09-18).
-          여기서 text-sm 같은 크기를 다시 주면 11벌 표가 또 갈라진다. 숫자는 본문체 tabular. */}
-      <table className="w-full">
+          여기서 text-sm 같은 크기를 다시 주면 11벌 표가 또 갈라진다. 숫자는 본문체 tabular.
+          mm-fit = 가로 스크롤 없이 칸 폭에 맞춘다(2026-11-03). */}
+      <table className="mm-fit">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
             <th
               scope="col"
-              className="t-th text-left px-3 sticky left-0 min-w-[150px]"
-              style={{ background: 'var(--mm-panel-alt)' }}
+              className="t-th text-left px-3 w-[7.5rem] xl:w-44"
             >선수 / 팀</th>
             {COLS.map(c => {
               const isActive = sortKey === c.sortKey
@@ -275,7 +281,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                     <button
                       type="button"
                       onClick={() => handleSort(c.sortKey!)}
-                      className="mm-press w-full h-full inline-flex items-center justify-center whitespace-nowrap px-2 py-2.5 cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset"
+                      className="mm-press w-full h-full inline-flex flex-wrap items-center justify-center break-keep px-0.5 py-2.5 cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset"
                       style={{ font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', borderRadius: 'var(--mm-radius-ctl)' }}
                     >
                       {c.label}
@@ -300,7 +306,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                 style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { background: MY_ROW_BG, boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' } : null) }}
                 data-me={isMe || undefined}
               >
-                <th scope="row" className="py-2 px-3 sticky left-0 text-left font-normal" style={{ background: 'inherit' }}>
+                <th scope="row" className="py-2 px-3 text-left font-normal">
                   <div className="flex items-center gap-2">
                     {/* 팀 색 점 대신 얼굴(팀 색 테두리) — 점(8px)보다 16px 넓을 뿐이라 이름 칸 min-w 안에 든다 */}
                     <Avatar src={rr.photo_url} name={rr.name} size={24} ringColor={ringOf(rr.team_color)} decorative />
@@ -327,6 +333,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                   return (
                     <td key={c.key} className={key ? 't-td-key' : 't-td'} style={color ? { color } : undefined}>
                       {cellVal(rr, c.key)}
+                      <PctUnder rr={rr} k={c.key} />
                     </td>
                   )
                 })}
@@ -337,10 +344,11 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
         {total && (
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
-              <th scope="row" className="t-th text-left px-3 sticky left-0" style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</th>
+              <th scope="row" className="t-th text-left px-3" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</th>
               {COLS.map(c => (
                 <td key={c.key} className="t-td-key" style={{ color: 'var(--mm-ink)' }}>
                   {c.key === 'gp' ? (totalOpts?.gp != null ? String(totalOpts.gp) : '') : cellVal(total, c.key)}
+                  {c.key !== 'gp' && <PctUnder rr={total} k={c.key} />}
                 </td>
               ))}
             </tr>
@@ -409,8 +417,8 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
   return (
     <div className="space-y-2">
       {!hideSort && <SortSelect value={sortKey} options={sortBtns} onChange={setSortKey} />}
-      {/* 카드 안의 카드가 세 겹이 되던 것 — 선수 줄은 배경 없이 얇은 구분선만 둔다(2026-10-17) */}
-      <div>
+      {/* 카드 안의 카드가 세 겹이 되던 것 — 선수 줄은 배경 없이 얇은 구분선만 둔다(2026-10-17). 태블릿은 두 줄씩 */}
+      <div className="md:grid md:grid-cols-2 md:gap-x-6">
       {sorted.map(r => {
         const rr = r as PlayerRow & DailyStat
         const isMe = !!myId && rr.player_id === myId
@@ -516,11 +524,11 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
   return (
     <section aria-labelledby="daily-leaders-title">
       <h2 id="daily-leaders-title" className="text-base lg:text-lg font-black mb-2.5" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>당일 스탯 리더</h2>
-      <div className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-4 xl:grid-cols-7 sm:overflow-visible">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
         {leaders.map(({ Icon, label, p, val, sub }) => (
           <div
             key={label}
-            className="shrink-0 w-[10.5rem] sm:w-auto snap-start px-2.5 py-2 flex flex-col gap-0.5"
+            className="min-w-0 px-2.5 py-2 flex flex-col gap-0.5"
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             {/* DD/TD 칩은 머리 줄 오른쪽 — 이름 줄에 두면 PC 7칸(칸당 ~140px)에서 이름이 「이...」로 잘렸다(2026-10-15) */}
@@ -593,10 +601,10 @@ function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: P
               <span className="font-jersey font-bold text-base truncate min-w-0" title={side.name ?? undefined} style={{ color: 'var(--mm-ink)' }}>{side.name}</span>
               <span className="ml-1 text-sm font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>{total.pts}점</span>
             </div>
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               <StatTable rows={rows} ddKinds={dd} onPlayerPick={onPlayerPick} total={total} />
             </div>
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <MobileStatCards rows={rows} ddKinds={dd} onPlayerPick={onPlayerPick} hideSort total={total} />
             </div>
           </section>
@@ -1043,8 +1051,8 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                       {/* 쿼터별 스코어 — 1~4쿼터로 치른 정식 경기에만 나온다.
                           좁은 화면에서 쿼터가 늘어나면 이 줄만 가로로 스크롤한다(본문은 그대로). */}
                       {(g.quarter_scores?.length ?? 0) > 1 && (
-                        <div className="px-4 sm:px-5 pb-3 overflow-x-auto">
-                          <table className="w-full text-xs tabular-nums" style={{ minWidth: '15rem' }}>
+                        <div className="px-4 sm:px-5 pb-3">
+                          <table className="w-full text-xs tabular-nums">
                             <caption className="sr-only">
                               {`${g.home_team?.name ?? '홈'} 대 ${g.away_team?.name ?? '원정'} 쿼터별 스코어`}
                             </caption>
@@ -1193,11 +1201,11 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
               {filteredStats.length > 0
                 ? (
                   <>
-                    <div className="hidden md:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                    <div className="hidden lg:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <StatTable rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
                     </div>
                     {/* 모바일 카드 뷰 */}
-                    <div className="md:hidden">
+                    <div className="lg:hidden">
                       <MobileStatCards rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
                     </div>
                     {/* 약어는 처음 보는 사람에게 읽히지 않는다 — 표 바로 아래 한 줄 범례 */}

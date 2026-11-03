@@ -326,7 +326,7 @@ export default function LeagueSettingsPage() {
         <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 추가 · 소속 · +1)</span>
         <ChevronRight size={16} aria-hidden />
       </Link>
-      <nav aria-label="설정 바로가기" className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap">
+      <nav aria-label="설정 바로가기" className="flex flex-wrap gap-2">
         {SETTINGS_JUMPS.filter(j => !j.needsQuarters || quarters.length > 0).map(j => (
           <a
             key={j.id}

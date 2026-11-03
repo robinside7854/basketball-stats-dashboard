@@ -139,12 +139,12 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
       {scope === 'prev' && !prevQuarterId ? (
         <div className="p-6 text-center text-sm text-[color:var(--mm-muted)]">지난 분기가 없습니다. ‘전체 누적’을 선택하세요.</div>
       ) : (
-        <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
-          <table className="w-full text-sm">
+        <div className="max-h-[460px] overflow-y-auto">
+          <table className="mm-fit text-sm">
             <thead className="sticky top-0 bg-[color:var(--mm-panel)] z-10">
               <tr className="border-b border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)]">
                 <th onClick={() => clickHeader('name')}
-                  className="text-left p-2.5 font-bold sticky left-0 bg-[color:var(--mm-panel)] cursor-pointer hover:text-[color:var(--mm-ink)] select-none">
+                  className="text-left p-2.5 font-bold bg-[color:var(--mm-panel)] cursor-pointer hover:text-[color:var(--mm-ink)] select-none">
                   <span className="inline-flex items-center gap-0.5">
                     선수
                     {activeSort === 'name' && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
@@ -152,7 +152,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                 </th>
                 {COLS.map(c => (
                   <th key={c.key} onClick={() => clickHeader(c.key)}
-                    className="text-center p-2.5 font-bold min-w-[54px] cursor-pointer hover:text-[color:var(--mm-ink)] select-none">
+                    className="text-center p-2.5 font-bold cursor-pointer hover:text-[color:var(--mm-ink)] select-none">
                     <span className="inline-flex items-center gap-0.5">
                       {c.label}
                       {activeSort === c.key && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
@@ -170,7 +170,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                   <tr key={p.id}
                     onClick={canPick ? () => onSelectId?.(sel ? null : p.id) : undefined}
                     className={`border-b border-[color:var(--mm-rule)]/30 ${canPick ? 'cursor-pointer' : ''} ${sel ? 'bg-emerald-700/30' : 'hover:bg-[color:var(--mm-panel-alt)]/30'}`}>
-                    <td className={`p-2.5 text-base text-left sticky left-0 ${sel ? 'bg-emerald-900/40' : 'bg-[color:var(--mm-panel)]'}`}>
+                    <td className={`p-2.5 text-base text-left ${sel ? 'bg-emerald-900/40' : 'bg-[color:var(--mm-panel)]'}`}>
                       <div className="flex items-center gap-1.5">
                         {onShowStats && (
                           <button onClick={e => { e.stopPropagation(); onShowStats(p) }}

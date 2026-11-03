@@ -130,7 +130,7 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   return (
     <>
       <div
-        className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1 lg:mx-0 lg:px-0 lg:flex-wrap"
+        className="flex flex-wrap items-center gap-2"
         role="toolbar"
         aria-label="하이라이트 필터"
       >

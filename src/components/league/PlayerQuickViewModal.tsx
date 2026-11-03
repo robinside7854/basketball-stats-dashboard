@@ -991,7 +991,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
             {/* 분기 필터 — 모든 탭에 공통 적용되므로 탭 바깥으로 분리. 분기 목록은 레이아웃이 받아 둔 것(컨텍스트) */}
             {quarters.length > 0 && (
             <div className="px-4 sm:px-5 py-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide" role="group" aria-label="기간">
+                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="기간">
                       <button
                         type="button"
                         aria-pressed={selectedQuarterId === null}

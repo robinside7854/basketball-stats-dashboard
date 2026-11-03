@@ -114,9 +114,8 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
         // key={metricKey} → 지표 전환 시 컴포넌트 자체가 재마운트되어 stagger 애니메이션 재생
         <div
           key={metricKey}
-          // 모바일: 한 줄 가로 스크롤(카드 폭 30% → 3장 + 다음 장 끝이 보여 넘길 수 있음을 알린다).
-          //   종전 2열 그리드는 5명이 3줄 · 화면 한 장 높이를 차지해, 정렬을 바꾸면 결과가 화면 밖에 있었다.
-          className="flex overflow-x-auto snap-x gap-2 -mx-1 px-1 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-3"
+          // 폰 3칸(5명이 두 줄) · PC 5칸 — 가로 스크롤 없음(2026-11-03 운영진). 종전 폰은 한 줄 가로 밀기.
+          className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-5"
         >
           {players.slice(0, 5).map((p, i) => {
             const rank = i + 1
@@ -134,7 +133,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                 key={p.id}
                 onClick={onPlayerClick ? () => onPlayerClick(p.id, p.name) : undefined}
                 type="button"
-                className="topfive-slot mm-lift w-[30%] min-w-[104px] shrink-0 snap-start sm:w-auto sm:min-w-0 text-left flex flex-col cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                className="topfive-slot mm-lift min-w-0 text-left flex flex-col cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                 style={{
                   borderRadius: 'var(--mm-radius-card)',
                   background: isFirst ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',

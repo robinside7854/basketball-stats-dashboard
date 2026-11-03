@@ -36,14 +36,14 @@ export default function MonthTable({ rows, periodLabel }: { rows: MonthRow[]; pe
         {periodLabel} · 하루 평균
         {best && <> · <b style={{ color: 'var(--mm-ink)' }}>최고의 달</b> = 하루 평균 득점이 가장 높은 달</>}
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div>
+        <table className="mm-fit">
           <caption className="sr-only">월별 하루 평균 기록{best ? `. 최고의 달은 ${best.label}` : ''}</caption>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <th scope="col" className="t-th text-left sticky left-0" style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)' }}>월</th>
+              <th scope="col" className="t-th text-left w-16 sm:w-24" style={{ color: 'var(--mm-muted)' }}>월</th>
               {COLS.map(c => (
-                <th key={c.key} scope="col" className="t-th text-right whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{c.label}</th>
+                <th key={c.key} scope="col" className="t-th text-right" style={{ color: 'var(--mm-muted)' }}>{c.label}</th>
               ))}
             </tr>
           </thead>
@@ -58,10 +58,10 @@ export default function MonthTable({ rows, periodLabel }: { rows: MonthRow[]; pe
                 >
                   <th
                     scope="row"
-                    className="t-td text-left pr-2 sticky left-0 font-bold whitespace-nowrap"
+                    className="t-td text-left pr-2 font-bold"
                     style={{ color: r.best ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', background: r.best ? 'var(--mm-yellow-soft)' : 'var(--mm-panel)' }}
                   >
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex flex-wrap items-center gap-x-1">
                       {label}
                       {r.best && (
                         <span className="inline-flex items-center gap-0.5 text-xs font-black" style={{ color: 'var(--mm-yellow-strong)' }}>
@@ -78,7 +78,7 @@ export default function MonthTable({ rows, periodLabel }: { rows: MonthRow[]; pe
                     return (
                       <td
                         key={c.key}
-                        className={`t-td text-right tabular-nums whitespace-nowrap ${r.best && c.key === 'ppg' ? 'font-black' : ''}`}
+                        className={`t-td text-right tabular-nums ${r.best && c.key === 'ppg' ? 'font-black' : ''}`}
                         style={{ color: r.best ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}
                         title={title}
                       >

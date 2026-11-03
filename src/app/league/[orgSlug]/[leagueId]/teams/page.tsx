@@ -301,17 +301,17 @@ function StatsTable({
     </div>
 
     {/* 데스크탑 테이블 (md 이상) — 셀 크기·굵기는 globals.css 의 t-th / t-td 가 정본 */}
-    <div className="hidden md:block overflow-x-auto">
-      <table className="w-full">
+    <div className="hidden md:block">
+      <table className="mm-fit">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-            <th className="t-th text-left pr-3 sticky left-0 min-w-[90px]" style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)' }}>선수</th>
+            <th className="t-th text-left pr-3 w-28 lg:w-36" style={{ color: 'var(--mm-muted)' }}>선수</th>
             {cols.map(({ key, label, term, desc }) => {
               const active = sortKey === key
               return (
                 <th key={key} onClick={() => handleSort(key)} title={desc}
                   aria-sort={active ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}
-                  className="t-th text-right px-1.5 cursor-pointer select-none transition-colors duration-200"
+                  className="t-th text-right cursor-pointer select-none transition-colors duration-200"
                   style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...(key === 'three_share' ? { borderLeft: '1px solid var(--mm-rule)' } : {}) }}>
                   <StatHeader term={term} label={label} />
                   <SortIcon active={active} dir={sortDir} />
@@ -325,7 +325,7 @@ function StatsTable({
             const isLeader = leaderId && p.player_id === leaderId
             return (
               <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
+                <td className="py-2 pr-3">
                   <button onClick={() => openPlayer(p)}
                     className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
                     {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
@@ -484,12 +484,12 @@ function TeamDetailPanel({
               </div>
             )}
 
-            {/* C. Top Performers — 모바일은 가로 스크롤, lg 이상은 5칸 그리드 */}
+            {/* C. Top Performers — 폰 2칸 · 태블릿 3칸 · PC 5칸 그리드(가로 스크롤 없음, 2026-11-03) */}
             {/* byPpg 가 없으면 정규 후보가 0명 — 나머지 1위도 전부 없으니 제목째 숨긴다 */}
             {computed?.byPpg && (
               <div>
                 <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 내 1위</p>
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                   {[
                     { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)}점` : null },
                     { label: '리바운드', player: computed.byRpg, val: computed.byRpg ? `리바 ${computed.byRpg.rpg.toFixed(1)}` : null },
@@ -500,7 +500,7 @@ function TeamDetailPanel({
                     <button
                       key={item.label}
                       onClick={() => item.player && setQuickView({ id: item.player.player_id, name: item.player.name })}
-                      className="shrink-0 px-3 py-2.5 flex items-center gap-2.5 text-left transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)] min-w-0"
+                      className="px-3 py-2.5 flex items-center gap-2.5 text-left transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)] min-w-0"
                       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
                     >
                       {item.player && <LeaderAvatar name={item.player.name} photoUrl={item.player.photo_url} color={team.color} />}
@@ -1156,7 +1156,7 @@ function LeagueTeamsPageInner() {
             ref={statsTabBarRef}
             role="tablist"
             aria-label="팀별 선수 · 팀 선택"
-            className="flex gap-2 overflow-x-auto scrollbar-hide"
+            className="flex flex-wrap gap-2"
             style={{ scrollMarginTop: '12px' }}
           >
             {standings.map((s, i) => {
@@ -1250,7 +1250,7 @@ function LeagueTeamsPageInner() {
                           style={{ color: 'var(--mm-muted)', flexShrink: 0 }}
                         />
                       </summary>
-                      <div className="flex gap-2 overflow-x-auto scrollbar-hide px-3 pb-3 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                      <div className="flex flex-wrap gap-2 px-3 pb-3 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                         {players.map(p => (
                           <div key={p.player_id} className="shrink-0 w-16 sm:w-20 text-center">
                             <div className="relative w-16 h-20 sm:w-20 sm:h-24 rounded-md overflow-hidden border" style={{ borderColor: 'var(--mm-rule)', background: 'var(--mm-panel)' }}>

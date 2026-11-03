@@ -907,3 +907,20 @@
   outline: 2px solid var(--mm-yellow-strong);
   outline-offset: 2px;
 }
+
+/* ── 가로 스크롤 없는 표 (2026-11-03 운영진 「PC·폰 모두 가로 스크롤 금지」) ──────────────
+   table-layout: fixed 로 표 폭 = 담는 칸 폭. 열은 남는 폭을 똑같이 나눠 갖고(첫 열만 w-* 로 고정),
+   머리글은 단어 단위로 두 줄까지 접힌다. 숫자 칸은 그대로 한 줄. 폰(<640px)에서는 글자·여백을 한 단계 줄인다.
+   ⚠ @layer 밖(unlayered)이라 t-th / t-td 유틸리티의 여백·nowrap 을 이긴다 — 표에 mm-fit 만 붙이면 된다.
+   ⚠ 새 표를 만들 때 overflow-x-auto 로 감싸지 말고 이걸 붙인다. 열이 너무 많으면 성공/시도 + % 를 한 칸으로 합친다. */
+.mm-fit { width: 100%; table-layout: fixed; }
+.mm-fit :is(th, td) { padding-left: 0.25rem; padding-right: 0.25rem; }
+.mm-fit thead th { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.25; vertical-align: bottom; }
+.mm-fit td > * { white-space: normal; overflow-wrap: anywhere; } /* 숫자 아래 보조 줄(성공/시도·공/수·슛 분포)은 칸 안에서 접힌다 */
+.mm-fit tbody th, .mm-fit tfoot th { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+@media (max-width: 1279px) { .mm-fit td { font-size: 0.9375rem; } }
+@media (max-width: 639px) {
+  .mm-fit :is(th, td) { padding-left: 0.125rem; padding-right: 0.125rem; }
+  .mm-fit td { font-size: 0.8125rem; letter-spacing: -0.02em; }
+  .mm-fit thead th { font-size: 0.6875rem; letter-spacing: 0; }
+}

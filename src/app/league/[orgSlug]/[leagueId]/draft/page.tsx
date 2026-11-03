@@ -815,8 +815,8 @@ export default function LeagueDraftPage() {
                 <p className="text-sm font-bold text-[color:var(--mm-ink)]">픽 기록</p>
                 <p className="text-sm text-[color:var(--mm-muted)] tabular-nums">{draft.method === 'snake' ? 'Snake' : 'Linear'} · {draft.total_picks}픽</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div>
+                <table className="mm-fit text-sm">
                   <thead>
                     <tr className="border-b border-[color:var(--mm-rule)]">
                       <th className="text-left p-2 text-[color:var(--mm-muted)] font-bold w-10">R</th>
