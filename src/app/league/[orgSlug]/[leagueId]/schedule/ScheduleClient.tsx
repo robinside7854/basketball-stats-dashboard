@@ -67,6 +67,21 @@ function buildDayResults(games: CompleteGame[]): Record<string, DayResult> {
 }
 
 /** 오늘(로컬) YYYY-MM-DD. 미래 일정 판정 기준 — 문자열 비교로 시간대 문제를 피한다. */
+/** 그날 순위 — 승률·득실이 같으면 공동 순위(teams 는 compareDayTeams 순서로 이미 정렬돼 있다) */
+function dayRankOf(teams: { wins: number; losses: number; draws: number; ptsFor: number; ptsAgainst: number }[], i: number): number {
+  const key = (t: typeof teams[number]) => `${(t.wins / Math.max(1, t.wins + t.losses + t.draws)).toFixed(4)}|${t.ptsFor - t.ptsAgainst}`
+  return teams.findIndex(t => key(t) === key(teams[i])) + 1
+}
+
+function DayRankBadge({ rank }: { rank: number }) {
+  const tone = rank <= 3 ? { background: `var(--rank-${rank}-bg)`, color: `var(--rank-${rank}-fg)` } : { background: 'var(--mm-panel)', color: 'var(--mm-muted)' }
+  return (
+    <span className="t-num inline-flex items-center justify-center h-6 min-w-8 px-1 text-xs font-bold" style={{ ...tone, borderRadius: 'var(--mm-radius-chip)' }}>
+      {rank}위
+    </span>
+  )
+}
+
 function todayYmd(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -422,6 +437,12 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
     const days = ['일', '월', '화', '수', '목', '금', '토']
     return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`
   }
+  // 폰은 연도를 뺀 짧은 날짜(2026-11-04) — 「2026년 10월 31일 (토)」 한 줄이 박스스코어 버튼을 다음 줄로 밀었다
+  function formatDateShort(dateStr: string) {
+    const d = new Date(dateStr + 'T00:00:00')
+    const days = ['일', '월', '화', '수', '목', '금', '토']
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`
+  }
 
   // 분기 판정은 '그 날 치른 경기의 분기'가 정본이다. 하지만 앞으로 있을 날짜에는 경기가 없어
   // 그 지도에 안 잡힌다 — 분기 탭을 누르면 예정 일정이 통째로 사라져 보인다.
@@ -441,7 +462,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
 
   return (
     <>
-    <div className="mm-brand space-y-6">
+    <div className="mm-brand space-y-4 sm:space-y-6">
       <LeagueSubTabs group="games" />
       <div
         className="px-4 py-4 lg:px-6 lg:py-5 space-y-3"
@@ -625,7 +646,8 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                   className="font-bold break-keep min-w-0"
                   style={{ color: 'var(--mm-ink)', fontSize: 'clamp(16px, 4.2vw, 20px)', letterSpacing: '-0.005em', lineHeight: 1.2 }}
                 >
-                  {formatDate(sd.date)}
+                  <span className="sm:hidden">{formatDateShort(sd.date)}</span>
+                  <span className="hidden sm:inline">{formatDate(sd.date)}</span>
                 </span>
                 {upcoming && (
                   <Chip tone="accent">예정</Chip>
@@ -645,7 +667,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
               </div>
               {/* 읽기 모드에서만 날짜와 같은 줄에 붙인다. 편집 모드에서는 버튼이 최대 3개까지
                   늘어나 같은 줄에 두면 날짜 폭이 한 글자까지 눌린다 — 아래 별도 행으로 내린다. */}
-              {!isEditMode && !upcoming && <div className="shrink-0">{boxscoreEl}</div>}
+              {!isEditMode && !upcoming && <div className="shrink-0 hidden sm:block">{boxscoreEl}</div>}
               </div>
 
               {/* 편집 액션 — 폭이 모자라면 줄바꿈된다. 날짜를 밀지 않는다. */}
@@ -717,9 +739,11 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                   </div>
                   {/* 팀별 그날 승패 — 이름 칸 폭 고정 + 막대(칸 안에 「2승」 글자). 360px 에서도 이름 6자 + 막대 3칸이 들어간다 */}
                   {rec.teams.length > 0 && (
-                    <div className="grid grid-cols-[minmax(0,5.5rem)_1fr] sm:grid-cols-[minmax(0,7rem)_1fr] items-center gap-x-2 gap-y-1.5 max-w-md">
+                    <div className="grid grid-cols-[auto_minmax(0,5.5rem)_1fr] sm:grid-cols-[auto_minmax(0,7rem)_1fr] items-center gap-x-2 gap-y-1.5 max-w-md">
                       {rec.teams.map((t, ti) => (
                         <Fragment key={t.key}>
+                          {/* 그날 순위(2026-11-04 — 박스스코어와 같은 금·은·동). 순서로만 짐작하던 것을 숫자로 */}
+                          <DayRankBadge rank={dayRankOf(rec.teams, ti)} />
                           <span className="inline-flex items-center gap-1.5 min-w-0" title={t.name}>
                             <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color ?? 'var(--mm-muted)' }} />
                             <span className={`text-xs truncate ${ti === 0 ? 'font-black' : 'font-bold'}`} style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
@@ -734,8 +758,8 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                   {dayGames.length > 0 && (
                     <details className="group">
                       <summary
-                        className="list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1 min-h-[44px] text-xs font-bold cursor-pointer"
-                        style={{ color: 'var(--mm-ink-soft)' }}
+                        className="mm-press list-none [&::-webkit-details-marker]:hidden flex sm:inline-flex items-center justify-center gap-1 min-h-11 px-3 mt-1 text-xs font-bold cursor-pointer"
+                        style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
                       >
                         경기별 결과 {dayGames.length}경기
                         <ChevronDown size={14} aria-hidden className="transition-transform group-open:rotate-180" />
@@ -768,6 +792,9 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                 </div>
                 )
               })()}
+
+              {/* 폰: 박스스코어 버튼은 카드 맨 아래 한 줄 전체(엄지로 누르기 쉬운 자리, 2026-11-04) */}
+              {!isEditMode && !upcoming && <div className="sm:hidden [&>*]:w-full">{boxscoreEl}</div>}
 
               {/* 시간·장소·정원 — 입력된 것만 그린다. 비어 있으면 줄 자체가 없다.
                   '미정'을 나열하면 과거 날짜 32개가 전부 '미정 · 미정'으로 도배된다. */}

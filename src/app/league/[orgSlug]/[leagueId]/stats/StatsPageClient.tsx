@@ -390,7 +390,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'fgm', label: '야투', term: 'FGM' }, { key: 'fg3m', label: '3점', term: '3PM' }, { key: 'ftm', label: '자유투', term: 'FTM' },
     // MIN 은 누적 뷰에만 둔다 — 교체 기록이 거의 없어 이벤트 시각으로 추정한 값이라
     // 하루 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
-    { key: 'minutes_est', label: '시간', term: 'MIN' },
     { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
     { key: 'tov', label: '턴오버', term: 'TOV' },
     { key: 'fb_pts', label: '속공', term: '속공' },
@@ -662,7 +661,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   }
   function colHide(key: string): string {
     if (key === 'oreb' || key === 'dreb') return 'hidden xl:table-cell'
-    if (key === 'minutes_est') return 'hidden 2xl:table-cell'
+    // 「시간」(추정 출전 분) 열은 2026-11-04 운영진 결정으로 뺐다 — 추정값이라 정확하지 않다
     return ''
   }
   function basicRow(p: PlayerStat, rank: number | null, pinned = false) {
