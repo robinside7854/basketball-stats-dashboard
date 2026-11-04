@@ -955,7 +955,11 @@ function LeagueTeamsPageInner() {
         <>
         {/* ── 섹션 1: 팀별 전적 (상대 전적은 섹션 4 「누적 맞대결」) ── */}
         <div className="space-y-3">
-          <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
+            {/* 카드를 누르면 상세가 열린다는 걸 몰랐다(2026-11-04 운영진) — 제목 옆에 한 줄 */}
+            <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>팀을 누르면 상세 기록이 열려요</span>
+          </div>
 
           {/* 팀 카드 그리드 — 정체성(identityKey) 기준. 전체 뷰에서 5팀 노출 */}
           {/* xl 4칸은 팀이 4개 이상일 때만 — 3팀이면 오른쪽 한 칸이 통째로 비었다(2026-10-15) */}
@@ -1028,6 +1032,27 @@ function LeagueTeamsPageInner() {
                       )}
                     </div>
                   )}
+                  {/* 카드 맨 아래 「팀 상세 보기」 — 누를 수 있다는 표시(2026-11-04). 머리 줄과 같은 동작 */}
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-hidden
+                    onClick={() => {
+                      const opening = selectedTeamId !== s.identityKey
+                      setSelectedTeamId(opening ? s.identityKey : null)
+                      if (opening && window.matchMedia('(max-width: 639px)').matches) {
+                        requestAnimationFrame(() => document.getElementById('team-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+                      }
+                    }}
+                    className="mm-press w-full flex items-center justify-center gap-1 min-h-11 text-sm font-bold cursor-pointer"
+                    style={{
+                      borderTop: `1px solid ${isFirst ? 'color-mix(in srgb, var(--mm-panel) 20%, transparent)' : 'var(--mm-rule)'}`,
+                      color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink-soft)',
+                    }}
+                  >
+                    {isSelected ? '상세 닫기' : '팀 상세 보기'}
+                    <ChevronDown size={16} aria-hidden style={{ transform: isSelected ? 'rotate(180deg)' : undefined }} />
+                  </button>
                 </div>
               )
             })}
