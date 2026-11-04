@@ -456,7 +456,7 @@ function AttendanceCard({ attendance }: {
 }
 
 // ─── 내 베스트샷 ───────────────────────────────────────────────
-// 핀 고정한 클립(최대 3). 고르는 곳은 내 하이라이트 화면의 핀 버튼이다.
+// 핀 고정한 클립(개수 제한 없음 — 2026-11-02, 종전 최대 3). 고르는 곳은 내 하이라이트 화면의 핀 버튼이다.
 function BestShotsCard({ clips, playerName, allHref, weekly, recentHref }: {
   clips: HighlightClip[]; playerName: string; allHref: string; weekly: Weekly; recentHref: string | null
 }) {
@@ -467,7 +467,7 @@ function BestShotsCard({ clips, playerName, allHref, weekly, recentHref }: {
         <CardTitle
           icon={Pin}
           title="내 베스트샷"
-          sub={clips.length > 0 ? `${clips.length} / 3` : undefined}
+          sub={clips.length > 0 ? `${clips.length}개` : undefined}
           right={
             <Link
               href={allHref}
@@ -486,10 +486,10 @@ function BestShotsCard({ clips, playerName, allHref, weekly, recentHref }: {
             framed
             icon={Pin}
             title="아직 고른 베스트샷이 없어요"
-            description="내 하이라이트에서 마음에 드는 슛을 핀으로 고정하면 여기 모여요 (최대 3개)"
+            description="내 하이라이트에서 마음에 드는 슛을 핀으로 고정하면 여기 모여요"
           />
         ) : (
-          <ul className="grid grid-cols-3 gap-2 sm:gap-3">
+          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
             {clips.map((c, i) => (
               <li key={c.event_id} className="min-w-0">
                 <button

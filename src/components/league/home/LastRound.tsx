@@ -11,7 +11,7 @@
 //   하이라이트 보기가 펼쳐진다), 카드 맨 아래 「전체 일정 보기 →」(홈 탭 「지난 경기일」을 대신한다).
 import Link from 'next/link'
 import { useState } from 'react'
-import { ArrowRight, ChevronDown, ClipboardList, PlayCircle, Trophy } from 'lucide-react'
+import { ArrowRight, ChevronDown, ClipboardList, PlayCircle } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
 import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
@@ -39,11 +39,15 @@ function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
   return (
     <ul aria-label="그날 팀 성적" className="px-4 lg:px-5 py-3 space-y-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
       {teams.map((t, i) => (
-        <li key={t.key} className="grid items-center gap-3" style={{ gridTemplateColumns: 'minmax(4.5rem, 7rem) 1fr auto' }}>
+        <li key={t.key} className="grid items-center gap-2 sm:gap-3" style={{ gridTemplateColumns: 'auto minmax(4rem, 7rem) 1fr auto' }}>
+          {/* 그날 순위 배지(2026-11-04) — 박스스코어·경기 탭과 같은 금·은·동. 종전엔 1위에만 트로피 */}
+          <span className="t-num inline-flex items-center justify-center h-6 min-w-8 px-1 text-xs font-bold"
+            style={{ ...(dayRank(teams, i) <= 3 ? { background: `var(--rank-${dayRank(teams, i)}-bg)`, color: `var(--rank-${dayRank(teams, i)}-fg)` } : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)' }), borderRadius: 'var(--mm-radius-chip)' }}>
+            {dayRank(teams, i)}위
+          </span>
           <span className="flex items-center gap-1.5 min-w-0">
             <span aria-hidden className="block h-4 w-1.5 rounded-sm shrink-0" style={{ background: t.color, border: '1px solid var(--mm-rule)' }} />
             <span className="min-w-0 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
-              {i === 0 && <Trophy size={13} aria-label="그날 1위" className="inline -mt-0.5 mr-1" style={{ color: 'var(--mm-yellow-strong)' }} />}
               {t.name}
             </span>
           </span>
@@ -56,6 +60,12 @@ function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
 }
 
 // 한 팀 한 줄 — [색 막대][팀명 …… 점수]. 타일이 좁아(360px 2열 ≈ 140px) 글자를 한 단계 줄였다.
+/** 공동 순위 — teams 는 이미 승률 → 득실 순(dayRecord.ts compareDayTeams) */
+function dayRank(teams: RoundSummary['teams'], i: number): number {
+  const key = (t: RoundSummary['teams'][number]) => `${(t.wins / Math.max(1, t.wins + t.losses + t.draws)).toFixed(4)}|${t.ptsFor - t.ptsAgainst}`
+  return teams.findIndex(t => key(t) === key(teams[i])) + 1
+}
+
 function TeamLine({ team, score, won }: { team: RoundGame['home']; score: number; won: boolean }) {
   const name = team?.name ?? '미정'
   return (

@@ -129,7 +129,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
               <li key={String(cat.key)} className="overflow-hidden flex flex-col"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                 <button type="button" onClick={() => setQuickPlayer({ id: first.player_id, name: first.name })}
-                  className="mm-press relative block w-full aspect-[4/5] cursor-pointer text-left"
+                  className="mm-press relative block w-full aspect-square sm:aspect-[4/5] cursor-pointer text-left"
                   aria-label={`${cat.label} 1위 ${first.name} ${cat.format(valueOf(cat, first))}`}>
                   {photo ? (
                     <Image src={photo} alt="" fill sizes="(min-width: 1024px) 180px, 50vw" className="object-cover object-top" />
