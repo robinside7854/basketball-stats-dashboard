@@ -22,7 +22,6 @@ import { unstable_cache } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Film, PlayCircle, ChevronRight, Clock, VideoOff, Pin, Trophy, UserX } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
-import { ProgressBar } from '@/components/league/ui/viz'
 import { Avatar } from '@/components/league/ui'
 import PlayerName from '@/components/league/ui/PlayerName'
 import InfoTip from '@/components/league/ui/InfoTip'
@@ -233,7 +232,7 @@ export default async function HighlightsFeedPage({
         <EmptyState
           icon={Pin}
           title="아직 핀한 베스트샷이 없어요"
-          description="선수 하이라이트 재생기 아래 농구공 슬롯(1/2/3)에서 내 베스트샷을 핀하면 여기에 모여요."
+          description="선수 하이라이트 재생기 아래 농구공 버튼으로 내 베스트샷을 핀하면 여기에 모여요."
         />
       )
     } else if (playerId && !pinner) {
@@ -241,7 +240,7 @@ export default async function HighlightsFeedPage({
         <EmptyState
           icon={Pin}
           title={`${knownPlayer?.name ?? '이 선수'}의 베스트샷이 아직 없어요`}
-          description="선수 하이라이트에서 농구공 슬롯(1/2/3)으로 핀하면 여기에 모여요."
+          description="선수 하이라이트에서 농구공 버튼으로 핀하면 여기에 모여요."
           action={<FeedLinks links={[
             { href: `${hl}?player=${encodeURIComponent(playerId)}`, label: '이 선수 클립 보기' },
             { href: `${hl}?f=best`, label: '모든 베스트샷' },
@@ -437,7 +436,7 @@ function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRo
   }
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {lead}
         {rounds.map(r => {
           const isReady = r.status === 'ready'
@@ -457,8 +456,9 @@ function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRo
 
           const inner = (
             <>
-              {/* 썸네일 — 그날 첫 경기 대표 영상. 없으면 상태 아이콘 */}
-              <div className="relative aspect-video overflow-hidden" style={{ background: 'var(--mm-panel-alt)', opacity: isReady ? 1 : 0.6 }}>
+              {/* 썸네일 — 그날 첫 경기 대표 영상. 없으면 상태 아이콘.
+                  폰은 왼쪽 작은 칸 + 오른쪽 글(2026-11-04) — 위에 큰 썸네일을 두면 한 화면에 카드가 1~2장뿐이었다 */}
+              <div className="relative aspect-video overflow-hidden w-28 shrink-0 self-start m-2 mr-0 sm:m-0 sm:w-full" style={{ background: 'var(--mm-panel-alt)', opacity: isReady ? 1 : 0.6 }}>
                 {r.thumb_video_id ? (
                   // eslint-disable-next-line @next/next/no-img-element -- YouTube 썸네일(외부 호스트)
                   <img
@@ -471,14 +471,15 @@ function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRo
                 <span className="absolute inset-0 flex items-center justify-center" style={{ background: r.thumb_video_id ? 'rgba(0,0,0,0.25)' : undefined }} aria-hidden>
                   <StatusIcon
                     size={40}
+                    // 폰 작은 썸네일에서는 아이콘도 작게
                     strokeWidth={1.75}
                     style={{ color: isReady ? 'var(--mm-yellow)' : 'var(--mm-muted)' }}
-                    className={isReady ? 'transition-transform group-hover:scale-110 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]' : ''}
+                    className={`w-8 h-8 sm:w-10 sm:h-10 ${isReady ? 'transition-transform group-hover:scale-110 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]' : ''}`}
                   />
                 </span>
                 {isReady && (
                   <span
-                    className="absolute bottom-2 right-2 text-xs font-bold px-2 py-0.5 tabular-nums"
+                    className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 text-xs font-bold px-1.5 sm:px-2 py-0.5 tabular-nums"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}
                   >
                     {r.clips_count}클립
@@ -486,9 +487,9 @@ function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRo
                 )}
               </div>
 
-              <div className="p-3 space-y-2">
+              <div className="p-3 space-y-1.5 sm:space-y-2 flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-black text-lg" style={{ color: isReady ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>
+                  <div className="font-black text-base sm:text-lg leading-tight" style={{ color: isReady ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>
                     {formatFeedDate(r.date, true)}
                   </div>
                   {statusLabel && (
@@ -501,23 +502,14 @@ function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRo
                   )}
                 </div>
                 {statusHint && (
-                  <p className="text-xs font-medium break-keep" style={{ color: 'var(--mm-muted)' }}>{statusHint}</p>
+                  <p className="hidden sm:block text-xs font-medium break-keep" style={{ color: 'var(--mm-muted)' }}>{statusHint}</p>
                 )}
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--mm-muted)' }}>
-                    경기 영상 <b className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>{r.games_with_video}</b>/{r.games_count}
-                  </span>
-                  {r.games_count > 0 && (
-                    <ProgressBar
-                      value={r.games_with_video}
-                      max={r.games_count}
-                      height={5}
-                      className="flex-1 max-w-24"
-                      label={`${r.games_count}경기 중 ${r.games_with_video}경기 영상`}
-                    />
-                  )}
-                </div>
+                {/* 막대는 뺐다(2026-11-04 — 숫자 옆 막대 금지 원칙). 숫자만 */}
+                {/* 폰은 영상이 빠진 경기가 있을 때만(모두 붙었으면 알릴 것이 없다) */}
+                <p className={`text-xs font-semibold ${r.games_with_video >= r.games_count ? 'hidden sm:block' : ''}`} style={{ color: 'var(--mm-muted)' }}>
+                  경기 영상 <b className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>{r.games_with_video}</b>/{r.games_count}
+                </p>
 
                 {teamRecords.length > 0 ? (
                   // 팀별 W-L — 이긴 팀 노랑
@@ -565,14 +557,14 @@ function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRo
               key={r.date}
               href={`${hl}?date=${r.date}`}
               scroll
-              className="group block overflow-hidden mm-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+              className="group flex sm:block overflow-hidden mm-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
               style={cardStyle}
               aria-label={`${formatFeedDate(r.date, true)} 하이라이트 재생 (${r.clips_count}개 클립)`}
             >
               {inner}
             </Link>
           ) : (
-            <div key={r.date} className="block overflow-hidden" style={cardStyle}>
+            <div key={r.date} className="flex sm:block overflow-hidden" style={cardStyle}>
               {inner}
             </div>
           )

@@ -48,11 +48,12 @@ export default function MyClipsCard({
       href={href}
       scroll
       onClick={() => writeSeen(leagueId, date)}
-      className="group block overflow-hidden mm-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+      className="group flex sm:block overflow-hidden mm-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-card)' }}
       aria-label={`내 클립 보기 — 지난 경기일 ${label} ${count}개${isNew ? ', 새 클립' : ''}`}
     >
-      <div className="relative aspect-video overflow-hidden" style={{ background: 'var(--mm-panel-alt)' }}>
+      {/* 폰은 왼쪽 작은 썸네일 + 오른쪽 글 — 영상 탭 날짜 카드와 같은 모양(2026-11-04) */}
+      <div className="relative aspect-video overflow-hidden w-28 shrink-0 self-start m-2 mr-0 sm:m-0 sm:w-full" style={{ background: 'var(--mm-panel-alt)' }}>
         {thumbVideoId && (
           // eslint-disable-next-line @next/next/no-img-element -- YouTube 썸네일(외부 호스트)
           <img
@@ -67,28 +68,28 @@ export default function MyClipsCard({
             size={40}
             strokeWidth={1.75}
             style={{ color: 'var(--mm-yellow)' }}
-            className="transition-transform group-hover:scale-110 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+            className="w-8 h-8 sm:w-10 sm:h-10 transition-transform group-hover:scale-110 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
           />
         </span>
         {isNew && (
           <span
-            className="absolute top-2 left-2 text-xs font-black px-2 py-0.5"
+            className="absolute top-1 left-1 sm:top-2 sm:left-2 text-xs font-black px-1.5 sm:px-2 py-0.5"
             style={{ background: 'var(--mm-live-bg)', color: '#fff', borderRadius: 'var(--mm-radius-chip)' }}
             aria-hidden
           >
-            NEW
+            새 클립
           </span>
         )}
         <span
-          className="absolute bottom-2 right-2 text-xs font-bold px-2 py-0.5 tabular-nums"
+          className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 text-xs font-bold px-1.5 sm:px-2 py-0.5 tabular-nums"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}
           aria-hidden
         >
           {count}클립
         </span>
       </div>
-      <div className="p-3 space-y-1">
-        <div className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>내 클립</div>
+      <div className="p-3 space-y-1 flex-1 min-w-0">
+        <div className="font-black text-base sm:text-lg" style={{ color: 'var(--mm-ink)' }}>내 클립</div>
         <p className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>
           지난 경기일 <span style={{ color: 'var(--mm-ink)' }}>{label}</span> · <b className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>{count}개</b>
         </p>
