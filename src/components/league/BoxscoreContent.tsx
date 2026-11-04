@@ -53,25 +53,28 @@ type PlayerPick = (playerId: string, name: string) => void
 
 const DD_LABEL = { DD: '더블더블', TD: '트리플더블' } as const
 
-// DD/TD 칩. TD 는 채움(노랑), DD 는 테두리만 — 눈에 띄는 정도를 다르게 둔다.
+// 더블더블·트리플더블 칩 (2026-11-04 운영진 — 「DD/TD 는 심심하다」).
+// 약어 대신 우리말 전체 이름 + 불꽃 아이콘. 트리플더블은 노랑 채움, 더블더블은 진한 잉크 채움으로 둘 다 또렷하게.
 function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
   const full = DD_LABEL[kind]
   return (
     <span
       title={full}
-      aria-label={full}
-      className="inline-flex items-center px-1.5 text-xs font-bold whitespace-nowrap shrink-0 align-middle"
+      className="inline-flex items-center gap-0.5 h-6 pl-1.5 pr-2 text-xs font-black whitespace-nowrap shrink-0 align-middle"
       style={kind === 'TD'
-        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }
-        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
-    >{kind}</span>
+        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1.5px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)', letterSpacing: '-0.01em' }
+        : { background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)', letterSpacing: '-0.01em' }}
+    >
+      <Flame size={13} strokeWidth={2.5} aria-hidden />
+      {full}
+    </span>
   )
 }
 
 function DdLegend() {
   return (
     <p className="t-label" style={{ color: 'var(--mm-muted)' }}>
-      DD = 더블더블 (득점·리바운드·어시스트·스틸·블록 중 2개가 두 자릿수) · TD = 트리플더블 (3개 이상)
+      더블더블 = 득점·리바운드·어시스트·스틸·블록 중 2개가 두 자릿수 · 트리플더블 = 3개 이상
     </p>
   )
 }
@@ -334,9 +337,10 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                       <span className="flex items-center gap-1.5 min-w-0">
                         <PlayerName row={rr} onPlayerPick={onPlayerPick} />
                         {isMe && <MeTag />}
-                        {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
                       </span>
                       {rr.team_name && <p className="text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
+                      {/* 칩은 이름 아래 — 이름 칸이 좁아 「트리플더블」을 옆에 두면 이름이 잘린다 */}
+                      {ddKinds?.get(rr.player_id) && <span className="block mt-1"><DdChip kind={ddKinds.get(rr.player_id)!} /></span>}
                     </div>
                   </div>
                 </th>
@@ -442,6 +446,14 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
           {view === 'basic' ? '슈팅 기록 보기' : '기본 기록 보기'}
         </button>
       </div>
+      {/* 기록 칸을 누르면 바뀐다는 사실이 화면에 안 보였다(2026-11-04 운영진) */}
+      <p className="flex items-start gap-1.5 px-2.5 py-2 text-xs font-semibold leading-snug" role="note"
+        style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+        <Hand size={14} className="shrink-0 mt-px" aria-hidden />
+        {view === 'basic'
+          ? <span>기록 칸을 누르면 <b style={{ color: 'var(--mm-ink)' }}>야투·3점·자유투</b>(성공/시도·성공률)로 바뀌어요. 모든 선수가 같이 바뀌어요.</span>
+          : <span>지금은 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>이에요. 다시 누르면 득점·리바운드 같은 기본 기록으로 돌아와요.</span>}
+      </p>
       {/* 선수마다 카드 한 장(2026-11-04) — 얇은 구분선만 있던 줄이 서로 섞여 보였다. 태블릿은 두 줄씩 */}
       <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
       {sorted.map(r => {
@@ -922,14 +934,17 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                           style={{ background: 'var(--mm-panel)', borderTop: i === 0 ? undefined : '1px solid var(--mm-rule)' }}>
                           <RankBadge rank={rank} />
                           <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color ?? 'var(--mm-muted)' }} />
-                          <span className="font-bold text-sm truncate min-w-0 flex-1" style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
-                          <span className="t-num text-sm font-bold shrink-0">
+                          <span className="font-bold text-sm min-w-0 flex-1 leading-snug" style={{ color: 'var(--mm-ink)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{t.name}</span>
+                          {/* 폰에서 이름이 잘려 보였다(2026-11-04) — 전적·승률을 오른쪽 두 줄로 쌓아 이름 자리를 넓혔다 */}
+                          <span className="flex flex-col items-end shrink-0 leading-tight">
+                          <span className="t-num text-sm font-bold">
                             <span style={{ color: 'var(--mm-positive)' }}>{t.W}승</span>{' '}
                             <span style={{ color: 'var(--mm-negative)' }}>{t.L}패</span>
                             {t.D > 0 && <span style={{ color: 'var(--mm-muted)' }}> {t.D}무</span>}
                           </span>
-                          <span className="t-num text-xs shrink-0 w-24 text-right" style={{ color: 'var(--mm-muted)' }}>
+                          <span className="t-num text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
                             승률 {gp > 0 ? Math.round((t.W / gp) * 1000) / 10 : 0}% · <span style={{ color: diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-muted)' }}>{diff >= 0 ? '+' : ''}{diff}</span>
+                          </span>
                           </span>
                         </li>
                       )
