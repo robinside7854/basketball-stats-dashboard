@@ -50,7 +50,8 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
   )
 }
 import StatHeader from '@/components/league/StatHeader'
-import StatsGlossarySheet from '@/components/league/stats/StatsGlossarySheet'
+import SortSelect from '@/components/league/ui/SortSelect'
+import Avatar from '@/components/league/ui/Avatar'
 import type { PlayerStat } from '@/types/league'
 
 // 명단 편집기는 ?edit=1 에서만 쓰인다 — 첫 화면 내려받기에서 뺀다(2026-10-27)
@@ -235,25 +236,16 @@ function StatsTable({
     )}
     {/* 모바일 정렬 칩 + 카드뷰 (md 미만) — 칩은 스탯 탭 정렬 칩과 같은 36px, 가로 스크롤 없이 줄바꿈(2026-10-25) */}
     <div className="md:hidden">
-      <div className="px-1 pb-2">
-        <div className="flex flex-wrap gap-1.5">
-          {cols.map(({ key, label }) => {
-            const active = sortKey === key
-            return (
-              <button key={key} onClick={() => handleSort(key)} aria-pressed={active}
-                className="mm-press inline-flex items-center min-h-9 px-3 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                style={{
-                  background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
-                  color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
-                  border: '1px solid var(--mm-rule)',
-                }}>
-                {label}{active && (sortDir === 'desc' ? ' ↓' : ' ↑')}
-              </button>
-            )
-          })}
-        </div>
+      {/* 폰: 정렬 칩 여러 줄 → 「정렬 ▾」 하나 + 방향 버튼(2026-11-04, 선수 탭·박스스코어와 같은 방식) */}
+      <div className="flex items-center justify-between gap-2 flex-wrap pb-2">
+        <SortSelect value={sortKey} options={cols.map(c => ({ key: c.key, label: c.label }))} onChange={k => setSort({ key: k, dir: 'desc' })} />
+        <button type="button" onClick={() => handleSort(sortKey)}
+          className="mm-press inline-flex items-center gap-1 min-h-11 px-3 text-xs font-bold cursor-pointer"
+          style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+          {sortDir === 'desc' ? <><ChevronDown size={14} aria-hidden />높은 순</> : <><ChevronUp size={14} aria-hidden />낮은 순</>}
+        </button>
       </div>
-      <div className="overflow-hidden" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+      <div className="space-y-2">
         {sorted.map(({ p, v, ok, rank }) => {
           const isLeader = leaderId && p.player_id === leaderId
           const subKeys = cols.map(c => c.key).filter(k => k !== sortKey).slice(0, 4)
@@ -262,10 +254,15 @@ function StatsTable({
             <div key={p.player_id} role="button" tabIndex={0}
               onClick={() => openPlayer(p)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer(p) } }}
-              className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
-              style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{rank ?? '—'}</span>
+              className="w-full text-left p-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
+              style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
+              <div className="flex items-center gap-2.5 mb-2">
+                {/* 순위 1~3 은 금·은·동 배지(박스스코어·선수 탭과 같은 색) */}
+                <span className="w-7 h-7 shrink-0 inline-flex items-center justify-center t-num font-black text-sm"
+                  style={rank != null && rank <= 3
+                    ? { background: `var(--rank-${rank}-bg)`, color: `var(--rank-${rank}-fg)`, borderRadius: 'var(--mm-radius-chip)' }
+                    : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-chip)' }}>{rank ?? '—'}</span>
+                <Avatar src={p.photo_url} name={p.name} size={40} ringColor={color ? accentOrInk(color) : undefined} decorative />
                 {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
@@ -281,7 +278,7 @@ function StatsTable({
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+              <div className="grid grid-cols-4 gap-1 py-1.5" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
                 {subKeys.map(k => {
                   const c = cols.find(x => x.key === k)!
                   return (
@@ -991,7 +988,14 @@ function LeagueTeamsPageInner() {
                   <button
                     className="w-full px-4 py-3 pl-5 flex items-center justify-between transition-colors cursor-pointer"
                     style={{ borderBottom: '1px solid var(--mm-rule)' }}
-                    onClick={() => setSelectedTeamId(prev => prev === s.identityKey ? null : s.identityKey)}
+                    onClick={() => {
+                      const opening = selectedTeamId !== s.identityKey
+                      setSelectedTeamId(opening ? s.identityKey : null)
+                      // 폰은 팀 카드가 한 줄씩 쌓여 상세가 맨 아래에 열린다 — 열면 그 자리로 내려 준다(2026-11-04)
+                      if (opening && window.matchMedia('(max-width: 639px)').matches) {
+                        requestAnimationFrame(() => document.getElementById('team-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+                      }
+                    }}
                     aria-expanded={isSelected}
                     aria-label={`${s.displayName} 상세 정보 ${isSelected ? '닫기' : '열기'}`}
                   >
@@ -1007,7 +1011,7 @@ function LeagueTeamsPageInner() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-jersey font-black tabular-nums leading-none" style={{ color: isFirst ? 'var(--mm-panel)' : accentOrInk(s.color), fontSize: '28px' }}>{winPct}{played > 0 ? '%' : ''}</p>
-                      <p className="text-xs font-bold mt-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>승률 · {played}경기</p>
+                      <p className="text-xs font-bold mt-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>승률 · {played > 0 ? <>{s.w}승 {s.l}패{s.d > 0 ? ` ${s.d}무` : ''}</> : '0경기'}</p>
                     </div>
                   </button>
                   {/* 승·무·패 막대 — 헤더 바로 아래 전체 폭 (2026-10-12: w-16 미니바 → RecordBar) */}
@@ -1037,7 +1041,7 @@ function LeagueTeamsPageInner() {
             if (!selStanding) return null
             const teamForPanel = { id: selStanding.teamId, name: selStanding.displayName, color: selStanding.color }
             return (
-              <div className="relative">
+              <div className="relative" id="team-detail-panel" style={{ scrollMarginTop: '12px' }}>
                 <button
                   className="absolute top-4 right-4 z-10 w-11 h-11 flex items-center justify-center transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)]"
                   style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
@@ -1140,8 +1144,7 @@ function LeagueTeamsPageInner() {
                 />
                 비정규 선수 보기
               </label>
-              {/* 「숫자 읽는 법」 — 스탯 탭과 같은 시트(glossary.ts READING_GUIDE 하나). 종전 팀 탭 전용 접힘 상자는 없앴다(2026-10-15) */}
-              <StatsGlossarySheet className="shrink-0" />
+              {/* 「숫자 읽는 법」 시트는 뺐다 — 운영진 삭제 목록 R6(2026-11-02), 스탯 탭과 같이 */}
             </div>
 
 
@@ -1236,7 +1239,7 @@ function LeagueTeamsPageInner() {
                       photo_url 은 이미 이 페이지가 쓰는 /api/leagues/[id]/stats 응답에 들어있어
                       (leagueStats.ts:409) 새 fetch·새 게이트가 필요 없다. */}
                   {players.length > 0 && (
-                    <details className="group mb-3" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', background: 'var(--mm-panel-alt)' }}>
+                    <details className="group mb-3 hidden md:block" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', background: 'var(--mm-panel-alt)' }}>
                       <summary
                         className="flex items-center gap-2 px-3 cursor-pointer select-none min-h-[44px] [&::-webkit-details-marker]:hidden"
                         style={{ color: 'var(--mm-ink-soft)', listStyle: 'none' }}
