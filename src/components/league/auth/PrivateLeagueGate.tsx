@@ -12,7 +12,7 @@
 //   이 컴포넌트가 직접 들고 있어야 한다 — 그래야 이벤트를 던져도 실제로 모달이 열린다.
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Lock, LogIn, ChevronRight, UserPlus } from 'lucide-react'
+import { Lock, LogIn, ChevronRight, UserPlus, Mail } from 'lucide-react'
 import { Basketball } from '@/components/league/BasketballIcons'
 
 const LoginModal = dynamic(() => import('./LoginModal'), { ssr: false })
@@ -135,6 +135,17 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
             소속 동호회의 회원이라면 이름으로 가입 요청 → 운영자 승인 후 바로 열려요
           </p>
         </div>
+
+        {/* 온볼 도입 문의(2026-11-04 CEO 요청) — 잠금 화면을 본 다른 동호회 사람이 연락할 곳 */}
+        <p className="mt-5 text-center text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
+          <span className="font-bold">온볼 도입 문의하기</span>
+          <span className="block mt-1">
+            <a href="mailto:robin7854@naver.com" className="inline-flex items-center gap-1 min-h-11 font-bold underline underline-offset-4 select-all"
+              style={{ color: 'var(--mm-ink)' }}>
+              <Mail size={15} aria-hidden />robin7854@naver.com
+            </a>
+          </span>
+        </p>
       </div>
 
       {loginOpen && (
