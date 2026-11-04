@@ -9,12 +9,11 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 //
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
 //   · 팀별 비교 · 어시스트(네트워크). 공격 유형 탭은 2026-10-31 운영진 결정으로 뺐다(팀 탭 인사이트에는 남음). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
-import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
-import { ProgressBar } from '@/components/league/ui/viz'
 import Avatar from '@/components/league/ui/Avatar'
 import EmptyState from '@/components/league/ui/EmptyState'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
@@ -193,6 +192,26 @@ function sumLine(rows: PlayerRow[]): TotalLine {
 /** 합계 줄 옵션 — label 기본 「팀 합계」, gp 를 주면 G 칸에 그 값(하루 합산표 = 그날 경기 수) */
 type TotalOpts = { label?: string; gp?: number }
 
+type QuarterStandings = { label: string; days: number; teams: { key: string; name: string; color: string | null; W: number; L: number; D: number; PF: number; PA: number }[] }
+
+/** 이미 승률 → 득실 순으로 정렬된 목록에 순위를 붙인다 — 승률·득실이 같으면 공동 순위(1·2·2·4) */
+function withRanks<T extends { W: number; L: number; D: number; PF: number; PA: number }>(rows: T[]): { row: T; rank: number }[] {
+  const key = (r: T) => { const gp = r.W + r.L + r.D; return `${gp > 0 ? (r.W / gp).toFixed(4) : '0'}|${r.PF - r.PA}` }
+  return rows.map((row, i) => ({ row, rank: rows.findIndex(x => key(x) === key(row)) + 1 || i + 1 }))
+}
+
+/** 「1위」 배지 — 1·2·3위는 금·은·동 바탕, 그 아래는 회색 */
+function RankBadge({ rank }: { rank: number }) {
+  const tone = rank === 1 ? { bg: 'var(--rank-1-bg)', fg: 'var(--rank-1-fg)' }
+    : rank === 2 ? { bg: 'var(--rank-2-bg)', fg: 'var(--rank-2-fg)' }
+    : rank === 3 ? { bg: 'var(--rank-3-bg)', fg: 'var(--rank-3-fg)' }
+    : { bg: 'var(--mm-panel-alt)', fg: 'var(--mm-muted)' }
+  return (
+    <span className="t-num shrink-0 inline-flex items-center justify-center h-6 min-w-9 px-1.5 text-xs font-bold"
+      style={{ background: tone.bg, color: tone.fg, borderRadius: 'var(--mm-radius-chip)' }}>{rank}위</span>
+  )
+}
+
 // 성공/시도 칸 아래 성공률 한 줄 — 표에서 「~율」 칸을 따로 두지 않으려고(2026-11-03)
 function PctUnder({ rr, k }: { rr: TotalLine; k: string }) {
   const pair = k === 'fgm_fga' ? [rr.fgm, rr.fga] : k === 'fg3m_fg3a' ? [rr.fg3m, rr.fg3a] : k === 'ftm_fta' ? [rr.ftm, rr.fta] : null
@@ -221,7 +240,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
     { key: 'fgm_fga', label: '야투',   sortKey: 'fgm'  },
     { key: 'fg3m_fg3a', label: '3점', sortKey: 'fg3m' },
     { key: 'ftm_fta', label: '자유투',   sortKey: 'ftm'  },
-    { key: 'pf',      label: '파울',   sortKey: 'pf'   },
+    // 파울(PF)은 기록하지 않아 뺐다(2026-11-04 운영진)
   ]
 
   function handleSort(sk: string) {
@@ -363,37 +382,34 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
 // 카드 본문 숫자 격자 — 선수 카드와 팀 합계 카드가 같이 쓴다.
 //   본문은 17px(text-base). 12.75px 한 단계에 몰려 있던 것이 모바일 가독성의 주범이었다.
 //   값 숫자는 본문체 tabular(t-num) 600. 라벨은 한 단계 작게 둬 360px 에서 4칸이 한 줄에 든다.
-function L({ children }: { children: ReactNode }) {
-  return <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{children} </span>
-}
-function V({ children }: { children: ReactNode }) {
-  return <span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{children}</span>
-}
-
-function LineGrid({ r }: { r: TotalLine }) {
-  const ft = ftPct(r)
+// 모바일 선수 기록 한 칸 묶음 (2026-11-04 운영진)
+//   기본 = 득점·리바·어시·스틸·블록·턴오버 6칸. 기록 칸을 누르면 슈팅(야투·3점·자유투 성공/시도 + %)으로 바뀐다 —
+//   한 카드를 누르면 모든 카드가 같이 바뀐다(같은 줄끼리 비교하라고). 파울(PF)은 기록을 안 해 뺐고, 성공률 막대도 뺐다.
+type LineView = 'basic' | 'shoot'
+function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
+  if (view === 'shoot') {
+    const cells: [string, number, number][] = [['야투', r.fgm, r.fga], ['3점', r.fg3m, r.fg3a], ['자유투', r.ftm, r.fta]]
+    return (
+      <div className="grid grid-cols-3 gap-1.5">
+        {cells.map(([label, m, a]) => (
+          <div key={label} className="text-center py-1.5" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+            <div className="text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
+            <div className="t-num text-base font-bold leading-tight" style={{ color: 'var(--mm-ink)' }}>{m}/{a}</div>
+            <div className="t-num text-xs font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>{a > 0 ? `${Math.round((m / a) * 1000) / 10}%` : '—'}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  const cells: [string, number][] = [['득점', r.pts], ['리바', r.reb], ['어시', r.ast], ['스틸', r.stl], ['블록', r.blk], ['턴오버', r.tov]]
   return (
-    <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-base tabular-nums">
-      <div><L>REB</L><V>{r.reb}</V></div>
-      <div><L>AST</L><V>{r.ast}</V></div>
-      <div><L>STL</L><V>{r.stl}</V></div>
-      <div><L>BLK</L><V>{r.blk}</V></div>
-      <div><L>TOV</L><V>{r.tov}</V></div>
-      <div><L>PF</L><V>{r.pf ?? 0}</V></div>
-      <ShootCell label="FT" made={r.ftm} att={r.fta} pct={ft} />
-      <ShootCell label="FG" made={r.fgm} att={r.fga} pct={r.fg_pct} />
-      <ShootCell label="3P" made={r.fg3m} att={r.fg3a} pct={r.fg3_pct} />
-    </div>
-  )
-}
-
-// 슛 한 칸 — 「m/a (pct%)」 글자 아래 성공/시도 미니 막대. 카드 높이가 거의 안 늘게 4px.
-//   시도가 0이면 막대를 빈 채로 둬 칸 높이를 맞춘다(옆 칸과 줄이 어긋나지 않게).
-function ShootCell({ label, made, att, pct }: { label: string; made: number; att: number; pct: number | null }) {
-  return (
-    <div className="col-span-2">
-      <L>{label}</L><V>{made}/{att}</V>{pct != null && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> ({pct}%)</span>}
-      <ProgressBar value={made} max={att} height={4} className="mt-0.5 max-w-[9rem]" label={`${label} ${att}개 중 ${made}개 성공`} />
+    <div className="grid grid-cols-6 gap-1">
+      {cells.map(([label, v], i) => (
+        <div key={label} className="text-center py-1.5" style={{ background: i === 0 ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+          <div className="text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
+          <div className={`t-num leading-tight ${i === 0 ? 'text-lg font-bold' : 'text-base font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{v}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -403,6 +419,8 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
   // 2026-10-31 운영진: 스틸·블록·3점도 정렬 — 같으면 득점 순
   type MobileSortKey = 'pts' | 'fb_pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m'
   const [sortKey, setSortKey] = useState<MobileSortKey>('pts')
+  const [view, setView] = useState<LineView>('basic')
+  const flip = () => setView(v => (v === 'basic' ? 'shoot' : 'basic'))
   const num = (r: unknown, k: string) => ((r as Record<string, unknown>)[k] as number) ?? 0
   const sorted = [...rows].sort((a, b) => num(b, sortKey) - num(a, sortKey) || num(b, 'pts') - num(a, 'pts'))
   const sortBtns: { key: MobileSortKey; label: string }[] = [
@@ -416,18 +434,25 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
   ]
   return (
     <div className="space-y-2">
-      {!hideSort && <SortSelect value={sortKey} options={sortBtns} onChange={setSortKey} />}
-      {/* 카드 안의 카드가 세 겹이 되던 것 — 선수 줄은 배경 없이 얇은 구분선만 둔다(2026-10-17). 태블릿은 두 줄씩 */}
-      <div className="md:grid md:grid-cols-2 md:gap-x-6">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        {!hideSort ? <SortSelect value={sortKey} options={sortBtns} onChange={setSortKey} /> : <span />}
+        <button type="button" onClick={flip} aria-pressed={view === 'shoot'}
+          className="mm-press inline-flex items-center gap-1 min-h-9 px-3 text-xs font-bold cursor-pointer"
+          style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+          {view === 'basic' ? '슈팅 기록 보기' : '기본 기록 보기'}
+        </button>
+      </div>
+      {/* 선수마다 카드 한 장(2026-11-04) — 얇은 구분선만 있던 줄이 서로 섞여 보였다. 태블릿은 두 줄씩 */}
+      <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
       {sorted.map(r => {
         const rr = r as PlayerRow & DailyStat
         const isMe = !!myId && rr.player_id === myId
         return (
-          <div key={rr.player_id} className={isMe ? 'py-3 px-2 -mx-2' : 'py-3'} data-me={isMe || undefined}
-            style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { background: MY_ROW_BG, boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' } : null) }}>
+          <div key={rr.player_id} className="p-3" data-me={isMe || undefined}
+            style={{ background: isMe ? MY_ROW_BG : 'var(--mm-panel)', border: `1px solid ${isMe ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`, borderRadius: 'var(--mm-radius-card)' }}>
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <Avatar src={rr.photo_url} name={rr.name} size={32} ringColor={ringOf(rr.team_color)} decorative />
+                <Avatar src={rr.photo_url} name={rr.name} size={56} ringColor={ringOf(rr.team_color)} decorative />
                 {/* 팀명·경기 수는 이름 아래 줄로 — 한 줄에 다 두면 360px 에서 이름이 「이…」로 잘렸다 */}
                 <span className="flex flex-col min-w-0">
                   <span className="flex items-center gap-1.5 min-w-0">
@@ -443,29 +468,26 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
                 </span>
                 {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
               </div>
-              <div className="flex items-baseline gap-1 shrink-0">
-                {/* 큰 점수 숫자(≥20px)만 유니폼체 유지 — 운영자 결정 */}
-                <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{rr.pts}</span>
-                <span className="t-label">득점</span>
-              </div>
             </div>
-            <LineGrid r={rr} />
+            {/* 기록 칸 아무 데나 누르면 기본 ↔ 슈팅 */}
+            <div role="button" tabIndex={0} onClick={flip} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip() } }}
+              aria-label={view === 'basic' ? '눌러서 슈팅 기록 보기' : '눌러서 기본 기록 보기'} className="cursor-pointer">
+              <LineGrid r={rr} view={view} />
+            </div>
           </div>
         )
       })}
       {total && (
-        <div className="py-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+        <div className="p-3" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-card)' }}>
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="flex items-baseline gap-2 min-w-0">
               <span className="text-base font-black truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</span>
               {showGP && totalOpts?.gp != null && <span className="text-xs font-semibold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{totalOpts.gp}경기</span>}
             </span>
-            <div className="flex items-baseline gap-1 shrink-0">
-              <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{total.pts}</span>
-              <span className="t-label">득점</span>
-            </div>
           </div>
-          <LineGrid r={total} />
+          <div role="button" tabIndex={0} onClick={flip} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip() } }} className="cursor-pointer">
+            <LineGrid r={total} view={view} />
+          </div>
         </div>
       )}
       </div>
@@ -512,7 +534,8 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
 
   // 아이콘은 lucide 단일 패밀리 — 이모지는 OS 마다 모양이 다르고 아이콘 자리에 쓰지 않는다(CLAUDE.md)
   const leaders = [
-    { Icon: Flame,     label: '득점',     p: byPts,   val: byPts ? `${byPts.pts}점` : null,     sub: gpSub(byPts) },
+    // 득점 아래는 경기 수 대신 야투 성공/시도(야투율) — 2026-11-04 운영진
+    { Icon: Flame,     label: '득점',     p: byPts,   val: byPts ? `${byPts.pts}점` : null,     sub: byPts ? `야투 ${byPts.fgm}/${byPts.fga}${byPts.fga > 0 ? ` (${Math.round((byPts.fgm / byPts.fga) * 1000) / 10}%)` : ''}` : '' },
     { Icon: Hand,      label: '리바운드', p: byReb,   val: byReb ? `${byReb.reb}개` : null,     sub: byReb ? `OR ${byReb.oreb} / DR ${byReb.dreb}` : '' },
     { Icon: Handshake, label: '어시스트', p: byAst,   val: byAst ? `${byAst.ast}개` : null,     sub: gpSub(byAst) },
     { Icon: Shield,    label: '블록',     p: byBlk,   val: byBlk ? `${byBlk.blk}개` : null,     sub: gpSub(byBlk) },
@@ -626,6 +649,8 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
   // 이 날짜에 대진 롤업이 걸렸는지 — 화면에는 안내 문구로만 쓴다(슬롯별 보기는 제공하지 않는다)
   const [rolledUp, setRolledUp] = useState(false)
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
+  // 그 분기 누적 순위(그날까지) — daily-boxscore 응답 quarter_standings (2026-11-04)
+  const [quarterStandings, setQuarterStandings] = useState<QuarterStandings | null>(null)
   const [loading, setLoading] = useState(true)
   // 불러오기 실패 — 빈 날과 구분해 「다시 시도」를 준다
   const [error, setError] = useState(false)
@@ -696,6 +721,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
       setGames(gs)
       setRolledUp(d.rolled_up === true)
       setDailyStats(d.daily_stats ?? [])
+      setQuarterStandings(d.quarter_standings ?? null)
       // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
       //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
       if (initialGameId) {
@@ -842,7 +868,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                     <p className="text-xs -mt-1.5 mb-2" style={{ color: 'var(--mm-muted)' }}>친선전 {dayRecord.exhibitionGames}경기는 전적에서 뺐어요.</p>
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {teamRecords.map(r => {
+                    {withRanks(teamRecords).map(({ row: r, rank }) => {
                       const diff = r.PF - r.PA
                       return (
                         <div
@@ -851,6 +877,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
                         >
                           <div className="flex items-center gap-2 mb-2 min-w-0">
+                            <RankBadge rank={rank} />
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color ?? 'var(--mm-muted)' }} />
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
@@ -876,6 +903,38 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                       )
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* 그 분기 누적 순위 — 그날까지(2026-11-04 운영진). 하루 전적과 같은 규칙(승률 → 득실, 친선 제외) */}
+              {quarterStandings && quarterStandings.teams.length > 0 && (
+                <div>
+                  <h2 className="text-base lg:text-lg font-black mb-2.5 flex items-baseline gap-2 flex-wrap" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+                    {quarterStandings.label} 누적 순위
+                    <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>이날까지 {quarterStandings.days}일</span>
+                  </h2>
+                  <ol className="overflow-hidden" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                    {withRanks(quarterStandings.teams).map(({ row: t, rank }, i) => {
+                      const diff = t.PF - t.PA
+                      const gp = t.W + t.L + t.D
+                      return (
+                        <li key={t.key} className="flex items-center gap-2.5 px-3 py-2.5 min-w-0"
+                          style={{ background: 'var(--mm-panel)', borderTop: i === 0 ? undefined : '1px solid var(--mm-rule)' }}>
+                          <RankBadge rank={rank} />
+                          <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color ?? 'var(--mm-muted)' }} />
+                          <span className="font-bold text-sm truncate min-w-0 flex-1" style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
+                          <span className="t-num text-sm font-bold shrink-0">
+                            <span style={{ color: 'var(--mm-positive)' }}>{t.W}승</span>{' '}
+                            <span style={{ color: 'var(--mm-negative)' }}>{t.L}패</span>
+                            {t.D > 0 && <span style={{ color: 'var(--mm-muted)' }}> {t.D}무</span>}
+                          </span>
+                          <span className="t-num text-xs shrink-0 w-24 text-right" style={{ color: 'var(--mm-muted)' }}>
+                            승률 {gp > 0 ? Math.round((t.W / gp) * 1000) / 10 : 0}% · <span style={{ color: diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-muted)' }}>{diff >= 0 ? '+' : ''}{diff}</span>
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ol>
                 </div>
               )}
 

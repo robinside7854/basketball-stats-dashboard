@@ -10,6 +10,7 @@ import { fetchQuarterVideos } from '@/lib/youtube/gameVideo'
 import { fastBreakIds } from '@/lib/stats/fastBreak'
 import { emptyBoxLine, applyEventToBoxLine, isAssistEvent, type BoxLine } from '@/lib/stats/boxLine'
 import { assistPairOf, pickGameSideTeam, assistTeamOf } from '@/lib/stats/gameInsights'
+import { tallyDayRecord } from '@/lib/stats/dayRecord'
 
 // GET /api/leagues/[leagueId]/daily-boxscore?date=YYYY-MM-DD
 export async function GET(
@@ -31,7 +32,7 @@ export async function GET(
   //   요청마다 따로 한다 — 캐시에는 로그인과 무관한 리그 공용 데이터만 들어간다.
   const body = await unstable_cache(
     () => computeDailyBoxscore(leagueId, date),
-    ['daily-boxscore', leagueId, date, 'v3'],
+    ['daily-boxscore', leagueId, date, 'v4'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )()
   return NextResponse.json(body, { headers: { 'Cache-Control': 'private, no-store' } })
@@ -437,5 +438,50 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
 
   // games 는 이미 대진 롤업 결과(= 경기)다. 슬롯 단위 원본은 내려보내지 않는다 —
   //   화면에 "슬롯별 보기" 가 없고(2026-08-23 요청), 응답만 두 배로 불린다.
-  return { games: gameList, daily_stats: dailyStats, rolled_up: rolledUp, assist_links: assistLinks }
+  // 그 분기 누적 순위(그날까지) — 2026-11-04 운영진. 같은 캐시 항목 안에서 계산해 읽기 횟수를 늘리지 않는다.
+  const quarterStandings = await computeQuarterStandings(supabase, leagueId, date, identityResolver).catch(() => null)
+  return { games: gameList, daily_stats: dailyStats, rolled_up: rolledUp, assist_links: assistLinks, quarter_standings: quarterStandings }
+}
+
+/**
+ * 그 날짜가 속한 분기의 누적 팀 순위 — 그날까지 마감된 정규전(친선 제외).
+ *   분기는 기간(start~end)에 그날이 드는 행, 기간이 없으면 그날 경기의 quarter_id(currentQuarter.ts 와 같은 규칙).
+ *   집계·정렬은 「그날 팀 승패」 정본 tallyDayRecord 그대로(승률 → 득실) — 팀은 (team_id, quarter_id) 정체성.
+ */
+async function computeQuarterStandings(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+  date: string,
+  resolver: ReturnType<typeof makeIdentityResolver>,
+) {
+  type Q = { id: string; year: number; quarter: number; start_date: string | null; end_date: string | null; kind: string | null }
+  const [{ data: qs }, { data: dayGames }] = await Promise.all([
+    supabase.from('league_quarters').select('id, year, quarter, start_date, end_date, kind').eq('league_id', leagueId),
+    supabase.from('league_games').select('quarter_id').eq('league_id', leagueId).eq('date', date).eq('is_exhibition', false),
+  ])
+  const rows = ((qs ?? []) as Q[]).filter(q => q.kind !== 'tournament')
+  const dayQid = ((dayGames ?? []) as Array<{ quarter_id: string | null }>).find(g => g.quarter_id)?.quarter_id ?? null
+  const q = rows.find(r => r.start_date && r.end_date && r.start_date <= date && date <= r.end_date)
+    ?? rows.find(r => r.id === dayQid) ?? null
+  if (!q) return null
+  let query = supabase.from('league_games')
+    .select('date, quarter_id, home_team_id, away_team_id, home_score, away_score')
+    .eq('league_id', leagueId).eq('is_complete', true).eq('is_exhibition', false).lte('date', date)
+  query = q.start_date && q.end_date ? query.gte('date', q.start_date) : query.eq('quarter_id', q.id)
+  const { data: gs } = await query
+  type G = { date: string; quarter_id: string | null; home_team_id: string | null; away_team_id: string | null; home_score: number | null; away_score: number | null }
+  const side = (tid: string | null, qid: string | null) => {
+    const r = resolver(tid, qid)
+    return r ? { key: r.key, name: r.display_name, color: r.color } : null
+  }
+  const rec = tallyDayRecord(((gs ?? []) as G[]).map(g => ({
+    home: side(g.home_team_id, g.quarter_id), away: side(g.away_team_id, g.quarter_id),
+    home_score: g.home_score, away_score: g.away_score, is_complete: true, is_exhibition: false,
+  })))
+  if (rec.teams.length === 0) return null
+  return {
+    label: `${String(q.year).slice(2)}.${q.quarter}Q`,
+    days: new Set(((gs ?? []) as G[]).map(g => g.date)).size,
+    teams: rec.teams.map(t => ({ key: t.key, name: t.name, color: t.color, W: t.wins, L: t.losses, D: t.draws, PF: t.ptsFor, PA: t.ptsAgainst })),
+  }
 }
