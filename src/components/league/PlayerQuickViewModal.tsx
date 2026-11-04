@@ -103,6 +103,8 @@ type Detail = {
     fg_pct: number; fg3_pct: number; ft_pct: number
     /** 속공 득점(2026-11) — 옛 응답엔 없을 수 있다 */
     fb_pts?: number; fbpg?: number
+    /** 더블더블·트리플더블 날 수(하루 합계 기준) */
+    dd2?: number; td3?: number
   } | null
   /** 월별 — 하루 평균. 성공률은 최소 시도 미달이면 null. best = 「최고의 달」(하루 평균 득점) */
   monthly_stats?: MonthRow[]
@@ -1114,6 +1116,27 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     )
                   })}
                 </div>
+                {/* 더블더블·트리플더블 — 하루 합계 기준 날 수(2026-11-04 운영진). 0이면 그리지 않는다 */}
+                {((viewDetail.player_stats.dd2 ?? 0) + (viewDetail.player_stats.td3 ?? 0)) > 0 && (
+                  <div className="grid grid-cols-2 gap-1.5 mb-3">
+                    {([
+                      ['트리플더블', viewDetail.player_stats.td3 ?? 0, true],
+                      ['더블더블', viewDetail.player_stats.dd2 ?? 0, false],
+                    ] as const).map(([label, n, td]) => (
+                      <div key={label} className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-sm"
+                        style={n === 0
+                          ? { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }
+                          : td
+                            ? { background: 'var(--mm-yellow)', border: '1.5px solid var(--mm-black)', color: 'var(--mm-black)' }
+                            : { background: 'var(--mm-ink)', color: 'var(--mm-panel)' }}>
+                        <span className="inline-flex items-center gap-1 text-sm font-black whitespace-nowrap">
+                          <Flame size={15} strokeWidth={2.5} aria-hidden />{label}
+                        </span>
+                        <span className="font-jersey font-black text-2xl leading-none tabular-nums">{n}<span className="text-sm font-bold ml-0.5">회</span></span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {/* 순위가 비어 있는 이유를 숫자로 — 자격은 리그 공통 규칙 하나(eligibility.ts leagueMinRounds) */}
                 {(() => {
                   const gp = viewDetail.player_stats.gp

@@ -6,7 +6,8 @@
 //   사용자 피드백(2026-10-16): 등번호·소속팀(분기마다 바뀜)·출석 막대·게스트는 보이지 않는다. 얼굴을 크게.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import { ArrowDown, ArrowUp, BadgeCheck, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, BadgeCheck, Flame, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
+import Avatar from '@/components/league/ui/Avatar'
 import { toast } from 'sonner'
 import { Chip, EmptyState, SectionCard, Sheet } from '@/components/league/ui'
 import SortSelect from '@/components/league/ui/SortSelect'
@@ -24,7 +25,7 @@ type Period = 'quarter' | 'all'
 // 리뉴얼 R2 (2026-10-31): 선수 탭 = 명단 + 순위. 스탯 탭(리더보드)의 「누가 잘하나」를 여기로 합쳤다.
 // 2026-11 운영진: 순위 고르기를 드롭다운 → 필터 칩 12개(출석 … 자유투). 성공률은 %와 성공/시도를 함께.
 //   되돌리기: docs/renewal-rollback.md.
-type SortKey = 'attendance' | 'ppg' | 'fbpg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'fg_pct' | 'tpg' | 'ft_pct'
+type SortKey = 'attendance' | 'ppg' | 'fbpg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'fg_pct' | 'tpg' | 'ft_pct' | 'dd2' | 'td3'
 type StatKey = Exclude<SortKey, 'attendance'>
 type Metric = {
   key: StatKey
@@ -65,6 +66,12 @@ const METRICS: Metric[] = [
   { key: 'fg_pct', label: '야투율', ok: l => l.fg_ok, ...pctOf('fg_pct'), sub: l => `${l.fgm}/${l.fga}` },
   { key: 'tpg', label: '3점 성공', ok: l => l.eligible, ...pair('tpg', 'fg3m'), sub: l => `${l.fg3_pct.toFixed(1)}% · ${l.fg3m}/${l.fg3a}` },
   { key: 'ft_pct', label: '자유투', ok: l => l.ft_ok, ...pctOf('ft_pct'), sub: l => `${l.ftm}/${l.fta}` },
+  // 더블더블·트리플더블(2026-11-04 운영진) — 하루 합계 기준 「그런 날」 수. 평균·누적 보기 모두 같은 횟수.
+  //   횟수라 출전일 자격을 묻지 않는다 — 한 번이라도 한 선수는 순위에 오른다.
+  ...(['dd2', 'td3'] as const).map((k): Metric => ({
+    key: k, label: k === 'dd2' ? '더블더블' : '트리플더블', ok: l => l[k] > 0,
+    value: l => l[k], main: l => `${l[k]}회`, sub: l => `출전 ${l.gp}일 중`,
+  })),
 ]
 const CHIP_ORDER: { key: SortKey; label: string }[] = [{ key: 'attendance', label: '출석' }, ...METRICS.map(m => ({ key: m.key as SortKey, label: m.label }))]
 
@@ -76,7 +83,21 @@ function groupOfCard(p: RosterCard): PositionGroupCode | null {
   return positionGroupOf(p.positions.join(','))
 }
 
+/** 폰 폭(640px 미만) — 폰에서는 순위를 사진 카드 대신 목록으로 그린다(2026-11-04) */
+function useIsPhone() {
+  const [phone, setPhone] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)')
+    const on = () => setPhone(mq.matches)
+    on()
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return phone
+}
+
 export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
+  const isPhone = useIsPhone()
   const openCard = useOpenPlayerCard()
   const { isEditMode, leagueHeaders } = useLeagueEditMode()
   const [data, setData] = useState<RosterCardsResponse | null>(null)
@@ -211,8 +232,9 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
                 {CHIP_ORDER.map(c => {
                   const on = sort === c.key
                   return (
-                    <Chip key={c.key} as="button" size="md" selected={on} onClick={() => pickSort(c.key)}
+                    <Chip key={c.key} as="button" size={isPhone ? 'sm' : 'md'} selected={on} onClick={() => pickSort(c.key)}
                       ariaLabel={on ? `${c.label} — ${dir === 'best' ? '높은 순' : '낮은 순'} (누르면 반대로)` : c.label}>
+                      {(c.key === 'dd2' || c.key === 'td3') && <Flame size={isPhone ? 12 : 14} aria-hidden />}
                       {c.label}
                       {on && (dir === 'best' ? <ArrowDown size={14} aria-hidden /> : <ArrowUp size={14} aria-hidden />)}
                     </Chip>
@@ -252,6 +274,28 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
             ) : undefined}
           />
         </SectionCard>
+      ) : isPhone ? (
+        // 폰: 한 줄 = 선수 한 명(순위 · 얼굴 · 이름 · 숫자). 사진 카드 두 줄로는 한 화면에 2~4명뿐이었다(2026-11-04)
+        <ol className="overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
+          {list.map((p, i) => {
+            const m = METRICS.find(x => x.key === sort)
+            const l = lineOf(p)
+            const rank = m ? (rankOf.get(p.id) ?? null) : i + 1
+            const a = attOf(p)
+            const main = m ? (l ? m.main(l, mode) : '–') : (totalRounds === 0 ? '–' : `${Math.round(a.rate * 100)}%`)
+            const sub = m ? (l && m.sub ? m.sub(l, mode) : null) : (totalRounds === 0 ? null : `${a.gp}/${totalRounds}일`)
+            return (
+              <li key={p.id} style={{ borderTop: i === 0 ? undefined : '1px solid var(--mm-rule)' }}>
+                <PlayerRow p={p} rank={rank} label={m?.label ?? '출석'} main={main} sub={sub}
+                  onOpen={openCard ? () => openCard({
+                    playerId: p.id,
+                    playerName: p.name,
+                    quarterId: effPeriod === 'quarter' ? (data.quarter?.id ?? 'all') : 'all',
+                  }) : undefined} />
+              </li>
+            )
+          })}
+        </ol>
       ) : (
         <CardGrid>
           {list.map((p, i) => (
@@ -288,6 +332,42 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
         />
       )}
     </div>
+  )
+}
+
+function PlayerRow({ p, rank, label, main, sub, onOpen }: {
+  p: RosterCard; rank: number | null; label: string; main: string; sub: string | null; onOpen?: () => void
+}) {
+  const group = groupOfCard(p)
+  return (
+    <button type="button" onClick={onOpen} disabled={!onOpen}
+      className="mm-press w-full flex items-center gap-3 px-3 py-2.5 text-left cursor-pointer disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
+      aria-label={`${p.name}${rank != null ? ` ${label} ${rank}위` : ''} 선수 카드 열기`}>
+      <span className="w-8 h-8 shrink-0 inline-flex items-center justify-center font-jersey font-black text-base tabular-nums"
+        style={rank != null && rank <= 3
+          ? { background: `var(--rank-${rank}-bg, var(--mm-yellow))`, color: `var(--rank-${rank}-fg, var(--mm-black))`, borderRadius: 'var(--mm-radius-chip)' }
+          : { background: 'var(--mm-panel-alt)', color: rank == null ? 'var(--mm-muted)' : 'var(--mm-ink)', borderRadius: 'var(--mm-radius-chip)' }}>
+        {rank ?? '–'}
+      </span>
+      <Avatar src={p.photo_url} name={p.name} size={56} decorative />
+      <span className="flex flex-col min-w-0 flex-1 gap-1">
+        <span className="font-black text-base leading-tight truncate" style={{ color: 'var(--mm-ink)' }}>{p.name}</span>
+        <span className="flex flex-wrap gap-1">
+          {group && (
+            <span className="inline-flex items-center h-5 px-1.5 text-[11px] font-bold"
+              style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-chip)' }}>
+              {positionGroupLabel(group)}
+            </span>
+          )}
+          {!p.has_account && <span className="inline-flex items-center h-5 text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>미가입</span>}
+        </span>
+      </span>
+      {/* 순위 밖(출전일·시도 부족)은 흐리게 — 카드 보기와 같은 규칙 */}
+      <span className="flex flex-col items-end shrink-0 leading-tight" style={{ opacity: rank == null ? 0.5 : 1 }}>
+        <span className="font-jersey font-black text-2xl tabular-nums" style={{ color: 'var(--mm-ink)' }}>{main}</span>
+        <span className="text-[11px] font-semibold tabular-nums mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sub ?? label}</span>
+      </span>
+    </button>
   )
 }
 

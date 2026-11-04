@@ -22,6 +22,7 @@ import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinu
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadIdentityResolver } from './teamIdentity'
 import { isAssistEvent, FIELD_SHOT_TYPES } from './boxLine'
+import { doubleDoubleKind, type DdStatLine } from './doubleDouble'
 import { fastBreakIds } from './fastBreak'
 
 export type LeagueStatsUnit = 'round'
@@ -210,6 +211,15 @@ export async function computeLeagueStats(
   }
 
   const statsMap: Record<string, PlayerStats> = {}
+  // 더블더블·트리플더블 재료 — 선수별·하루별 다섯 지표(2026-11-04). 판정 단위는 **하루 합계**다:
+  //   한 경기 기준으로는 시즌 전체에 3번뿐이라(실측) 의미가 없고, 박스스코어 「선수 기록」 칩도 하루 합계로 판정한다.
+  const dayLines: Record<string, Record<string, DdStatLine>> = {}
+  const dayLineOf = (pid: string, gid: string): DdStatLine => {
+    const d = gameToDate[gid] ?? gid
+    if (!dayLines[pid]) dayLines[pid] = {}
+    if (!dayLines[pid][d]) dayLines[pid][d] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }
+    return dayLines[pid][d]
+  }
   const gpMap: Record<string, Set<string>> = {}
   const teamRebByGame: Record<string, Record<string, number>> = {}
   const teamPossByGame: Record<string, Record<string, { fga: number; fta: number; tov: number }>> = {}
@@ -308,6 +318,7 @@ export async function computeLeagueStats(
       s.fb_pts += pts
       if (e.type.startsWith('shot_')) s.fb_fgm++
     }
+    const before = { pts: s.pts, reb: s.reb, stl: s.stl, blk: s.blk }
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++
@@ -340,6 +351,11 @@ export async function computeLeagueStats(
       case 'block': s.blk++; break
       case 'turnover': s.tov++; break
       case 'foul': s.pf++; break
+    }
+    if (s.pts !== before.pts || s.reb !== before.reb || s.stl !== before.stl || s.blk !== before.blk) {
+      const dl = dayLineOf(pid, gId)
+      dl.pts += s.pts - before.pts; dl.reb += s.reb - before.reb
+      dl.stl += s.stl - before.stl; dl.blk += s.blk - before.blk
     }
 
     // 게임 총합(양팀 통합) 누적 · PIE 분모 재료
@@ -395,6 +411,7 @@ export async function computeLeagueStats(
     if (e.related_player_id && isAssistEvent(e.type, e.result, e.related_player_id)) {
       const as = ensure(e.related_player_id)
       as.ast++
+      dayLineOf(e.related_player_id, gId).ast++
       if (!teamEventGames[e.related_player_id]) teamEventGames[e.related_player_id] = new Set()
       teamEventGames[e.related_player_id].add(gId)
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
@@ -539,8 +556,15 @@ export async function computeLeagueStats(
     .filter(s => s.gp > 0 && (!playerId || s.player_id === playerId))
     .map(s => {
       const meta = metaMap[s.player_id] ?? {}
+      let dd2 = 0, td3 = 0
+      for (const line of Object.values(dayLines[s.player_id] ?? {})) {
+        const k = doubleDoubleKind(line)
+        if (k === 'TD') td3++
+        else if (k === 'DD') dd2++
+      }
       return {
         ...s,
+        dd2, td3,
         name:     ((meta as Record<string,unknown>).name as string) ?? '알 수 없음',
         number:   ((meta as Record<string,unknown>).number as number | null) ?? null,
         position: ((meta as Record<string,unknown>).position as string | null) ?? null,

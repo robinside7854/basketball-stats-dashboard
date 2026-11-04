@@ -42,7 +42,7 @@ export type StatsInitial = { quarterId: string; players: PlayerStat[]; totalRoun
 const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
-type AdvKey = 'at_ratio'|'a1_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'
+type AdvKey = 'at_ratio'|'a1_total'|'dd2_total'|'td3_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'
 type StatMode = 'basic'|'advanced'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
@@ -398,6 +398,9 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   const ADV_COLS: { key: AdvKey; label: string; term: string; desc: string }[] = [
     { key: 'at_ratio',  label: '어시/턴오버', term: 'A/T',  desc: '어시스트/턴오버 비율' },
     { key: 'a1_total',  label: '앤드원',      term: 'A1',   desc: '성공한 앤드원(And-One) 횟수 (누적)' },
+    // 2026-11-04 운영진 — 하루 합계 기준 「그런 날」 수(트리플더블인 날은 더블더블에 안 셈)
+    { key: 'dd2_total', label: '더블더블',    term: '더블더블', desc: '더블더블 날 수 · 하루 합계로 득점·리바·어시·스틸·블록 중 2개가 두 자릿수' },
+    { key: 'td3_total', label: '트리플더블',  term: '트리플더블', desc: '트리플더블 날 수 · 하루 합계로 3개 이상이 두 자릿수' },
     { key: 'trb_pct',   label: '리바 비중',   term: 'TRB%', desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
     { key: 'usg_pct',   label: '공격 점유',   term: 'USG%', desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
     { key: 'ts_pct',    label: '진실야투',    term: 'TS%',  desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
@@ -413,6 +416,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       // 턴오버 0 이면 나눌 수 없다 — 「99」로 1위에 앉히지 않고 null(화면 「—」, 정렬 맨 뒤, TOP 5 제외)
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : null,
       a1_total:  a1,
+      dd2_total: p.dd2 ?? 0,
+      td3_total: p.td3 ?? 0,
       trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
       usg_pct:   calcUsg(p, p.team_poss_in_games ?? 0),
       // 슈팅 효율 — 종전 「슈팅」 모드에서 옮겨 왔다(2026-11-02). 시도가 없으면 null(「—」)
@@ -515,7 +520,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       .filter((x): x is { p: PlayerStat; val: number } => x.val != null)
     const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
     const isRatio = advSortKey === 'at_ratio'
-    const isCount = advSortKey === 'a1_total'
+    const isCount = advSortKey === 'a1_total' || advSortKey === 'dd2_total' || advSortKey === 'td3_total'
     return {
       key: `advanced:${advSortKey}`,
       label,
@@ -598,7 +603,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     )
   }
   const fmtAdv = (k: AdvKey, v: number | null) =>
-    v == null ? '—' : k === 'a1_total' ? String(v) : k === 'at_ratio' ? v.toFixed(2) : `${fmt1(v)}%`
+    v == null ? '—' : (k === 'a1_total' || k === 'dd2_total' || k === 'td3_total') ? String(v) : k === 'at_ratio' ? v.toFixed(2) : `${fmt1(v)}%`
   function advCard(p: PlayerStat, adv: Record<AdvKey, number | null>, rank: number | null, opts: { pinned?: boolean; key?: string } = {}) {
     const sortCol = ADV_COLS.find(c => c.key === advSortKey)
     const items: CardItem[] = ADV_COLS

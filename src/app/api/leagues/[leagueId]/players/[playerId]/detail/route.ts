@@ -681,6 +681,8 @@ export async function GET(
     fg_pct: myRow.fg_pct, fg3_pct: myRow.fg3_pct, ft_pct: myRow.ft_pct,
     // 속공(2026-11, fastBreak.ts) — 옛 캐시 행에는 없을 수 있어 0
     fb_pts: myRow.fb_pts ?? 0, fbpg: myRow.fbpg ?? 0,
+    // 더블더블·트리플더블 날 수(2026-11-04, 하루 합계 기준 — leagueStats.ts)
+    dd2: myRow.dd2 ?? 0, td3: myRow.td3 ?? 0,
   } : null
 
   // ── Monthly stats — aggregateMap 기반 단위별 → 월별 그룹 ──────────────

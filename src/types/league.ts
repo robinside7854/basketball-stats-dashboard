@@ -151,6 +151,8 @@ export type PlayerStat = {
   and_one: number  // 성공한 앤드원 횟수
   // 속공(2026-11) — 수비 리바운드·스틸 뒤 7초 안 득점(lib/stats/fastBreak.ts). 옛 캐시 항목엔 없을 수 있다
   fb_pts?: number; fb_fgm?: number; fbpg?: number
+  /** 더블더블·트리플더블 「하루」 수(하루 합계 기준, 트리플더블인 날은 더블더블에 안 셈) — leagueStats.ts */
+  dd2?: number; td3?: number
   // 슛 분포 (존별 made/attempted)
   ds_a: number; ds_m: number   // 골밑슛 (Dunk Spot, shot_post)
   lu_a: number; lu_m: number   // 레이업 (shot_layup)
