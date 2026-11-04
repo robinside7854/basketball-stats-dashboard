@@ -192,7 +192,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   async function handleSave(id: string) {
     setSaving(true)
     const isShotType = SHOT_TYPES.includes(editForm.type)
-    const isFtType   = FT_TYPES.includes(editForm.type)
+    const isFtType   = FT_ALL.includes(editForm.type)
     const needsResult = isShotType || isFtType
     const body: Record<string, unknown> = {
       type: editForm.type,
@@ -226,7 +226,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   }
 
   const isShotType = SHOT_TYPES.includes(editForm.type)
-  const isFtType   = FT_TYPES.includes(editForm.type)
+  const isFtType   = FT_ALL.includes(editForm.type)
   const needsResult = isShotType || isFtType
 
   // Chip style helpers
