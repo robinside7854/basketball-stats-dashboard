@@ -916,7 +916,9 @@
 .mm-fit { width: 100%; table-layout: fixed; }
 .mm-fit :is(th, td) { padding-left: 0.25rem; padding-right: 0.25rem; }
 .mm-fit thead th { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.25; vertical-align: bottom; }
-.mm-fit td > * { white-space: normal; overflow-wrap: anywhere; } /* 숫자 아래 보조 줄(성공/시도·공/수·슛 분포)은 칸 안에서 접힌다 */
+.mm-fit td > * { white-space: normal; overflow-wrap: anywhere; }
+/* 안전장치(2026-11-04): 칸이 정말 모자라면 옆 칸으로 넘쳐 겹치지 말고 칸 안에서 접는다 — 리더보드 누적 「181/634」가 옆 칸과 겹쳤다 */
+.mm-fit td { white-space: normal; overflow-wrap: anywhere; } /* 숫자 아래 보조 줄(성공/시도·공/수·슛 분포)은 칸 안에서 접힌다 */
 .mm-fit tbody th, .mm-fit tfoot th { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
 @media (max-width: 1279px) { .mm-fit td { font-size: 0.9375rem; } }
 @media (max-width: 639px) {

@@ -653,6 +653,18 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     ...(isMe(p) ? { background: MINE_BG } : {}),
   })
 
+  // 누적 보기는 열이 14개라 좁은 PC 에서 숫자가 접히거나 겹쳤다(2026-11-04 운영진 캡처).
+  //   덜 중요한 열을 폭에 따라 숨긴다 — 공리·수리(리바 합은 남음)는 1280↑, 추정 출전 시간은 1536↑.
+  // 「3701/9654」처럼 긴 성공/시도는 칸이 모자라면 숫자 중간이 아니라 「/」 뒤에서 접히게
+  const slashBreak = (v: string) => {
+    const i = v.indexOf('/')
+    return i < 0 ? v : <>{v.slice(0, i + 1)}<wbr />{v.slice(i + 1)}</>
+  }
+  function colHide(key: string): string {
+    if (key === 'oreb' || key === 'dreb') return 'hidden xl:table-cell'
+    if (key === 'minutes_est') return 'hidden 2xl:table-cell'
+    return ''
+  }
   function basicRow(p: PlayerStat, rank: number | null, pinned = false) {
     return (
       <tr key={pinned ? 'mine' : p.player_id}
@@ -671,10 +683,10 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
               : 'var(--mm-ink-soft)'
           return (
             <td key={key}
-                className={(sortKey === key || leader) && !low ? 't-td-key' : 't-td'}
+                className={`${(sortKey === key || leader) && !low ? 't-td-key' : 't-td'} ${colHide(key)}`}
                 style={{ color: cellColor }}
                 title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
-              {cellVal(p, key)}
+              {slashBreak(cellVal(p, key))}
               {/* 누적 보기의 야투·3점·자유투(성공/시도) 아래에 성공률 % (2026-11 운영진) */}
               {viewMode === 'total' && (key === 'fgm' || key === 'fg3m' || key === 'ftm') && (() => {
                 const [m, a] = key === 'fgm' ? [p.fgm, p.fga] : key === 'fg3m' ? [p.fg3m, p.fg3a] : [p.ftm, p.fta]
@@ -919,7 +931,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                     <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
                     {COLS.map(({ key, label, term }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
-                        className="t-th select-none transition-colors duration-200"
+                        // 누적 보기의 성공/시도 세 칸(「329/794」)은 다른 칸보다 넓게 — 똑같이 나누면 옆 칸과 겹쳤다(2026-11-04)
+                        className={`t-th select-none transition-colors duration-200 ${viewMode === 'total' && (key === 'fgm' || key === 'fg3m' || key === 'ftm') ? 'w-[4.75rem] xl:w-[5.25rem]' : ''} ${colHide(key)}`}
                         style={{
                           color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
@@ -988,8 +1001,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                           <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>자격자 {eligible.length}명</div>
                         </td>
                         {COLS.map(({ key }) => (
-                          <td key={key} className="t-td-key">
-                            {fmtCell(key)}
+                          <td key={key} className={`t-td-key ${colHide(key)}`}>
+                            {slashBreak(fmtCell(key))}
                           </td>
                         ))}
                       </tr>
