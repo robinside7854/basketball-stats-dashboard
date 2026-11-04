@@ -1,20 +1,19 @@
 'use client'
-// 「선수」 탭 — 지금 팀에 있는 선수 전원을 카드로 (2026-10-16 부활).
+// 「명단」 탭(기록 탭 맨 왼쪽, 종전 「선수」) — 지금 팀에 있는 선수 전원을 카드로 (2026-10-16 부활).
 //   예전 명단 화면(roster)을 없앤 뒤 「전체 명단을 한눈에 못 본다」는 요청으로 되살렸다.
 //   수정·삭제·분기 배정은 팀 탭 RosterEditor 에만 있다. 여기엔 어드민 「+ 선수 등록」(이름·포지션)만 둔다.
 //   숫자(출석일·열린 날)는 /roster-cards 가 computeLeagueStats 캐시에서 그대로 가져온다(선수 카드·스탯 탭과 같은 값).
 //   사용자 피드백(2026-10-16): 등번호·소속팀(분기마다 바뀜)·출석 막대·게스트는 보이지 않는다. 얼굴을 크게.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import { ArrowDown, ArrowUp, BadgeCheck, Flame, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
+import { BadgeCheck, ChevronRight, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
+import Link from 'next/link'
 import Avatar from '@/components/league/ui/Avatar'
 import { toast } from 'sonner'
 import { Chip, EmptyState, SectionCard, Sheet } from '@/components/league/ui'
 import SortSelect from '@/components/league/ui/SortSelect'
-import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
-import { getStatsGroupTabs } from '@/components/league/statsTabs'
+import StatsGroupTabs from '@/components/league/StatsGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
-import type { RosterCardLine } from '@/app/api/leagues/[leagueId]/roster-cards/route'
 import { useParams } from 'next/navigation'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -22,58 +21,11 @@ import type { RosterCard, RosterCardsResponse } from '@/app/api/leagues/[leagueI
 import { POSITION_GROUPS, positionGroupLabel, positionGroupOf, type PositionGroupCode } from '@/lib/league/positionGroup'
 
 type Period = 'quarter' | 'all'
-// 리뉴얼 R2 (2026-10-31): 선수 탭 = 명단 + 순위. 스탯 탭(리더보드)의 「누가 잘하나」를 여기로 합쳤다.
-// 2026-11 운영진: 순위 고르기를 드롭다운 → 필터 칩 12개(출석 … 자유투). 성공률은 %와 성공/시도를 함께.
-//   되돌리기: docs/renewal-rollback.md.
-type SortKey = 'attendance' | 'ppg' | 'fbpg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'fg_pct' | 'tpg' | 'ft_pct' | 'dd2' | 'td3'
-type StatKey = Exclude<SortKey, 'attendance'>
-type Metric = {
-  key: StatKey
-  label: string
-  /** 순위 자격 — 출전일(eligible) 또는 성공률 최소 시도(스탯 탭과 같은 meetsAttemptMin) */
-  ok: (l: RosterCardLine) => boolean
-  /** 낮을수록 위(턴오버) */
-  low?: boolean
-  /** 정렬 값 — 평균·누적 보기마다 */
-  value: (l: RosterCardLine, mode: ViewMode) => number
-  main: (l: RosterCardLine, mode: ViewMode) => string
-  sub?: (l: RosterCardLine, mode: ViewMode) => string
-}
-type ViewMode = 'avg' | 'total'
-type Avg = 'ppg' | 'fbpg' | 'rpg' | 'orp' | 'drp' | 'apg' | 'spg' | 'bpg' | 'topg' | 'tpg'
-type Tot = 'pts' | 'fb_pts' | 'reb' | 'oreb' | 'dreb' | 'ast' | 'stl' | 'blk' | 'tov' | 'fg3m'
-/** 하루 평균 키 ↔ 누적 키 한 쌍 — 평균은 소수 한 자리, 누적은 정수 */
-const pair = (a: Avg, t: Tot) => ({
-  value: (l: RosterCardLine, m: ViewMode) => (m === 'avg' ? l[a] : l[t]),
-  main: (l: RosterCardLine, m: ViewMode) => (m === 'avg' ? l[a].toFixed(1) : String(l[t])),
-})
-const pctOf = (k: 'fg_pct' | 'ft_pct') => ({
-  value: (l: RosterCardLine) => l[k],
-  main: (l: RosterCardLine) => `${l[k].toFixed(1)}%`,
-})
-const METRICS: Metric[] = [
-  { key: 'ppg', label: '득점', ok: l => l.eligible, ...pair('ppg', 'pts') },
-  // 속공(2026-11) — 수비 리바운드·스틸 뒤 7초 안 득점. 아래 줄에 내 득점 중 비중
-  { key: 'fbpg', label: '속공', ok: l => l.eligible, ...pair('fbpg', 'fb_pts'),
-    sub: l => (l.pts > 0 ? `득점의 ${Math.round((l.fb_pts / l.pts) * 100)}%` : '') },
-  { key: 'rpg', label: '리바운드', ok: l => l.eligible, ...pair('rpg', 'reb') },
-  { key: 'orp', label: '공격 리바운드', ok: l => l.eligible, ...pair('orp', 'oreb') },
-  { key: 'drp', label: '수비 리바운드', ok: l => l.eligible, ...pair('drp', 'dreb') },
-  { key: 'apg', label: '어시스트', ok: l => l.eligible, ...pair('apg', 'ast') },
-  { key: 'spg', label: '스틸', ok: l => l.eligible, ...pair('spg', 'stl') },
-  { key: 'bpg', label: '블록', ok: l => l.eligible, ...pair('bpg', 'blk') },
-  { key: 'topg', label: '턴오버', ok: l => l.eligible, low: true, ...pair('topg', 'tov') },
-  { key: 'fg_pct', label: '야투율', ok: l => l.fg_ok, ...pctOf('fg_pct'), sub: l => `${l.fgm}/${l.fga}` },
-  { key: 'tpg', label: '3점 성공', ok: l => l.eligible, ...pair('tpg', 'fg3m'), sub: l => `${l.fg3_pct.toFixed(1)}% · ${l.fg3m}/${l.fg3a}` },
-  { key: 'ft_pct', label: '자유투', ok: l => l.ft_ok, ...pctOf('ft_pct'), sub: l => `${l.ftm}/${l.fta}` },
-  // 더블더블·트리플더블(2026-11-04 운영진) — 하루 합계 기준 「그런 날」 수. 평균·누적 보기 모두 같은 횟수.
-  //   횟수라 출전일 자격을 묻지 않는다 — 한 번이라도 한 선수는 순위에 오른다.
-  ...(['dd2', 'td3'] as const).map((k): Metric => ({
-    key: k, label: k === 'dd2' ? '더블더블' : '트리플더블', ok: l => l[k] > 0,
-    value: l => l[k], main: l => `${l[k]}회`, sub: l => `출전 ${l.gp}일 중`,
-  })),
-]
-const CHIP_ORDER: { key: SortKey; label: string }[] = [{ key: 'attendance', label: '출석' }, ...METRICS.map(m => ({ key: m.key as SortKey, label: m.label }))]
+// 2026-11-04 운영진: 선수 탭 = 「명단」(기록 탭 맨 왼쪽). 순위(득점·리바… 칩 15개 · 하루 평균/누적)는
+//   리더보드 한 곳으로 모았다 — 두 화면이 같은 숫자를 같은 방식으로 줄 세우고 있었다.
+//   여기 남은 정렬은 이름순 · 출석순 둘뿐. 되돌리기: docs/renewal-rollback.md 의 M3.
+type Order = 'name' | 'attendance'
+const ORDERS: { key: Order; label: string }[] = [{ key: 'name', label: '이름순' }, { key: 'attendance', label: '출석순' }]
 
 // 포지션은 가드·포워드·센터 세 가지(2026-10-17). 옛 5코드(PG·SG…)는 positionGroupOf 로 묶어 읽는다.
 const OPTIMIZABLE = /^https:\/\/[^/]+\.supabase\.(co|in)\//
@@ -103,14 +55,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const [data, setData] = useState<RosterCardsResponse | null>(null)
   const [error, setError] = useState(false)
   const [period, setPeriod] = useState<Period | null>(null)
-  const [sort, setSort] = useState<SortKey>('ppg')
-  // 같은 칩을 한 번 더 누르면 방향이 뒤집힌다(2026-11 운영진). 'best' = 잘한 순(턴오버는 적은 순)
-  const [dir, setDir] = useState<'best' | 'worst'>('best')
-  const [mode, setMode] = useState<ViewMode>('avg')
-  const pickSort = (k: SortKey) => {
-    if (k === sort) setDir(d => (d === 'best' ? 'worst' : 'best'))
-    else { setSort(k); setDir('best') }
-  }
+  const [order, setOrder] = useState<Order>('name')
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const [addOpen, setAddOpen] = useState(false)
 
@@ -150,32 +95,17 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
     [effPeriod],
   )
 
-  const lineOf = useCallback(
-    (p: RosterCard): RosterCardLine | null => (effPeriod === 'quarter' ? p.line.quarter : p.line.all),
-    [effPeriod],
-  )
-
-  // 순위(1·2·2·4 공동) — 자격(순위 기준 출전일)을 채운 선수만. 자격 밖은 순위 없이 뒤로.
+  // 출석순은 공동 순위(1·2·2·4) — 출석률이 같으면 같은 순위. 이름순에는 순위 번호가 없다.
   const { list, rankOf } = useMemo(() => {
     const rows = data?.players ?? []
     const byName = (a: RosterCard, b: RosterCard) => a.name.localeCompare(b.name, 'ko')
     const ranks = new Map<string, number>()
-    if (sort === 'attendance') {
-      const att = [...rows].sort((a, b) => attOf(b).rate - attOf(a).rate || attOf(b).gp - attOf(a).gp || byName(a, b))
-      return { list: dir === 'best' ? att : att.reverse(), rankOf: ranks }
-    }
-    const m = METRICS.find(x => x.key === sort)!
-    const ok = (p: RosterCard) => { const l = lineOf(p); return !!l && m.ok(l) }
-    // 낮을수록 위(턴오버)면 부호를 뒤집어 같은 내림차순 규칙으로 센다
-    const v = (p: RosterCard) => { const l = lineOf(p); if (!l) return -Infinity; const r = m.value(l, mode); return m.low ? -r : r }
-    const ranked = [...rows].filter(ok).sort((a, b) => v(b) - v(a) || byName(a, b))
+    if (order === 'name') return { list: [...rows].sort(byName), rankOf: ranks }
+    const att = [...rows].sort((a, b) => attOf(b).rate - attOf(a).rate || attOf(b).gp - attOf(a).gp || byName(a, b))
     let prev = NaN, rank = 0
-    ranked.forEach((p, i) => { if (v(p) !== prev) { rank = i + 1; prev = v(p) } ranks.set(p.id, rank) })
-    // 순위 밖(출전일·시도 부족)은 방향과 상관없이 맨 뒤 — 순위 번호는 늘 「잘한 순」 그대로
-    const rest = [...rows].filter(p => !ok(p)).sort((a, b) => v(b) - v(a) || byName(a, b))
-    const sorted = [...(dir === 'best' ? ranked : [...ranked].reverse()), ...rest]
-    return { list: sorted, rankOf: ranks }
-  }, [data, sort, dir, mode, attOf, lineOf])
+    att.forEach((p, i) => { const v = attOf(p).rate; if (v !== prev) { rank = i + 1; prev = v } ranks.set(p.id, rank) })
+    return { list: att, rankOf: ranks }
+  }, [data, order, attOf])
 
   const total = data?.players.length ?? 0
   const members = (data?.players ?? []).filter(p => p.has_account).length
@@ -183,12 +113,12 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   return (
     <div className="mm-brand space-y-4">
       {/* 「기록」 탭 서브탭 — 리더보드 · 선수 · 팀 (2026-11 운영진) */}
-      <LeagueGroupTabs tabs={getStatsGroupTabs(`/league/${orgSlug}/${leagueId}`, 'players')} />
+      <StatsGroupTabs base={`/league/${orgSlug}/${leagueId}`} active="players" />
       <SectionCard pad="none">
         <div className="px-4 py-4 lg:px-6 lg:py-5 space-y-3">
           <div className="flex items-end justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <h1 className="font-black text-2xl lg:text-3xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>선수</h1>
+              <h1 className="font-black text-2xl lg:text-3xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>명단</h1>
               <p className="text-sm mt-1 tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                 {data ? <>선수 {total}명 · 가입 {members}명</> : ' '}
               </p>
@@ -226,31 +156,17 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
           </div>
 
           {data && (
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              {/* 순위 필터 칩 — 폰·PC 모두 줄바꿈(가로 스크롤 없음, 2026-11-03) */}
-              <div role="group" aria-label="순위 기준" className="flex flex-wrap gap-1.5 min-w-0 w-full py-1">
-                {CHIP_ORDER.map(c => {
-                  const on = sort === c.key
-                  return (
-                    <Chip key={c.key} as="button" size={isPhone ? 'sm' : 'md'} selected={on} onClick={() => pickSort(c.key)}
-                      ariaLabel={on ? `${c.label} — ${dir === 'best' ? '높은 순' : '낮은 순'} (누르면 반대로)` : c.label}>
-                      {(c.key === 'dd2' || c.key === 'td3') && <Flame size={isPhone ? 12 : 14} aria-hidden />}
-                      {c.label}
-                      {on && (dir === 'best' ? <ArrowDown size={14} aria-hidden /> : <ArrowUp size={14} aria-hidden />)}
-                    </Chip>
-                  )
-                })}
-              </div>
-              {/* 하루 평균 ↔ 누적(기간 합계). 성공률·출석은 그대로 */}
-              <div role="group" aria-label="숫자 단위" className="inline-flex overflow-hidden" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>
-                {([['avg', '하루 평균'], ['total', '누적']] as const).map(([k, label]) => (
-                  <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
-                    className="mm-press px-3.5 min-h-11 text-sm font-black cursor-pointer"
-                    style={mode === k ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)' } : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+            <div role="group" aria-label="정렬" className="flex flex-wrap items-center gap-1.5">
+              {ORDERS.map(o => (
+                <Chip key={o.key} as="button" size={isPhone ? 'sm' : 'md'} selected={order === o.key} onClick={() => setOrder(o.key)}>
+                  {o.label}
+                </Chip>
+              ))}
+              {/* 순위는 리더보드로 — 찾던 사람이 길을 잃지 않게 한 줄 */}
+              <Link href={`/league/${orgSlug}/${leagueId}/stats`} className="ml-auto inline-flex items-center gap-0.5 min-h-9 text-xs font-bold underline underline-offset-4"
+                style={{ color: 'var(--mm-ink-soft)' }}>
+                기록 순위는 리더보드에서 <ChevronRight size={14} aria-hidden />
+              </Link>
             </div>
           )}
         </div>
@@ -270,7 +186,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
             icon={total === 0 ? Users : Search}
             title={total === 0 ? '아직 등록된 선수가 없어요' : '조건에 맞는 선수가 없어요'}
             action={total > 0 ? (
-              <Chip as="button" size="md" onClick={() => setSort('ppg')}>처음으로</Chip>
+              <Chip as="button" size="md" onClick={() => setOrder('name')}>처음으로</Chip>
             ) : undefined}
           />
         </SectionCard>
@@ -278,15 +194,13 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
         // 폰: 한 줄 = 선수 한 명(순위 · 얼굴 · 이름 · 숫자). 사진 카드 두 줄로는 한 화면에 2~4명뿐이었다(2026-11-04)
         <ol className="overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
           {list.map((p, i) => {
-            const m = METRICS.find(x => x.key === sort)
-            const l = lineOf(p)
-            const rank = m ? (rankOf.get(p.id) ?? null) : i + 1
+            const rank = order === 'attendance' ? (rankOf.get(p.id) ?? null) : null
             const a = attOf(p)
-            const main = m ? (l ? m.main(l, mode) : '–') : (totalRounds === 0 ? '–' : `${Math.round(a.rate * 100)}%`)
-            const sub = m ? (l && m.sub ? m.sub(l, mode) : null) : (totalRounds === 0 ? null : `${a.gp}/${totalRounds}일`)
+            const main = totalRounds === 0 ? '–' : `${Math.round(a.rate * 100)}%`
+            const sub = totalRounds === 0 ? null : `출석 ${a.gp}/${totalRounds}일`
             return (
               <li key={p.id} style={{ borderTop: i === 0 ? undefined : '1px solid var(--mm-rule)' }}>
-                <PlayerRow p={p} rank={rank} label={m?.label ?? '출석'} main={main} sub={sub}
+                <PlayerRow p={p} rank={rank} label="출석" main={main} sub={sub}
                   onOpen={openCard ? () => openCard({
                     playerId: p.id,
                     playerName: p.name,
@@ -304,12 +218,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
               p={p}
               gp={attOf(p).gp}
               rate={attOf(p).rate}
-              stat={(() => {
-                const m = METRICS.find(x => x.key === sort)
-                if (!m) return null
-                const l = lineOf(p)
-                return { label: m.label, main: l ? m.main(l, mode) : '–', sub: l && m.sub ? m.sub(l, mode) : null, rank: rankOf.get(p.id) ?? null }
-              })()}
+              stat={null}
               totalRounds={totalRounds}
               priority={i < 4}
               onOpen={openCard ? () => openCard({

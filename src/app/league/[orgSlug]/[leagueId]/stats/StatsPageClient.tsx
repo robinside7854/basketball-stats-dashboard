@@ -10,8 +10,7 @@ import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFi
 // 선수 비교(PlayerCompareModal)·용어 시트(StatsGlossarySheet)·「슈팅」 모드는 2026-11-02 운영진 결정으로 뺐다
 //   — 파일은 남아 있다(되돌리기: docs/renewal-rollback.md R6). 성공률 열은 기본 표에, TS%·2점률은 「고급」에.
 import StatHeader from '@/components/league/StatHeader'
-import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
-import { getStatsGroupTabs } from '@/components/league/statsTabs'
+import StatsGroupTabs from '@/components/league/StatsGroupTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
 import Chip from '@/components/league/ui/Chip'
@@ -41,7 +40,7 @@ export type StatsInitial = { quarterId: string; players: PlayerStat[]; totalRoun
 // 눈으로 드러난다. 10 으로 자르면 티어 경계와 목록 끝이 겹쳐 전체가 10명인 것처럼 읽힌다.
 const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
-type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
+type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'|'fbpg'|'fb_pts'
 type AdvKey = 'at_ratio'|'a1_total'|'dd2_total'|'td3_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'
 type StatMode = 'basic'|'advanced'
 
@@ -329,7 +328,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     .sort((a, b) => {
       const la = lowAttempts(a, basicPctKey), lb = lowAttempts(b, basicPctKey)
       if (la !== lb) return la ? 1 : -1
-      const diff = (a[sortKey] as number) - (b[sortKey] as number)
+      const diff = ((a[sortKey] as number) ?? 0) - ((b[sortKey] as number) ?? 0)
       return sortDir === 'desc' ? -diff : diff
     })
 
@@ -380,6 +379,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' }, { key: 'ft_pct', label: '자유투율', term: 'FT%' },
     { key: 'orp', label: '공리', term: '공리' }, { key: 'drp', label: '수리', term: '수리' },
     { key: 'topg', label: '턴오버', term: '턴오버' },
+    // 속공(2026-11-04) — 명단 탭에서 순위를 걷어내며 이리로 옮겼다(fastBreak.ts 정의 그대로)
+    { key: 'fbpg', label: '속공', term: '속공' },
     // (2026-11-03 운영진) 공리·수리·턴오버는 기본으로 보이고, 유효야투(eFG)는 「고급」으로. 「더 보기」 접힘 열은 없다.
   ]
   const TOTAL_COLS: BasicCol[] = [
@@ -392,6 +393,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'minutes_est', label: '시간', term: 'MIN' },
     { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
     { key: 'tov', label: '턴오버', term: 'TOV' },
+    { key: 'fb_pts', label: '속공', term: '속공' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
@@ -497,7 +499,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       // 성공률은 하루 평균 최소 시도를 채운 선수만 (eligibility.ts — 표 순위와 같은 기준)
       const pk = pctKeyOf(sortKey)
       const pool = pk ? eligibleBase.filter(p => meetsAttemptMin(p, pk)) : eligibleBase
-      const sorted = [...pool].sort((a, b) => (b[sortKey] as number) - (a[sortKey] as number)).slice(0, 5)
+      const sorted = [...pool].sort((a, b) => ((b[sortKey] as number) ?? 0) - ((a[sortKey] as number) ?? 0)).slice(0, 5)
       return {
         key: `basic:${sortKey}:${viewMode}`,
         label,
@@ -539,7 +541,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // 리더보드·팀·기록실 3개 서브탭 (2026-09-28 명단 → 팀 화면 · 2026-10-14 어워즈 삭제 · 2026-10-16 기록실 승격).
   // 배열은 공유 헬퍼(statsTabs.ts)에서 가져온다 — 페이지마다 배열이
   // 복제되면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다.
-  const groupTabs = getStatsGroupTabs(base, 'leaderboard')
 
   // 「고급 지표」 — 기본 표(출전·득점·…·성공률) ↔ 고급 표(어시/턴오버·앤드원·리바 비중·공격 점유·TS%·eFG%·2점률).
   //   종전 「기본 / 슈팅 / 고급」 세 칸 중 슈팅을 기본에 합치고 고급만 버튼 하나로(2026-11-02 운영진).
@@ -768,7 +769,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   return (
     <div className="mm-brand space-y-5">
       {/* 「기록」 탭 서브탭 — 리더보드 · 선수 · 팀 (2026-11) */}
-      <LeagueGroupTabs tabs={groupTabs} />
+      <StatsGroupTabs base={base} active="leaderboard" />
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
       {/* 제목 · 분기 · 표 모드를 한 카드에 — 배경 위에 칩만 떠 있지 않게 (2026-10-13) */}

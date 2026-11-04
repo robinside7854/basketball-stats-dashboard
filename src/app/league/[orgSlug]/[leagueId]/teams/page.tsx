@@ -3,8 +3,7 @@ import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import PlayerName from '@/components/league/ui/PlayerName'
 import HeadToHeadSection, { prefetchHeadToHead } from '@/components/league/HeadToHeadSection'
 import TeamInsightView, { useTeamInsights } from '@/components/league/TeamInsightsSection'
-import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
-import { getStatsGroupTabs } from '@/components/league/statsTabs'
+import StatsGroupTabs from '@/components/league/StatsGroupTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { useState, useEffect, useMemo, useRef, Suspense, type ReactNode } from 'react'
@@ -920,7 +919,7 @@ function LeagueTeamsPageInner() {
   return (
     <div className="mm-brand space-y-4 lg:space-y-5">
       {/* 스탯 우산 서브탭 — 리더보드 · 팀 (2026-09-28 4→2, 어워즈·명단 흡수) */}
-      <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
+      <StatsGroupTabs base={base} active="teams" />
       {/* ── 분기 버튼 탭 ── */}
       <SectionCard variant="standalone">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">

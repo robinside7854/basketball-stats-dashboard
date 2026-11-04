@@ -1,12 +1,12 @@
 'use client'
-// 기록실 — 2026-11 운영진: 운영진 전용으로 「영상」 탭 안 서브탭(VideoAdminTabs)으로 옮겼다.
+// 기록실 — 운영진 전용. 2026-11 「영상」 탭 안 → 2026-11-04 「기록」 탭 네 번째 서브탭(운영진에게만 보임).
 //   회원에게는 메뉴가 없고, 주소로 들어오면 안내만 보인다. (종전: 스탯 우산의 세 번째 서브탭, 2026-10-16 승격)
 // 종전엔 리더보드(/stats) 의 모드 칩 「기록실」(?mode=records)이었다. 옛 링크는 /stats 가 이리로 보낸다.
 // 재료: 분기 없이 부른 스탯 = 리그 전체 기간 정규 경기(친선전 제외) — computeLeagueStats 결과 그대로
 //   (「선수 숫자는 한 벌」). 회원 전용 게이트는 /stats 와 같다(401 → StatGate).
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import VideoAdminTabs from '@/components/league/VideoAdminTabs'
+import StatsGroupTabs from '@/components/league/StatsGroupTabs'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import EmptyState from '@/components/league/ui/EmptyState'
 import { Lock } from 'lucide-react'
@@ -50,8 +50,8 @@ export default function LeagueRecordsPage() {
   }
   return (
     <div className="mm-brand space-y-4 lg:space-y-5">
-      {/* 「영상」 탭 서브탭(운영진) — 하이라이트 · 기록실 */}
-      <VideoAdminTabs base={base} active="records" />
+      {/* 「기록」 탭 서브탭 — 명단 · 리더보드 · 팀 · 기록실(운영진) */}
+      <StatsGroupTabs base={base} active="records" />
       <SectionCard variant="standalone">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em', lineHeight: 1.15 }}>기록실</h2>
