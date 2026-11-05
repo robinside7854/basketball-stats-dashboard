@@ -29,6 +29,9 @@
 //     pauseVideo() 하고 「다음 클립 ▶」 를 띄운다. 7/16 에 걷어낸 감시는 끝 지점 뒤에서 500ms 마다
 //     계속 멈춰서 다시 재생이 안 되던 것이었다 — 여기서는 클립당 한 번뿐이라 ▶ 를 누르면 그대로 이어진다.
 //     자동으로 다음 클립으로 넘어가지는 않는다(7/15 결정 유지). ±5초 등으로 끝 지점을 건너뛰면 멈추지 않는다.
+//   (2026-11-05) `autoAdvance` — 게임 로그 플레이 뷰어의 「자동 넘김」 스위치 전용(기본 false = 위 동작 그대로).
+//     켜져 있으면 위 「한 번 멈춤」 자리에서 멈추는 대신 다음 클립으로 넘어간다. 같은 감시라 끝 지점을
+//     재생으로 자연스럽게 지날 때 클립당 한 번뿐 — 중간에 ▶ 를 눌러도 다시 멈추거나 튕기지 않는다(7/15 문제 없음).
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
 import { Play, SkipBack, SkipForward, HeartCrack, RotateCcw } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
@@ -59,11 +62,15 @@ interface Props {
   /** 몰입 모드 전용 재생기 — 평소엔 화면 밖에 숨고(준비만), 열리기 전엔 재생·키보드 조작을 하지 않는다.
    *  ⚠ 숨은 위치가 fixed 라 조상에 transform 이 있으면 어긋난다 — 부르는 쪽이 body 포털로 띄울 것 */
   immersiveOnly?: boolean
+  /** 클립 끝을 재생으로 지나면 멈추지 않고 다음 클립으로 — 플레이 뷰어 「자동 넘김」 전용. 기본 false */
+  autoAdvance?: boolean
 }
 
 export type HighlightsPlayerHandle = {
   /** ⚠ 클릭 핸들러 안에서 동기로 부를 것 — Fullscreen API 는 사용자 제스처 안에서만 열린다 */
   openImmersive: () => void
+  /** 포스터 상태면 재생기를 만들며 튼다 — 목록에서 장면을 고르는 클릭 안에서 부를 것(제스처 필요) */
+  activate: () => void
 }
 
 // ── 전체화면 API (webkit 접두 포함) ────────────────────────────────
@@ -97,10 +104,12 @@ function preloadYouTubeApi() {
   document.head.appendChild(tag)
 }
 
-export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange, immersiveOnly = false }: Props) {
+export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange, immersiveOnly = false, autoAdvance = false }: Props) {
   // 플레이어 콜백은 1회 생성이라 ref 로 읽는다 (마운트 동안 바뀌지 않는 값이지만 규칙을 맞춘다)
   const immersiveOnlyRef = useRef(immersiveOnly)
   useEffect(() => { immersiveOnlyRef.current = immersiveOnly }, [immersiveOnly])
+  const autoAdvanceRef = useRef(autoAdvance)
+  useEffect(() => { autoAdvanceRef.current = autoAdvance }, [autoAdvance])
   const containerRef = useRef<HTMLDivElement>(null)
   // 키보드 모달 판정용 — containerRef 의 div 는 YT.Player 가 iframe 으로 갈아끼워 DOM 에서 떨어지므로 못 쓴다
   const rootRef = useRef<HTMLDivElement>(null)
@@ -349,8 +358,16 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         lastTimeRef.current = t
         if (prev != null && prev < c.clip_end && t >= c.clip_end && t - c.clip_end < 2) {
           endHandledRef.current = true
-          p.pauseVideo()
-          setEndedAtClip(true)
+          const list = clipsRef.current
+          let next = currentIdxRef.current + 1
+          while (next < list.length && !list[next].video_id) next++
+          if (autoAdvanceRef.current && next < list.length) {
+            seekGraceUntilRef.current = Date.now() + 1500   // 다음 클립 seek 반영 전 재판정 방지
+            onIndexChangeRef.current(next)
+          } else {
+            p.pauseVideo()
+            setEndedAtClip(true)
+          }
         }
       } catch { /* ignore */ }
     }, 400)
@@ -450,7 +467,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     }
   }, [activate])
 
-  useImperativeHandle(ref, () => ({ openImmersive }), [openImmersive])
+  useImperativeHandle(ref, () => ({ openImmersive, activate }), [openImmersive, activate])
 
   // 몰입 모드 동안: 클립 끝 감시 · 페이지 스크롤 잠금 · 시스템 전체화면 해제(Esc·뒤로가기) 추적
   useEffect(() => {
