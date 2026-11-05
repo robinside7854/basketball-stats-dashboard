@@ -27,6 +27,7 @@ eq('실패 슛 구간', playWindow(events[1]), { start: 94, end: 103 })
 eq('리바 구간', playWindow(events[4]), { start: 94, end: 103 })
 eq('0초 근처는 0으로', playWindow(ev('steal', { video_timestamp: 2 })), { start: 0, end: 5 })
 eq('시각 없음', playWindow(ev('steal', { video_timestamp: null })), null)
+eq('쿼터 시작은 재생 목록에서 빠짐', playWindow(ev('quarter_start', { video_timestamp: 0 })), null)
 
 const pick = f => events.filter(e => matchesFilter(e, f)).map(e => e.type)
 const none = new Set()

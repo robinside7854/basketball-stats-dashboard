@@ -40,7 +40,8 @@ export function chipOf(e: Pick<Ev, 'type' | 'result'>): PlayChip | null {
 /** 재생 구간 — 성공 슛은 하이라이트와 같은 여유(앞 10초), 나머지는 앞 6초·뒤 3초. 시각 없으면 null(재생 불가) */
 export function playWindow(e: Pick<Ev, 'type' | 'result' | 'video_timestamp'>): { start: number; end: number } | null {
   const t = e.video_timestamp
-  if (t == null) return null
+  // 쿼터 시작/종료는 시각이 0 이거나 중복이라 볼 장면이 아니다 — 재생 목록 첫 장면이 「0:00 쿼터 시작」이 되던 원인
+  if (t == null || e.type === 'quarter_start' || e.type === 'quarter_end') return null
   if (chipOf(e) === 'made') return getClipBounds(e.type, t)
   return { start: Math.max(0, t - 6), end: t + 3 }
 }

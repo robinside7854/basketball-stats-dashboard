@@ -22,8 +22,9 @@ const AUTO_ADVANCE_KEY = 'gamelog:autoAdvance'
 /** 「지금 장면」 한 줄 — 선수 · 기록 이름 · 성공 슛 점수 */
 function playTitle(e: GameEvent): string {
   const who = e.player ? `${e.player.number}번 ${e.player.name} ` : ''
-  const pts = chipOf(e) === 'made' && e.points ? ` +${e.points}` : ''
-  return `${who}${EVENT_LABELS[e.type] ?? e.type}${pts}`
+  const c = chipOf(e)
+  const tail = c === 'made' && e.points ? ` +${e.points}` : c === 'missed' ? ' 실패' : ''
+  return `${who}${EVENT_LABELS[e.type] ?? e.type}${tail}`
 }
 
 const EVENT_ICONS: Record<string, string> = {
@@ -50,6 +51,7 @@ export default function GameLogPage() {
   const [selectedTId, setSelectedTId] = useState('')
   const [selectedGId, setSelectedGId] = useState('')
   const [events, setEvents] = useState<GameEvent[]>([])
+  const [loadedGId, setLoadedGId] = useState('')   // 이벤트를 다 받은 경기 — 받는 중에 「기록 없음」이 깜빡이지 않게
   const [filterPlayer, setFilterPlayer] = useState('')
   const [filterQuarter, setFilterQuarter] = useState<number | null>(null)
   const [chips, setChips] = useState<ReadonlySet<PlayChip>>(new Set())
@@ -112,6 +114,7 @@ export default function GameLogPage() {
   async function fetchEvents() {
     const data = await fetch(`/api/events?gameId=${selectedGId}`).then(r => r.json())
     setEvents(data)
+    setLoadedGId(selectedGId)
   }
 
   async function deleteEvent(id: string) {
@@ -258,8 +261,11 @@ export default function GameLogPage() {
         )}
       </div>
 
+      {/* 넓은 화면: 영상 왼쪽(고정)·목록 오른쪽 — 목록을 내려도 영상이 화면에 남는다 */}
+      <div className={videoId && events.length > 0 ? 'lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-6 lg:items-start' : ''}>
       {selectedGId && events.length > 0 && (
-        <div className="mb-6 space-y-3">
+        <div className="contents space-y-3 lg:block lg:sticky lg:top-4 lg:mb-6">
+          {/* 폰은 contents — 영상 고정(sticky)은 부모 상자 안에서만 붙는다. 이 상자가 부모면 짧아서 목록을 내리면 영상도 같이 올라간다 */}
           {videoId ? (
             <>
               {/* 폰: 목록을 내려도 영상이 보이게 상단 탭 아래 고정 (기록 화면과 같은 자리) */}
@@ -301,10 +307,11 @@ export default function GameLogPage() {
                 </button>
               </div>
             </>
-          ) : (
+          ) : game ? (
+            // 경기 목록을 받기 전엔 영상 주소를 아직 모른다 — 그때 「영상 없음」을 띄우지 않는다
             <p className="text-base text-[var(--mm-muted)]">이 경기는 영상이 없어요</p>
-          )}
-          <div className="flex flex-wrap gap-2" role="group" aria-label="기록 종류 필터 (여러 개 선택)">
+          ) : null}
+          <div className="flex flex-wrap gap-2 mb-6 lg:mb-0" role="group" aria-label="기록 종류 필터 (여러 개 선택)">
             {PLAY_CHIPS.map(c => (
               <button key={c.key} type="button" aria-pressed={chips.has(c.key)} onClick={() => toggleChip(c.key)} className={chipCls(chips.has(c.key))}>
                 {c.label}
@@ -317,6 +324,7 @@ export default function GameLogPage() {
         </div>
       )}
 
+      <div>
       {isEditMode && selectedGId && events.length > 0 && (
         <div className="mb-4 px-4 py-2.5 bg-[var(--mm-yellow-soft)] border border-[var(--mm-yellow)] rounded-lg text-xs text-[var(--mm-yellow-strong)] flex items-center gap-2">
           <Scissors size={14} className="shrink-0" />
@@ -324,7 +332,10 @@ export default function GameLogPage() {
         </div>
       )}
 
-      {selectedGId && events.length === 0 && (
+      {selectedGId && loadedGId !== selectedGId && events.length === 0 && (
+        <div className="text-center py-16 text-[var(--mm-muted)]" role="status">기록을 불러오는 중…</div>
+      )}
+      {selectedGId && loadedGId === selectedGId && events.length === 0 && (
         <div className="text-center py-16 text-[var(--mm-muted)]">기록된 이벤트가 없습니다</div>
       )}
 
@@ -441,6 +452,8 @@ export default function GameLogPage() {
           </div>
         )
       })}
+      </div>
+      </div>
 
       {!selectedGId && (
         <div className="text-center py-16 text-[var(--mm-muted)]">대회와 경기를 선택하면 게임 로그가 표시됩니다</div>
