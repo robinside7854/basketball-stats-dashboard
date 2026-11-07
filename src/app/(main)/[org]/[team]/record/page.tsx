@@ -548,7 +548,7 @@ function RecordPageInner() {
         disabled={addingPlayer || !newPlayerName.trim() || !newPlayerNum.trim()}
         className="px-3 py-1.5 bg-[var(--mm-ink)] text-[var(--mm-panel)] disabled:opacity-40 text-xs font-bold rounded-lg transition-colors cursor-pointer hover:brightness-95"
       >
-        {addingPlayer ? '...' : '추가'}
+        {addingPlayer ? '추가 중' : '추가'}
       </button>
     </div>
   )

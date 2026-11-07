@@ -625,7 +625,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 const chartData = tournamentStats
                   .filter(t => t.games_played > 0 && t.stats)
                   .map(t => ({
-                    name: t.tournament.name.length > 8 ? t.tournament.name.slice(0, 8) + '…' : t.tournament.name,
+                    name: t.tournament.name,  // 말줄임 금지(2026-11-07) — 대회 이름은 자르지 않는다
                     PPG: t.stats!.pts_avg,
                     RPG: t.stats!.reb_avg,
                     APG: t.stats!.ast_avg,
