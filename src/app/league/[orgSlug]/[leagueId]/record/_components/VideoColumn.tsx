@@ -141,6 +141,16 @@ export default function VideoColumn({
                 </button>
               ))}
               <span className="text-xs text-[color:var(--mm-muted)] ml-1 hidden lg:inline">Space·←·→·[ ]</span>
+              {/* 폰·태블릿: 재생 속도는 버튼 하나(누를 때마다 다음 속도) — 두 줄이면 위에 고정된 영상 영역이
+                  선발 목록의 팀 이름 줄까지 덮었다(2026-11-07 운영진 캡처) */}
+              <button type="button"
+                onClick={() => setPlaybackRate(PLAYBACK_RATES[(PLAYBACK_RATES.indexOf(playbackRate) + 1) % PLAYBACK_RATES.length])}
+                aria-label={`재생 속도 ${formatPlaybackRate(playbackRate)} — 누르면 다음 속도`}
+                className={`lg:hidden min-h-[44px] min-w-[52px] px-2 rounded-lg text-sm font-black cursor-pointer inline-flex items-center justify-center ${
+                  playbackRate === 1 ? 'text-[color:var(--mm-ink)] border border-[color:var(--mm-rule)]' : 'bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]'
+                }`}>
+                {formatPlaybackRate(playbackRate)}
+              </button>
             </div>
           )}
           {/* 재생 속도 — 영상 우하단 (2026-11-03). 10분 경기를 8분에 기록하고 있어
@@ -148,7 +158,7 @@ export default function VideoColumn({
               단축키 [ / ]. 유튜브 자체 메뉴와 달리 한 번 누르면 끝. */}
           {ytPlayer && (
             <div
-              className="flex items-center gap-0.5 rounded-xl px-1 py-1 max-lg:w-full max-lg:justify-between max-lg:border max-lg:border-[color:var(--mm-rule)] max-lg:bg-[color:var(--mm-panel-alt)] lg:absolute lg:bottom-2 lg:right-2 lg:z-20 lg:bg-black/75 lg:backdrop-blur-sm"
+              className="hidden lg:flex items-center gap-0.5 rounded-xl px-1 py-1 lg:absolute lg:bottom-2 lg:right-2 lg:z-20 lg:bg-black/75 lg:backdrop-blur-sm"
               role="group" aria-label="재생 속도"
             >
               {PLAYBACK_RATES.map(rate => {

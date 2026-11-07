@@ -1,5 +1,5 @@
 import type React from 'react'
-import { AlertTriangle, Loader2, Play, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Loader2, Play, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { accentOrInk } from '@/lib/util/contrastColor'
 import type { SideView } from '../_lib/sides'
@@ -72,7 +72,7 @@ export default function StarterSelect({
         }}
         onDragEnd={() => setDraggingPlayerId(null)}
         onClick={() => toggleStarter(p.id)}
-        className={`flex items-center gap-2 px-2 py-1.5 min-h-[44px] lg:cursor-grab text-xs transition-colors select-none ${
+        className={`flex items-center gap-1.5 lg:gap-2 px-1.5 lg:px-2 py-1.5 min-h-[48px] lg:min-h-[44px] cursor-pointer lg:cursor-grab text-sm lg:text-xs transition-colors select-none ${
           isDragging ? 'opacity-40' : ''
         }`}
         style={{ ...(checked ? checkedStyle : uncheckedStyle), borderRadius: '4px' }}
@@ -82,18 +82,21 @@ export default function StarterSelect({
           checked={checked}
           onChange={() => toggleStarter(p.id)}
           onClick={e => e.stopPropagation()}
-          className={`w-4 h-4 cursor-pointer shrink-0 ${accentClass}`}
+          className={`w-5 h-5 lg:w-4 lg:h-4 cursor-pointer shrink-0 ${accentClass}`}
         />
         {p.number && <span className="font-mono w-6" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-        <span className="font-medium min-w-0 break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{p.name}</span>
-        {isIrregular && (
-          <span
-            className="shrink-0 text-xs font-bold px-1"
-            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-          >
-            게스트·임시
-          </span>
-        )}
+        {/* 이름 + 게스트 표시는 세로 묶음(2026-11-07) — 한 줄에 다 두면 폰 반쪽 폭에서 이름이 한 글자씩 세로로 꺾였다 */}
+        <span className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
+          <span className="font-bold lg:font-medium min-w-0 max-w-full truncate" style={{ lineHeight: 1.2 }}>{p.name}</span>
+          {isIrregular && (
+            <span
+              className="shrink-0 text-[11px] font-bold px-1 leading-4 whitespace-nowrap"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
+            >
+              게스트<span className="hidden lg:inline">·임시</span>
+            </span>
+          )}
+        </span>
         {/* 모바일 전용: 다른 팀으로 이동 (iOS Safari DnD 불가 대체)
             ⚠ 대회에는 옮겨 갈 "다른 팀" 이 없다 — 상대는 외부 동호회다. 이 버튼을 남기면
               우리 선수가 상대팀 소속으로 배정돼 그 득점이 상대 점수로 들어간다. */}
@@ -104,12 +107,13 @@ export default function StarterSelect({
             addIrregularToTeam(p as IrregularPlayer, otherSide)
           }}
           disabled={addingIrregular}
-          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center min-h-11 min-w-11 px-2 text-xs font-bold cursor-pointer transition-colors disabled:opacity-40"
+          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center w-9 h-11 cursor-pointer transition-colors disabled:opacity-40"
           style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
           aria-label={`${p.name} → ${otherTeamName} 팀으로 이동`}
           title={`→ ${otherTeamName}`}
         >
-          → {otherTeamName}
+          {/* 팀 이름(「→ 챗지피지기」)은 폰 반쪽 폭에 안 들어가 카드 밖으로 삐져나왔다 — 아이콘만, 이름은 읽기 라벨로 */}
+          <ArrowLeftRight size={18} aria-hidden />
         </button>
         )}
       </div>
@@ -203,7 +207,7 @@ export default function StarterSelect({
         ) : (
           <>
             <span className="hidden lg:inline">선수를 끌어다 팀에 배정하세요. </span>
-            <span className="lg:hidden">카드를 탭하여 선발 체크 · 오른쪽 버튼으로 다른 팀 이동. </span>
+            <span className="lg:hidden">카드를 눌러 선발 체크 · 오른쪽 ⇄ 로 다른 팀 이동. </span>
             다른 팀으로 옮긴 선수는 이번 경기에만 적용됩니다.
           </>
         )}
@@ -271,7 +275,7 @@ export default function StarterSelect({
       /* 드롭 존 — 홈/어웨이 2컬럼 (홈=파랑 / 어웨이=빨강은 팀 시맨틱 유지) */
       /* 두 칸의 **위치만** 이 쿼터의 코트 배치를 따른다. side 값(home/away)은
          그대로 넘어가므로 드롭·전체선택·카드 렌더는 언제나 올바른 팀에 붙는다. */
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2 lg:gap-3">
         {[leftSide, rightSide].map(side => {
           const v = sideView(side)
           const fallback = side === 'home' ? '#3b82f6' : '#ef4444'
@@ -281,7 +285,7 @@ export default function StarterSelect({
               onDragOver={e => { e.preventDefault(); setDragOverSide(side) }}
               onDragLeave={() => setDragOverSide(null)}
               onDrop={e => handleDrop(e, side)}
-              className="min-h-[180px] p-2 border-2 border-dashed transition-colors"
+              className="min-h-[180px] p-1 lg:p-2 border lg:border-2 border-dashed transition-colors"
               style={dragOverSide === side
                 ? { borderColor: v.color, background: `${v.color}1A`, borderRadius: '4px' }
                 : { borderColor: 'var(--mm-rule)', borderRadius: '4px' }
