@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Share2, Crown, Check, Trophy } from 'lucide-react'
 import { seededShuffle } from '@/lib/draft/shuffle'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 interface Pick { team_id: string; player_id: string; player_name: string; pick_number: number }
@@ -65,7 +66,7 @@ export default function DraftSummaryCard({ teams, picks, leaders, playerNames, s
         {rosters.map(r => (
           <div key={r.team.id} className="bg-[color:var(--mm-panel)]/70 rounded-xl border border-[color:var(--mm-rule)] overflow-hidden" style={{ borderTopColor: r.team.color, borderTopWidth: 3 }}>
             <div className="px-3 py-2 flex items-center gap-2 border-b border-[color:var(--mm-rule)]">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.team.color }} />
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.team.color, boxShadow: swatchEdge(r.team.color) }} />
               <span className="font-bold text-[color:var(--mm-ink)]">{r.team.name}</span>
               <span className="ml-auto text-sm text-[color:var(--mm-muted)]">{r.picks.length + (r.leaderName ? 1 : 0)}명</span>
             </div>

@@ -2,7 +2,7 @@
 //   한쪽만 고치면 두 화면의 항목·색 규칙이 갈라지므로 여기 하나로 둔다 (2026-10-10 분리).
 'use client'
 import { useState } from 'react'
-import { accentOrInk } from '@/lib/util/contrastColor'
+import { accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 
 export interface H2HTotals {
   pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number
@@ -92,6 +92,8 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
               <div className="h-5" style={{
                 width: `${(item.a / max) * 100}%`,
                 backgroundColor: colorA,
+                // 바탕과 같은 색(흰 팀 등)이면 테두리로 모양을 남긴다
+                boxShadow: swatchEdge(colorA),
                 opacity: aWin ? 1 : 0.55,
                 minWidth: item.a > 0 ? 2 : 0,
               }} />
@@ -112,6 +114,8 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
               <div className="h-5" style={{
                 width: `${(item.b / max) * 100}%`,
                 backgroundColor: colorB,
+                // 바탕과 같은 색(흰 팀 등)이면 테두리로 모양을 남긴다
+                boxShadow: swatchEdge(colorB),
                 opacity: bWin ? 1 : 0.55,
                 minWidth: item.b > 0 ? 2 : 0,
               }} />

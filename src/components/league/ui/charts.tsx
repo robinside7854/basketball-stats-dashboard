@@ -9,6 +9,7 @@
 //   · 폭은 ResizeObserver 로 재서 실제 픽셀로 그린다 — viewBox 를 늘이면 글자·점이 찌그러진다.
 //   · role="img" + aria-label 요약 + 스크린리더용 표(sr-only). 호버/탭 → 값 툴팁.
 import { useEffect, useRef, useState, useId } from 'react'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 /** 컨테이너 폭(px) — 첫 측정 전엔 0 */
 function useMeasuredWidth<T extends HTMLElement>() {
@@ -451,7 +452,7 @@ export function DonutChart({
           }}
         >
           <p className="font-black" style={{ color: 'var(--mm-ink)' }}>
-            <span aria-hidden className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: segments[active].color }} />
+            <span aria-hidden className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: segments[active].color, boxShadow: swatchEdge(segments[active].color) }} />
             {segments[active].name}
           </p>
           {segments[active].detail}

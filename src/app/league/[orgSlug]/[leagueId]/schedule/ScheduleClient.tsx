@@ -16,6 +16,7 @@ import Chip from '@/components/league/ui/Chip'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { tallyDayRecord, identityKeyOf, type DayRecord } from '@/lib/stats/dayRecord'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
@@ -745,7 +746,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                           {/* 그날 순위(2026-11-04 — 박스스코어와 같은 금·은·동). 순서로만 짐작하던 것을 숫자로 */}
                           <DayRankBadge rank={dayRankOf(rec.teams, ti)} />
                           <span className="inline-flex items-center gap-1.5 min-w-0" title={t.name}>
-                            <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color ?? 'var(--mm-muted)' }} />
+                            <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color ?? 'var(--mm-muted)', boxShadow: swatchEdge(t.color ?? 'var(--mm-muted)') }} />
                             <span className={`text-xs truncate ${ti === 0 ? 'font-black' : 'font-bold'}`} style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
                           </span>
                           <RecordBar wins={t.wins} losses={t.losses} draws={t.draws} height={22} />

@@ -23,7 +23,7 @@ import SectionHeader from '@/components/league/ui/SectionHeader'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import TeamDailyRecordGrid, { type GridGame } from '@/components/league/TeamDailyRecordGrid'
 import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
-import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import TeamFormLine from '@/components/league/nba/TeamFormLine'
 import type { TeamForm } from '@/lib/stats/standings'
 
@@ -433,7 +433,7 @@ function TeamDetailPanel({
       <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: team.color }} aria-hidden />
       {/* Header */}
       <div className="pl-5 pr-16 py-4 lg:pl-6 flex flex-wrap items-center gap-x-3 gap-y-1" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-        <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+        <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color, boxShadow: swatchEdge(team.color) }} />
         <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '24px', letterSpacing: '-0.005em' }}>{team.name}</span>
         {/* 승·패는 바로 위 팀 카드 머리(승률 · N경기 + 승패 막대)에 이미 있다 — 여기서 다시 쓰지 않는다 */}
       </div>
@@ -1004,7 +1004,7 @@ function LeagueTeamsPageInner() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-jersey font-black tabular-nums w-8 shrink-0" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)', fontSize: '28px' }}>{idx + 1}</span>
-                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color, boxShadow: swatchEdge(s.color) }} />
                       <div className="min-w-0">
                         <span className="font-bold block break-keep text-base sm:text-xl" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', letterSpacing: '-0.005em', lineHeight: 1.15 }}>{s.displayName}</span>
                         {s.quarterLabels.length > 0 && selectedQId === 'all' && (
@@ -1249,7 +1249,7 @@ function LeagueTeamsPageInner() {
                 {/* 팀 컬러 좌측 accent bar */}
                 <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
                 <div className="px-4 py-3 pl-5 lg:px-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color, boxShadow: swatchEdge(s.color) }} />
                   <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}>{s.displayName}</span>
                   {s.quarterLabels.length > 0 && selectedQId === 'all' && (
                     <span className="text-xs font-mono" style={{ color: 'var(--mm-muted)' }}>· {s.quarterLabels.join(', ')}</span>

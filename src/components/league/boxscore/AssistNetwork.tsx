@@ -9,7 +9,7 @@
 // 그림이 못 읽히는 경우(스크린리더·작은 화면)를 위해 같은 내용을 글 목록으로도 둔다.
 import { useId, useMemo, useState, type CSSProperties } from 'react'
 import { Handshake } from 'lucide-react'
-import { accentOrInk } from '@/lib/util/contrastColor'
+import { accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import EmptyState from '@/components/league/ui/EmptyState'
 import Avatar from '@/components/league/ui/Avatar'
 import PlayerName from '@/components/league/ui/PlayerName'
@@ -211,7 +211,7 @@ function TeamNetwork({ team, players }: { team: TeamNet; players: Map<string, As
       aria-label={`${team.name} 어시스트 네트워크`}
     >
       <div className="flex items-center gap-2 mb-1 min-w-0">
-        <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color ?? 'var(--mm-muted)' }} />
+        <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color ?? 'var(--mm-muted)', boxShadow: swatchEdge(team.color ?? 'var(--mm-muted)') }} />
         <span className="font-jersey font-bold text-sm truncate min-w-0" title={team.name ?? undefined} style={{ color: 'var(--mm-ink)' }}>{team.name}</span>
         <span className="ml-1 text-xs font-bold tabular-nums shrink-0" style={{ color: 'var(--mm-muted)' }}>어시스트 {team.total}개</span>
       </div>

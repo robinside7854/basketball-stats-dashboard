@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { RadarChart, type RadarSeries } from '@/components/league/ui/charts'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 export interface HexRadarEntry {
   name: string
@@ -100,7 +101,7 @@ export default function HexRadar({
               <span />
               {entries.map(e => (
                 <span key={e.name} className="inline-flex items-center justify-end gap-1 min-w-0" style={{ color: 'var(--mm-ink-soft)' }}>
-                  <span aria-hidden className="inline-block w-2 h-2 shrink-0 rounded-full" style={{ background: e.color }} />
+                  <span aria-hidden className="inline-block w-2 h-2 shrink-0 rounded-full" style={{ background: e.color, boxShadow: swatchEdge(e.color) }} />
                   <span className="truncate">{e.name}</span>
                 </span>
               ))}

@@ -4,7 +4,7 @@ import { Send, MessageCircle, ShieldCheck, X, AlertTriangle } from 'lucide-react
 import { playChatDing } from '@/lib/draftSounds'
 import { createClient } from '@/lib/supabase/client'
 import { useVisiblePolling } from '@/lib/hooks/useVisiblePolling'
-import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 interface ChatMsg {
@@ -363,7 +363,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           return (
             <div key={`chat-${m.id}`} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                {isSup ? <ShieldCheck size={14} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
+                {isSup ? <ShieldCheck size={14} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color, boxShadow: swatchEdge(color) }} />}
                 <span className="text-xs font-bold" style={{ color: accentOrInk(color) }}>
                   {isSup ? '총무' : team?.name ?? ''} · {m.sender_label}
                 </span>

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Trash2, Copy, Check, ToggleLeft, ToggleRight, ShieldCheck, Pencil, Plus, X, AlertCircle } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 import { isGuestPlayer } from '@/lib/draft/guests'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 // 운영자가 카톡으로 그대로 배포해야 하는 값이라, 두 테마 모두에서 확실히 읽혀야 한다.
 // 예전에는 gray-900/amber-300 처럼 다크 전용 색을 박아 뒀는데, 라이트 모드에서는
@@ -233,7 +234,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color, boxShadow: swatchEdge(t.color) }} />
                   <span className="font-bold text-[var(--mm-ink)] text-base flex-1 min-w-0 truncate">{t.name}</span>
                   {/* 항상 보이는 편집 버튼 — hover 로만 나타나면 터치 기기에서는 존재 자체를 알 수 없다 */}
                   <button onClick={() => setEditingTeam({ id: t.id, name: t.name, color: t.color })} aria-label={`${t.name} 팀 정보 수정`} className="shrink-0 w-11 h-11 -my-2 flex items-center justify-center rounded text-[var(--mm-muted)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="팀 정보 수정">

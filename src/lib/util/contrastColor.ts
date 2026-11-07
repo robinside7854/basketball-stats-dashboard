@@ -206,3 +206,16 @@ function hslToHex(hue: number, sat: number, light: number): string {
 // 아니라 "밝은 색을 밝은 배경 위 얇은 선으로 쓰는 것" 자체가 안 되는 방법이었다.
 // 팀 정체성은 **원색 채움 + 안쪽 1px 링**(--mm-rule)으로 낸다. 채움은 대비를 요구하지 않고
 // 링이 경계를 만들어, 팀이 어떤 색을 골라도 형태가 남는다. NbaTeamStandings·팀 탭이 그 방식이다.
+
+/**
+ * 팀 색을 **면(막대·점)** 으로 칠할 때의 테두리(2026-11-07 운영진 — 밝은 화면에서 빅현욱(흰색) 막대가 통째로 안 보였다).
+ * 바탕과 거의 같은 색이면 안쪽 테두리를 그려 모양을 남긴다. 두 테마 모두 본다(인라인 색은 테마를 못 가른다).
+ * 테두리 색은 테마를 따라가는 변수라 밝은 화면에선 진하게, 어두운 화면에선 밝게 보인다.
+ */
+export function swatchEdge(hex: string | null | undefined): string | undefined {
+  if (!hex || !/^#?[0-9a-f]{3,8}$/i.test(hex.trim())) return undefined
+  const h = hex.startsWith('#') ? hex : `#${hex}`
+  return contrastRatio(h, PANEL_LIGHT) < 1.6 || contrastRatio(h, PANEL_DARK) < 1.6
+    ? 'inset 0 0 0 1.5px var(--mm-ink-soft)'
+    : undefined
+}

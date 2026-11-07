@@ -11,6 +11,7 @@ import type {
   HighlightPlayerOption, HighlightTeamOption, HighlightGameQuarterOption,
 } from '@/lib/highlights/types'
 import { SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 export type FilterState = {
   teamId: string | null       // null = 전체
@@ -144,7 +145,7 @@ export default function HighlightsFilterBar({
                   aria-disabled={off}
                   title={off ? offTitle : undefined}
                 >
-                  {t.color && <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: t.color }} />}
+                  {t.color && <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: t.color, boxShadow: swatchEdge(t.color) }} />}
                   {t.name}
                   <span className="text-xs opacity-80">{n}</span>
                 </button>

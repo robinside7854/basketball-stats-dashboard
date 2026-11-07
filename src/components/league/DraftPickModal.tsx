@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { X, Clock, AlertTriangle, Crown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import ConfirmModal from '@/components/league/ConfirmModal'
-import { teamInk } from '@/lib/util/contrastColor'
+import { teamInk, swatchEdge } from '@/lib/util/contrastColor'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
 import { POSITION_GROUP_ORDER, POSITION_META, primaryPosition, type PositionGroup } from '@/lib/draft/positions'
 import { positionLabelOf } from '@/lib/league/positionGroup'
@@ -186,7 +186,7 @@ export default function DraftPickModal({
 
       {/* (b) 내 팀 지금까지 — 같은 포지션을 또 뽑는 사고를 막는 유일한 근거라 항상 고정 노출 */}
       <div className="shrink-0 flex items-center gap-2 flex-wrap px-1 py-2 border-b border-[var(--mm-rule)]">
-        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} aria-hidden />
+        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: swatchEdge(color) }} aria-hidden />
         {captainName && (
           <span className="inline-flex items-center gap-1 text-xs sm:text-sm text-[var(--mm-yellow-strong)] font-bold shrink-0">
             <Crown size={14} aria-hidden />{captainName}

@@ -26,7 +26,7 @@ import DraftStealBanner, { type StealBannerData } from '@/components/league/Draf
 import DraftChat from '@/components/league/DraftChat'
 import { EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep, playBeep, setMuted, isMuted } from '@/lib/draftSounds'
-import { teamInk, teamAccentOnDark, maxTintAlphaForLightText } from '@/lib/util/contrastColor'
+import { teamInk, teamAccentOnDark, maxTintAlphaForLightText, swatchEdge } from '@/lib/util/contrastColor'
 import { createClient } from '@/lib/supabase/client'
 import { useVisiblePolling } from '@/lib/hooks/useVisiblePolling'
 
@@ -1713,7 +1713,7 @@ function LotteryWaitScreen({ teams, draftOrder, isSupervisor, onStartLottery, ac
         <div className="flex flex-wrap justify-center gap-2 mb-6">
           {teams.map(t => (
             <div key={t.id} className="px-2.5 sm:px-3 py-2 rounded-lg bg-[var(--mm-panel)] border-2 text-sm sm:text-base font-bold animate-pulse break-keep" style={{ borderColor: t.color }}>
-              <div className="w-2 h-2 inline-block rounded-full mr-2" style={{ background: t.color }} />
+              <div className="w-2 h-2 inline-block rounded-full mr-2" style={{ background: t.color, boxShadow: swatchEdge(t.color) }} />
               {t.name}
             </div>
           ))}

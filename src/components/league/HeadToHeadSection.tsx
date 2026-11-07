@@ -1,4 +1,5 @@
 'use client'
+import { swatchEdge } from '@/lib/util/contrastColor'
 // 팀 탭 「누적 맞대결」 (2026-10-10) — 날짜별 박스스코어의 「팀별 비교」를 분기·시즌 단위로 쌓아 보여 준다.
 //   데이터: GET /api/leagues/[leagueId]/head-to-head?quarterId=  (마감된 정규전 · 실제로 맞붙은 경기만)
 //   그림: HeadToHeadBars — 날짜별 화면과 같은 컴포넌트.
@@ -86,11 +87,11 @@ export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = nul
                       ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
                       : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                   >
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex(p.a.color, '#C4362B') }} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex(p.a.color, '#C4362B'), boxShadow: swatchEdge(hex(p.a.color, '#C4362B')) }} />
                     <span className="truncate min-w-0">{p.a.name}</span>
                     <span className="opacity-70 shrink-0">vs</span>
                     <span className="truncate min-w-0">{p.b.name}</span>
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex(p.b.color, '#2563eb') }} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex(p.b.color, '#2563eb'), boxShadow: swatchEdge(hex(p.b.color, '#2563eb')) }} />
                   </button>
                 )
               })}

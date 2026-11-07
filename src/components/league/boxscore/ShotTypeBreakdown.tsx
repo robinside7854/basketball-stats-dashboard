@@ -11,6 +11,7 @@ import { useMemo, useState, type CSSProperties } from 'react'
 import { Target } from 'lucide-react'
 import EmptyState from '@/components/league/ui/EmptyState'
 import PlayerName from '@/components/league/ui/PlayerName'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 export interface ShotTypeRow {
   game_id: string
@@ -86,7 +87,7 @@ function TeamCard({ title, color, counts }: { title: string; color: string | nul
       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
     >
       <div className="flex items-center gap-2 mb-2.5 pb-1.5 min-w-0" style={{ borderBottom: `3px solid ${color ?? 'var(--mm-rule)'}` }}>
-        {color && <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
+        {color && <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: swatchEdge(color) }} />}
         <span className="font-jersey font-bold text-base truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{title}</span>
         <span className="ml-auto t-num text-sm font-black shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>
           야투 {tot.fgm}/{tot.fga} <span style={{ color: 'var(--mm-muted)' }}>({pctText(tot.fgm, tot.fga)})</span>
@@ -267,7 +268,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
                   className={`${chipClass} inline-flex items-center gap-1.5`}
                   style={chipStyle(activeTeamFilter === t.key)}
                 >
-                  {t.color && <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />}
+                  {t.color && <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color, boxShadow: swatchEdge(t.color) }} />}
                   {t.name}
                 </button>
               ))}
@@ -281,7 +282,7 @@ export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTi
               return (
                 <li key={p.key} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   <div className="flex items-center gap-2 mb-2 min-w-0">
-                    <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: meta?.color ?? 'var(--mm-muted)' }} />
+                    <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: meta?.color ?? 'var(--mm-muted)', boxShadow: swatchEdge(meta?.color ?? 'var(--mm-muted)') }} />
                     <PlayerName id={p.player_id} name={name} hitArea={false} className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--mm-ink)' }} />
                     {meta && <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>{meta.name}</span>}
                     <span className="ml-auto t-num text-sm font-black shrink-0" style={{ color: 'var(--mm-ink)' }}>

@@ -1,6 +1,7 @@
 'use client'
 import { Lock, LogIn } from 'lucide-react'
 import type { DraftStatRow } from './DraftPlayerStatsModal'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 interface Pick { team_id: string; player_id: string }
@@ -82,7 +83,7 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
               <tr key={r.team.id} className="border-b border-[color:var(--mm-rule)]/30">
                 <td className="p-2">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.team.color }} />
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.team.color, boxShadow: swatchEdge(r.team.color) }} />
                     <span className="text-[color:var(--mm-ink)] font-bold">{r.team.name}</span>
                   </div>
                 </td>

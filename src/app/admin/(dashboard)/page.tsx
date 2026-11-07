@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { Users, Trophy, Calendar, Building2, Medal, Shield, CheckSquare, Download } from 'lucide-react'
 import Link from 'next/link'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 async function getStats() {
   const supabase = createClient()
@@ -125,7 +126,7 @@ export default async function AdminDashboardPage() {
                 href={`/admin/teams/${org.id}`}
                 className="flex items-center gap-4 p-4 bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl hover:border-[var(--mm-muted)] transition-colors cursor-pointer"
               >
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: org.accent_color ?? '#3b82f6' }} />
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: org.accent_color ?? '#3b82f6', boxShadow: swatchEdge(org.accent_color ?? '#3b82f6') }} />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-[var(--mm-ink)] text-sm">{org.name}</p>
                   <p className="text-xs text-[var(--mm-muted)]">{org.org_slug}</p>

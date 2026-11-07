@@ -12,7 +12,7 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
-import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 import Avatar from '@/components/league/ui/Avatar'
 import EmptyState from '@/components/league/ui/EmptyState'
@@ -632,7 +632,7 @@ function GameBoxscore({ game, onPlayerPick }: { game: GameData; onPlayerPick?: P
               className="flex items-center gap-2 mb-2 pb-1.5 min-w-0"
               style={{ borderBottom: `3px solid ${side.color ?? 'var(--mm-rule)'}` }}
             >
-              <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: side.color ?? 'var(--mm-muted)' }} />
+              <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: side.color ?? 'var(--mm-muted)', boxShadow: swatchEdge(side.color ?? 'var(--mm-muted)') }} />
               <span className="font-jersey font-bold text-base truncate min-w-0" title={side.name ?? undefined} style={{ color: 'var(--mm-ink)' }}>{side.name}</span>
               <span className="ml-1 text-sm font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink-soft)' }}>{total.pts}점</span>
             </div>
@@ -890,7 +890,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                         >
                           <div className="flex items-center gap-2 mb-2 min-w-0">
                             <RankBadge rank={rank} />
-                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color ?? 'var(--mm-muted)' }} />
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color ?? 'var(--mm-muted)', boxShadow: swatchEdge(r.color ?? 'var(--mm-muted)') }} />
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
                               title={r.name ?? undefined}
@@ -933,7 +933,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                         <li key={t.key} className="flex items-center gap-2.5 px-3 py-2.5 min-w-0"
                           style={{ background: 'var(--mm-panel)', borderTop: i === 0 ? undefined : '1px solid var(--mm-rule)' }}>
                           <RankBadge rank={rank} />
-                          <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color ?? 'var(--mm-muted)' }} />
+                          <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color ?? 'var(--mm-muted)', boxShadow: swatchEdge(t.color ?? 'var(--mm-muted)') }} />
                           <span className="font-bold text-sm min-w-0 flex-1 leading-snug" style={{ color: 'var(--mm-ink)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{t.name}</span>
                           {/* 폰에서 이름이 잘려 보였다(2026-11-04) — 전적·승률을 오른쪽 두 줄로 쌓아 이름 자리를 넓혔다 */}
                           <span className="flex flex-col items-end shrink-0 leading-tight">
@@ -982,7 +982,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                     const live = !g.is_complete && g.is_started
                     const row = (team: GameData['home_team'], score: number, win: boolean) => (
                       <span className="flex items-center gap-1 min-w-0">
-                        <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: team?.color ?? 'var(--mm-rule)' }} />
+                        <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: team?.color ?? 'var(--mm-rule)', boxShadow: swatchEdge(team?.color ?? 'var(--mm-rule)') }} />
                         <span className={`min-w-0 flex-1 truncate text-[11px] sm:text-xs ${win ? 'font-black' : 'font-semibold'}`}
                           style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)' }} title={team?.name ?? '미정'}>{team?.name ?? '미정'}</span>
                         <span className="font-jersey font-black tabular-nums leading-none text-lg sm:text-xl shrink-0"
@@ -1093,7 +1093,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                                 letterSpacing: '-0.005em',
                               }}
                             >{g.home_team?.name ?? '미정'}</span>
-                            {g.home_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.home_team.color }} />}
+                            {g.home_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.home_team.color, boxShadow: swatchEdge(g.home_team.color) }} />}
                             <span
                               className="text-xl sm:text-2xl font-jersey font-black tabular-nums shrink-0"
                               style={{ color: homeWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)' }}
@@ -1108,7 +1108,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                               className="text-xl sm:text-2xl font-jersey font-black tabular-nums shrink-0"
                               style={{ color: awayWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)' }}
                             >{g.away_score}</span>
-                            {g.away_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.away_team.color }} />}
+                            {g.away_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.away_team.color, boxShadow: swatchEdge(g.away_team.color) }} />}
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
                               title={g.away_team?.name ?? '미정'}
@@ -1151,7 +1151,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                                       390px 에서 「챗지피지기」 행이 표를 7px 넘겼다. */}
                                   <th scope="row" className="text-left py-1.5 pr-2 text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
                                     <span className="inline-flex items-center gap-1.5 min-w-0 max-w-[6rem]">
-                                      {row.team && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: row.team.color }} />}
+                                      {row.team && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: row.team.color, boxShadow: swatchEdge(row.team.color) }} />}
                                       <span className="truncate" title={row.team?.name ?? '미정'}>{row.team?.name ?? '미정'}</span>
                                     </span>
                                   </th>

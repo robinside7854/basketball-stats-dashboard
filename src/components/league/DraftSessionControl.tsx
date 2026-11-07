@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X, Trophy, Video, Dice5, Hand, Zap, AlertTriangle, FlaskConical } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 import { isGuestPlayer } from '@/lib/draft/guests'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one?: boolean; is_active?: boolean }
@@ -490,7 +491,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           {teams.map(t => (
             <div key={t.id} className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-lg p-2.5 space-y-1.5" style={{ borderTopColor: t.color, borderTopWidth: 2 }}>
               <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color, boxShadow: swatchEdge(t.color) }} />
                 <span className="text-[var(--mm-ink)] font-bold text-sm truncate">{t.name}</span>
               </div>
               <select aria-label={`${t.name} 팀장 선택`} value={leaderDraft[t.id] ?? ''} onChange={e => setLeaderDraft(prev => ({ ...prev, [t.id]: e.target.value }))}
@@ -815,7 +816,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               const lid = leaders.find(l => l.team_id === t.id)?.leader_player_id
               return (
                 <span key={t.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-sm">
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color, boxShadow: swatchEdge(t.color) }} />
                   <span className="text-[var(--mm-ink)] font-bold">{t.name}</span>
                   <span className="text-[var(--mm-ink-soft)]">{lid ? (playerMap[lid]?.name ?? '?') : '미지정'}</span>
                 </span>
@@ -857,7 +858,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
                 return (
                   <div key={`${tid}-${idx}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-sm">
                     <span className="text-[var(--mm-ink-soft)] font-bold tabular-nums">{idx + 1}.</span>
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color, boxShadow: swatchEdge(t?.color) }} />
                     <span className="text-[var(--mm-ink)] font-bold">{t?.name ?? '?'}</span>
                   </div>
                 )
