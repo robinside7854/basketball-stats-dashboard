@@ -170,7 +170,8 @@ export default function VideoColumn({
           )}
           {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}
           {gameStarted && (
-            <div className="absolute top-2 left-2 z-10 pointer-events-none">
+            // 폰·태블릿은 숨긴다(2026-11-07 운영진) — 영상을 가리고, 같은 점수가 영상 아래 점수줄에 이미 있다
+            <div className="hidden lg:block absolute top-2 left-2 z-10 pointer-events-none">
               {/* 좌우는 이 쿼터의 코트 배치를 따른다(sidesFlipped). 팀명·색·점수를
                   한 묶음(sideView)으로 꺼내 쓰므로 셋이 따로 놀 수 없다. */}
               <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-[#fff]">
