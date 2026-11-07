@@ -7,6 +7,7 @@ import { logAudit } from '@/lib/audit'
 import { canViewLeague } from '@/lib/auth/guard'
 import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
 
 type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 
@@ -15,6 +16,9 @@ type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 //   1) league_player_quarters (정규/분기 멤버십) — 있으면 우선. 대회(kind='tournament')에서는
 //      이 멤버십이 곧 "참가 등록"이다(TournamentRosterPanel 이 씀).
 //   2) league_game_players (게임별 비정규/타팀 임시 출전) — 폴백, 가장 자주 뛴 팀 사용
+// ?month=YYYY-MM-01 또는 ?date=YYYY-MM-DD 를 주면 그 달의 정규 소속(league_player_months, 120)이
+//   분기 멤버십보다 먼저 적용된다. 응답 각 행에 month_override(그 달 행이 있는가)·quarter_team_id·
+//   quarter_is_regular(분기 기본값)를 같이 준다 — 운영진 화면이 「분기와 다름」을 표시한다.
 export async function GET(
   req: Request,
   { params }: Ctx
@@ -28,6 +32,8 @@ export async function GET(
   // 명단 후보 풀은 팀 소유다 — league_id 로 조회하면 대회 분기에서 이 풀이 항상 비어
   // "등록할 사람 자체가 없다"는 화면이 된다(이번 작업의 핵심 버그와 동일한 원인).
   const teamId = await resolveTeamId(leagueId)
+  const sp = new URL(req.url).searchParams
+  const month = monthOf(sp.get('month') ?? sp.get('date'))
 
   const [{ data: players, error: pErr }, { data: memberships }, { data: quarterGames }] = await Promise.all([
     supabase
@@ -47,6 +53,7 @@ export async function GET(
   ])
 
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 })
+  const monthMap = await loadMonthRoster(supabase, leagueId, month)
 
   const membershipMap = Object.fromEntries(
     (memberships ?? []).map(m => [m.league_player_id, m])
@@ -107,16 +114,27 @@ export async function GET(
     .map(p => {
       const m = membershipMap[p.id]
       const has_events = playedIds.has(p.id)
+      const base = {
+        ...p,
+        has_events,
+        quarter_team_id: m?.team_id ?? null,
+        quarter_is_regular: m?.team_id ? (m.is_regular ?? false) : null,
+      }
+      // 0순위: 그 달의 정규 소속 (월 단위 덮어쓰기)
+      const mo = monthMap.get(p.id)
+      if (mo) {
+        return { ...base, team_id: mo.team_id, is_regular: mo.team_id ? mo.is_regular : null, month_override: true }
+      }
       // 1순위: 분기 정규 멤버십
       if (m?.team_id) {
-        return { ...p, team_id: m.team_id, is_regular: m.is_regular ?? false, has_events }
+        return { ...base, team_id: m.team_id, is_regular: m.is_regular ?? false, month_override: false }
       }
       // 2순위: 게임별 비정규 출전 (가장 자주 뛴 팀)
       const gameTeam = mostCommonTeam(p.id)
       if (gameTeam) {
-        return { ...p, team_id: gameTeam, is_regular: false, has_events }
+        return { ...base, team_id: gameTeam, is_regular: false, month_override: false }
       }
-      return { ...p, team_id: null, is_regular: null, has_events }
+      return { ...base, team_id: null, is_regular: null, month_override: false }
     })
 
   return NextResponse.json(result)
@@ -166,10 +184,35 @@ export async function PATCH(
   const { leagueId, quarterId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { league_player_id, team_id, is_regular } = await req.json()
+  const body = await req.json()
+  const { league_player_id, team_id, is_regular } = body
   if (!league_player_id) return NextResponse.json({ error: 'league_player_id 필수' }, { status: 400 })
 
   const supabase = createClient()
+
+  // month 가 있으면 「이 달만」 정규 소속을 바꾼다 — 분기 멤버십은 건드리지 않는다.
+  if (body.month !== undefined) {
+    const month = monthOf(body.month)
+    if (!month) return NextResponse.json({ error: 'month 는 YYYY-MM-01 형식' }, { status: 400 })
+    const { error: mErr } = await supabase
+      .from('league_player_months')
+      .upsert({
+        league_id: leagueId,
+        month,
+        league_player_id,
+        team_id: team_id ?? null,
+        is_regular: is_regular ?? true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'league_id,month,league_player_id' })
+    if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
+    await logAudit({
+      req, action: 'month_player.upsert', targetTable: 'league_player_months',
+      targetId: league_player_id, leagueId, quarterId, detail: { month, team_id: team_id ?? null, is_regular: is_regular ?? true },
+    })
+    revalidateTag(`league-${leagueId}`, 'max')
+    return NextResponse.json({ ok: true })
+  }
+
   const { error } = await supabase
     .from('league_player_quarters')
     .upsert({
@@ -205,6 +248,26 @@ export async function DELETE(
   if (!playerId) return NextResponse.json({ error: 'playerId 필수' }, { status: 400 })
 
   const supabase = createClient()
+
+  // ?month= 가 있으면 그 달 덮어쓰기만 지운다 = 분기 기본값으로 되돌리기.
+  //   기록은 이벤트마다 team_id 가 있어 지워도 과거 박스스코어가 바뀌지 않으므로 기록 검사를 하지 않는다.
+  if (searchParams.has('month')) {
+    const month = monthOf(searchParams.get('month'))
+    if (!month) return NextResponse.json({ error: 'month 는 YYYY-MM-01 형식' }, { status: 400 })
+    const { error: mErr } = await supabase
+      .from('league_player_months')
+      .delete()
+      .eq('league_id', leagueId)
+      .eq('month', month)
+      .eq('league_player_id', playerId)
+    if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
+    await logAudit({
+      req, action: 'month_player.delete', targetTable: 'league_player_months',
+      targetId: playerId, leagueId, quarterId, detail: { month },
+    })
+    revalidateTag(`league-${leagueId}`, 'max')
+    return NextResponse.json({ ok: true })
+  }
 
   const { data: quarterGames, error: gErr } = await supabase
     .from('league_games')

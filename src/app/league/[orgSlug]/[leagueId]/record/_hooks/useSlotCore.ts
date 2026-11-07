@@ -69,7 +69,7 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
     }
     // 미배정 풀: 비정규/미배정 선수 + 이 경기에 출전하지 않는 다른 팀 선수(임대 가능)
     if (effectiveQuarterId) {
-      const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${effectiveQuarterId}/players`)
+      const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${effectiveQuarterId}/players${slot.date ? `?date=${slot.date}` : ""}`)
       if (qRes.ok) {
         const qd: IrregularPlayer[] = await qRes.json()
         const assignedSet = new Set(assignedIrregularIds)

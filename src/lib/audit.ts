@@ -79,6 +79,9 @@ export type AuditAction =
   | 'tournament_game.create'
   // 명단
   | 'league_player.delete'
+  // 달 단위 정규 소속(120) — 분기 소속 위에 덮어쓰는 층. 바꾸고 되돌린 흔적을 남긴다
+  | 'month_player.upsert'
+  | 'month_player.delete'
   | 'league_team_player.delete'
   | 'quarter_player.delete'
   // 이전 분기 소속 이어받기 — 한 번에 수십 명의 분기 소속이 생기고, 분기 소속은 과거 경기의

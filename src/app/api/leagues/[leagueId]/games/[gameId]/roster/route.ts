@@ -1,3 +1,4 @@
+import { monthOf } from '@/lib/league/monthlyRoster'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canViewLeague } from '@/lib/auth/guard'
@@ -164,6 +165,25 @@ export async function GET(
 
     if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
     memberships = (mRows ?? []) as unknown as MembershipRow[]
+
+    // 달 단위 정규 소속(120) — 그 경기 달에 행이 있는 선수는 분기 소속 대신 그 행으로.
+    //   분기 소속상 이 팀이지만 이 달엔 다른 팀인 선수는 빼고, 반대로 이 달에만 이 팀인 선수는 더한다.
+    //   표가 없거나 행이 0개면 아무것도 바뀌지 않는다.
+    const month = monthOf(game.date)
+    if (month) {
+      const { data: moRows, error: moErr } = await supabase
+        .from('league_player_months')
+        .select('team_id, is_regular, league_player_id, league_players!inner(id, name, number, position, birth_date, plus_one, is_active)')
+        .eq('league_id', leagueId)
+        .eq('month', month)
+      if (!moErr && moRows && moRows.length > 0) {
+        const overridden = new Set(moRows.map(r => r.league_player_id as string))
+        memberships = [
+          ...memberships.filter(m => !overridden.has(m.league_player_id)),
+          ...(moRows as unknown as MembershipRow[]).filter(r => r.team_id && teamIds.includes(r.team_id)),
+        ]
+      }
+    }
   }
 
   // 비정규 선수 / 타팀 임시 출전: league_game_players

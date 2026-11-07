@@ -155,6 +155,12 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 누르는 것은 `mm-press`, 눌러서 여는 카드는 `mm-lift`, 로딩 자리는 `mm-shimmer`. 정의는 `globals.css` 끝.
 - `.mm-shell`(리그 레이아웃)에만 건다 — 파란날개는 그대로. 질감은 배경 안에 넣는다(겹 금지 — 팝업 순서).
 
+### 달별 정규 멤버 (2026-11-07 운영진, 마이그레이션 120)
+- 미라클은 달마다 정규가 정해지기도 한다 → 분기 소속(`league_player_quarters`) 위에 **「이 달만 다르게」** 층 `league_player_months(league_id, month=YYYY-MM-01, league_player_id, team_id, is_regular)`.
+- 판정: 경기 날짜의 달에 행이 있으면 그 행, 없으면 분기 소속. 정본 `lib/league/monthlyRoster.ts`(`monthOf`·`loadMonthRoster` — 표가 없거나 실패하면 빈 값 = 분기 소속 그대로).
+- 적용처는 **기록 화면 명단뿐**: `games/[gameId]/roster`(경기 달) · `quarters/[quarterId]/players?date=`(미배정·임대 풀). ⚠ 순위·팀 이름·스탯·팀 탭 명단은 **분기 단위 그대로** — 거기에 달 소속을 섞지 말 것(기록은 이벤트 `team_id` 로 이미 정해진다).
+- 편집: 팀 탭 「명단 편집」 → 「달별 정규 멤버」(`MonthlyRosterPanel`). `PATCH …/players {month}` 저장 · `DELETE …/players?playerId=&month=` = 「분기대로」. 감사 기록 `month_player.upsert/delete`.
+
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`
   - UNIQUE INDEX `league_games_slot_unique` ON (league_id, date, slot_num) WHERE slot_num IS NOT NULL

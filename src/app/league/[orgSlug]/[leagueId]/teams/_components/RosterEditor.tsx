@@ -14,6 +14,7 @@ import EmptyState from '@/components/league/EmptyState'
 import SectionCard from '@/components/league/ui/SectionCard'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+import MonthlyRosterPanel from './MonthlyRosterPanel'
 import SignupRateCard from '@/components/league/auth/SignupRateCard'
 import type { LeaguePlayer, LeagueTeam, Quarter } from '@/types/league'
 import type { Team } from '../_types'
@@ -1141,6 +1142,17 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
             </details>
           )}
         </>
+      )}
+
+      {/* 달별 정규 멤버 — 분기 소속 위에 「이 달만」 덮어쓰기(120) */}
+      {isEditMode && (
+        <MonthlyRosterPanel
+          leagueId={leagueId}
+          quarters={quarters}
+          teams={teams}
+          teamOverrides={teamOverrides}
+          headers={leagueHeaders}
+        />
       )}
 
       {/* 분기 관리 */}
