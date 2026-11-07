@@ -108,21 +108,25 @@ export default function VideoColumn({
             youtubeUrl={activeVideo.url}
             startOffset={activeVideo.startOffset}
           />
-          {/* 트랜스포트 컨트롤 오버레이 — 영상 좌하단 (44px 터치 타겟) */}
+          {/* 영상 조작 버튼 — PC(lg↑)는 영상 위 오버레이, 폰·태블릿은 영상 **아래** 줄(2026-11-07 운영진 — 폰에서 영상을 가렸다).
+              lg 에서는 래퍼가 `contents` 라 두 묶음이 위 relative 박스 기준으로 영상 위에 뜬다. */}
           {ytPlayer && (
-            <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1 bg-black/75 backdrop-blur-sm rounded-xl px-1.5 py-1">
+          <div className="flex flex-wrap gap-2 mt-2 lg:mt-0 lg:contents">
+          {/* 트랜스포트 컨트롤 — 영상 좌하단 (44px 터치 타겟) */}
+          {ytPlayer && (
+            <div className="flex items-center gap-1 rounded-xl px-1.5 py-1 max-lg:flex-1 max-lg:justify-between max-lg:border max-lg:border-[color:var(--mm-rule)] max-lg:bg-[color:var(--mm-panel-alt)] lg:absolute lg:bottom-2 lg:left-2 lg:z-20 lg:bg-black/75 lg:backdrop-blur-sm">
               {[
                 { label: '−10', delta: -10 },
                 { label: '−5',  delta: -5  },
               ].map(({ label, delta }) => (
                 <button key={label} onClick={() => seekRelative(delta)}
                   aria-label={`${label}초`}
-                  className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
+                  className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] lg:text-[#fff] max-lg:hover:bg-[color:var(--mm-panel)] lg:hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
                   {label}
                 </button>
               ))}
               <button onClick={togglePlay}
-                className="min-h-[44px] min-w-[44px] rounded-lg text-[color:var(--mm-ink)] hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
+                className="min-h-[44px] min-w-[44px] rounded-lg text-[color:var(--mm-ink)] lg:text-[#fff] max-lg:hover:bg-[color:var(--mm-panel)] lg:hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
                 aria-label="재생/일시정지">
                 <PlayCircle size={24} />
               </button>
@@ -132,7 +136,7 @@ export default function VideoColumn({
               ].map(({ label, delta }) => (
                 <button key={label} onClick={() => seekRelative(delta)}
                   aria-label={`${label}초`}
-                  className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] hover:text-[color:var(--mm-ink)] hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
+                  className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-[color:var(--mm-ink)] lg:text-[#fff] max-lg:hover:bg-[color:var(--mm-panel)] lg:hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
                   {label}
                 </button>
               ))}
@@ -144,7 +148,7 @@ export default function VideoColumn({
               단축키 [ / ]. 유튜브 자체 메뉴와 달리 한 번 누르면 끝. */}
           {ytPlayer && (
             <div
-              className="absolute bottom-2 right-2 z-20 flex items-center gap-0.5 bg-black/75 backdrop-blur-sm rounded-xl px-1 py-1"
+              className="flex items-center gap-0.5 rounded-xl px-1 py-1 max-lg:w-full max-lg:justify-between max-lg:border max-lg:border-[color:var(--mm-rule)] max-lg:bg-[color:var(--mm-panel-alt)] lg:absolute lg:bottom-2 lg:right-2 lg:z-20 lg:bg-black/75 lg:backdrop-blur-sm"
               role="group" aria-label="재생 속도"
             >
               {PLAYBACK_RATES.map(rate => {
@@ -153,14 +157,16 @@ export default function VideoColumn({
                   <button key={rate} onClick={() => setPlaybackRate(rate)}
                     aria-pressed={on}
                     aria-label={`재생 속도 ${formatPlaybackRate(rate)}`}
-                    className={`min-h-[44px] min-w-[44px] px-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors inline-flex items-center justify-center ${
-                      on ? 'bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]' : 'text-[color:var(--mm-ink)] hover:bg-white/15'
+                    className={`min-h-[44px] min-w-[44px] px-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors inline-flex items-center justify-center max-lg:flex-1 ${
+                      on ? 'bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]' : 'text-[color:var(--mm-ink)] lg:text-[#fff] max-lg:hover:bg-[color:var(--mm-panel)] lg:hover:bg-white/15'
                     }`}>
                     {formatPlaybackRate(rate)}
                   </button>
                 )
               })}
             </div>
+          )}
+          </div>
           )}
           {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}
           {gameStarted && (
