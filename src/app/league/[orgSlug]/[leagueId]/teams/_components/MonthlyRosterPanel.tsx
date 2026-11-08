@@ -7,7 +7,7 @@
 // 고친 달의 경기만 기록 화면 명단이 바뀐다. 순위·팀 이름·스탯은 계속 분기 단위.
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2, RotateCcw, GripVertical } from 'lucide-react'
+import { Loader2, RotateCcw, GripVertical, Crown } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { swatchEdge } from '@/lib/util/contrastColor'
 import { monthsBetween, monthLabel, monthOf } from '@/lib/league/monthlyRoster'
@@ -34,8 +34,11 @@ function todayKst(): string {
   return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 }
 
-export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOverrides, headers, onChanged }: {
+export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOverrides, headers, onChanged, leaders, onToggleLeader }: {
   onChanged?: () => void
+  /** 분기 → 팀 → 팀장 선수 id. 팀장은 분기 단위다(league_quarter_leaders) */
+  leaders: Record<string, Record<string, string | null>>
+  onToggleLeader: (quarterId: string, teamId: string, playerId: string) => void
   leagueId: string
   quarters: Quarter[]
   teams: Team[]
@@ -163,7 +166,27 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
         } ${dragId === r.id ? 'opacity-40' : ''}`}
       >
         <GripVertical size={14} className="text-[var(--mm-muted)] shrink-0" aria-hidden />
-        <span className="text-sm font-bold text-[var(--mm-ink)]">{r.name}</span>
+        <span className="text-sm font-bold text-[var(--mm-ink)] whitespace-nowrap">{r.name}</span>
+        {/* 왕관 = 팀장에게만 보인다. 다른 선수는 마우스를 올렸을 때만 흐린 왕관이 나와 눌러서 팀장으로 정한다 */}
+        {(() => {
+          const tid = regularTeamOf(r)
+          if (!tid || !qId) return null
+          const isLeader = leaders[qId]?.[tid] === r.id
+          return (
+            <button
+              type="button"
+              draggable={false}
+              onClick={() => onToggleLeader(qId, tid, r.id)}
+              aria-label={isLeader ? `${r.name} 팀장 해제` : `${r.name} 팀장으로 지정`}
+              title={isLeader ? '팀장 해제' : '팀장으로 지정'}
+              className={`w-7 h-7 inline-flex items-center justify-center rounded cursor-pointer transition-opacity duration-200 hover:bg-[var(--mm-panel-alt)] ${
+                isLeader ? 'text-[var(--mm-ink)]' : 'text-[var(--mm-muted)] opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+              }`}
+            >
+              <Crown size={14} />
+            </button>
+          )
+        })()}
         {savingId === r.id && <Loader2 size={12} className="animate-spin text-[var(--mm-muted)]" />}
         {r.month_override && savingId !== r.id && (
           <button
@@ -185,7 +208,7 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
       <div>
         <h3 className="font-black text-[20px] text-[var(--mm-ink)] tracking-tight">달별 정규 멤버</h3>
         <p className="text-sm text-[var(--mm-muted)] mt-1">
-          달을 고르고 선수 이름을 끌어 다른 팀 칸에 놓으면 그 달만 옮겨져요. 노란 테두리가 이 달만 바꾼 사람이고, ↺ 를 누르면 분기 소속으로 돌아가요.
+          달을 고르고 선수 이름을 끌어 다른 팀 칸에 놓으면 그 달만 옮겨져요. 노란 테두리가 이 달만 바꾼 사람이고, ↺ 를 누르면 분기 소속으로 돌아가요. 이름에 마우스를 올려 왕관을 누르면 팀장이 돼요.
         </p>
         <p className="lg:hidden text-sm font-bold text-[var(--mm-ink-soft)] mt-1">끌어 옮기기는 PC 에서 해 주세요.</p>
       </div>

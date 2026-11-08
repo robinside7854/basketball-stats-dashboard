@@ -773,27 +773,18 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                       <div className="border-t border-[var(--mm-rule)] pt-2 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-xs font-medium text-[var(--mm-muted)]">지금 소속</span>
                         {now ? (
-                          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[var(--mm-ink)] min-w-0">
+                          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[var(--mm-ink)] whitespace-nowrap">
                             <span
                               className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
                               style={{ backgroundColor: now.color, boxShadow: swatchEdge(now.color) }}
                             />
-                            <span className="break-keep">{now.name}</span>
+                            {now.name}
+                            {/* 왕관은 팀장에게만 — 지정은 「달별 정규 멤버」 칸에서 */}
+                            {isPlayerLeader && <Crown size={14} aria-label="팀장" className="shrink-0" />}
                           </span>
                         ) : (
                           <span className="text-sm font-medium text-[var(--mm-muted)]">비정규</span>
                         )}
-                        {now && (isEditMode ? (
-                          <button
-                            onClick={e => { e.stopPropagation(); toggleLeader(todayQ.id, now.teamId, p.id) }}
-                            aria-label={isPlayerLeader ? '리더 해제' : '리더 지정'}
-                            title={isPlayerLeader ? '리더 해제' : '리더 지정'}
-                            className="size-9 -my-1 ml-auto inline-flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                            style={{ color: isPlayerLeader ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
-                          ><Crown size={14} /></button>
-                        ) : isPlayerLeader ? (
-                          <Crown size={14} className="ml-auto" style={{ color: 'var(--mm-ink)' }} />
-                        ) : null)}
                       </div>
                     )
                   })()}
@@ -904,6 +895,28 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
         </div>
       )}
 
+      {/* 달별 정규 멤버 — 분기 소속 위에 「이 달만」 덮어쓰기(120) */}
+      {isEditMode && (
+        <MonthlyRosterPanel
+          onChanged={() => { if (todayQ) loadToday(todayQ.id) }}
+          leaders={leaderMap}
+          onToggleLeader={toggleLeader}
+          leagueId={leagueId}
+          quarters={quarters}
+          teams={teams}
+          teamOverrides={teamOverrides}
+          headers={leagueHeaders}
+        />
+      )}
+
+      {/* 선수 카드(사진·+1·삭제)는 접어 둔다 — 명단 편집 = 달별 끌어 옮기기가 주 작업(2026-11-08 운영진).
+          지운 게 아니라 접은 것: +1 지정·선수 삭제는 여기서 한다. */}
+      <details className="group/cards rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel)] px-3">
+        <summary className="flex items-center gap-2 min-h-11 cursor-pointer list-none select-none font-bold text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]">
+          <ChevronDown size={16} aria-hidden className="shrink-0 transition-transform group-open/cards:rotate-180" />
+          선수 정보 고치기 <span className="text-sm font-medium text-[var(--mm-muted)]">+1 지정 · 선수 삭제 · {players.length}명</span>
+        </summary>
+        <div className="pb-3 space-y-4">
       {/* 수정 2: 정렬/필터 컨트롤 */}
       {!loading && players.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 lg:gap-4">
@@ -1056,17 +1069,8 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
         </>
       )}
 
-      {/* 달별 정규 멤버 — 분기 소속 위에 「이 달만」 덮어쓰기(120) */}
-      {isEditMode && (
-        <MonthlyRosterPanel
-          onChanged={() => { if (todayQ) loadToday(todayQ.id) }}
-          leagueId={leagueId}
-          quarters={quarters}
-          teams={teams}
-          teamOverrides={teamOverrides}
-          headers={leagueHeaders}
-        />
-      )}
+        </div>
+      </details>
 
       {/* 분기 관리 */}
       {isEditMode && (
