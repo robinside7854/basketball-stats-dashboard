@@ -41,8 +41,8 @@ export function getCachedLeagueStats(leagueId: string, raw: CachedStatOpts = {})
   return unstable_cache(
     async () => computeLeagueStats(null, leagueId, opts),
     [
-      // v2 (2026-11): 속공 fb_pts·fbpg 추가 · v3 (2026-11-04): 더블더블 dd2·td3 추가 · v4 (2026-11-08): 속공에 상대 득점 뒤 7초 추가 — 옛 항목에는 없어서 키를 바꿨다
-      'api-league-stats', 'v4', leagueId, ...keyOf(opts),
+      // v2 (2026-11): 속공 fb_pts·fbpg 추가 · v3 (2026-11-04): 더블더블 dd2·td3 추가 · v4 (2026-11-08): 속공에 상대 득점 뒤 7초 추가 · v5 (2026-11-08): 턴오버율 tov_pct — 옛 항목에는 없어서 키를 바꿨다
+      'api-league-stats', 'v5', leagueId, ...keyOf(opts),
     ],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )()
@@ -62,7 +62,7 @@ export function getCachedLeagueStatsMany(leagueId: string, raws: CachedStatOpts[
   if (list.length === 1) return getCachedLeagueStats(leagueId, list[0]).then(r => [r])
   return unstable_cache(
     async () => Promise.all(list.map(o => computeLeagueStats(null, leagueId, o))),
-    ['api-league-stats-many', 'v4', leagueId, String(list.length), ...list.flatMap(keyOf)],
+    ['api-league-stats-many', 'v5', leagueId, String(list.length), ...list.flatMap(keyOf)],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )()
 }

@@ -22,7 +22,7 @@ import { POSITION_GROUPS, positionGroupOf, positionGroupLabel, positionLabelOf, 
 import type { PlayerStat } from '@/types/league'
 import { swatchEdge } from '@/lib/util/contrastColor'
 import StatGate from '@/components/league/auth/StatGate'
-import { calcUsg } from '@/lib/stats/advanced'
+import { calcUsg, tovPct } from '@/lib/stats/advanced'
 import { splitEligible, leagueMinRounds, isPctStatKey, meetsAttemptMin, attemptRuleLabel, type PctStatKey } from '@/lib/stats/eligibility'
 
 type ViewMode = 'avg' | 'total'
@@ -41,12 +41,13 @@ export type StatsInitial = { quarterId: string; players: PlayerStat[]; totalRoun
 // 눈으로 드러난다. 10 으로 자르면 티어 경계와 목록 끝이 겹쳐 전체가 10명인 것처럼 읽힌다.
 const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
-type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'|'fbpg'|'fb_pts'
+type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'|'fbpg'|'fb_pts'|'tov_pct'
 type AdvKey = 'at_ratio'|'a1_total'|'dd2_total'|'td3_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'
 type StatMode = 'basic'|'advanced'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
 const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
+  tov_pct: '턴오버율',
   gp:      '출전 경기',
   ppg:     '득점',
   rpg:     '리바운드',
@@ -342,7 +343,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setSortKey(key); setSortDir('desc') }
+    // 턴오버율은 낮을수록 좋다 — 처음 누르면 낮은 순(TOP 5 와 같은 방향)
+    else { setSortKey(key); setSortDir(key === 'tov_pct' ? 'asc' : 'desc') }
   }
 
   // 자동 임계값: 해당 기간 내 열린 라운드(경기일)의 30% 이상 참여.
@@ -371,6 +373,11 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     .sort((a, b) => {
       const la = lowAttempts(a, basicPctKey), lb = lowAttempts(b, basicPctKey)
       if (la !== lb) return la ? 1 : -1
+      // 턴오버율은 공격 기회가 적으면 값이 없다(null) — 방향과 무관하게 맨 뒤
+      if (sortKey === 'tov_pct') {
+        const na = a.tov_pct == null, nb = b.tov_pct == null
+        if (na !== nb) return na ? 1 : -1
+      }
       const diff = ((a[sortKey] as number) ?? 0) - ((b[sortKey] as number) ?? 0)
       return sortDir === 'desc' ? -diff : diff
     })
@@ -422,6 +429,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' }, { key: 'ft_pct', label: '자유투율', term: 'FT%' },
     { key: 'orp', label: '공리', term: '공리' }, { key: 'drp', label: '수리', term: '수리' },
     { key: 'topg', label: '턴오버', term: '턴오버' },
+    // 턴오버율(2026-11-08 운영진) — 공격 기회 중 턴오버 비중. 정본 lib/stats/advanced.ts tovPct
+    { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
     // 속공(2026-11-04) — 명단 탭에서 순위를 걷어내며 이리로 옮겼다(fastBreak.ts 정의 그대로)
     { key: 'fbpg', label: '속공', term: '속공' },
     // (2026-11-03 운영진) 공리·수리·턴오버는 기본으로 보이고, 유효야투(eFG)는 「고급」으로. 「더 보기」 접힘 열은 없다.
@@ -435,6 +444,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     // 하루 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
     { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
     { key: 'tov', label: '턴오버', term: 'TOV' },
+    { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
     { key: 'fb_pts', label: '속공', term: '속공' },
   ]
 
@@ -501,6 +511,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   const moreLabels = ALL_COLS.filter(c => c.more).map(c => c.label).join('·')
 
   function cellVal(p: PlayerStat, key: SortKey): string {
+    if (key === 'tov_pct') return p.tov_pct != null ? `${fmt1(p.tov_pct)}%` : '—'
     if (viewMode === 'avg') {
       if (key === 'gp') return String(p.gp)
       if (key === 'fg_pct')  return p.fga  > 0 ? `${fmt1(p.fg_pct)}%`  : '—'
@@ -540,8 +551,11 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       const fullLabel = BASIC_FULL_LABELS[sortKey] ?? label
       // 성공률은 하루 평균 최소 시도를 채운 선수만 (eligibility.ts — 표 순위와 같은 기준)
       const pk = pctKeyOf(sortKey)
-      const pool = pk ? eligibleBase.filter(p => meetsAttemptMin(p, pk)) : eligibleBase
-      const sorted = [...pool].sort((a, b) => ((b[sortKey] as number) ?? 0) - ((a[sortKey] as number) ?? 0)).slice(0, 5)
+      const pool = (pk ? eligibleBase.filter(p => meetsAttemptMin(p, pk)) : eligibleBase)
+        .filter(p => sortKey !== 'tov_pct' || p.tov_pct != null)
+      // 턴오버·턴오버율은 낮을수록 좋다 — TOP 5 도 낮은 순
+      const low = sortKey === 'tov_pct'
+      const sorted = [...pool].sort((a, b) => (low ? -1 : 1) * (((b[sortKey] as number) ?? 0) - ((a[sortKey] as number) ?? 0))).slice(0, 5)
       return {
         key: `basic:${sortKey}:${viewMode}`,
         label,
@@ -706,7 +720,9 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     return i < 0 ? v : <>{v.slice(0, i + 1)}<wbr />{v.slice(i + 1)}</>
   }
   function colHide(key: string): string {
-    if (key === 'oreb' || key === 'dreb') return 'hidden xl:table-cell'
+    // 공리·수리는 1280↑ 에서만(리바 합은 남음) — 하루 평균 보기도 턴오버율 열이 생기며 1024 에서 %가 두 줄로 꺾였다(2026-11-08).
+    //   지금 그 열로 정렬 중이면 숨기지 않는다.
+    if ((key === 'oreb' || key === 'dreb' || key === 'orp' || key === 'drp') && key !== sortKey) return 'hidden xl:table-cell'
     // 「시간」(추정 출전 분) 열은 2026-11-04 운영진 결정으로 뺐다 — 추정값이라 정확하지 않다
     return ''
   }
@@ -769,7 +785,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // TOP 5 바로 아래 한 줄 — 정렬(폰) · 순위 범위. 첫 화면에 숫자가 먼저 들어오게 머리 카드에서 내렸다(2026-10-26).
   //   PC 는 표 머리를 눌러 정렬하므로 정렬 선택은 폰에만 둔다.
   const sortOpts = statMode === 'basic'
-    ? { cols: ALL_COLS.map(c => ({ key: c.key as string, label: c.label, more: !!c.more })), active: sortKey as string, dir: sortDir, onPick: (k: string) => { setSortKey(k as SortKey); setSortDir('desc') }, flip: () => setSortDir(d => d === 'desc' ? 'asc' : 'desc') }
+    ? { cols: ALL_COLS.map(c => ({ key: c.key as string, label: c.label, more: !!c.more })), active: sortKey as string, dir: sortDir, onPick: (k: string) => { setSortKey(k as SortKey); setSortDir(k === 'tov_pct' ? 'asc' : 'desc') }, flip: () => setSortDir(d => d === 'desc' ? 'asc' : 'desc') }
     : { cols: ADV_COLS.map(c => ({ key: c.key as string, label: c.label, more: false })), active: advSortKey as string, dir: advSortDir, onPick: (k: string) => { setAdvSortKey(k as AdvKey); setAdvSortDir('desc') }, flip: () => setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc') }
   const selectCls = 'min-w-0 flex-1 md:flex-none min-h-11 px-2 text-base font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]'
   const selectStyle: React.CSSProperties = { background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }
@@ -1048,7 +1064,10 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   const leagueFg3Pct = totalFg3a > 0 ? +(totalFg3m / totalFg3a * 100).toFixed(1) : 0
                   const leagueFtPct  = totalFta  > 0 ? +(totalFtm  / totalFta  * 100).toFixed(1) : 0
                   const leagueEfgPct = totalFga  > 0 ? +((totalFgm + 0.5 * totalFg3m) / totalFga * 100).toFixed(1) : 0
+                  // 리그 턴오버율 — 자격자 합계로 한 번에(선수 평균의 평균이 아님)
+                  const leagueTovPct = tovPct({ fga: totalFga, fta: totalFta, tov: totalOf('tov') }, 1)
                   const fmtCell = (key: SortKey): string => {
+                    if (key === 'tov_pct') return leagueTovPct != null ? `${fmt1(leagueTovPct)}%` : '—'
                     if (viewMode === 'avg') {
                       // 평균 모드: 리그 자격자 평균값
                       if (key === 'gp') return fmt1(avgOf('gp'))

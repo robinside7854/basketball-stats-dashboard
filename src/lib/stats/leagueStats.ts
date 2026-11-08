@@ -12,6 +12,7 @@
  *     치르는 운영 방식이라 '경기당 평균'이 실제 체감과 어긋났고, 아무도 쓰지 않았다.
  *   - Supabase 서버 max-rows(1000) 제한을 피해 이벤트 페이지네이션
  */
+import { tovPct } from '@/lib/stats/advanced'
 import { fetchAllPaged } from '@/lib/supabase/paged'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
@@ -565,6 +566,7 @@ export async function computeLeagueStats(
       return {
         ...s,
         dd2, td3,
+        tov_pct: tovPct(s),
         name:     ((meta as Record<string,unknown>).name as string) ?? '알 수 없음',
         number:   ((meta as Record<string,unknown>).number as number | null) ?? null,
         position: ((meta as Record<string,unknown>).position as string | null) ?? null,

@@ -24,6 +24,7 @@ import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import TeamDailyRecordGrid, { type GridGame } from '@/components/league/TeamDailyRecordGrid'
 import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
+import { tovPct } from '@/lib/stats/advanced'
 import TeamFormLine from '@/components/league/nba/TeamFormLine'
 import type { TeamForm } from '@/lib/stats/standings'
 
@@ -71,6 +72,8 @@ const AVG_COLS: Col[] = [
   { key: 'spg',  label: '스틸',   term: '스틸' },
   { key: 'bpg',  label: '블록',   term: '블록' },
   { key: 'topg', label: '턴오버', term: '턴오버' },
+  // 턴오버율(2026-11-08 운영진) — 「상세 지표」 안에만 있던 것을 기본 표로. 정본 lib/stats/advanced.ts tovPct
+  { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
 ]
 const TOTAL_COLS: Col[] = [
   { key: 'gp',      label: '출전',     term: 'R' },
@@ -80,6 +83,7 @@ const TOTAL_COLS: Col[] = [
   { key: 'stl',     label: '스틸',     term: 'STL' },
   { key: 'blk',     label: '블록',     term: 'BLK' },
   { key: 'tov',     label: '턴오버',   term: 'TOV' },
+  { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
   { key: 'fg_pct',  label: '야투율',   term: 'FG%' },
   { key: 'fg3_pct', label: '3점률',    term: '3P%' },
   { key: 'ft_pct',  label: '자유투율', term: 'FT%' },
@@ -98,7 +102,7 @@ const SHOOTING_COLS: Col[] = [
 const ADV_COLS: Col[] = [
   { key: 'at_ratio', label: '어시/턴오버', term: 'A/T',  desc: '턴오버 하나당 어시스트' },
   { key: 'ast_pct',  label: '어시 비중',   term: 'AST%', desc: '공격 기회 중 어시스트 비중' },
-  { key: 'tov_pct',  label: '턴오버 비중', term: 'TOV%', desc: '공격 기회 중 턴오버 비중' },
+  { key: 'tov_pct',  label: '턴오버율', term: 'TOV%', desc: '공격 기회 중 턴오버 비중' },
   { key: 'a1_total', label: '앤드원',      term: 'A1',   desc: '성공한 앤드원 횟수 (누적)' },
   // 수비 리바 비중은 100 − 공격 리바 비중이라 뺐다(2026-10-25 — 같은 정보가 두 칸)
   { key: 'orb_pct',  label: '공리 비중',   term: 'ORB%', desc: '내 리바운드 중 공격 리바운드 비중' },
@@ -140,7 +144,7 @@ function metric(p: PlayerStat, key: string): number | null {
     // 턴오버 0 이면 비율이 정의되지 않는다 — 예전엔 ∞ 로 1위에 앉혔다
     case 'at_ratio': return p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : null
     case 'ast_pct':  return pct(p.ast, poss + p.ast)
-    case 'tov_pct':  return pct(p.tov, poss)
+    case 'tov_pct':  return tovPct(p)
     case 'a1_total': return p.and_one ?? 0
     case 'orb_pct':  return pct(p.oreb, p.reb)
     case 'trb_pct':  return pct(p.reb, p.team_reb_in_games ?? 0)
@@ -404,6 +408,8 @@ function TeamDetailPanel({
     const threePct = totFga > 0 ? totFg3a / totFga * 100 : 0
     const fbPct  = totPts > 0 ? totFb / totPts * 100 : 0
     const fbPg   = totFb / gp
+    const totTov = players.reduce((s, p) => s + p.tov, 0)
+    const tovRate = tovPct({ fga: totFga, fta: totFta, tov: totTov }, 1)
 
     // Top performers — 정규 명단만 후보 (비정규·게스트가 1경기로 1위 차지 방지)
     const byPpg   = pickTeamLeader(players, regularIds, p => p.ppg)
@@ -417,7 +423,7 @@ function TeamDetailPanel({
     const topScorer = byPpg
     const acePct = totPts > 0 && topScorer ? topScorer.pts / totPts * 100 : 0
 
-    return { ppg, fgPct, defPg, ftPct, threePct, fbPct, fbPg, acePct, byPpg, byRpg, byApg, byDef, byEfg }
+    return { ppg, fgPct, defPg, ftPct, threePct, fbPct, fbPg, tovRate, acePct, byPpg, byRpg, byApg, byDef, byEfg }
   }, [players, regularIds, gp])
 
   const played = standing.w + standing.d + standing.l
@@ -463,11 +469,13 @@ function TeamDetailPanel({
                   <VersusBar a={avgPf} b={avgPa} aLabel="평균 득점" bLabel="평균 실점" height={12} />
                 </div>
                 {/* 팀 eFG% 는 아래 TeamInsights 의 Four Factors 가 보여 준다 — 화면에서 따로 계산한 값을 두지 않는다 */}
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2.5">
                   {[
                     { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: '누적', color: ptsDiff >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
                     { label: '팀 야투율', value: `${computed.fgPct.toFixed(1)}%`, sub: '누적', color: 'var(--mm-positive)' },
                     { label: '스틸+블록', value: computed.defPg.toFixed(1), sub: '평균', color: 'var(--mm-ink)' },
+                    // 팀 턴오버율(2026-11-08) — 공격 기회 중 턴오버로 끝난 비중 · 낮을수록 좋다
+                    { label: '턴오버율', value: computed.tovRate != null ? `${computed.tovRate.toFixed(1)}%` : '—', sub: '낮을수록 좋음', color: 'var(--mm-negative)' },
                   ].map(card => (
                     <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '28px' }}>{card.value}</div>
