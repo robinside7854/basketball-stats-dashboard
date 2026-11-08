@@ -154,9 +154,8 @@ interface Props {
 
 // 로그인 회원 본인 — 표·카드에서 내 줄을 노랑으로 (2026-10-26 점검 MVP 1: 47명 표에서 내 이름을 눈으로 찾아야 했다)
 const MyIdCtx = createContext<string | null>(null)
-const MY_ROW_BG = 'color-mix(in srgb, var(--mm-yellow) 22%, var(--mm-panel))'
-// 표·카드의 내 줄은 바탕색 없이 노란 테두리만 — 리더보드(MINE_OUTLINE)와 같은 모양(2026-11-08 운영진).
-//   MY_ROW_BG 는 맨 위 「나」 요약 줄(누르면 선수 기록으로 가는 버튼)에만 남긴다.
+// 내 줄은 바탕색 없이 노란 테두리만 — 리더보드(MINE_OUTLINE)와 같은 모양(2026-11-08 운영진).
+//   표 줄 · 폰 카드 · 맨 위 「나」 요약 줄 모두 같다.
 const MINE_OUTLINE = '2px solid var(--mm-yellow-strong)'
 function MeTag() {
   return <span className="shrink-0 px-1 text-[11px] font-black leading-4" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 3 }}>나</span>
@@ -809,7 +808,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
           type="button"
           onClick={() => setActiveTab('players')}
           className="mm-press w-full shrink-0 px-4 lg:px-6 py-2 flex items-center gap-2.5 min-h-11 text-left cursor-pointer"
-          style={{ background: MY_ROW_BG, borderBottom: '1px solid var(--mm-rule)', boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' }}
+          style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)', outline: MINE_OUTLINE, outlineOffset: -2 }}
         >
           <MeTag />
           <span className="text-sm font-black tabular-nums min-w-0 flex-1" style={{ color: 'var(--mm-ink)', wordBreak: 'keep-all' }}>
