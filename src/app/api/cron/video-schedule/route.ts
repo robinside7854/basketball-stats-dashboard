@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { reconcileScheduleWithVideos } from '@/lib/league/videoSchedule'
+import { applyMonthlyPhotos } from '@/lib/league/uniformPhoto'
 
 export const maxDuration = 300
 
@@ -30,6 +31,8 @@ export async function GET(req: Request) {
   for (const lg of (leagues ?? []) as Array<{ id: string; mode: string | null }>) {
     if (lg.mode === 'tournament') continue
     try {
+      // 달이 바뀐 날 프로필 사진도 새 달 유니폼 색으로(121) — 네 벌이 없는 리그는 아무것도 안 한다
+      await applyMonthlyPhotos(supabase, lg.id).catch(() => null)
       const r = await reconcileScheduleWithVideos(supabase, lg.id, process.env.YOUTUBE_API_KEY)
       results.push({ leagueId: lg.id, added: r.added.length, synced: r.synced.length, pruned: r.pruned.length, error: r.error })
       revalidateTag(`league-${lg.id}`, 'max')

@@ -161,6 +161,15 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 적용처는 **기록 화면 명단뿐**: `games/[gameId]/roster`(경기 달) · `quarters/[quarterId]/players?date=`(미배정·임대 풀). ⚠ 순위·팀 이름·스탯·팀 탭 명단은 **분기 단위 그대로** — 거기에 달 소속을 섞지 말 것(기록은 이벤트 `team_id` 로 이미 정해진다).
 - 편집: 팀 탭 「명단 편집」 → 「달별 정규 멤버」(`MonthlyRosterPanel`) — **달을 바로 고르고(분기 고르기 없음, 달이 든 분기는 날짜로 찾음) 선수 이름을 끌어 팀 칸·「정규 아님」 칸에 놓는다**(2026-11-08 운영진, PC 전용 작업 · 폰은 칸만 쌓아 보여 줌). 노란 테두리 = 이 달만 바꾼 사람, ↺ = 분기대로. 명단 편집의 선수 카드는 분기 줄을 늘어놓지 않고 **「지금 소속」 한 줄**(오늘 기준 — 이 달 정규 → 없으면 지금 분기, `todayAffiliation`)만 보인다(2026-11-08 운영진). 분기 칸 팀 고르기는 없앴다 — 소속은 달별 패널에서, 분기 기본값은 「이전 분기 이어받기」로. 명단 편집을 열면 **달별 패널이 맨 위**, 선수 카드(사진·+1·삭제)는 「선수 정보 고치기」로 **접혀 있다**. 왕관(팀장, 분기 단위)은 **팀장에게만** 보이고, 지정은 달별 패널에서 이름에 마우스를 올려 흐린 왕관을 누른다(2026-11-08 운영진). `PATCH …/players {month}` 저장 · `DELETE …/players?playerId=&month=` = 「분기대로」. 감사 기록 `month_player.upsert/delete`.
 
+### 달마다 유니폼 색 · 프로필 사진 네 벌 (2026-11-08 운영진, 마이그레이션 121)
+- 미라클은 달마다 팀 유니폼 색(노랑·흰색·검정)을 정한다 → `league_team_month_uniforms(league_id, month, team_id, uniform)`.
+  선수 사진 네 벌 `league_players.uniform_photos {yellow,white,black,gray}` 중 **그 달 그 선수 정규 팀의 색**을 `photo_url` 로 옮겨 둔다(정규 아님 = gray, 색 미지정 = yellow). 정본 `lib/league/uniformPhoto.ts` 의 `applyMonthlyPhotos`.
+  photo_url 을 바꿔 두므로 **화면 코드는 그대로** 모든 화면이 같은 사진을 본다. 부르는 곳: 유니폼 색 저장(`PUT /month-uniforms`) · 달별 정규 멤버 저장/되돌리기(이번 달일 때) · 사진 올리기(`?apply=1`) · 매일 밤 cron(달이 바뀌는 날).
+- 색 고르기 = 「명단 편집 → 달별 정규 멤버」 팀 칸 머리의 노랑·흰색·검정(다시 누르면 지정 해제).
+- 사진 네 벌 = 제미나이(Gemini 3 Pro Image)로 **지금 프로필 사진의 얼굴·목만 잘라** 다시 만든 노랑 U넥(로고 없음·남색 배경·이 안 보이는 미소·같은 구도) + 유니폼만 다시 칠한 흰색·검정·회색. 일괄 작업은 1회성(앱 안 「AI 프로필」 버튼은 되살리지 않았다).
+  올리기 = `POST /players/[playerId]/uniform-photos`(운영진 또는 1회용 비밀번호 `x-upload-token` — `league_upload_tokens` 에 해시·기한, 쓰고 나면 지운다).
+  ⚠ 선수가 새 사진을 올리면 그 사진이 photo_url 이 되지만 다음 맞추기 때 네 벌로 다시 덮인다 — 새 얼굴이면 네 벌도 다시 만들어야 한다.
+
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`
   - UNIQUE INDEX `league_games_slot_unique` ON (league_id, date, slot_num) WHERE slot_num IS NOT NULL

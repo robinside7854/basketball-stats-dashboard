@@ -8,6 +8,7 @@ import { canViewLeague } from '@/lib/auth/guard'
 import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
+import { applyMonthlyPhotos, todayKst } from '@/lib/league/uniformPhoto'
 
 type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 
@@ -209,6 +210,8 @@ export async function PATCH(
       req, action: 'month_player.upsert', targetTable: 'league_player_months',
       targetId: league_player_id, leagueId, quarterId, detail: { month, team_id: team_id ?? null, is_regular: is_regular ?? true },
     })
+    // 이번 달이면 프로필 사진(유니폼 색, 121)도 새 팀 색으로
+    if (month === monthOf(todayKst())) await applyMonthlyPhotos(supabase, leagueId)
     revalidateTag(`league-${leagueId}`, 'max')
     return NextResponse.json({ ok: true })
   }
@@ -265,6 +268,7 @@ export async function DELETE(
       req, action: 'month_player.delete', targetTable: 'league_player_months',
       targetId: playerId, leagueId, quarterId, detail: { month },
     })
+    if (month === monthOf(todayKst())) await applyMonthlyPhotos(supabase, leagueId)
     revalidateTag(`league-${leagueId}`, 'max')
     return NextResponse.json({ ok: true })
   }

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, RotateCcw, GripVertical, Crown } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { UNIFORMS, UNIFORM_LABEL, type Uniform } from '@/lib/league/uniformPhoto'
 import { swatchEdge } from '@/lib/util/contrastColor'
 import { monthsBetween, monthLabel, monthOf } from '@/lib/league/monthlyRoster'
 import type { Quarter } from '@/types/league'
@@ -65,6 +66,9 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
   const month = picked || (months.includes(todayMonth) ? todayMonth : (months[months.length - 1] ?? ''))
   const [rows, setRows] = useState<Row[]>([])
   const [loadedKey, setLoadedKey] = useState('')
+  // 그 달 팀 유니폼 색(121) — 고르면 이번 달 선수 프로필 사진이 그 색 유니폼으로 바뀐다
+  const [uniforms, setUniforms] = useState<Record<string, Uniform>>({})
+  const [uniKey, setUniKey] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
@@ -72,6 +76,31 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
   const qId = monthQuarter.get(month)?.id ?? ''
   const key = `${qId}|${month}`
   const loading = loadedKey !== key
+
+  useEffect(() => {
+    if (!month) return
+    let alive = true
+    fetch(`/api/leagues/${leagueId}/month-uniforms?month=${month}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((rows: { team_id: string; uniform: Uniform }[]) => {
+        if (!alive) return
+        setUniforms(Object.fromEntries(rows.map(r => [r.team_id, r.uniform])))
+        setUniKey(month)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [leagueId, month])
+
+  async function pickUniform(teamId: string, u: Uniform) {
+    const prev = uniforms
+    const nextVal = uniforms[teamId] === u ? null : u
+    setUniforms(cur => { const n = { ...cur }; if (nextVal) n[teamId] = nextVal; else delete n[teamId]; return n })
+    const res = await fetch(`/api/leagues/${leagueId}/month-uniforms`, {
+      method: 'PUT', headers, body: JSON.stringify({ month, team_id: teamId, uniform: nextVal }),
+    }).catch(() => null)
+    if (!res?.ok) { setUniforms(prev); toast.error('유니폼 색을 저장하지 못했어요'); return }
+    onChanged?.()
+  }
 
   useEffect(() => {
     if (!qId || !month) return
@@ -270,6 +299,26 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
                     {isNone ? '정규 아님' : teamName(c.key)}
                     <span className="text-sm font-bold text-[var(--mm-muted)]">{c.players.length}명</span>
                   </p>
+                  {/* 이 달 유니폼 색 — 고르면 그 팀 선수 프로필 사진이 그 색으로(정규 아님 칸 = 회색 고정) */}
+                  {!isNone && uniKey === month && (
+                    <div role="group" aria-label={`${teamName(c.key)} ${monthLabel(month, refYear)} 유니폼 색`} className="flex flex-wrap items-center gap-1 pb-2">
+                      <span className="text-xs font-bold text-[var(--mm-muted)] mr-0.5">유니폼</span>
+                      {UNIFORMS.map(u => {
+                        const on = (uniforms[c.key] ?? null) === u
+                        return (
+                          <button key={u} type="button" aria-pressed={on} onClick={() => pickUniform(c.key, u)}
+                            className={`mm-press inline-flex items-center gap-1 h-8 px-2 rounded-md border text-xs font-bold cursor-pointer transition-colors duration-200 ${
+                              on ? 'border-[var(--mm-ink)] text-[var(--mm-ink)] bg-[var(--mm-panel-alt)]' : 'border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'
+                            }`}>
+                            <span aria-hidden className="w-3 h-3 rounded-full shrink-0"
+                              style={{ background: u === 'yellow' ? '#F2B705' : u === 'white' ? '#ffffff' : '#1a1a1a', boxShadow: 'inset 0 0 0 1.5px var(--mm-ink-soft)' }} />
+                            {UNIFORM_LABEL[u]}
+                          </button>
+                        )
+                      })}
+                      {!uniforms[c.key] && <span className="text-[11px] text-[var(--mm-muted)]">안 고르면 노랑</span>}
+                    </div>
+                  )}
                   {c.players.length === 0
                     ? <p className="text-sm text-[var(--mm-muted)] py-2">여기로 끌어 놓으세요</p>
                     : <ul className="flex flex-wrap gap-1.5">{c.players.map(renderChip)}</ul>}
