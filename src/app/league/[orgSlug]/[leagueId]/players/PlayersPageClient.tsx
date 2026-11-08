@@ -3,7 +3,9 @@
 //   예전 명단 화면(roster)을 없앤 뒤 「전체 명단을 한눈에 못 본다」는 요청으로 되살렸다.
 //   수정·삭제·분기 배정은 팀 탭 RosterEditor 에만 있다. 여기엔 어드민 「+ 선수 등록」(이름·포지션)만 둔다.
 //   숫자(출석일·열린 날)는 /roster-cards 가 computeLeagueStats 캐시에서 그대로 가져온다(선수 카드·스탯 탭과 같은 값).
-//   사용자 피드백(2026-10-16): 등번호·소속팀(분기마다 바뀜)·출석 막대·게스트는 보이지 않는다. 얼굴을 크게.
+//   사용자 피드백(2026-10-16): 등번호·출석 막대·게스트는 보이지 않는다. 얼굴을 크게.
+//   2026-11-08 운영진: 소속팀(그 분기 · 지금 분기면 이 달 정규)·+1 을 보이고, 기본 정렬 = 출석순,
+//   팀·포지션 필터 칩(여러 개 고르기 — 같은 묶음 안은 「또는」, 팀과 포지션 사이는 「그리고」).
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { BadgeCheck, ChevronRight, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
@@ -18,6 +20,7 @@ import { useParams } from 'next/navigation'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import type { RosterCard, RosterCardsResponse } from '@/app/api/leagues/[leagueId]/roster-cards/route'
+import { swatchEdge } from '@/lib/util/contrastColor'
 import { POSITION_GROUPS, positionGroupLabel, positionGroupOf, type PositionGroupCode } from '@/lib/league/positionGroup'
 
 type Period = 'quarter' | 'all'
@@ -25,7 +28,7 @@ type Period = 'quarter' | 'all'
 //   리더보드 한 곳으로 모았다 — 두 화면이 같은 숫자를 같은 방식으로 줄 세우고 있었다.
 //   여기 남은 정렬은 이름순 · 출석순 둘뿐. 되돌리기: docs/renewal-rollback.md 의 M3.
 type Order = 'name' | 'attendance'
-const ORDERS: { key: Order; label: string }[] = [{ key: 'name', label: '이름순' }, { key: 'attendance', label: '출석순' }]
+const ORDERS: { key: Order; label: string }[] = [{ key: 'attendance', label: '출석순' }, { key: 'name', label: '이름순' }]
 
 // 포지션은 가드·포워드·센터 세 가지(2026-10-17). 옛 5코드(PG·SG…)는 positionGroupOf 로 묶어 읽는다.
 const OPTIMIZABLE = /^https:\/\/[^/]+\.supabase\.(co|in)\//
@@ -55,7 +58,12 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const [data, setData] = useState<RosterCardsResponse | null>(null)
   const [error, setError] = useState(false)
   const [period, setPeriod] = useState<Period | null>(null)
-  const [order, setOrder] = useState<Order>('name')
+  const [order, setOrder] = useState<Order>('attendance')
+  // 필터 — 빈 집합이면 전부. 팀끼리·포지션끼리는 「또는」, 둘 사이는 「그리고」
+  const [teamSel, setTeamSel] = useState<Set<string>>(new Set())
+  const [posSel, setPosSel] = useState<Set<PositionGroupCode>>(new Set())
+  const toggleIn = <T,>(set: Set<T>, v: T) => { const n = new Set(set); if (n.has(v)) n.delete(v); else n.add(v); return n }
+  const resetFilters = () => { setTeamSel(new Set()); setPosSel(new Set()) }
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const [addOpen, setAddOpen] = useState(false)
 
@@ -97,7 +105,9 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
 
   // 출석순은 공동 순위(1·2·2·4) — 출석률이 같으면 같은 순위. 이름순에는 순위 번호가 없다.
   const { list, rankOf } = useMemo(() => {
-    const rows = data?.players ?? []
+    const rows = (data?.players ?? []).filter(p =>
+      (teamSel.size === 0 || (p.team != null && teamSel.has(p.team.id))) &&
+      (posSel.size === 0 || (() => { const g = groupOfCard(p); return g != null && posSel.has(g) })()))
     const byName = (a: RosterCard, b: RosterCard) => a.name.localeCompare(b.name, 'ko')
     const ranks = new Map<string, number>()
     if (order === 'name') return { list: [...rows].sort(byName), rankOf: ranks }
@@ -105,7 +115,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
     let prev = NaN, rank = 0
     att.forEach((p, i) => { const v = attOf(p).rate; if (v !== prev) { rank = i + 1; prev = v } ranks.set(p.id, rank) })
     return { list: att, rankOf: ranks }
-  }, [data, order, attOf])
+  }, [data, order, attOf, teamSel, posSel])
 
   const total = data?.players.length ?? 0
   const members = (data?.players ?? []).filter(p => p.has_account).length
@@ -156,6 +166,40 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
           </div>
 
           {data && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {data.teams.length > 0 && (
+                <div role="group" aria-label="팀" className="flex flex-wrap items-center gap-1.5">
+                  {data.teams.map(t => (
+                    <Chip key={t.id} as="button" size={isPhone ? 'sm' : 'md'} selected={teamSel.has(t.id)}
+                      onClick={() => setTeamSel(prev => toggleIn(prev, t.id))}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color, boxShadow: swatchEdge(t.color) }} />
+                        {t.name}
+                      </span>
+                    </Chip>
+                  ))}
+                </div>
+              )}
+              <span aria-hidden className="w-px h-6 mx-0.5" style={{ background: 'var(--mm-rule)' }} />
+              <div role="group" aria-label="포지션" className="flex flex-wrap items-center gap-1.5">
+                {POSITION_GROUPS.map(g => (
+                  <Chip key={g.code} as="button" size={isPhone ? 'sm' : 'md'} selected={posSel.has(g.code)}
+                    onClick={() => setPosSel(prev => toggleIn(prev, g.code))}>
+                    {g.label}
+                  </Chip>
+                ))}
+              </div>
+              {(teamSel.size > 0 || posSel.size > 0) && (
+                <button type="button" onClick={resetFilters}
+                  className="inline-flex items-center min-h-9 px-1 text-xs font-bold underline underline-offset-4 cursor-pointer"
+                  style={{ color: 'var(--mm-ink-soft)' }}>
+                  필터 풀기
+                </button>
+              )}
+            </div>
+          )}
+
+          {data && (
             <div role="group" aria-label="정렬" className="flex flex-wrap items-center gap-1.5">
               {ORDERS.map(o => (
                 <Chip key={o.key} as="button" size={isPhone ? 'sm' : 'md'} selected={order === o.key} onClick={() => setOrder(o.key)}>
@@ -186,7 +230,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
             icon={total === 0 ? Users : Search}
             title={total === 0 ? '아직 등록된 선수가 없어요' : '조건에 맞는 선수가 없어요'}
             action={total > 0 ? (
-              <Chip as="button" size="md" onClick={() => setOrder('name')}>처음으로</Chip>
+              <Chip as="button" size="md" onClick={resetFilters}>필터 풀기</Chip>
             ) : undefined}
           />
         </SectionCard>
@@ -268,6 +312,7 @@ function PlayerRow({ p, rank, label, main, sub, onOpen }: {
               {positionGroupLabel(group)}
             </span>
           )}
+          <TeamBadge p={p} small />
           {!p.has_account && <span className="inline-flex items-center h-5 text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>미가입</span>}
         </span>
       </span>
@@ -277,6 +322,27 @@ function PlayerRow({ p, rank, label, main, sub, onOpen }: {
         <span className="text-[11px] font-semibold tabular-nums mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sub ?? label}</span>
       </span>
     </button>
+  )
+}
+
+/** 소속팀(색 점 + 이름) · +1 — 정규가 아니면 「비정규」 */
+function TeamBadge({ p, small = false }: { p: RosterCard; small?: boolean }) {
+  const h = small ? 'h-5 text-[11px]' : 'h-6 text-[11px]'
+  return (
+    <>
+      <span className={`inline-flex items-center gap-1 px-1.5 font-bold whitespace-nowrap ${h}`}
+        style={{ background: 'var(--mm-panel-alt)', color: p.team ? 'var(--mm-ink)' : 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>
+        {p.team && <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: p.team.color, boxShadow: swatchEdge(p.team.color) }} />}
+        {p.team ? p.team.name : '비정규'}
+      </span>
+      {p.plus_one && (
+        <span className={`inline-flex items-center px-1.5 font-black tabular-nums ${h}`}
+          title="플러스원 — 야투 성공마다 1점 더"
+          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
+          +1
+        </span>
+      )}
+    </>
   )
 }
 
@@ -346,6 +412,7 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen, stat }: {
               {positionGroupLabel(groupOfCard(p))}
             </span>
           )}
+          <TeamBadge p={p} />
           {p.has_account
             ? <Chip tone="positive" icon={BadgeCheck}>가입</Chip>
             : <Chip tone="neutral">미가입</Chip>}

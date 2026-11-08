@@ -19,6 +19,8 @@ import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
 import { loadPeriodStatsMany, quarterPeriod, pickPlayerRow } from '@/lib/stats/playerTotals'
 import type { LeagueStatsResult } from '@/lib/stats/leagueStats'
 import { leagueMinRounds, meetsAttemptMin } from '@/lib/stats/eligibility'
@@ -52,6 +54,10 @@ export type RosterCard = {
   positions: string[]
   photo_url: string | null
   has_account: boolean
+  /** 그 분기 정규 소속(지금 분기면 이 달 정규 120 이 먼저 — 오늘 기준). 정규가 아니면 null */
+  team: { id: string; name: string; color: string } | null
+  /** 플러스원(전역 플래그) */
+  plus_one: boolean
   attendance: { all: RosterCardAttendance; quarter: RosterCardAttendance | null }
   line: { all: RosterCardLine | null; quarter: RosterCardLine | null }
 }
@@ -59,6 +65,8 @@ export type RosterCard = {
 export type RosterCardsResponse = {
   quarter: { id: string; label: string; total_rounds: number } | null
   all_total_rounds: number
+  /** 필터 칩용 — 그 분기(그 달)에 정규가 있는 팀, 이름순 */
+  teams: { id: string; name: string; color: string }[]
   players: RosterCard[]
 }
 
@@ -118,7 +126,7 @@ export async function GET(
     const statsPairP = loadPeriodStatsMany(leagueId, q ? ['all', quarterPeriod(q)] : ['all'])
     const [playersRes, accountsRes, externalIds, statsPair] = await Promise.all([
       sb.from('league_players')
-        .select('id, name, position, photo_url, is_guest, is_active')
+        .select('id, name, position, photo_url, is_guest, is_active, plus_one')
         .eq('team_id', teamId),
       sb.from('league_user_accounts')
         .select('league_player_id')
@@ -127,6 +135,28 @@ export async function GET(
       fetchExternalPlayerIds(sb, leagueId),
       statsPairP,
     ])
+    // 소속 — 그 분기 정규 + (오늘이 그 분기 안이면) 이 달 정규가 먼저
+    const todayKst = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+    const inQuarter = !!q && !!q.start_date && !!q.end_date && todayKst >= q.start_date && todayKst <= q.end_date
+    const [memRes, monthMap, resolve] = await Promise.all([
+      q
+        ? sb.from('league_player_quarters').select('league_player_id, team_id, is_regular').eq('quarter_id', q.id)
+        : Promise.resolve({ data: [] as { league_player_id: string; team_id: string | null; is_regular: boolean | null }[] }),
+      loadMonthRoster(sb, leagueId, inQuarter ? monthOf(todayKst) : null),
+      loadIdentityResolver(sb, leagueId),
+    ])
+    const regularTeam = new Map<string, string>()
+    for (const m of memRes.data ?? []) if (m.team_id && m.is_regular !== false) regularTeam.set(m.league_player_id, m.team_id)
+    for (const [pid, m] of monthMap) {
+      if (m.team_id && m.is_regular) regularTeam.set(pid, m.team_id)
+      else regularTeam.delete(pid)
+    }
+    const teamOf = (pid: string) => {
+      const tid = regularTeam.get(pid)
+      const id = tid ? resolve(tid, q?.id) : null
+      return id ? { id: id.team_id, name: id.display_name, color: id.color } : null
+    }
+
     const allStats = statsPair[0]
     const quarterStats = q ? statsPair[1] ?? null : null
     if (playersRes.error) throw new Error(playersRes.error.message)
@@ -145,6 +175,8 @@ export async function GET(
         positions: (p.position ?? '').split(',').map((s: string) => s.trim()).filter(Boolean),
         photo_url: p.photo_url ?? null,
         has_account: verified.has(p.id),
+        team: teamOf(p.id),
+        plus_one: !!p.plus_one,
         attendance: {
           all: att(allStats, p.id) ?? { gp: 0, rate: 0 },
           quarter: att(quarterStats, p.id),
@@ -156,6 +188,8 @@ export async function GET(
     const body: RosterCardsResponse = {
       quarter: q ? { id: q.id, label: q.label, total_rounds: quarterStats?.total_rounds ?? 0 } : null,
       all_total_rounds: allStats.total_rounds ?? 0,
+      teams: [...new Map(players.filter(x => x.team).map(x => [x.team!.id, x.team!])).values()]
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko')),
       players,
     }
     return NextResponse.json(body)
