@@ -51,6 +51,7 @@
 | M26 | (이 커밋) | **선수 카드 턴오버율·분기별 그림(2026-11-08 운영진)** — detail 라우트 `tov_pct`(값·순위) · `PlayerQuickViewModal.tsx` 요약 한 줄·분기별 막대 · `QuarterTable`/`MonthTable` 폰 줄바꿈 | 요약의 턴오버율 블록과 분기별 `MonthlyStatsChart` 를 빼면 원래대로 |
 | M27 | (이 커밋) | **선수 카드 폰 점검(2026-11-08)** — `PlayerTeamLine.tsx` 「지금」 줄바꿈·흰색 팀 띠 · 턴오버율 설명 keep-all · `MonthTable` 폰은 왕관만 | 각 파일 이 커밋 이전으로 |
 | M28 | (이 커밋) | **팀 탭 폰 점검(2026-11-08)** — `HeadToHeadBars.tsx` 성공률 두 줄 · `teams/page.tsx` 팀 내 1위 값 줄바꿈 · 폰 카드 지표 이름 keep-all | 각 파일 이 커밋 이전으로 |
+| M29 | (이 커밋) | **일정 탭 폰 점검(2026-11-08)** — `ScheduleClient.tsx` 회원 화면에서 기록 없는 날 박스스코어 자리 숨김 | `datesWithStats.has(sd.date) &&` 두 곳을 빼면 원래대로 |
 
 ## R5 (걷어내기)는 미뤘다
 

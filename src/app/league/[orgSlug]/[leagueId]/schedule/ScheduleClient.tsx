@@ -608,6 +608,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
               }
               : { start_time: sd.start_time ?? null, place: sd.place ?? null, capacity: sd.capacity ?? null }
             const hasDetails = !!(eff.start_time || eff.place || eff.capacity)
+            // 회원 화면은 기록이 없는 날 박스스코어 자리를 그리지 않는다(누를 수 없는 점선 버튼만 남았다, 2026-11-08). 운영진은 자리 맞춤용으로 둔다
             const boxscoreEl = datesWithStats.has(sd.date) ? (
               <Link
                 href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}`}
@@ -668,7 +669,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
               </div>
               {/* 읽기 모드에서만 날짜와 같은 줄에 붙인다. 편집 모드에서는 버튼이 최대 3개까지
                   늘어나 같은 줄에 두면 날짜 폭이 한 글자까지 눌린다 — 아래 별도 행으로 내린다. */}
-              {!isEditMode && !upcoming && <div className="shrink-0 hidden sm:block">{boxscoreEl}</div>}
+              {!isEditMode && !upcoming && datesWithStats.has(sd.date) && <div className="shrink-0 hidden sm:block">{boxscoreEl}</div>}
               </div>
 
               {/* 편집 액션 — 폭이 모자라면 줄바꿈된다. 날짜를 밀지 않는다. */}
@@ -795,7 +796,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
               })()}
 
               {/* 폰: 박스스코어 버튼은 카드 맨 아래 한 줄 전체(엄지로 누르기 쉬운 자리, 2026-11-04) */}
-              {!isEditMode && !upcoming && <div className="sm:hidden [&>*]:w-full">{boxscoreEl}</div>}
+              {!isEditMode && !upcoming && datesWithStats.has(sd.date) && <div className="sm:hidden [&>*]:w-full">{boxscoreEl}</div>}
 
               {/* 시간·장소·정원 — 입력된 것만 그린다. 비어 있으면 줄 자체가 없다.
                   '미정'을 나열하면 과거 날짜 32개가 전부 '미정 · 미정'으로 도배된다. */}
