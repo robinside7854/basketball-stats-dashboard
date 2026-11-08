@@ -48,6 +48,7 @@
 | M23 | (이 커밋) | **리더보드 따라다니는 정렬 줄 + 표로 스크롤(2026-11-08 운영진)** — `StatsPageClient.tsx` `sortBar`·`scrollToList`·`scopeSelect` | `{sortBar}` 를 빼고 `topFiveFooter` 를 이전 판(정렬·범위 고르기)으로 |
 | M24 | (이 커밋) | **리더보드 TOP 5 숫자만 · 내 기록 고정은 5위 밖만 · 테두리 강조(2026-11-08 운영진)** — `TopFiveSlot.tsx` · `StatsPageClient.tsx`(`pinBasic`·`pinAdv`·`MINE_OUTLINE`) | 두 파일을 M23 판으로 |
 | M25 | (이 커밋) | **턴오버율을 리더보드·팀 탭에 바로(2026-11-08 운영진)** — `advanced.ts tovPct` · `leagueStats.ts tov_pct`(캐시 v5) · `StatsPageClient.tsx` 열·정렬 · `teams/page.tsx` 열·팀 칸 · `glossary.ts` 이름 | 화면의 `tov_pct` 열·칸을 빼면 원래대로(계산 필드는 남아도 무해) |
+| M26 | (이 커밋) | **선수 카드 턴오버율·분기별 그림(2026-11-08 운영진)** — detail 라우트 `tov_pct`(값·순위) · `PlayerQuickViewModal.tsx` 요약 한 줄·분기별 막대 · `QuarterTable`/`MonthTable` 폰 줄바꿈 | 요약의 턴오버율 블록과 분기별 `MonthlyStatsChart` 를 빼면 원래대로 |
 
 ## R5 (걷어내기)는 미뤘다
 

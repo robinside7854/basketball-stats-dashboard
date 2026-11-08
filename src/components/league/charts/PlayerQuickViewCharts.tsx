@@ -28,12 +28,13 @@ export type MonthPoint = {
   fg3_pct?: number | null
 }
 
-export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
+/** 월별 막대 — 분기별 기록도 같은 그림을 쓴다(title 만 바꿔, 2026-11-08) */
+export function MonthlyStatsChart({ data, title = '월별 성장지표' }: { data: MonthPoint[]; title?: string }) {
   const [monthStat, setMonthStat] = useState<MonthStatKey>('ppg')
   return (
     <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
-        <p className="t-label whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>월별 성장지표</p>
+        <p className="t-label whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>{title}</p>
         <div className="flex flex-wrap gap-1">
           {MONTH_STATS.map(s => (
             <button key={s.key} onClick={() => setMonthStat(s.key)}

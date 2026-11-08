@@ -21,6 +21,10 @@ import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { positionGroupOf, positionGroupLabel, type PositionGroupCode } from '@/lib/league/positionGroup'
 import type { PlayerStat } from '@/types/league'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { tovPct } from '@/lib/stats/advanced'
+
+/** 턴오버율 — 집계 행 값(캐시 v5)을 쓰고, 옛 행이면 같은 식으로 계산 */
+const tovPctOf = (p: PlayerStat): number | null => p.tov_pct !== undefined ? p.tov_pct : tovPct(p)
 import { buildPlayerForm, type PlayerForm } from '@/lib/stats/playerForm'
 import { buildPlayStyle, pairBlockedShots, type StyleInput as PlayStyleInput } from '@/lib/stats/playStyle'
 
@@ -601,6 +605,11 @@ export async function GET(
       fg_pct:  pctRank('fg_pct'),
       fg3_pct: pctRank('fg3_pct'),
       ft_pct:  pctRank('ft_pct'),
+      // 턴오버율(2026-11-08 운영진) — 낮을수록 좋다. 공격 기회 20 미만(null)은 순위에서 빠진다(advanced.ts tovPct)
+      tov_pct: (() => {
+        const sel = elig.filter(p => tovPctOf(p) != null)
+        return { rank: competitionRank(sel, playerId, tovPctOf, false), total: sel.length }
+      })(),
     }
   }
   const gpPool = pool.filter(p => p.gp >= 1)
@@ -679,6 +688,8 @@ export async function GET(
     fgm: myRow.fgm, fga: myRow.fga, fg3m: myRow.fg3m, fg3a: myRow.fg3a, ftm: myRow.ftm, fta: myRow.fta,
     ppg: myRow.ppg, rpg: myRow.rpg, apg: myRow.apg, spg: myRow.spg, bpg: myRow.bpg, topg: myRow.topg,
     fg_pct: myRow.fg_pct, fg3_pct: myRow.fg3_pct, ft_pct: myRow.ft_pct,
+    // 턴오버율(2026-11-08) — 스탯 탭과 같은 값. 공격 기회 20 미만이면 null
+    tov_pct: tovPctOf(myRow),
     // 속공(2026-11, fastBreak.ts) — 옛 캐시 행에는 없을 수 있어 0
     fb_pts: myRow.fb_pts ?? 0, fbpg: myRow.fbpg ?? 0,
     // 더블더블·트리플더블 날 수(2026-11-04, 하루 합계 기준 — leagueStats.ts)

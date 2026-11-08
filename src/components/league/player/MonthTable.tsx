@@ -72,7 +72,8 @@ export default function MonthTable({ rows, periodLabel }: { rows: MonthRow[]; pe
                   </th>
                   {COLS.map(c => {
                     const v = r[c.key] ?? null
-                    const text = v === null ? '–' : c.pct ? `${v.toFixed(1)}%` : c.int ? String(v) : v.toFixed(1)
+                    // 성공률의 「%」는 폰에서 감춘다 — 좁은 칸에서 두 줄로 꺾였다(2026-11-08)
+                    const text = v === null ? '–' : c.pct ? <>{v.toFixed(1)}<span className="hidden sm:inline">%</span></> : c.int ? String(v) : v.toFixed(1)
                     const title = c.key === 'fg_pct' && r.fga != null ? `${r.fgm}/${r.fga}`
                       : c.key === 'fg3_pct' && r.fg3a != null ? `${r.fg3m}/${r.fg3a}` : undefined
                     return (

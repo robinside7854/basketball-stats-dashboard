@@ -55,6 +55,8 @@ type Rankings = {
   total: number; win_rate_rank?: number
   // { rank, total } — 출전일은 전원(gp>=1), 성공률은 순위 자격 + 스탯 탭과 같은 최소 시도(2026-10-15)
   gp?: RankTotal; fg_pct?: RankTotal; fg3_pct?: RankTotal; ft_pct?: RankTotal
+  /** 턴오버율 순위 — 낮은 쪽이 1위(2026-11-08) */
+  tov_pct?: RankTotal
   /** 순위 자격 최소 출전일(leagueMinRounds) */
   min_rounds?: number
 }
@@ -101,6 +103,8 @@ type Detail = {
     fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
     pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
     fg_pct: number; fg3_pct: number; ft_pct: number
+    /** 턴오버율(2026-11-08) — 공격 기회 20 미만이면 null. 옛 응답엔 없다 */
+    tov_pct?: number | null
     /** 속공 득점(2026-11) — 옛 응답엔 없을 수 있다 */
     fb_pts?: number; fbpg?: number
     /** 더블더블·트리플더블 날 수(하루 합계 기준) */
@@ -1201,6 +1205,49 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   })}
                 </div>
 
+                {/* 턴오버율 (2026-11-08 운영진) — 공격을 끝낸 기회 중 턴오버로 끝난 비중. 낮을수록 좋다(advanced.ts tovPct).
+                    스탯 탭 리더보드와 같은 값·같은 순위 자격. 기회 20번 미만이면 「—」 */}
+                {viewDetail.player_stats.tov_pct !== undefined && (() => {
+                  const ps = viewDetail.player_stats!
+                  const v = ps.tov_pct ?? null
+                  const rt = rk?.tov_pct
+                  const rank = v != null ? (rt?.rank ?? 0) : 0
+                  const poss = Math.round(ps.fga + 0.44 * ps.fta + ps.tov)
+                  return (
+                    <div
+                      className="mt-1.5 sm:mt-2 rounded-sm px-3 py-2.5 flex items-center justify-between gap-3"
+                      style={rank === 1
+                        ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
+                        : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold flex items-center" style={{ color: rank === 1 ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}>
+                          <span>턴오버율</span>
+                          <StatHelpTooltip statKey="TOV%" />
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: rank === 1 ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}>
+                          {v != null ? <>공격 기회 {poss}번 중 턴오버 {ps.tov}번 · 낮을수록 좋아요</> : <>공격 기회가 20번 이상이면 보여요</>}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: rank === 1 ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
+                          {v != null ? <><CountUp value={v} decimals={1} />%</> : '—'}
+                        </p>
+                        {rank > 0 && (
+                          <p
+                            className="text-xs font-black mt-1 flex items-center justify-end gap-1 whitespace-nowrap tabular-nums"
+                            style={{ color: rank === 1 ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
+                          >
+                            {rank === 1 && <Crown size={14} aria-hidden strokeWidth={2.5} />}
+                            {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
+                            {rank}위{(rt?.total ?? 0) > 0 && <span className="opacity-60"> · {rt!.total}명</span>}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {/* 진행 중 연속 기록 — /me 와 같은 판정·같은 캐시(lib/stats/dashboardBase.ts). 기간과 무관한 값이라 분기를 골라도 그대로다.
                     단위는 「일」(하루 단위 판정) — 종전 「R」 표기·자체 계산은 2026-10-15 정리했다. */}
                 {(meta.active_streaks?.length ?? 0) > 0 && (
@@ -1666,7 +1713,21 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     quarterRows === null
                       ? <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
                       : quarterRows.length > 0
-                        ? <QuarterTable rows={quarterRows} total={quarterTotal} />
+                        ? <>
+                            {/* 분기별 그림 (2026-11-08 운영진) — 월별과 같은 막대. 분기가 둘 이상일 때만 */}
+                            {quarterRows.length >= 2 && (
+                              <MonthlyStatsChart
+                                title="분기별 성장지표"
+                                data={quarterRows.map(r => ({
+                                  month: r.quarter_id, label: r.label, gp: r.values.gp ?? 0,
+                                  ppg: r.values.ppg ?? 0, rpg: r.values.rpg ?? 0, apg: r.values.apg ?? 0,
+                                  spg: r.values.spg ?? 0, bpg: r.values.bpg ?? 0,
+                                  fg_pct: r.values.fg_pct, fg3_pct: r.values.fg3_pct,
+                                }))}
+                              />
+                            )}
+                            <QuarterTable rows={quarterRows} total={quarterTotal} />
+                          </>
                         : <div className="px-5 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>분기별 기록이 아직 없어요</div>
                   )}
                 </>

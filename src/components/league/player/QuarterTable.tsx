@@ -5,6 +5,7 @@
 import { MIN_ATTEMPTS_PER_DAY } from '@/lib/stats/eligibility'
 import type { QuarterTableKey, QuarterTableRow } from '@/lib/stats/quarterTable'
 
+// (2026-11-08) 분기 칸 — 폰에서 「26.3Q」가 두 줄로 꺾여 칸을 넓히고 줄바꿈을 막았다(w-14 · nowrap).
 // wide = 폰(<640px)에서는 감추는 칸 — 9칸이면 폰 폭에서 숫자가 칸을 넘친다(2026-11-03 가로 스크롤 금지)
 const COLS: { key: QuarterTableKey; label: string; pct?: boolean; int?: boolean; wide?: boolean }[] = [
   { key: 'gp',      label: '출전일', int: true },
@@ -26,8 +27,9 @@ export type QuarterTotal = {
   sums: { gp: number; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }
 }
 
+// 성공률의 「%」는 폰(<640px)에서 감춘다 — 칸이 좁아 「45.5 / %」 두 줄로 꺾였다(2026-11-08). 머리글이 이미 「야투율」이다.
 const cellText = (c: typeof COLS[number], v: number | null) =>
-  v === null ? '–' : c.pct ? `${v.toFixed(1)}%` : c.int ? String(v) : v.toFixed(1)
+  v === null ? '–' : c.pct ? <>{v.toFixed(1)}<span className="hidden sm:inline">%</span></> : c.int ? String(v) : v.toFixed(1)
 
 export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[]; total?: QuarterTotal | null }) {
   if (rows.length === 0) return null
@@ -49,7 +51,7 @@ export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[];
           <caption className="sr-only">분기별 하루 평균 기록. 굵은 글씨는 그 분기 리그 최고.</caption>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-              <th scope="col" className="t-th text-left w-11 sm:w-16" style={{ color: 'var(--mm-muted)' }}>분기</th>
+              <th scope="col" className="t-th text-left w-14 sm:w-16" style={{ color: 'var(--mm-muted)' }}>분기</th>
               {COLS.map(c => (
                 <th key={c.key} scope="col" className={`t-th text-right ${c.wide ? 'hidden sm:table-cell' : ''}`} style={{ color: 'var(--mm-muted)' }}>{c.label}</th>
               ))}
@@ -58,7 +60,7 @@ export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[];
           <tbody>
             {rows.map(r => (
               <tr key={r.quarter_id} style={{ borderBottom: '1px solid var(--mm-rule)' }} className="last:border-0">
-                <th scope="row" className="t-td text-left pr-2 font-bold" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}>
+                <th scope="row" className="t-td text-left pr-2 font-bold" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)', whiteSpace: 'nowrap' }}>
                   {r.label}
                 </th>
                 {COLS.map(c => {
