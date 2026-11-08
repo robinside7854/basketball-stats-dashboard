@@ -1,18 +1,17 @@
 ﻿import Image from 'next/image'
 import { leagueLogoOf } from '@/lib/league/leagueLogo'
+import HomeMonthTeams from '@/components/league/home/HomeMonthTeams'
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
-import { leagueMinRounds } from '@/lib/stats/eligibility'
 
 // 홈 페이지 공통 — teams/overrides 를 한 번만 로드해 3개 계산 함수(highlights/rounds/standings)에
 // 재사용하기 위한 Promise 타입. 각 함수는 내부에서 await 로 값 참조.
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 import PendingSignupsAlert from '@/components/league/PendingSignupsAlert'
-import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import type { RoundSummary, RoundTeamSummary, RoundGame } from '@/components/league/home/roundTypes'
 // 홈 순위표(NbaTeamStandings)는 2026-11-02 운영진 결정으로 뺐다 — 팀 순위는 「기록 → 팀」 탭. 되돌리기: docs/renewal-rollback.md R6
 import { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
@@ -336,15 +335,14 @@ const getCachedLeagueMeta = (leagueId: string, orgSlug: string) =>
 const getCachedHome = (leagueId: string, orgSlug: string) =>
   unstable_cache(
     async () => {
-      const [meta, recentRounds, leaderStats, photoMap] = await Promise.all([
+      // 리그 리더·사진 묶음은 홈에서 리더 칸을 뺀 2026-11-08 부터 읽지 않는다(getCachedLeaderStats·getCachedPhotoMap 은 되돌리기용으로 남김)
+      const [meta, recentRounds] = await Promise.all([
         getCachedLeagueMeta(leagueId, orgSlug)(),
         getCachedRecentRounds(leagueId)(),
-        getCachedLeaderStats(leagueId)(),
-        getCachedPhotoMap(leagueId)(),
       ])
-      return { meta, recentRounds, leaderStats, photoMap }
+      return { meta, recentRounds }
     },
-    ['home-bundle-v1', leagueId, orgSlug],
+    ['home-bundle-v2', leagueId, orgSlug],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 3600 },
   )
 
@@ -377,7 +375,7 @@ export default async function LeagueDetailPage({
   //   - 편집 API(events/games/players/quarters 등)가 `revalidateTag('league-${leagueId}[-games]')`
   //     로 무효화하므로 편집 반영 최대 지연은 순간(태그 무효화 후 다음 요청).
   const [
-    { meta: { league }, recentRounds, leaderStats, photoMap: initialPhotoMap },
+    { meta: { league }, recentRounds },
     approvedSession,
     draftLive,
   ] = await Promise.all([
@@ -445,37 +443,9 @@ export default async function LeagueDetailPage({
         </HomeMeProvider>
       )}
 
-      {/* ③ 이번 분기 — 팀 승률(요약) + 리그 리더(상세)를 한 묶음으로. 계산·데이터는 그대로, 배치만 바꿨다.
-          2026-08-10 정책: 리그 리더는 전체 공개(NbaLeaders 는 initial 데이터가 있으면 /stats 를 재호출하지 않는다). */}
-      <section aria-labelledby="home-quarter-title" className="space-y-3">
-        {/* 묶음 제목 — 카드 밖에 있으므로 노란 세로 막대로 「제목」임을 분명히 한다(2026-10-13 가독성) */}
-        {/* 설명은 제목 바로 옆에 — PC 에서 오른쪽 끝으로 밀면 제목과 따로 놀았다(2026-10-15) */}
-        <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1 px-1">
-          <h2
-            id="home-quarter-title"
-            className="font-black break-keep pl-2.5"
-            style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 26px)', lineHeight: 1.15 }}
-          >
-            이번 분기
-          </h2>
-          <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{leaderStats.quarterLabel} · 하루 평균 리더</span>
-        </div>
-        <div className="grid gap-4 lg:gap-5 lg:items-start">
-          {/* 순위표(NbaTeamStandings)는 2026-11-02 뺐다 — 「기록 → 팀」 탭에 있다 */}
-          <div className="min-w-0">
-            <NbaLeaders
-              leagueId={leagueId}
-              quarterLabel={leaderStats.quarterLabel}
-              quarterId={leaderStats.quarterId}
-              initialPlayers={leaderStats.players}
-              // 최소 출전 = 스탯 탭·선수 카드와 같은 leagueMinRounds(열린 날 기준) — 넘기지 않으면 최다 출전을 분모로 써 하루쯤 어긋난다
-              minGP={leagueMinRounds(leaderStats.total_rounds ?? 0, leaderStats.players)}
-              initialPhotoMap={initialPhotoMap}
-              narrow={false}
-            />
-          </div>
-        </div>
-      </section>
+      {/* 「이번 분기 · 리그 리더」(NbaLeaders)는 2026-11-08 운영진 결정으로 뺐다 → 「이번 달 우리 팀」(팀·유니폼 색·팀원).
+          리더는 「기록 → 리더보드」에 그대로 있다. 되돌리기: renewal-rollback M38 */}
+      <HomeMonthTeams leagueId={leagueId} />
 
       {/* 하이라이트 · 마일스톤 탭은 2026-10-26 뺐다(점검 MVP 3) — 클러치샷·마일스톤이 대부분의 주에 빈 카드였는데
           홈에서 가장 무거운 계산(24일치 경기·이벤트 전체 스캔)이었다. 그날 클립은 위 경기일 카드·「지난 토요일 나」의

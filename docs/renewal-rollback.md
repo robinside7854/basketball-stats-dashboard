@@ -60,6 +60,7 @@
 | M35 | (이 커밋) | **박스스코어 맨 위 「나」 줄도 테두리만(2026-11-08 운영진)** — `BoxscoreContent.tsx` 내 기록 버튼 | 그 버튼 style 을 옅은 노랑 바탕(`color-mix(in srgb, var(--mm-yellow) 22%, var(--mm-panel))`) + 왼쪽 3px 띠로 되돌리면 원래대로 |
 | M36 | (이 커밋) | **경기별 스코어 폰 2칸(2026-11-08 운영진)** — `BoxscoreContent.tsx` `grid-cols-2 sm:grid-cols-3` | `grid-cols-3` 으로 되돌리면 원래대로 |
 | M37 | (이 커밋) | **로고 · 박스스코어 정리 · 홈 내 기록 5개(2026-11-08 운영진)** — 홈 `page.tsx` 로고 줄 + `lib/league/leagueLogo.ts` · `BoxscoreContent.tsx` 주인공 삭제·리더 칩 제거·속공 칸·접기 · `MyLastDay.tsx` 스틸·블록 | 로고: `leagueLogoOf` 가 null 이면 종전 화면. 박스스코어·MyLastDay 는 이 커밋 이전으로 |
+| M38 | (이 커밋) | **홈 리그 리더 → 「이번 달 우리 팀」(2026-11-08 운영진)** — `home/HomeMonthTeams.tsx` · `api/leagues/[leagueId]/month-teams` · 홈 `page.tsx`(NbaLeaders 빼고 묶음 캐시 v2) | 홈 `page.tsx` 에 NbaLeaders 블록과 묶음 캐시의 `getCachedLeaderStats`·`getCachedPhotoMap`(함수는 남아 있음)을 되살리면 원래대로 |
 
 ## R5 (걷어내기)는 미뤘다
 
