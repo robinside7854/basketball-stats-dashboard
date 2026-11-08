@@ -286,8 +286,9 @@ function StatsTable({
                   const c = cols.find(x => x.key === k)!
                   return (
                     <div key={k} className="text-center">
-                      <div className="t-label flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                        <StatHeader term={c.term} label={c.label} />
+                      {/* 폰 네 칸에서 「턴오버율 ⓘ ↓」가 한 글자씩 세로로 꺾였다(2026-11-08) — 글자는 단어째로, 아이콘은 아래 줄로 */}
+                      <div className="t-label flex items-center justify-center" style={{ color: 'var(--mm-muted)', wordBreak: 'keep-all' }}>
+                        <StatHeader term={c.term} label={c.label} className="flex-wrap justify-center" />
                       </div>
                       <div className="t-num text-base font-black" style={{ color: 'var(--mm-ink)' }}>{fmt(k, metric(p, k))}</div>
                     </div>
@@ -511,7 +512,8 @@ function TeamDetailPanel({
                       <div className="min-w-0">
                         <div className="t-label" style={{ color: 'var(--mm-muted)' }}>{item.label}</div>
                         <div className="font-bold whitespace-nowrap lg:truncate" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>{item.player?.name}</div>
-                        <div className="text-xs font-black tabular-nums whitespace-nowrap" style={{ color: accentOrInk(team.color) }}>{item.val}</div>
+                        {/* 폰 2칸에서 「스틸+블록 2.1」이 칸을 넘쳤다(2026-11-08) — 띄어쓰기 자리에서 줄을 넘긴다 */}
+                        <div className="text-xs font-black tabular-nums" style={{ color: accentOrInk(team.color), wordBreak: 'keep-all' }}>{item.val}</div>
                       </div>
                     </button>
                   ))}

@@ -73,14 +73,18 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
         const max = Math.max(item.a, item.b, 1)
         const aWin = item.a > item.b
         const bWin = item.b > item.a
-        const labelA = item.fraction
-          ? `${item.a}% (${item.fraction[0]}/${item.fraction[1]})`
-          : `${item.a}${item.suffix ?? ''}`
-        const labelB = item.fraction
-          ? `${item.b}% (${item.fraction[2]}/${item.fraction[3]})`
-          : `${item.b}${item.suffix ?? ''}`
+        // 성공률 줄은 % 위 · 성공/시도 아래 두 줄 — 한 줄(「43.3% (130/300)」)이면 폰 폭에서 칸을 넘쳐
+        //   가운데 이름이 「야/투/율」 세로로 꺾이고 오른쪽 값이 잘렸다(2026-11-08)
+        const valueLabel = (v: number, m: number | undefined, t: number | undefined, align: 'end' | 'start') => item.fraction
+          ? <span className={`flex flex-col leading-tight ${align === 'end' ? 'items-end' : 'items-start'}`}>
+              <span>{v}%</span>
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{m}/{t}</span>
+            </span>
+          : `${v}${item.suffix ?? ''}`
+        const labelA = valueLabel(item.a, item.fraction?.[0], item.fraction?.[1], 'end')
+        const labelB = valueLabel(item.b, item.fraction?.[2], item.fraction?.[3], 'start')
         return (
-          <div key={item.label} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div key={item.label} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
             {/* 좌측 (홈) — 막대 오른쪽 정렬, 라벨은 막대 왼쪽 */}
             <div className="flex items-center justify-end gap-2 min-h-[28px]">
               <span
@@ -103,7 +107,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
             <div className="text-center px-2">
               <span
                 className="text-xs font-bold whitespace-pre-line leading-tight block"
-                style={{ color: 'var(--mm-muted)' }}
+                style={{ color: 'var(--mm-muted)', wordBreak: 'keep-all' }}
               >
                 {item.label}
               </span>
