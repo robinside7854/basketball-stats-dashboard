@@ -247,6 +247,35 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // 팀 필터(2026-11-08 운영진) — 여러 팀 고르기. 고른 팀 선수들 안에서 순위를 다시 매긴다(포지션 범위와 같은 방식).
   //   팀 = 스탯 행의 team_name(그 기간 마지막 경기의 팀 · 분기 팀명) 그대로.
   const [teamSel, setTeamSel] = useState<Set<string>>(new Set())
+  // 따라다니는 정렬 줄(2026-11-08) — 위쪽 고정 메뉴 바로 아래에 붙고, 고르면 표 머리로 스크롤한다
+  const sortBarRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const [navH, setNavH] = useState(0)
+  const [barH, setBarH] = useState(0)
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>('.mm-rec-hide.sticky')
+    const measure = () => {
+      setNavH(nav ? nav.getBoundingClientRect().height : 0)
+      setBarH(sortBarRef.current ? sortBarRef.current.getBoundingClientRect().height : 0)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (nav) ro.observe(nav)
+    if (sortBarRef.current) ro.observe(sortBarRef.current)
+    return () => ro.disconnect()
+  }, [])
+  // 표 머리가 화면 위쪽(정렬 줄 바로 아래)에 오게 — 이미 그 근처면 움직이지 않는다
+  function scrollToList() {
+    requestAnimationFrame(() => {
+      const el = listRef.current
+      if (!el) return
+      const top = el.getBoundingClientRect().top
+      const target = navH + barH + 8
+      if (Math.abs(top - target) < 24) return
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      window.scrollTo({ top: window.scrollY + top - target, behavior: reduce ? 'auto' : 'smooth' })
+    })
+  }
   // 기본 모드의 덜 보는 열(공리·수리·턴오버)은 접어 둔다 — 데이터·정렬은 그대로(2026-10-26)
   const [showMoreCols, setShowMoreCols] = useState(false)
   // 로그인 회원 본인 — 표·카드 맨 위에 「내 기록」으로 고정한다(프로바이더 밖이면 null → 아무것도 안 그림)
@@ -743,16 +772,38 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   const selectCls = 'min-w-0 flex-1 md:flex-none min-h-11 px-2 text-base font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]'
   const selectStyle: React.CSSProperties = { background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }
   const scopeValue = rankScope === 'pos' ? posGroup : 'all'
+  const scopeSelect = (
+    <select aria-label="순위 범위" value={scopeValue}
+      onChange={e => {
+        const v = e.target.value
+        if (v === 'all') setRankScope('all')
+        else { setRankScope('pos'); setPosGroup(v as PositionGroupCode) }
+        scrollToList()
+      }}
+      className={selectCls} style={selectStyle}>
+      <option value="all">전체 순위</option>
+      {POSITION_GROUPS.map(g => <option key={g.code} value={g.code}>{g.label} 중 순위</option>)}
+    </select>
+  )
+  // 정렬 고르기는 TOP 5 카드 밖, 화면 위에 붙어 따라다니는 줄로 옮겼다(2026-11-08 운영진 —
+  //   「스탯을 누르면 표가 바뀌는데 그 사이가 멀어 누르고 스크롤해야 한다」). 고르면 표 머리로 저절로 스크롤.
+  //   PC 는 표 머리를 눌러도 되고, 같은 정렬을 이 줄의 칩으로도 고른다.
   const topFiveFooter = (
-    <div className="mt-3 space-y-2">
-      <div className="flex items-center gap-2">
-        <select
-          aria-label="정렬 기준 (TOP 5 함께 바뀜)"
-          value={sortOpts.active}
-          onChange={e => sortOpts.onPick(e.target.value)}
-          className={`md:hidden ${selectCls}`}
-          style={selectStyle}
-        >
+    <div className="mt-3">
+      <AttemptRuleCaption k={statMode === 'basic' ? basicPctKey : null} />
+    </div>
+  )
+  const pickSort = (k: string) => { sortOpts.onPick(k); scrollToList() }
+  const flipSort = () => { sortOpts.flip(); scrollToList() }
+  const sortBar = (
+    <div
+      ref={sortBarRef}
+      className="sticky z-[9] -mx-1 px-1 py-2"
+      style={{ top: navH, background: 'var(--mm-ground)', boxShadow: '0 1px 0 var(--mm-rule)' }}
+    >
+      <div className="flex items-center gap-2 lg:hidden">
+        <select aria-label="정렬 기준 (TOP 5 함께 바뀜)" value={sortOpts.active} onChange={e => pickSort(e.target.value)}
+          className={selectCls} style={selectStyle}>
           {sortOpts.cols.filter(c => !c.more).map(c => <option key={c.key} value={c.key}>{c.label} 순</option>)}
           {sortOpts.cols.some(c => c.more) && (
             <optgroup label="더 보기">
@@ -760,31 +811,26 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
             </optgroup>
           )}
         </select>
-        <button
-          type="button"
-          onClick={sortOpts.flip}
+        <button type="button" onClick={flipSort}
           aria-label={sortOpts.dir === 'desc' ? '높은 순 — 눌러서 낮은 순으로' : '낮은 순 — 눌러서 높은 순으로'}
-          className="md:hidden mm-press shrink-0 inline-flex items-center justify-center size-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
-          style={selectStyle}
-        >
+          className="mm-press shrink-0 inline-flex items-center justify-center size-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+          style={selectStyle}>
           {sortOpts.dir === 'desc' ? <ArrowDown size={16} aria-hidden /> : <ArrowUp size={16} aria-hidden />}
         </button>
-        <select
-          aria-label="순위 범위"
-          value={scopeValue}
-          onChange={e => {
-            const v = e.target.value
-            if (v === 'all') setRankScope('all')
-            else { setRankScope('pos'); setPosGroup(v as PositionGroupCode) }
-          }}
-          className={selectCls}
-          style={selectStyle}
-        >
-          <option value="all">전체 순위</option>
-          {POSITION_GROUPS.map(g => <option key={g.code} value={g.code}>{g.label} 중 순위</option>)}
-        </select>
+        {scopeSelect}
       </div>
-      <AttemptRuleCaption k={statMode === 'basic' ? basicPctKey : null} />
+      <div className="hidden lg:flex flex-wrap items-center gap-1.5">
+        {sortOpts.cols.filter(c => c.key !== 'gp').map(c => (
+          <Chip key={c.key} as="button" size="md" selected={sortOpts.active === c.key}
+            onClick={() => (sortOpts.active === c.key ? flipSort() : pickSort(c.key))}>
+            <span className="inline-flex items-center gap-1">
+              {c.label}
+              {sortOpts.active === c.key && (sortOpts.dir === 'desc' ? <ArrowDown size={13} aria-hidden /> : <ArrowUp size={13} aria-hidden />)}
+            </span>
+          </Chip>
+        ))}
+        <span className="ml-auto">{scopeSelect}</span>
+      </div>
     </div>
   )
 
@@ -869,6 +915,9 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
         />
       ) : (
         <>
+          {/* 정렬 줄 — TOP 5 위에서부터 화면 위에 붙어 따라다닌다. 처음 화면에서도 바로 보이게 TOP 5 보다 위 */}
+          {sortBar}
+
           {/* TOP 5 슬롯 — 테이블 컬럼 헤더 클릭 시 해당 지표 TOP 5 표시 */}
           <TopFiveSlot
             metricKey={topFive.key && (rankScope === 'pos' ? `${topFive.key}:pos-${posGroup}` : topFive.key)}
@@ -882,6 +931,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
           {/* 「이 표 읽는 법」 접힘 상자는 머리의 「숫자 읽는 법」 시트로 합쳤다(2026-10-14) */}
 
           {/* 전체 스탯 테이블 */}
+          <div ref={listRef} style={{ scrollMarginTop: navH + barH + 8 }}>
           <SectionCard variant="standalone" pad="none">
             {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
             {/* 폰: 컨트롤 묶음(actions)이 제목 아래 한 줄을 통째로 쓴다 — 버튼이 남는 폭을 나눠 채우게 */}
@@ -1114,6 +1164,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
               </div>
             )}
           </SectionCard>
+          </div>
         </>
       )}
 

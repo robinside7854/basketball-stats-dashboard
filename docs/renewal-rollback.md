@@ -45,6 +45,7 @@
 | M20 | (이 커밋) | **리더보드 팀 필터(2026-11-08 운영진)** — `StatsPageClient.tsx` `teamSel`·`teamOptions` | 팀 칩 줄과 `rankPlayers` 의 팀 조건을 빼면 원래대로 |
 | M21 | (이 커밋) | **달마다 유니폼 색 · 프로필 사진 네 벌(2026-11-08 운영진)** — 121 · `lib/league/uniformPhoto.ts` · `month-uniforms`·`uniform-photos` 라우트 · 달별 패널 유니폼 고르기 · cron 연결 | 사진을 되돌리려면 `league_players.photo_url` 을 `..._ai.png` 옛 주소로(그대로 보관됨). `applyMonthlyPhotos` 호출 4곳을 빼면 더 바뀌지 않는다 |
 | M22 | (이 커밋) | **홈 폰 점검: 승패 막대 무승부 잘림 · 흰 팀 색 막대(2026-11-08)** — `LastRound.tsx`(칸 폭·swatchEdge) · `viz.tsx RecordBar`(최소 폭) | 두 파일의 해당 줄을 이전 커밋 판으로 |
+| M23 | (이 커밋) | **리더보드 따라다니는 정렬 줄 + 표로 스크롤(2026-11-08 운영진)** — `StatsPageClient.tsx` `sortBar`·`scrollToList`·`scopeSelect` | `{sortBar}` 를 빼고 `topFiveFooter` 를 이전 판(정렬·범위 고르기)으로 |
 
 ## R5 (걷어내기)는 미뤘다
 
