@@ -53,6 +53,7 @@
 | M28 | (이 커밋) | **팀 탭 폰 점검(2026-11-08)** — `HeadToHeadBars.tsx` 성공률 두 줄 · `teams/page.tsx` 팀 내 1위 값 줄바꿈 · 폰 카드 지표 이름 keep-all | 각 파일 이 커밋 이전으로 |
 | M29 | (이 커밋) | **일정 탭 폰 점검(2026-11-08)** — `ScheduleClient.tsx` 회원 화면에서 기록 없는 날 박스스코어 자리 숨김 | `datesWithStats.has(sd.date) &&` 두 곳을 빼면 원래대로 |
 | M30 | (이 커밋) | **영상 탭 폰 점검(2026-11-08)** — `highlights/page.tsx` 날짜 한 줄 · `HighlightsPlaylist`·`PlayerHighlightsPlaylist` 팀 이름 keep-all·「A.」→「어시」·vs 중복 | 각 파일 이 커밋 이전으로 |
+| M31 | (이 커밋) | **나 탭 폰 점검(2026-11-08)** — `PersonalDashboard.tsx` 하이라이트 설명·비로그인 안내 keep-all·띄어쓰기 | 이 커밋 이전으로 |
 
 ## R5 (걷어내기)는 미뤘다
 

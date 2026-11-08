@@ -562,9 +562,10 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
       <div className="relative flex items-center gap-4 px-4 md:px-5 py-4 md:py-5">
         <div className="flex-1 min-w-0">
           <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
-          <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+          {/* 폰에서 「출석/률」처럼 단어 중간에서 꺾였고, 두 문장이 「확인하세요.아직」으로 붙었다(2026-11-08) */}
+          <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)', wordBreak: 'keep-all' }}>
             우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>내 선수 카드·출석률</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>베스트샷</b>을 확인하세요.
-            <br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
+            {' '}<br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
           </p>
           <button
             type="button"
@@ -607,7 +608,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
           <div className="font-black text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
-          <div className="text-xs md:text-sm font-medium mt-0.5" style={{ color: available ? 'var(--mm-muted)' : undefined }}>
+          <div className="text-xs md:text-sm font-medium mt-0.5" style={{ color: available ? 'var(--mm-muted)' : undefined, wordBreak: 'keep-all' }}>
             {available ? `${formatDate(date)} 경기 기록 · 내 하이라이트 바로 보기` : '아직 참여 기록이 없어요'}
           </div>
         </div>
