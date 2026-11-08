@@ -32,7 +32,7 @@ export async function GET(
   //   요청마다 따로 한다 — 캐시에는 로그인과 무관한 리그 공용 데이터만 들어간다.
   const body = await unstable_cache(
     () => computeDailyBoxscore(leagueId, date),
-    ['daily-boxscore', leagueId, date, 'v4'],
+    ['daily-boxscore', leagueId, date, 'v5'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )()
   return NextResponse.json(body, { headers: { 'Cache-Control': 'private, no-store' } })

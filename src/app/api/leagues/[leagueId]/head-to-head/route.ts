@@ -41,7 +41,7 @@ export async function GET(
   try {
     const result = await unstable_cache(
       () => computeHeadToHead(leagueId, quarterId),
-      ['head-to-head', leagueId, quarterId || 'all', 'v2'],
+      ['head-to-head', leagueId, quarterId || 'all', 'v3'],
       { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
     )()
     return NextResponse.json(result, { headers: { 'Cache-Control': 'private, no-store' } })

@@ -1476,7 +1476,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                             </p>
                           </div>
                         )}
-                        {/* 속공(2026-11) — 수비 리바운드·스틸 뒤 7초 안 득점. 고리 = 내 득점 중 비중 */}
+                        {/* 속공(2026-11) — 수비 리바운드·스틸·상대 득점 뒤 7초 안 득점. 고리 = 내 득점 중 비중 */}
                         {(() => {
                           const ps = viewDetail?.player_stats
                           if (!ps || !(ps.pts > 0) || ps.fb_pts == null) return null
@@ -1489,7 +1489,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                               <div className="min-w-0">
                                 <p className="text-xs font-black flex items-center gap-1" style={{ color: 'var(--mm-muted)' }}>
                                   속공 득점
-                                  <InfoTip label="속공 기준" text="수비 리바운드나 스틸 뒤 7초 안에 같은 팀이 넣은 득점이에요(야투·앤드원, 자유투 제외). 그 사이 상대 기록이 있으면 속공이 아니에요." />
+                                  <InfoTip label="속공 기준" text="수비 리바운드·스틸·상대 팀 득점 뒤 7초 안에 같은 팀이 넣은 득점이에요(야투·앤드원, 자유투 제외). 그 사이 상대 기록이 있으면 속공이 아니에요." />
                                 </p>
                                 <p className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '20px' }}>
                                   하루 {ps.fbpg ?? 0}점 <span className="text-sm font-bold" style={{ color: 'var(--mm-muted)' }}>· 누적 {ps.fb_pts}점</span>

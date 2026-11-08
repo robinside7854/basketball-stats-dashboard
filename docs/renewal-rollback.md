@@ -37,6 +37,7 @@
 | M12 | (이 커밋) | **흰 팀 색이 안 보이던 문제(2026-11-07 운영진 캡처)** — 팀 비교 막대·대진 선택 점 + 팀 색 점 28곳에 `swatchEdge` 테두리(바탕과 같은 색일 때만) | `lib/util/contrastColor.ts` 의 `swatchEdge` 가 `undefined` 를 돌려주게 하면 전부 원래대로 |
 | M13 | (이 커밋) | **말줄임 「…」 전역 금지(2026-11-07 운영진)** — `truncate`·`line-clamp` 를 다음 줄 넘기기로(globals.css 끝 블록), 선수 상세 대회 이름 자르기 삭제, 파란날개 「...」 → 「추가 중」 | globals.css 끝 「말줄임(「…」) 금지」 블록을 지우면 원래대로 |
 | M14 | (이 커밋) | **달별 정규 멤버(2026-11-07 운영진 「분기 말고 월 단위로」)** — 표 `league_player_months`(120) · `lib/league/monthlyRoster.ts` · 분기 명단 API `?month=`/`?date=`·PATCH `month`·DELETE `month` · 경기 명단 API 가 경기 달 덮어쓰기 적용 · 기록 화면이 날짜를 넘김 · 명단 편집 「달별 정규 멤버」 패널 | 패널(`MonthlyRosterPanel`)만 빼면 화면에서 사라진다. 표 행을 지우면 분기 소속 그대로로 돌아간다(표가 없어도 코드는 분기 소속으로 동작) |
+| M15 | (이 커밋) | **속공에 「상대 득점 뒤 7초」 추가(2026-11-08 운영진)** — `lib/stats/fastBreak.ts`(`isScoreTrigger`·`lastScore`), 캐시 키 리그 스탯 v4 · 박스스코어 v5 · 맞대결 v3 | `fastBreakIds` 의 `afterScore` 줄을 빼면 옛 정의(수비 리바운드·스틸만) |
 
 ## R5 (걷어내기)는 미뤘다
 
