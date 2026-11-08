@@ -27,7 +27,8 @@ export function RecordBar({
   return (
     <div
       className={`flex w-full overflow-hidden ${className}`}
-      style={{ height, borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)' }}
+      // 칸마다 최소 폭이 있으므로 막대 전체도 그만큼은 차지한다 — 좁은 칸에서 세 번째(무) 칸이 잘려 사라지던 것(2026-11-08)
+      style={{ height, borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)', minWidth: showLabels ? `${segs.length * 2.25}rem` : undefined }}
       role="img"
       aria-label={`${wins}승 ${losses}패${draws > 0 ? ` ${draws}무` : ''}`}
     >
