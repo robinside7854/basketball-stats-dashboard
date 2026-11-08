@@ -89,9 +89,12 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
               >
                 {metricFullLabel ?? metricLabel}
-                <span className="ml-1.5 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', fontWeight: 500 }}>
-                  ({metricLabel})
-                </span>
+                {/* 긴 이름과 짧은 이름이 같으면 「득점 (득점)」처럼 두 번 보였다(2026-11-08) — 다를 때만 괄호 */}
+                {metricFullLabel && metricFullLabel !== metricLabel && (
+                  <span className="ml-1.5 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)', fontWeight: 500 }}>
+                    ({metricLabel})
+                  </span>
+                )}
               </span>
             )}
           </span>

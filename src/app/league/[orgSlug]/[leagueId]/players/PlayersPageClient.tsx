@@ -180,7 +180,8 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
                   ))}
                 </div>
               )}
-              <span aria-hidden className="w-px h-6 mx-0.5" style={{ background: 'var(--mm-rule)' }} />
+              {/* 구분선 — 폰은 칩이 줄을 넘겨 선만 줄 끝에 홀로 남았다(2026-11-08) → PC 에서만 */}
+              <span aria-hidden className="hidden sm:block w-px h-6 mx-0.5" style={{ background: 'var(--mm-rule)' }} />
               <div role="group" aria-label="포지션" className="flex flex-wrap items-center gap-1.5">
                 {POSITION_GROUPS.map(g => (
                   <Chip key={g.code} as="button" size={isPhone ? 'sm' : 'md'} selected={posSel.has(g.code)}

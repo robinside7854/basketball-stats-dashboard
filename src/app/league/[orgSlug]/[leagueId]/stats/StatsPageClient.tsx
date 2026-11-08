@@ -41,6 +41,13 @@ export type StatsInitial = { quarterId: string; players: PlayerStat[]; totalRoun
 // 눈으로 드러난다. 10 으로 자르면 티어 경계와 목록 끝이 겹쳐 전체가 10명인 것처럼 읽힌다.
 const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
+// 하루 평균 ↔ 누적 같은 뜻의 정렬 열(2026-11-08) — 보기를 바꿔도 정렬이 「득점 → 득점」으로 이어지게.
+//   종전엔 누적으로 바꾸면 정렬이 하루 평균 열(ppg)에 남아, 고르기 칸은 「출전 순」, TOP 5 머리에는 「(ppg)」가 보였다.
+const AVG_TO_TOTAL: Partial<Record<SortKey, SortKey>> = {
+  ppg: 'pts', rpg: 'reb', apg: 'ast', spg: 'stl', bpg: 'blk', fg_pct: 'fgm', fg3_pct: 'fg3m', ft_pct: 'ftm',
+  orp: 'oreb', drp: 'dreb', topg: 'tov', fbpg: 'fb_pts',
+}
+const TOTAL_TO_AVG: Partial<Record<SortKey, SortKey>> = Object.fromEntries(Object.entries(AVG_TO_TOTAL).map(([a, t]) => [t, a]))
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'|'fbpg'|'fb_pts'|'tov_pct'
 type AdvKey = 'at_ratio'|'a1_total'|'dd2_total'|'td3_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'
 type StatMode = 'basic'|'advanced'
@@ -175,7 +182,7 @@ function MobileStatCard({
           <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, overflowWrap: 'anywhere' }}>{p.name}</div>
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-1">
             {p.team_name && (
-              <Chip size="sm" icon={<span className="inline-block rounded-full" style={{ width: 8, height: 8, background: p.team_color ?? 'var(--mm-rule)', border: '1px solid var(--mm-rule)' }} />}>
+              <Chip size="sm" icon={<span className="inline-block rounded-full" style={{ width: 8, height: 8, background: p.team_color ?? 'var(--mm-rule)', boxShadow: swatchEdge(p.team_color) ?? 'inset 0 0 0 1px var(--mm-rule)' }} />}>
                 <span className="truncate max-w-[7rem]" title={p.team_name}>{p.team_name}</span>
               </Chip>
             )}
@@ -194,7 +201,8 @@ function MobileStatCard({
         </div>
       </div>
       {items.length > 0 && (
-        <div className="grid gap-2 mt-3 pt-2.5" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, borderTop: '1px solid var(--mm-rule)' }}>
+        // 한 줄에 4칸까지 — 고급 지표 8칸이 한 줄에 들어가 이름이 겹치고 「13. / 3%」로 숫자가 쪼개졌다(2026-11-08)
+        <div className="grid gap-x-2 gap-y-2.5 mt-3 pt-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(items.length, 4)}, minmax(0, 1fr))`, borderTop: '1px solid var(--mm-rule)' }}>
           {items.map(it => (
             <div key={it.key} className="min-w-0 flex flex-col justify-end">
               <div className="text-xs font-medium leading-tight break-keep" style={{ color: it.active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{it.label}</div>
@@ -961,7 +969,13 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                 {/* 누적/평균 토글 (Basic 모드에서만 의미 있음) */}
                 <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                   {(['avg','total'] as ViewMode[]).map(m => (
-                    <button key={m} type="button" onClick={() => setViewMode(m)} aria-pressed={viewMode === m}
+                    <button key={m} type="button" onClick={() => {
+                      if (m !== viewMode) {
+                        const mapped = (m === 'total' ? AVG_TO_TOTAL : TOTAL_TO_AVG)[sortKey]
+                        if (mapped) setSortKey(mapped)
+                      }
+                      setViewMode(m)
+                    }} aria-pressed={viewMode === m}
                       className="px-3 py-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors mm-press min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
                       style={viewMode === m
                         ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)' }
