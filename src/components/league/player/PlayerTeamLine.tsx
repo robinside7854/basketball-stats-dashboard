@@ -3,6 +3,7 @@
 //   · PlayerTeamHistory — 분기별 소속을 분기마다 한 칸(팀 색 띠 + 분기 + 팀명). 지금 분기는 노란 테두리.
 //   데이터는 detail 라우트의 current_team / team_history — 팀명은 (team_id, quarter_id) 정체성으로 이미 풀려 온다.
 import Chip from '@/components/league/ui/Chip'
+import { swatchEdge } from '@/lib/util/contrastColor'
 
 export interface TeamHistoryEntry {
   quarter_id: string
@@ -54,13 +55,15 @@ export function PlayerTeamHistory({
             aria-current={now ? 'true' : undefined}
             style={{
               background: `color-mix(in srgb, ${color} 16%, var(--mm-panel))`,
-              borderTop: `4px solid ${color}`,
               outline: now ? '1.5px solid var(--mm-yellow-strong)' : undefined,
               outlineOffset: -1,
             }}>
-            <span className="flex items-center justify-between gap-1 text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
-              {h.label}
-              {now && <span className="font-black" style={{ color: 'var(--mm-yellow-strong)' }}>지금</span>}
+            {/* 팀 색 띠 — 흰색 팀(빅현욱·챗지피지기 등)은 흰 바탕에서 사라져 swatchEdge 로 테두리를 그린다(2026-11-08) */}
+            <span aria-hidden className="block h-1 -mx-1.5 -mt-1.5 mb-1.5" style={{ background: color, boxShadow: swatchEdge(h.color) }} />
+            {/* 분기 + 「지금」 — 폰 네 칸에서 「지금」이 「지/금」 세로로 꺾였다(2026-11-08) → 글자 단위로 줄을 넘긴다 */}
+            <span className="flex flex-wrap items-center justify-between gap-x-1 text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+              <span className="whitespace-nowrap">{h.label}</span>
+              {now && <span className="font-black whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>지금</span>}
             </span>
             <span className="block font-black mt-0.5 leading-tight" style={{ color: 'var(--mm-ink)', fontSize: 13, overflowWrap: 'anywhere' }}>
               {h.team_name ?? '—'}

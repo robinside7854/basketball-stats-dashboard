@@ -34,7 +34,7 @@ export default function MonthTable({ rows, periodLabel }: { rows: MonthRow[]; pe
       <p className="t-label font-black mb-1" style={{ color: 'var(--mm-yellow-strong)' }}>월별 성적</p>
       <p className="text-xs mb-3" style={{ color: 'var(--mm-muted)' }}>
         {periodLabel} · 하루 평균
-        {best && <> · <b style={{ color: 'var(--mm-ink)' }}>최고의 달</b> = 하루 평균 득점이 가장 높은 달</>}
+        {best && <> · <Crown size={12} aria-hidden strokeWidth={2.5} className="inline -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} /><b style={{ color: 'var(--mm-ink)' }}>최고의 달</b> = 하루 평균 득점이 가장 높은 달</>}
       </p>
       <div>
         <table className="mm-fit">
@@ -64,8 +64,9 @@ export default function MonthTable({ rows, periodLabel }: { rows: MonthRow[]; pe
                     <span className="inline-flex flex-wrap items-center gap-x-1">
                       {label}
                       {r.best && (
-                        <span className="inline-flex items-center gap-0.5 text-xs font-black" style={{ color: 'var(--mm-yellow-strong)' }}>
-                          <Crown size={12} aria-hidden strokeWidth={2.5} />최고의 달
+                        // 폰에서는 왕관만 — 좁은 칸에서 「최고의 / 달」 세 줄로 꺾였다(2026-11-08). 뜻은 위 설명 줄의 왕관이 알려 준다
+                        <span className="inline-flex items-center gap-0.5 text-xs font-black whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>
+                          <Crown size={12} aria-hidden strokeWidth={2.5} /><span className="sr-only sm:not-sr-only">최고의 달</span>
                         </span>
                       )}
                     </span>

@@ -1220,7 +1220,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                         ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
                         : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0" style={{ wordBreak: 'keep-all' }}>
                         <p className="text-xs font-bold flex items-center" style={{ color: rank === 1 ? 'color-mix(in srgb, var(--mm-black) 72%, transparent)' : 'var(--mm-muted)' }}>
                           <span>턴오버율</span>
                           <StatHelpTooltip statKey="TOV%" />
