@@ -155,6 +155,9 @@ interface Props {
 // 로그인 회원 본인 — 표·카드에서 내 줄을 노랑으로 (2026-10-26 점검 MVP 1: 47명 표에서 내 이름을 눈으로 찾아야 했다)
 const MyIdCtx = createContext<string | null>(null)
 const MY_ROW_BG = 'color-mix(in srgb, var(--mm-yellow) 22%, var(--mm-panel))'
+// 표·카드의 내 줄은 바탕색 없이 노란 테두리만 — 리더보드(MINE_OUTLINE)와 같은 모양(2026-11-08 운영진).
+//   MY_ROW_BG 는 맨 위 「나」 요약 줄(누르면 선수 기록으로 가는 버튼)에만 남긴다.
+const MINE_OUTLINE = '2px solid var(--mm-yellow-strong)'
 function MeTag() {
   return <span className="shrink-0 px-1 text-[11px] font-black leading-4" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 3 }}>나</span>
 }
@@ -324,8 +327,8 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
             return (
               <tr
                 key={rr.player_id}
-                className={`transition-colors duration-200 hover:bg-[color:var(--mm-yellow-soft)] ${isMe ? '' : i % 2 === 0 ? 'bg-[color:var(--mm-panel)]' : 'bg-[color:var(--mm-panel-alt)]'}`}
-                style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { background: MY_ROW_BG, boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' } : null) }}
+                className={`transition-colors duration-200 hover:bg-[color:var(--mm-yellow-soft)] ${i % 2 === 0 ? 'bg-[color:var(--mm-panel)]' : 'bg-[color:var(--mm-panel-alt)]'}`}
+                style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { outline: MINE_OUTLINE, outlineOffset: -2 } : null) }}
                 data-me={isMe || undefined}
               >
                 <th scope="row" className="py-2 px-3 text-left font-normal">
@@ -461,7 +464,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
         const isMe = !!myId && rr.player_id === myId
         return (
           <div key={rr.player_id} className="p-3" data-me={isMe || undefined}
-            style={{ background: isMe ? MY_ROW_BG : 'var(--mm-panel)', border: `1px solid ${isMe ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`, borderRadius: 'var(--mm-radius-card)' }}>
+            style={{ background: 'var(--mm-panel)', border: isMe ? MINE_OUTLINE : '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Avatar src={rr.photo_url} name={rr.name} size={56} ringColor={ringOf(rr.team_color)} decorative />
