@@ -1,6 +1,5 @@
 'use client'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
-import PlayerCardName from '@/components/league/ui/PlayerName'
 // 일별 박스스코어 콘텐츠 — 페이지에서 사용
 //
 // 기존 DailyBoxscoreModal 의 콘텐츠 로직을 그대로 이식한 재사용 뷰.
@@ -11,7 +10,7 @@ import PlayerCardName from '@/components/league/ui/PlayerName'
 //   · 팀별 비교 · 어시스트(네트워크). 공격 유형 탭은 2026-10-31 운영진 결정으로 뺐다(팀 탭 인사이트에는 남음). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
-import { ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Flame, FastForward, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 import Avatar from '@/components/league/ui/Avatar'
@@ -121,6 +120,8 @@ type DailyStat = {
   pts: number; reb: number; oreb: number; dreb: number
   ast: number; stl: number; blk: number; tov: number; pf: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+  /** 속공 득점 — 옛 캐시 응답엔 없을 수 있다 */
+  fb_pts?: number
   fg_pct: number | null; fg3_pct: number | null
 }
 
@@ -533,7 +534,7 @@ function getYoutubeWatchUrl(url: string, offset: number): string {
 // 당일 스탯 리더 — 경기결과 탭 상단. 하루 합산(daily_stats) 기준.
 //   휴대폰: 작은 카드 한 줄 가로 스크롤(7장을 2열로 쌓으면 경기 카드가 화면 밖으로 밀린다).
 //   sm 이상: 종전처럼 격자.
-function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; ddKinds: DdMap; onPlayerPick?: PlayerPick }) {
+function DailyLeaders({ stats, onPlayerPick }: { stats: DailyStat[]; onPlayerPick?: PlayerPick }) {
   if (stats.length === 0) return null
   const MIN_FGA = 3, MIN_FG3A = 2
   const top = (f: (r: DailyStat) => number) => [...stats].sort((a, b) => f(b) - f(a))[0]
@@ -544,24 +545,27 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
   const byStl = top(r => r.stl)
   const byFgPct = [...stats].filter(p => p.fga >= MIN_FGA).sort((a, b) => (b.fg_pct ?? 0) - (a.fg_pct ?? 0))[0]
   const byFg3 = [...stats].filter(p => p.fg3a >= MIN_FG3A).sort((a, b) => b.fg3m - a.fg3m)[0]
+  // 8번째 칸(2026-11-08 운영진 — 7칸이면 폰 2열·PC 4열에서 한 칸이 비었다) = 속공 득점(fastBreak.ts 판정 그대로). 0점이면 비운다
+  const byFb = (() => { const r = top(x => x.fb_pts ?? 0); return r && (r.fb_pts ?? 0) > 0 ? r : undefined })()
   const gpSub = (r?: DailyStat) => r ? `${r.gp}경기` : ''
 
   // 아이콘은 lucide 단일 패밀리 — 이모지는 OS 마다 모양이 다르고 아이콘 자리에 쓰지 않는다(CLAUDE.md)
   const leaders = [
     // 득점 아래는 경기 수 대신 야투 성공/시도(야투율) — 2026-11-04 운영진
     { Icon: Flame,     label: '득점',     p: byPts,   val: byPts ? `${byPts.pts}점` : null,     sub: byPts ? `야투 ${byPts.fgm}/${byPts.fga}${byPts.fga > 0 ? ` (${Math.round((byPts.fgm / byPts.fga) * 1000) / 10}%)` : ''}` : '' },
-    { Icon: Hand,      label: '리바운드', p: byReb,   val: byReb ? `${byReb.reb}개` : null,     sub: byReb ? `OR ${byReb.oreb} / DR ${byReb.dreb}` : '' },
+    { Icon: Hand,      label: '리바운드', p: byReb,   val: byReb ? `${byReb.reb}개` : null,     sub: byReb ? `공격 ${byReb.oreb} · 수비 ${byReb.dreb}` : '' },
     { Icon: Handshake, label: '어시스트', p: byAst,   val: byAst ? `${byAst.ast}개` : null,     sub: gpSub(byAst) },
     { Icon: Shield,    label: '블록',     p: byBlk,   val: byBlk ? `${byBlk.blk}개` : null,     sub: gpSub(byBlk) },
     { Icon: Zap,       label: '스틸',     p: byStl,   val: byStl ? `${byStl.stl}개` : null,     sub: gpSub(byStl) },
     { Icon: Target,    label: '야투율',   p: byFgPct, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
     { Icon: Sparkles,  label: '3점슛',    p: byFg3,   val: byFg3 ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
+    { Icon: FastForward, label: '속공 득점', p: byFb,  val: byFb ? `${byFb.fb_pts}점` : null,    sub: gpSub(byFb) },
   ]
 
   return (
     <section aria-labelledby="daily-leaders-title">
       <h2 id="daily-leaders-title" className="text-base lg:text-lg font-black mb-2.5" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>당일 스탯 리더</h2>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {leaders.map(({ Icon, label, p, val, sub }) => (
           <div
             key={label}
@@ -573,7 +577,6 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
             <div className="flex flex-wrap items-center gap-1.5 min-h-[20px]">
               <Icon size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
               <span className="t-label whitespace-nowrap">{label}</span>
-              {p && ddKinds.get(p.player_id) && <span className="ml-auto shrink-0"><DdChip kind={ddKinds.get(p.player_id)!} /></span>}
             </div>
             {/* 얼굴(40) 옆에 이름·기록 두 줄 — 이름 칸이 카드 폭을 다 쓴다 */}
             <div className="flex items-center gap-2 min-w-0 mt-0.5">
@@ -671,6 +674,8 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
   const [error, setError] = useState(false)
   // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
   const [expandedGame, setExpandedGame] = useState<string | null>(initialGameId ?? null)
+  // 「경기별 스코어」 접힘 — 특정 경기로 들어오면(?game=) 펼친 채로
+  const [scoresOpen, setScoresOpen] = useState<boolean>(!!initialGameId)
   // 탭 기억(2026-10-15) — ?tab= 이 우선, 없으면 sessionStorage. 첫 그림이 로딩 스피너라(탭은 데이터 뒤에 그린다)
   //   서버 렌더(늘 'result')와 달라도 하이드레이션 어긋남이 없다.
   const [activeTab, setActiveTabState] = useState<BoxTab>(() => {
@@ -774,33 +779,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
         </div>
       </div>
 
-      {/* "그날의 주인공" — 박스스코어 상세 첫 화면이 곧장 표였던 것 개선(2026-08-10).
-          그날 최다 득점자 얼굴 + 한 줄. 접이식이 아니라 고정 한 줄 높이(약 44px)로 — 표를
-          밀어내지 않으면서도 항상 보인다(탭과 무관하게 상단 고정). 얼굴은 공용 Avatar —
-          팀 색은 테두리로만, accentOrInk 로 대비를 맞춘다(팀 색이 #ffffff 인 팀도 안전). */}
-      {!loading && dailyStats.length > 0 && dailyStats[0].pts > 0 && (() => {
-        const hero = dailyStats[0]
-        const heroColor = hero.team_color
-        return (
-          <div
-            className="shrink-0 px-4 lg:px-6 py-2 flex items-center gap-2.5 min-h-11"
-            style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}
-          >
-            <Avatar src={hero.photo_url} name={hero.name} size={32} ringColor={heroColor ? accentOrInk(heroColor) : null} decorative />
-            {/* 점수는 절대 잘리지 않게 shrink-0 — 좁으면 팀명만 말줄임 */}
-            {/* 폰에서 팀명이 「(챗/지/피/지/기)」 세로로 서고 점수가 밖으로 밀렸다(2026-11-08) → 줄을 넘긴다 */}
-            <p className="text-xs sm:text-sm min-w-0 flex-1 flex flex-wrap items-center gap-x-1 gap-y-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
-              <span className="shrink-0 whitespace-nowrap">
-                <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-                이날의 주인공 · <PlayerCardName id={hero.player_id} name={hero.name} className="font-bold" hitArea={false} style={{ color: 'var(--mm-ink)' }} />
-              </span>
-              {ddKinds.get(hero.player_id) && <span className="shrink-0"><DdChip kind={ddKinds.get(hero.player_id)!} /></span>}
-              {hero.team_name && <span className="whitespace-nowrap" title={hero.team_name} style={{ color: 'var(--mm-muted)' }}>({hero.team_name})</span>}
-              <span className="shrink-0 font-bold tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
-            </p>
-          </div>
-        )
-      })()}
+      {/* 「이날의 주인공」은 2026-11-08 운영진 결정으로 뺐다(최다 득점자 = 주인공이라는 기준이 모호). 되돌리기: renewal-rollback M37 */}
 
       {/* 내 기록 한 줄 (2026-10-26 점검 MVP 1) — 그날 뛰었으면 표를 뒤지지 않아도 위에서 바로 보인다 */}
       {!loading && myLine && (
@@ -924,11 +903,18 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
 
               {/* 그 분기 누적 순위 — 그날까지(2026-11-04 운영진). 하루 전적과 같은 규칙(승률 → 득실, 친선 제외) */}
               {quarterStandings && quarterStandings.teams.length > 0 && (
-                <div>
-                  <h2 className="text-base lg:text-lg font-black mb-2.5 flex items-baseline gap-2 flex-wrap" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-                    {quarterStandings.label} 누적 순위
-                    <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>이날까지 {quarterStandings.days}일</span>
-                  </h2>
+                // 접어 두고 필요할 때 펼친다(2026-11-08 운영진)
+                <details className="group">
+                  <summary className="mm-press list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center gap-2 min-h-11 mb-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]">
+                    <h2 className="text-base lg:text-lg font-black flex items-baseline gap-2 flex-wrap" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+                      {quarterStandings.label} 누적 순위
+                      <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>이날까지 {quarterStandings.days}일</span>
+                    </h2>
+                    <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>
+                      <span className="group-open:hidden">펼치기</span><span className="hidden group-open:inline">접기</span>
+                      <ChevronDown size={16} aria-hidden className="transition-transform group-open:rotate-180" />
+                    </span>
+                  </summary>
                   <ol className="overflow-hidden" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
                     {withRanks(quarterStandings.teams).map(({ row: t, rank }, i) => {
                       const diff = t.PF - t.PA
@@ -954,19 +940,26 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                       )
                     })}
                   </ol>
-                </div>
+                </details>
               )}
 
               {/* 당일 스탯 리더 — 선수 기록 탭에서 옮겨 왔다(2026-10-12 「리더카드는 경기결과와 합치기」).
                   휴대폰에선 7장을 2열로 쌓으면 경기 카드가 화면 밖으로 밀려나므로 가로 스크롤 한 줄로. */}
-              <DailyLeaders stats={dailyStats} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
+              <DailyLeaders stats={dailyStats} onPlayerPick={pickPlayer} />
 
               {/* 경기별 스코어 카드 — 클릭 시 확장(하이라이트 + 경기별 박스스코어) */}
-              <section className="space-y-3">
-                <h2
-                  className="text-base lg:text-lg font-black"
-                  style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-                >경기별 스코어</h2>
+              {/* 접어 두고 필요할 때 펼친다(2026-11-08 운영진). 명경기 등에서 ?game= 으로 들어오면 펼친 채로 연다 */}
+              <details className="group space-y-3" open={scoresOpen} onToggle={e => setScoresOpen((e.currentTarget as HTMLDetailsElement).open)}>
+                <summary className="mm-press list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center gap-2 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]">
+                  <h2
+                    className="text-base lg:text-lg font-black"
+                    style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                  >경기별 스코어 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>{games.length}경기</span></h2>
+                  <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>
+                    <span className="group-open:hidden">펼치기</span><span className="hidden group-open:inline">접기</span>
+                    <ChevronDown size={16} aria-hidden className="transition-transform group-open:rotate-180" />
+                  </span>
+                </summary>
 
                 {/* ⚠ "카드를 누르면 박스스코어가 열린다"는 안내가 rolledUp 일 때만 떴다.
                     정규전은 같은 대진이 연속될 수 없어(2연속 뛴 팀 강제 휴식) 롤업이 한 칸도
@@ -1206,7 +1199,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                   )
                 })}
                 </div>
-              </section>
+              </details>
 
               {/* 리뉴얼 R1 (2026-10-31): 종전 3번 탭 팀 비교는 막대 그림으로 바로. 어시스트 연결 그림은 2026-11-02 뺐다(R6) */}
               <section aria-label="팀 비교">

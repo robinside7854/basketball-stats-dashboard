@@ -1,4 +1,6 @@
-﻿import { createClient } from '@/lib/supabase/admin'
+﻿import Image from 'next/image'
+import { leagueLogoOf } from '@/lib/league/leagueLogo'
+import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
@@ -396,6 +398,7 @@ export default async function LeagueDetailPage({
   if (!league) notFound()
 
   const l = league as League
+  const logo = leagueLogoOf(leagueId)
   // 스탯 게이팅 — 승인 회원만 리더보드·마일스톤·하이라이트 열람 (순위표·라운드는 공개)
   const isMember = !!approvedSession
   // 「지난 토요일」 = 기록이 있는 최근 경기일(최근 라운드 첫 카드와 같은 날)
@@ -405,7 +408,16 @@ export default async function LeagueDetailPage({
     <div className="space-y-4 lg:space-y-5">
       {/* 헤더 카드(팀 이름 · 멤버 수 · 공유)는 2026-10-26 뺐다(점검 MVP 1) — 첫 화면 1/5 을 쓰면서 정보가 없었다.
           그 자리에 회원 본인의 「지난 토요일 나」(MyLastDay)를 둔다. 공유 버튼은 맨 아래 줄로. */}
-      <h1 className="sr-only">{l.name}</h1>
+      {/* 동호회 로고 + 이름 한 줄(2026-11-08 운영진 — 미라클 로고). 10/26 에 뺀 큰 헤더 카드와 달리 한 줄(약 56px)만 쓴다.
+          로고가 없는 리그는 종전처럼 제목을 화면 읽기용으로만 둔다. */}
+      {logo ? (
+        <div className="flex items-center gap-3 px-1">
+          <Image src={logo} alt="" width={56} height={56} priority className="shrink-0 w-12 h-12 lg:w-14 lg:h-14" />
+          <h1 className="font-black break-keep leading-tight" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5.5vw, 26px)', letterSpacing: '-0.01em' }}>{l.name}</h1>
+        </div>
+      ) : (
+        <h1 className="sr-only">{l.name}</h1>
+      )}
 
       {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
           지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,

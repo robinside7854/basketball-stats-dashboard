@@ -47,7 +47,8 @@ export default function MyLastDay({ base }: { base: string }) {
 
   const { w, l, d } = day.record
   const games = w + l + d
-  const big: Array<[string, number]> = [['득점', line.pts], ['리바', line.reb], ['어시', line.ast]]
+  // 스틸·블록 추가(2026-11-08 운영진) — 숫자 5개
+  const big: Array<[string, number]> = [['득점', line.pts], ['리바', line.reb], ['어시', line.ast], ['스틸', line.stl], ['블록', line.blk]]
 
   return (
     <section aria-labelledby="my-last-day-title" className="px-4 pt-3.5 pb-3 lg:px-6 lg:pt-4" style={cardStyle}>
@@ -57,13 +58,13 @@ export default function MyLastDay({ base }: { base: string }) {
         </h2>
       </div>
 
-      {/* 리뉴얼 R1 (2026-10-31): 숫자 3개 + 그날 득점 순위 고리 + 승패 막대. 스틸·블록·3점·야투 글자 줄은 박스스코어로 넘겼다. */}
+      {/* 2026-11-08: 숫자 5개(득점·리바·어시·스틸·블록). 리뉴얼 R1 (2026-10-31): 숫자 3개 + 그날 득점 순위 고리 + 승패 막대. 스틸·블록·3점·야투 글자 줄은 박스스코어로 넘겼다. */}
       <div className="mt-1.5 flex items-center gap-3">
-        <dl className="grid grid-cols-3 gap-2 flex-1 min-w-0">
+        <dl className="grid grid-cols-5 gap-1.5 sm:gap-2 flex-1 min-w-0">
           {big.map(([label, v]) => (
             <div key={label} className="min-w-0">
               <dt className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
-              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(30px, 9vw, 40px)' }}>{v}</dd>
+              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(24px, 6.8vw, 38px)' }}>{v}</dd>
             </div>
           ))}
         </dl>

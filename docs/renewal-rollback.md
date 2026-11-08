@@ -59,6 +59,7 @@
 | M34 | (이 커밋) | **박스스코어 내 줄 테두리만(2026-11-08 운영진)** — `BoxscoreContent.tsx` 표 줄·폰 카드 `MINE_OUTLINE` | 표 줄 style 을 `background: MY_ROW_BG` 로, 카드 바탕을 `isMe ? MY_ROW_BG` 로 되돌리면 원래대로 |
 | M35 | (이 커밋) | **박스스코어 맨 위 「나」 줄도 테두리만(2026-11-08 운영진)** — `BoxscoreContent.tsx` 내 기록 버튼 | 그 버튼 style 을 옅은 노랑 바탕(`color-mix(in srgb, var(--mm-yellow) 22%, var(--mm-panel))`) + 왼쪽 3px 띠로 되돌리면 원래대로 |
 | M36 | (이 커밋) | **경기별 스코어 폰 2칸(2026-11-08 운영진)** — `BoxscoreContent.tsx` `grid-cols-2 sm:grid-cols-3` | `grid-cols-3` 으로 되돌리면 원래대로 |
+| M37 | (이 커밋) | **로고 · 박스스코어 정리 · 홈 내 기록 5개(2026-11-08 운영진)** — 홈 `page.tsx` 로고 줄 + `lib/league/leagueLogo.ts` · `BoxscoreContent.tsx` 주인공 삭제·리더 칩 제거·속공 칸·접기 · `MyLastDay.tsx` 스틸·블록 | 로고: `leagueLogoOf` 가 null 이면 종전 화면. 박스스코어·MyLastDay 는 이 커밋 이전으로 |
 
 ## R5 (걷어내기)는 미뤘다
 
