@@ -182,12 +182,8 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                     >
                       {p.value}
                     </span>
-                    <span
-                      className="t-label"
-                      style={{ color: 'var(--mm-muted)' }}
-                    >
-                      {metricLabel}
-                    </span>
+                    {/* 지표 이름은 카드 머리(「자유투 성공률」)에 이미 있다 — 값 옆에 다시 쓰면 좁은 칸에서
+                        「자 유 투 율」처럼 세로로 꺾였다(2026-11-08 운영진). 숫자만 둔다. */}
                   </div>
                 </div>
               </button>

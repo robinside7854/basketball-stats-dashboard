@@ -125,9 +125,8 @@ function rankTier(rank: number | null): { color: string; bg: string; accent: str
 // 카드 전체가 선수 상세(퀵뷰) 열기. 안에 용어 툴팁 버튼이 있어 <button> 대신 role="button" div.
 type CardItem = { key: string; label: string; value: string; active?: boolean }
 
-// 「내 기록」 강조 — 노란 계열(yellow-soft 바탕 + yellow-strong 왼쪽 막대). 목록 안 원래 자리와 맨 위 고정 줄이 같은 모양.
-const MINE_BG = 'var(--mm-yellow-soft)'
-const MINE_EDGE = 'inset 3px 0 0 var(--mm-yellow-strong)'
+// 「내 기록」 강조 — 2026-11-08 운영진: 바탕을 칠하지 않고 노란 테두리만. 목록 안 원래 자리와 맨 위 고정 줄이 같은 모양.
+const MINE_OUTLINE = '2px solid var(--mm-yellow-strong)'
 
 function MyRecordLabel() {
   return <span className="text-xs font-black whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>내 기록</span>
@@ -162,8 +161,8 @@ function MobileStatCard({
       aria-label={`${pinned ? '내 기록 · ' : ''}${rank != null ? `${rank}위` : '순위 없음'} ${p.name} — 선수 상세 보기`}
       className="w-full text-left px-3 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={{
-        background: mine ? MINE_BG : 'var(--mm-panel)',
-        border: `1px solid ${mine ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
+        background: 'var(--mm-panel)',
+        border: mine ? MINE_OUTLINE : '1px solid var(--mm-rule)',
         borderRadius: 'var(--mm-radius-card)',
       }}>
       {pinned && <div className="mb-1.5"><MyRecordLabel /></div>}
@@ -616,6 +615,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     return i >= 0 && !lowAttempts(me, basicPctKey) ? i + 1 : null
   })()
   const myAdv = me ? { p: me, adv: calcAdv(me) } : null
+  // 맨 위 고정은 5위 밖일 때만 — 5위 안이면 TOP 5·목록 첫 화면에 이미 보여 같은 기록이 두 번 나왔다(2026-11-08 운영진)
+  const pinBasic = me != null && !(myBasicRank != null && myBasicRank <= 5)
   // 고급 표에서 값이 없는 줄(턴오버 0 의 어시/턴오버 등)은 맨 뒤 · 순위 없음
   const advRank = (adv: Record<AdvKey, number | null>, i: number) => adv[advSortKey] == null ? null : i + 1
   const myAdvRank = (() => {
@@ -623,6 +624,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     const i = filteredAdv.findIndex(r => r.p === me)
     return i >= 0 ? advRank(myAdv.adv, i) : null
   })()
+  const pinAdv = myAdv != null && !(myAdvRank != null && myAdvRank <= 5)
 
   // 모바일 카드 — 세 모드가 목록·고정 줄에서 같은 모양을 쓴다
   function basicCard(p: PlayerStat, rank: number | null, opts: { pinned?: boolean; key?: string } = {}) {
@@ -676,8 +678,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     const mine = isMe(p)
     return (
       <th scope="row"
-        className={`px-2 py-3 text-left font-normal align-middle transition-colors ${mine ? '' : 'bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]'}`}
-        style={mine ? { background: MINE_BG, boxShadow: MINE_EDGE } : undefined}>
+        className="px-2 py-3 text-left font-normal align-middle transition-colors bg-[color:var(--mm-panel)] group-hover:bg-[color:var(--mm-panel-alt)]"
+        style={mine ? { boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' } : undefined}>
         {pinned && <MyRecordLabel />}
         <button type="button" onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
           className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
@@ -693,7 +695,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   }
   const rowStyle = (p: PlayerStat, pinned = false): React.CSSProperties => ({
     borderBottom: pinned ? '2px solid var(--mm-yellow-strong)' : '1px solid var(--mm-rule)',
-    ...(isMe(p) ? { background: MINE_BG } : {}),
+    ...(isMe(p) ? { outline: MINE_OUTLINE, outlineOffset: -2 } : {}),
   })
 
   // 누적 보기는 열이 14개라 좁은 PC 에서 숫자가 접히거나 겹쳤다(2026-11-04 운영진 캡처).
@@ -990,7 +992,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
             {statMode === 'basic' ? (<>
             {/* Basic — 모바일 카드뷰 (정렬 지표 크게 + 보조 4칸). 맨 위는 「내 기록」 고정 */}
             <div className="lg:hidden p-2.5 space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
-              {me && basicCard(me, myBasicRank, { pinned: true, key: 'mine' })}
+              {pinBasic && me && basicCard(me, myBasicRank, { pinned: true, key: 'mine' })}
               {visibleBasic.map((p, i) => basicCard(p, i + 1))}
             </div>
 
@@ -1028,7 +1030,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {me && basicRow(me, myBasicRank, true)}
+                  {pinBasic && me && basicRow(me, myBasicRank, true)}
                   {visibleBasic.map((p, i) => basicRow(p, lowAttempts(p, basicPctKey) ? null : i + 1))}
                 </tbody>
                 {/* Career Totals Footer — 자격자 대상 리그 총합/평균 */}
@@ -1105,7 +1107,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
             </>) : (<>
             {/* Advanced — 모바일 카드뷰 (정렬 지표 크게 + 나머지 3칸). 맨 위는 「내 기록」 고정 */}
             <div className="lg:hidden p-2.5 space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
-              {myAdv && advCard(myAdv.p, myAdv.adv, myAdvRank, { pinned: true, key: 'mine' })}
+              {pinAdv && myAdv && advCard(myAdv.p, myAdv.adv, myAdvRank, { pinned: true, key: 'mine' })}
               {visibleAdv.map(({ p, adv }, i) => advCard(p, adv, advRank(adv, i)))}
             </div>
 
@@ -1130,7 +1132,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {myAdv && advRow(myAdv.p, myAdv.adv, myAdvRank, true)}
+                  {pinAdv && myAdv && advRow(myAdv.p, myAdv.adv, myAdvRank, true)}
                   {visibleAdv.map(({ p, adv }, i) => advRow(p, adv, advRank(adv, i)))}
                 </tbody>
               </table>
