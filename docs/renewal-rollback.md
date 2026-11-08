@@ -58,6 +58,7 @@
 | M33 | (이 커밋) | **박스스코어 폰 점검(2026-11-08)** — `BoxscoreContent.tsx` 주인공 줄·리더 라벨·내 기록 줄·팀 점·「6G」→「6경기」 · `DayHighlightsLauncher.tsx` 다시 시도 | 각 파일 이 커밋 이전으로 |
 | M34 | (이 커밋) | **박스스코어 내 줄 테두리만(2026-11-08 운영진)** — `BoxscoreContent.tsx` 표 줄·폰 카드 `MINE_OUTLINE` | 표 줄 style 을 `background: MY_ROW_BG` 로, 카드 바탕을 `isMe ? MY_ROW_BG` 로 되돌리면 원래대로 |
 | M35 | (이 커밋) | **박스스코어 맨 위 「나」 줄도 테두리만(2026-11-08 운영진)** — `BoxscoreContent.tsx` 내 기록 버튼 | 그 버튼 style 을 옅은 노랑 바탕(`color-mix(in srgb, var(--mm-yellow) 22%, var(--mm-panel))`) + 왼쪽 3px 띠로 되돌리면 원래대로 |
+| M36 | (이 커밋) | **경기별 스코어 폰 2칸(2026-11-08 운영진)** — `BoxscoreContent.tsx` `grid-cols-2 sm:grid-cols-3` | `grid-cols-3` 으로 되돌리면 원래대로 |
 
 ## R5 (걷어내기)는 미뤘다
 

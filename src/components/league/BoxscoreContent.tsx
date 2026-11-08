@@ -978,7 +978,8 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                 </p>
 
                 {/* 3열 바둑판 (2026-11 운영진 — 세로로 길게 늘어놓지 말고 3×3). 누르면 그 경기 박스스코어가 판 아래에 펼쳐진다 */}
-                <ol className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                {/* 폰은 2칸(2026-11-08 운영진) — 3칸이면 「챗지피지기」 같은 다섯 글자 팀명이 「챗지피/지기」로 쪼개졌다. 태블릿·PC 는 3×3 그대로 */}
+                <ol className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
                   {games.map(g => {
                     const on = expandedGame === g.id
                     const hw = g.is_complete && g.home_score > g.away_score
