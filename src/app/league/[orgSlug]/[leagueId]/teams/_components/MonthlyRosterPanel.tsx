@@ -34,7 +34,8 @@ function todayKst(): string {
   return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 }
 
-export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOverrides, headers }: {
+export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOverrides, headers, onChanged }: {
+  onChanged?: () => void
   leagueId: string
   quarters: Quarter[]
   teams: Team[]
@@ -127,7 +128,9 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
     if (!res?.ok) {
       setRows(before)
       toast.error('옮기지 못했어요. 다시 해 주세요')
+      return
     }
+    onChanged?.()
   }
 
   async function revert(r: Row) {
@@ -138,6 +141,7 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
     }).catch(() => null)
     setSavingId(null)
     if (!res?.ok) { toast.error('되돌리지 못했어요'); return }
+    onChanged?.()
     setRows(prev => prev.map(x => x.id === r.id
       ? { ...x, team_id: x.quarter_team_id ?? null, is_regular: x.quarter_team_id ? (x.quarter_is_regular ?? false) : null, month_override: false }
       : x))

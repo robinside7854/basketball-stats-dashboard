@@ -8,13 +8,15 @@ import Image from 'next/image'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Download, Upload, Crown, X, Users, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react'
+import { Plus, Trash2, Loader2, Download, Upload, Crown, Users, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SectionCard from '@/components/league/ui/SectionCard'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+import { swatchEdge } from '@/lib/util/contrastColor'
 import MonthlyRosterPanel from './MonthlyRosterPanel'
+import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import SignupRateCard from '@/components/league/auth/SignupRateCard'
 import type { LeaguePlayer, LeagueTeam, Quarter } from '@/types/league'
 import type { Team } from '../_types'
@@ -167,6 +169,8 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
   const [quarters, setQuarters] = useState<Quarter[]>(initialQuarters)
   const [membershipMap, setMembershipMap] = useState<PlayerQuarterMap>({})
   const [leaderMap, setLeaderMap] = useState<LeaderMap>({})
+  // 오늘 기준 소속(달별 정규 120 → 없으면 분기 소속). 선수 카드는 이 한 줄만 보여 준다(2026-11-08 운영진)
+  const [todayMap, setTodayMap] = useState<Record<string, { team_id: string | null; is_regular: boolean | null }>>({})
   // (quarter_id → team_id → {name, color}) 분기별 팀명/색상 override 룩업
   const [teamOverrides, setTeamOverrides] = useState<Record<string, Record<string, { name: string | null; color: string | null }>>>({})
   const [loading, setLoading] = useState(true)
@@ -187,8 +191,6 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
   const [selectedPlayer, setSelectedPlayer] = useState<LeaguePlayer | null>(null)
 
   // Quarter cell edit
-  const [editingCell, setEditingCell] = useState<{ playerId: string; quarterId: string } | null>(null)
-  const [savingCell, setSavingCell] = useState<string | null>(null)
 
   // 이전 분기 소속 이어받기 — 새 분기는 소속 0명에서 시작하므로(승계 로직이 없다) 기록 화면의
   //   「선발 선수 선택」이 통째로 비어 보인다. 26.3Q 가 실제로 소속 4명으로 분기 절반을 보냈다.
@@ -288,6 +290,16 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quarters])
 
+  const todayKst = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+  const todayQ = pickCurrentQuarter(quarters.filter(q => q.kind !== 'tournament'), todayKst)
+
+  async function loadToday(qid: string) {
+    const res = await fetch(`/api/leagues/${leagueId}/quarters/${qid}/players?date=${todayKst}`).catch(() => null)
+    if (!res?.ok) return
+    const rows = await res.json() as Array<{ id: string; team_id: string | null; is_regular: boolean | null }>
+    setTodayMap(Object.fromEntries(rows.map(r => [r.id, { team_id: r.team_id, is_regular: r.is_regular }])))
+  }
+
   async function load() {
     setLoading(true)
     const [pRes, tRes, qRes] = await Promise.all([
@@ -342,6 +354,9 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
 
       setMembershipMap(newMembership)
       setLeaderMap(newLeader)
+
+      const tq = pickCurrentQuarter(quartersData.filter(q => q.kind !== 'tournament'), todayKst)
+      if (tq) await loadToday(tq.id)
     }
 
     // 분기별 팀명/색상 override 룩업 — 각 셀 표시에 사용
@@ -495,25 +510,6 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
     }
   }
 
-  async function updateMembership(quarterId: string, playerId: string, teamId: string | null, isRegular: boolean) {
-    const cellKey = `${quarterId}:${playerId}`
-    setSavingCell(cellKey)
-    const res = await fetch(`/api/leagues/${leagueId}/quarters/${quarterId}/players`, {
-      method: 'PATCH',
-      headers: leagueHeaders,
-      body: JSON.stringify({ league_player_id: playerId, team_id: teamId, is_regular: isRegular }),
-    })
-    setSavingCell(null)
-    if (res.ok) {
-      setMembershipMap(prev => ({
-        ...prev,
-        [quarterId]: { ...(prev[quarterId] ?? {}), [playerId]: { team_id: teamId, is_regular: isRegular } },
-      }))
-      setEditingCell(null)
-    } else {
-      toast.error('저장 실패')
-    }
-  }
 
   /**
    * 이전 분기 소속 이어받기.
@@ -576,26 +572,17 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
     }
   }
 
-  function getCellLabel(quarterId: string, playerId: string): string {
-    const m = membershipMap[quarterId]?.[playerId]
-    // 팀 소속이 없는 분기는 모두 비정규로 분류 (미가입/멤버십없음/team_id null 통합)
-    if (!m || !m.team_id) return '비정규'
-    if (!m.is_regular) return '비정규'
-    // 분기별 override 우선, 없으면 base team 이름
-    const ov = teamOverrides[quarterId]?.[m.team_id]
-    if (ov?.name) return ov.name
+  /** 오늘 기준 소속 — 이 달 정규(120)가 있으면 그것, 없으면 지금 분기 소속. 정규가 아니면 null */
+  function todayAffiliation(playerId: string): { teamId: string; name: string; color: string } | null {
+    if (!todayQ) return null
+    const m = todayMap[playerId] ?? membershipMap[todayQ.id]?.[playerId]
+    if (!m?.team_id || !m.is_regular) return null
+    const ov = teamOverrides[todayQ.id]?.[m.team_id]
     const team = teams.find(t => t.id === m.team_id)
-    return team?.name ?? '비정규'
+    return { teamId: m.team_id, name: ov?.name ?? team?.name ?? '팀', color: ov?.color ?? team?.color ?? '#888888' }
   }
 
-  function getCellTeamColor(quarterId: string, playerId: string): string | null {
-    const m = membershipMap[quarterId]?.[playerId]
-    if (!m || !m.is_regular || !m.team_id) return null
-    const ov = teamOverrides[quarterId]?.[m.team_id]
-    if (ov?.color) return ov.color
-    const team = teams.find(t => t.id === m.team_id)
-    return team?.color ?? null
-  }
+
 
   function getCellTeamId(quarterId: string, playerId: string): string | null {
     return membershipMap[quarterId]?.[playerId]?.team_id ?? null
@@ -606,9 +593,6 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
     return leaderMap[quarterId]?.[teamId] === playerId
   }
 
-  function getCellIsRegular(quarterId: string, playerId: string): boolean | null {
-    return membershipMap[quarterId]?.[playerId]?.is_regular ?? null
-  }
 
   // 수정 2: 정렬 + 필터 적용
   // - 포지션 필터
@@ -656,8 +640,8 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
               return teamId ? isLeader(q.id, teamId, p.id) : false
             })
             // 현재 분기(특정 분기를 골랐으면 그 분기) 팀 컬러 → 카드 왼쪽 스트립
-            const curQ = quarterId === 'all' ? displayQuarters.find(q => q.is_current) : displayQuarters[0]
-            const cardAccent = curQ ? getCellTeamColor(curQ.id, p.id) : null
+            const now = todayAffiliation(p.id)
+            const cardAccent = now?.color ?? null
             return (
               <div
                 key={p.id}
@@ -697,14 +681,15 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
 
                   <div className="flex-1 min-w-0">
                   {/* 헤더: 이름 + +1 + 삭제 */}
-                  <div className="flex items-start gap-2 mb-1.5 lg:mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                  {/* 좁으면 +1·삭제 버튼이 다음 줄로 내려간다 — 이름을 쪼개지 않는다(2026-11-08 「김로/빈」) */}
+                  <div className="flex flex-wrap items-start gap-2 mb-1.5 lg:mb-2">
+                    <div className="flex-1 min-w-max">
+                      <div className="flex items-center gap-1.5">
                         {isAnyLeader && <Crown size={14} className="text-[var(--mm-ink)] shrink-0" />}
                         {/* 카드의 주인공. 유니폼체(좁고 자간 좁음) 대신 본문체 — 1280px 에서
                             「강경호」가 「강경/호」로 꺾이던 원인 중 하나였다. break-keep 만으로는
                             overflowWrap:'anywhere' 를 못 이기므로 이름은 nowrap 으로 둔다. */}
-                        <span className="text-[20px] lg:text-[26px] font-black text-[var(--mm-ink)] whitespace-nowrap min-w-0 truncate tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" title={p.name} style={{ lineHeight: 1.15 }}>{p.name}</span>
+                        <span className="text-[20px] lg:text-[26px] font-black text-[var(--mm-ink)] whitespace-nowrap tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" title={p.name} style={{ lineHeight: 1.15 }}>{p.name}</span>
                       </div>
                       {p.number !== null && (
                         <span className="t-num text-sm text-[var(--mm-muted)] font-medium">#{p.number}</span>
@@ -779,112 +764,39 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                     )}
                   </div>
 
-                  {/* 분기별 팀 배정 — 팀명을 버튼(chip) 형태로 */}
-                  {displayQuarters.length > 0 && (
-                    <div className="border-t border-[var(--mm-rule)] pt-2 mt-1 space-y-1.5">
-                      {displayQuarters.map(q => {
-                        const cellKey = `${q.id}:${p.id}`
-                        const isSaving = savingCell === cellKey
-                        const isEditingCell = editingCell?.quarterId === q.id && editingCell?.playerId === p.id
-                        const label = getCellLabel(q.id, p.id)
-                        const teamId = getCellTeamId(q.id, p.id)
-                        const teamColor = getCellTeamColor(q.id, p.id)
-                        const isRegular = getCellIsRegular(q.id, p.id)
-                        const isPlayerLeader = isLeader(q.id, teamId, p.id)
-                        // 읽기 모드의 팀 칩은 눌러도 아무 일이 없다 — button 이면 탭 포커스만 낭비한다
-                        const ChipTag = isEditMode ? 'button' : 'span'
-                        return (
-                          <div key={q.id} className="flex items-center gap-2">
+                  {/* 지금 소속 한 줄 (2026-11-08 운영진 — 분기 줄을 늘어놓지 않고 오늘 기준 소속만).
+                      달마다 바뀌는 소속은 아래 「달별 정규 멤버」에서 끌어 옮긴다. 리더 지정만 여기 남긴다. */}
+                  {todayQ && (() => {
+                    const now = todayAffiliation(p.id)
+                    const isPlayerLeader = now ? isLeader(todayQ.id, now.teamId, p.id) : false
+                    return (
+                      <div className="border-t border-[var(--mm-rule)] pt-2 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-xs font-medium text-[var(--mm-muted)]">지금 소속</span>
+                        {now ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[var(--mm-ink)] min-w-0">
                             <span
-                              className="t-num text-xs lg:text-sm font-medium shrink-0 whitespace-nowrap"
-                              style={{ color: q.is_current ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
-                            >
-                              {String(q.year).slice(2)}.{q.quarter}Q
-                            </span>
-                            {isSaving ? (
-                              <Loader2 size={14} className="animate-spin text-[var(--mm-muted)] ml-auto" />
-                            ) : isEditingCell && isEditMode ? (
-                              /* 인라인 chip 팝오버 — 팀 선택 */
-                              <div
-                                className="flex flex-wrap items-center gap-1 ml-auto"
-                                onClick={e => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() => updateMembership(q.id, p.id, null, false)}
-                                  className={`text-xs font-medium whitespace-nowrap px-2 min-h-11 rounded-md border transition-colors duration-200 cursor-pointer ${
-                                    isRegular === false
-                                      ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
-                                      : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-muted)] hover:border-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'
-                                  }`}
-                                >
-                                  비정규
-                                </button>
-                                {teams.map(t => {
-                                  const ov = teamOverrides[q.id]?.[t.id]
-                                  const displayName = ov?.name ?? t.name
-                                  const displayColor = ov?.color ?? t.color
-                                  const active = isRegular && teamId === t.id
-                                  return (
-                                    <button
-                                      key={t.id}
-                                      onClick={() => updateMembership(q.id, p.id, t.id, true)}
-                                      className={`flex items-center gap-1 text-xs font-medium whitespace-nowrap px-2 min-h-11 rounded-md border transition-colors duration-200 cursor-pointer ${
-                                        active
-                                          ? 'text-[var(--mm-ink)]'
-                                          : 'border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'
-                                      }`}
-                                      style={active ? { backgroundColor: `${displayColor}20`, borderColor: displayColor } : undefined}
-                                    >
-                                      <span className="inline-block w-2 h-2 rounded-full shrink-0 ring-1 ring-[color:var(--mm-rule)]" style={{ backgroundColor: displayColor }} />
-                                      {displayName}
-                                    </button>
-                                  )
-                                })}
-                                <button
-                                  onClick={() => setEditingCell(null)}
-                                  className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] p-0.5 cursor-pointer"
-                                  title="닫기"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 ml-auto">
-                                {isRegular && teamId && (
-                                  <>
-                                    {isEditMode ? (
-                                      <button
-                                        onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
-                                        aria-label={isPlayerLeader ? '리더 해제' : '리더 지정'}
-                                        className="size-11 -my-2 inline-flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                                        style={{ color: isPlayerLeader ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
-                                      ><Crown size={14} /></button>
-                                    ) : isPlayerLeader ? (
-                                      <Crown size={14} style={{ color: 'var(--mm-ink)' }} />
-                                    ) : null}
-                                  </>
-                                )}
-                                <ChipTag
-                                  onClick={isEditMode ? (e: React.MouseEvent) => { e.stopPropagation(); setEditingCell({ playerId: p.id, quarterId: q.id }) } : undefined}
-                                  className={`inline-flex items-center gap-1.5 text-xs lg:text-sm font-medium whitespace-nowrap px-2.5 py-1 rounded-md border transition-colors duration-200 ${
-                                    label === '—' ? 'border-[var(--mm-rule)] text-[var(--mm-muted)]' :
-                                    label === '비정규' ? 'border-[var(--mm-rule)] text-[var(--mm-muted)]' :
-                                    'border-[var(--mm-rule)] text-[var(--mm-ink)]'
-                                  } ${isEditMode ? 'min-h-11 cursor-pointer hover:border-[var(--mm-ink-soft)]' : 'cursor-default'}`}
-                                  style={label !== '—' && label !== '비정규' && teamColor && !isEditMode ? { borderColor: `${teamColor}70` } : undefined}
-                                >
-                                  {label !== '—' && label !== '비정규' && teamColor
-                                    ? <span className="inline-block w-2 h-2 rounded-full shrink-0 ring-1 ring-[color:var(--mm-rule)]" style={{ backgroundColor: teamColor }} />
-                                    : null}
-                                  <span>{label}</span>
-                                </ChipTag>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                              className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: now.color, boxShadow: swatchEdge(now.color) }}
+                            />
+                            <span className="break-keep">{now.name}</span>
+                          </span>
+                        ) : (
+                          <span className="text-sm font-medium text-[var(--mm-muted)]">비정규</span>
+                        )}
+                        {now && (isEditMode ? (
+                          <button
+                            onClick={e => { e.stopPropagation(); toggleLeader(todayQ.id, now.teamId, p.id) }}
+                            aria-label={isPlayerLeader ? '리더 해제' : '리더 지정'}
+                            title={isPlayerLeader ? '리더 해제' : '리더 지정'}
+                            className="size-9 -my-1 ml-auto inline-flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                            style={{ color: isPlayerLeader ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                          ><Crown size={14} /></button>
+                        ) : isPlayerLeader ? (
+                          <Crown size={14} className="ml-auto" style={{ color: 'var(--mm-ink)' }} />
+                        ) : null)}
+                      </div>
+                    )
+                  })()}
 
                   {/* 카드 클릭 힌트 */}
                   {/* 이모지·글리프 화살표 대신 lucide 아이콘 (CLAUDE.md 아이콘 규칙) */}
@@ -1147,6 +1059,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
       {/* 달별 정규 멤버 — 분기 소속 위에 「이 달만」 덮어쓰기(120) */}
       {isEditMode && (
         <MonthlyRosterPanel
+          onChanged={() => { if (todayQ) loadToday(todayQ.id) }}
           leagueId={leagueId}
           quarters={quarters}
           teams={teams}
