@@ -206,16 +206,16 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
                     </div>
                     {c.assist_player_name && (
                       <div className="text-xs leading-tight" style={{ color: 'var(--mm-muted)' }}>
-                        <span className="font-bold" aria-hidden>A.</span>{' '}
+                        <span className="font-bold">어시</span>{' '}
                         <span style={{ color: 'var(--mm-ink-soft)' }}>
                           {c.assist_player_number ? `#${c.assist_player_number} ` : ''}{c.assist_player_name}
                         </span>
-                        <span className="sr-only"> 어시스트</span>
-                      </div>
+                            </div>
                     )}
                     <div className="flex items-center justify-between gap-1.5">
-                      <span className="text-xs truncate" title={opponent ? `vs ${opponent}` : undefined} style={{ color: 'var(--mm-muted)' }}>
-                        {opponent ? <>vs <span style={{ color: 'var(--mm-ink-soft)' }}>{opponent}</span></> : ''}
+                      {/* 상대 이름(대회)만 있으면 「vs 상대」, 리그는 「홈 vs 원정」 그대로 — 앞에 vs 를 또 붙이면 「vs A vs B」가 됐다(2026-11-08) */}
+                      <span className="text-xs" style={{ color: 'var(--mm-muted)', wordBreak: 'keep-all' }}>
+                        {opponent ? <>{c.opponent_name ? 'vs ' : ''}<span style={{ color: 'var(--mm-ink-soft)' }}>{opponent}</span></> : ''}
                       </span>
                       <div className="flex items-center gap-0.5">
                         <button

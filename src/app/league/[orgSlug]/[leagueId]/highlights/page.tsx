@@ -488,8 +488,9 @@ function DayCards({ hl, rounds, records, lead }: { hl: string; rounds: LandingRo
               </div>
 
               <div className="p-3 space-y-1.5 sm:space-y-2 flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="font-black text-base sm:text-lg leading-tight" style={{ color: isReady ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>
+                {/* 「기록 대기 중」 같은 표시가 붙으면 날짜가 「2026. / 10.10 (토)」로 꺾였다(2026-11-08) — 날짜는 한 줄, 표시가 아래로 */}
+                <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                  <div className="font-black text-base sm:text-lg leading-tight whitespace-nowrap" style={{ color: isReady ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>
                     {formatFeedDate(r.date, true)}
                   </div>
                   {statusLabel && (

@@ -169,18 +169,18 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
               </div>
               {c.assist_player_name && (
                 <div className="text-xs leading-tight" style={{ color: 'var(--mm-muted)' }}>
-                  <span className="font-bold" aria-hidden>A.</span>{' '}
+                  <span className="font-bold">어시</span>{' '}
                   <span style={{ color: 'var(--mm-ink-soft)' }}>
                     {c.assist_player_number ? `#${c.assist_player_number} ` : ''}{c.assist_player_name}
                   </span>
-                  <span className="sr-only"> 어시스트</span>
                 </div>
               )}
               <div className="flex items-center justify-between gap-1.5">
                 <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                   {formatTimestamp(c.video_timestamp)}
                   <span className="mx-1" aria-hidden>·</span>
-                  <span className="opacity-75">{c.home_team_name} vs {c.away_team_name}</span>
+                  {/* 팀 이름이 「굿모/닝」처럼 글자 중간에서 꺾였다(2026-11-08) — 이름째로 넘긴다 */}
+                  <span className="opacity-75" style={{ wordBreak: 'keep-all' }}>{c.home_team_name} vs {c.away_team_name}</span>
                 </span>
                 <div className="flex items-center gap-0.5">
                   <button
