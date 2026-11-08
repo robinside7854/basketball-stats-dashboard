@@ -474,7 +474,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
                   {(rr.team_name || showGP) && (
                     <span className="flex items-center gap-1.5 min-w-0 text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>
                       {rr.team_name && <span className="truncate min-w-0">{rr.team_name}</span>}
-                      {showGP && <span className="font-semibold shrink-0 tabular-nums">{rr.gp}G</span>}
+                      {showGP && <span className="font-semibold shrink-0 tabular-nums">{rr.gp}경기</span>}
                     </span>
                   )}
                 </span>
@@ -567,9 +567,10 @@ function DailyLeaders({ stats, ddKinds, onPlayerPick }: { stats: DailyStat[]; dd
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             {/* DD/TD 칩은 머리 줄 오른쪽 — 이름 줄에 두면 PC 7칸(칸당 ~140px)에서 이름이 「이...」로 잘렸다(2026-10-15) */}
-            <div className="flex items-center gap-1.5 min-h-[20px]">
+            {/* 폰 2칸에서 칩이 자리를 먹어 「득/점」「리/바/운/드」가 세로로 섰다(2026-11-08) — 라벨은 한 줄, 칩은 모자라면 아래로 */}
+            <div className="flex flex-wrap items-center gap-1.5 min-h-[20px]">
               <Icon size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
-              <span className="t-label">{label}</span>
+              <span className="t-label whitespace-nowrap">{label}</span>
               {p && ddKinds.get(p.player_id) && <span className="ml-auto shrink-0"><DdChip kind={ddKinds.get(p.player_id)!} /></span>}
             </div>
             {/* 얼굴(40) 옆에 이름·기록 두 줄 — 이름 칸이 카드 폭을 다 쓴다 */}
@@ -785,13 +786,14 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
           >
             <Avatar src={hero.photo_url} name={hero.name} size={32} ringColor={heroColor ? accentOrInk(heroColor) : null} decorative />
             {/* 점수는 절대 잘리지 않게 shrink-0 — 좁으면 팀명만 말줄임 */}
-            <p className="text-xs sm:text-sm min-w-0 flex-1 flex items-center gap-1" style={{ color: 'var(--mm-ink-soft)' }}>
+            {/* 폰에서 팀명이 「(챗/지/피/지/기)」 세로로 서고 점수가 밖으로 밀렸다(2026-11-08) → 줄을 넘긴다 */}
+            <p className="text-xs sm:text-sm min-w-0 flex-1 flex flex-wrap items-center gap-x-1 gap-y-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
               <span className="shrink-0 whitespace-nowrap">
                 <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
                 이날의 주인공 · <PlayerCardName id={hero.player_id} name={hero.name} className="font-bold" hitArea={false} style={{ color: 'var(--mm-ink)' }} />
               </span>
               {ddKinds.get(hero.player_id) && <span className="shrink-0"><DdChip kind={ddKinds.get(hero.player_id)!} /></span>}
-              {hero.team_name && <span className="min-w-0 truncate" title={hero.team_name} style={{ color: 'var(--mm-muted)' }}>({hero.team_name})</span>}
+              {hero.team_name && <span className="whitespace-nowrap" title={hero.team_name} style={{ color: 'var(--mm-muted)' }}>({hero.team_name})</span>}
               <span className="shrink-0 font-bold tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
             </p>
           </div>
@@ -807,7 +809,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
           style={{ background: MY_ROW_BG, borderBottom: '1px solid var(--mm-rule)', boxShadow: 'inset 3px 0 0 var(--mm-yellow-strong)' }}
         >
           <MeTag />
-          <span className="text-sm font-black tabular-nums min-w-0 flex-1" style={{ color: 'var(--mm-ink)' }}>
+          <span className="text-sm font-black tabular-nums min-w-0 flex-1" style={{ color: 'var(--mm-ink)', wordBreak: 'keep-all' }}>
             {myLine.pts}점 · {myLine.reb}리바 · {myLine.ast}어시
             <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}> · {myLine.gp}경기</span>
           </span>
@@ -984,7 +986,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                       <span className="flex items-center gap-1 min-w-0">
                         <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: team?.color ?? 'var(--mm-rule)', boxShadow: swatchEdge(team?.color ?? 'var(--mm-rule)') }} />
                         <span className={`min-w-0 flex-1 truncate text-[11px] sm:text-xs ${win ? 'font-black' : 'font-semibold'}`}
-                          style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)' }} title={team?.name ?? '미정'}>{team?.name ?? '미정'}</span>
+                          style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)', wordBreak: 'keep-all' }} title={team?.name ?? '미정'}>{team?.name ?? '미정'}</span>
                         <span className="font-jersey font-black tabular-nums leading-none text-lg sm:text-xl shrink-0"
                           style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{score}</span>
                       </span>
@@ -1514,11 +1516,11 @@ function TeamComparePanel({ games }: { games: GameData[] }) {
                   ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }
                   : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
               >
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colA }} />
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colA, boxShadow: swatchEdge(colA) }} />
                 <span className="truncate min-w-0" title={nameA}>{nameA}</span>
                 <span className="opacity-70 shrink-0">vs</span>
                 <span className="truncate min-w-0" title={nameB}>{nameB}</span>
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colB }} />
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colB, boxShadow: swatchEdge(colB) }} />
               </button>
             )
           })}

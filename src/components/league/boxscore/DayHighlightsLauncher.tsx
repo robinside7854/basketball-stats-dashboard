@@ -182,7 +182,7 @@ export default function DayHighlightsLauncher({
               <button
                 type="button"
                 onClick={() => void load()}
-                className="inline-flex items-center min-h-11 px-3 text-sm font-bold underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                className="inline-flex items-center min-h-11 px-3 text-sm font-bold underline whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                 style={{ color: 'var(--mm-ink)' }}
               >
                 다시 시도

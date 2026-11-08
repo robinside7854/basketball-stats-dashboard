@@ -55,6 +55,7 @@
 | M30 | (이 커밋) | **영상 탭 폰 점검(2026-11-08)** — `highlights/page.tsx` 날짜 한 줄 · `HighlightsPlaylist`·`PlayerHighlightsPlaylist` 팀 이름 keep-all·「A.」→「어시」·vs 중복 | 각 파일 이 커밋 이전으로 |
 | M31 | (이 커밋) | **나 탭 폰 점검(2026-11-08)** — `PersonalDashboard.tsx` 하이라이트 설명·비로그인 안내 keep-all·띄어쓰기 | 이 커밋 이전으로 |
 | M32 | (이 커밋) | **리더보드·명단 폰 점검(2026-11-08)** — `StatsPageClient.tsx` 누적 전환 시 정렬 열 옮김·폰 카드 4칸·흰 팀 점 · `TopFiveSlot.tsx` 괄호 중복 · `PlayersPageClient.tsx` 구분선 | 각 파일 이 커밋 이전으로 |
+| M33 | (이 커밋) | **박스스코어 폰 점검(2026-11-08)** — `BoxscoreContent.tsx` 주인공 줄·리더 라벨·내 기록 줄·팀 점·「6G」→「6경기」 · `DayHighlightsLauncher.tsx` 다시 시도 | 각 파일 이 커밋 이전으로 |
 
 ## R5 (걷어내기)는 미뤘다
 
