@@ -42,6 +42,7 @@
 | M17 | (이 커밋) | **명단 편집 카드 = 「지금 소속」 한 줄(2026-11-08 운영진)** — `RosterEditor.tsx` 분기 칩 줄·분기 칸 팀 고르기(`updateMembership` 등) 삭제, `todayAffiliation` · 이름 줄 flex-wrap | 이 파일을 M16 커밋 판으로 되돌리면 분기 칸 |
 | M18 | (이 커밋) | **명단 편집 = 달별 패널 위 · 카드 목록 접음 · 팀장 왕관은 패널에서(2026-11-08 운영진)** — `RosterEditor.tsx`(카드 구역 `<details>`·카드 왕관 표시만) · `MonthlyRosterPanel.tsx`(`leaders`·`onToggleLeader`) | `<details>` 를 벗기고 패널을 카드 아래로 옮기면 이전 배치 |
 | M19 | (이 커밋) | **명단 탭 소속팀·+1 · 출석순 기본 · 팀/포지션 필터(2026-11-08 운영진)** — `PlayersPageClient.tsx`(`TeamBadge`·`teamSel`·`posSel`) · `roster-cards` 응답 `team`·`plus_one`·`teams` | 화면 쪽 `TeamBadge` 두 곳과 필터 줄을 빼고 `ORDERS`·기본값을 이름순으로 |
+| M20 | (이 커밋) | **리더보드 팀 필터(2026-11-08 운영진)** — `StatsPageClient.tsx` `teamSel`·`teamOptions` | 팀 칩 줄과 `rankPlayers` 의 팀 조건을 빼면 원래대로 |
 
 ## R5 (걷어내기)는 미뤘다
 

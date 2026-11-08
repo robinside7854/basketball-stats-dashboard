@@ -20,6 +20,7 @@ import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import { POSITION_GROUPS, positionGroupOf, positionGroupLabel, positionLabelOf, type PositionGroupCode } from '@/lib/league/positionGroup'
 import type { PlayerStat } from '@/types/league'
+import { swatchEdge } from '@/lib/util/contrastColor'
 import StatGate from '@/components/league/auth/StatGate'
 import { calcUsg } from '@/lib/stats/advanced'
 import { splitEligible, leagueMinRounds, isPctStatKey, meetsAttemptMin, attemptRuleLabel, type PctStatKey } from '@/lib/stats/eligibility'
@@ -243,6 +244,9 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   //   자격 커트라인(leagueMinRounds)은 리그 전체 기준 그대로 — 그룹마다 기준이 달라지면 「가드 1위」가 다른 잣대가 된다.
   const [rankScope, setRankScope] = useState<'all' | 'pos'>('all')
   const [posGroup, setPosGroup] = useState<PositionGroupCode>('G')
+  // 팀 필터(2026-11-08 운영진) — 여러 팀 고르기. 고른 팀 선수들 안에서 순위를 다시 매긴다(포지션 범위와 같은 방식).
+  //   팀 = 스탯 행의 team_name(그 기간 마지막 경기의 팀 · 분기 팀명) 그대로.
+  const [teamSel, setTeamSel] = useState<Set<string>>(new Set())
   // 기본 모드의 덜 보는 열(공리·수리·턴오버)은 접어 둔다 — 데이터·정렬은 그대로(2026-10-26)
   const [showMoreCols, setShowMoreCols] = useState(false)
   // 로그인 회원 본인 — 표·카드 맨 위에 「내 기록」으로 고정한다(프로바이더 밖이면 null → 아무것도 안 그림)
@@ -297,7 +301,16 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // 엉뚱한 구간이 이어서 보인다.
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE)
-  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, selectedQuarterId, showAll, rankScope, posGroup])
+  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, selectedQuarterId, showAll, rankScope, posGroup, teamSel])
+
+  // 분기를 바꾸면 팀 구성이 달라지므로 팀 필터를 비운다
+  const [teamSelQ, setTeamSelQ] = useState(selectedQuarterId)
+  if (teamSelQ !== selectedQuarterId) { setTeamSelQ(selectedQuarterId); setTeamSel(new Set()) }
+  const teamOptions = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of players) if (p.team_name && !m.has(p.team_name)) m.set(p.team_name, p.team_color ?? '#9ca3af')
+    return [...m].map(([name, color]) => ({ name, color })).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  }, [players])
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -314,8 +327,10 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
 
   // 순위 모집단 — 같은 포지션 모드면 그 그룹만(포지션 없는 선수는 이 모드에서만 빠진다)
   const rankPlayers = useMemo(
-    () => rankScope === 'pos' ? players.filter(p => positionGroupOf(p.position) === posGroup) : players,
-    [players, rankScope, posGroup],
+    () => players.filter(p =>
+      (rankScope !== 'pos' || positionGroupOf(p.position) === posGroup) &&
+      (teamSel.size === 0 || (p.team_name != null && teamSel.has(p.team_name)))),
+    [players, rankScope, posGroup, teamSel],
   )
   const { eligible, ineligible } = splitEligible(rankPlayers, effectiveMinGP)
   const isIneligible = (p: PlayerStat) => p.gp < effectiveMinGP
@@ -792,6 +807,27 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
           value={selectedQuarterId}
           onChange={setSelectedQuarterId}
         />
+        {/* 팀 필터 — 여러 개 고르기 */}
+        {teamOptions.length > 1 && (
+          <div role="group" aria-label="팀" className="flex flex-wrap items-center gap-1.5">
+            {teamOptions.map(t => (
+              <Chip key={t.name} as="button" size="md" selected={teamSel.has(t.name)}
+                onClick={() => setTeamSel(prev => { const n = new Set(prev); if (n.has(t.name)) n.delete(t.name); else n.add(t.name); return n })}>
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color, boxShadow: swatchEdge(t.color) }} />
+                  {t.name}
+                </span>
+              </Chip>
+            ))}
+            {teamSel.size > 0 && (
+              <button type="button" onClick={() => setTeamSel(new Set())}
+                className="inline-flex items-center min-h-9 px-1 text-xs font-bold underline underline-offset-4 cursor-pointer"
+                style={{ color: 'var(--mm-ink-soft)' }}>
+                팀 전체
+              </button>
+            )}
+          </div>
+        )}
         {/* 2줄: 고급 지표 버튼 */}
         <div className="flex">{modeChips}</div>
       </SectionCard>
