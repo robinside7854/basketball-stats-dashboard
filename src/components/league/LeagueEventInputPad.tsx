@@ -668,6 +668,79 @@ export default function LeagueEventInputPad({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // ── 슛 종류 상자(종류 + O|X) — PC 묶음 화면과 폰 압축 화면이 같이 쓴다 ──
+  function renderShotBoxes(buttons: EventBtn[]) {
+    return (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {buttons.map(btn => (
+                      <div key={btn.type}
+                        className="relative rounded-xl overflow-hidden border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)]">
+                        <div className="pt-1.5 pb-1 px-1 text-center text-xs font-bold leading-tight break-keep text-[color:var(--mm-ink)]">
+                          {btn.label}
+                          {SHOT_HOTKEYS[btn.type] && <Kbd k={SHOT_HOTKEYS[btn.type]} />}
+                        </div>
+                        <div className="grid grid-cols-2 gap-px bg-black/20">
+                          <button onClick={() => handleResult('made', btn)}
+                            aria-label={`${btn.label} 성공`}
+                            className="min-h-[44px] bg-green-600/90 hover:bg-green-500 text-[#fff] text-lg font-black cursor-pointer active:scale-95 transition-all">
+                            O
+                          </button>
+                          <button onClick={() => handleResult('missed', btn)}
+                            aria-label={`${btn.label} 실패`}
+                            className="min-h-[44px] bg-red-700/90 hover:bg-red-600 text-[#fff] text-lg font-black cursor-pointer active:scale-95 transition-all">
+                            X
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+    )
+  }
+
+  // ── 폰 압축 패드(2026-11-08 운영진 — 스크롤 없이 기록) ─────────────────
+  //   묶음 제목을 빼고 두 줄로: ① 슛 상자 4개 ② 스틸·턴오버·자유투·리바운드·블록 한 줄.
+  //   자유투·리바운드 고르기는 ② 줄 자리에서 바로 바뀐다. 결과를 묻는 중(pendingShot)에는 PC 와 같은 묶음 화면을 쓴다.
+  function renderMobileCompact() {
+    const shots = EVENT_GROUPS.find(g => g.label === '슈팅')?.buttons ?? []
+    const others = EVENT_GROUPS.filter(g => g.label !== '슈팅').flatMap(g => g.buttons)
+    const cell = 'relative min-h-11 px-0.5 rounded-xl text-xs font-bold leading-tight break-keep text-[color:var(--mm-ink)] cursor-pointer active:scale-95 transition-all'
+    return (
+      <div className="space-y-1.5">
+        {renderShotBoxes(shots)}
+        {ftChooser ? (
+          <div className="grid grid-cols-5 gap-1">
+            {FT_CHOICES.map(c => (
+              <button key={c.type} onClick={() => { setFtChooser(false); if (c.needsResult) handleShotClick(c); else saveInstant(c) }}
+                className={`${cell} ${c.color}`}>
+                {c.label}<span className="block text-[10px] font-normal opacity-85">{c.hint.split(' · ')[1] ?? c.hint}</span>
+              </button>
+            ))}
+            <button onClick={() => setFtChooser(false)} className={`${cell} ${NEUTRAL_BTN} text-[color:var(--mm-ink-soft)]`}>취소</button>
+          </div>
+        ) : rebChooser ? (
+          <div className="grid grid-cols-5 gap-1">
+            {(['oreb', 'dreb'] as const).map(t => (
+              <button key={t} onClick={() => { setRebChooser(false); saveInstant({ type: t, label: t === 'oreb' ? '공격 리바' : '수비 리바', color: '', activeColor: '' }) }}
+                className={`${cell} col-span-2 ${NEUTRAL_BTN}`}>
+                {t === 'oreb' ? '공격 리바' : '수비 리바'}
+              </button>
+            ))}
+            <button onClick={() => setRebChooser(false)} className={`${cell} ${NEUTRAL_BTN} text-[color:var(--mm-ink-soft)]`}>취소</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-5 gap-1">
+            {others.map(btn => (
+              <button key={btn.type} onClick={() => { if (btn.needsResult) handleShotClick(btn); else saveInstant(btn) }}
+                className={`${cell} ${btn.color}`}>
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ── 선수 카드 렌더 ────────────────────────────────────────────
   function renderPlayerBtn(p: RosterPlayer, teamColor: string, hotkey: string | null = null) {
     const isSelected = selectedPlayer === p.id
@@ -681,7 +754,7 @@ export default function LeagueEventInputPad({
       <button
         key={p.id}
         onClick={() => selectPlayer(p.id)}
-        className={`relative py-2 px-1 min-h-[52px] rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
+        className={`relative py-1 lg:py-2 px-1 min-h-11 lg:min-h-[52px] rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
           isSelected
             ? `shadow-lg ${hasPossession ? 'ring-2 ring-green-300 ring-offset-1 ring-offset-[color:var(--mm-panel)]' : ''}`
             : 'bg-[color:var(--mm-panel-alt)]/80 border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] hover:border-[color:var(--mm-muted)]'
@@ -863,80 +936,69 @@ export default function LeagueEventInputPad({
       </div>
       )}
 
-      {/* ── 리바운드 선택 (슛 실패 / 블록 / FT 미스 공통) ── */}
+      {/* ── 리바운드 선택 (슛 실패 / 블록 / FT 미스 공통) ──
+          2026-11-08(운영진 — 폰에서 공격 리바를 잡으려면 아래로 스크롤해야 했다): 두 팀을 **선수 고르기와 같은 좌우 배치**로 나란히 둔다.
+          선수 버튼이 늘 있던 자리에 그대로 있어 눈이 덜 움직이고, 공격 리바가 화면 밖으로 밀리지 않는다.
+          「아웃바운드」와 「건너뛰기」 두 줄은 머리줄의 「없음」 하나로 합쳤다(같은 동작이었다). */}
       {awaitingRebound && (
-        <div className="pt-1 space-y-2">
+        <div className="pt-1 space-y-1.5">
           {/* 블록 칩 — 야투 실패일 때만(blockCtx). 없으면 그냥 리바운드를 고른다(터치 추가 0). */}
           {blockCtx && (() => {
             const defSide = reboundShooterTeamId === homeTeam?.id ? 'away' : 'home'
             const defenders = defSide === 'home' ? homeDisplay : awayDisplay
-            const defTeam = defSide === 'home' ? homeTeam : awayTeam
             if (defenders.length === 0) return null
             const blocker = blockedById ? allPlayers.find(p => p.id === blockedById) : null
             return (
-              <div className={`rounded-xl px-2 py-1.5 ${blockKeyMode ? 'ring-2 ring-[color:var(--mm-yellow)]' : ''}`} style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold text-[color:var(--mm-ink-soft)]">
-                    블록이 있었나요? <span className="font-normal text-[color:var(--mm-muted)]">· 없으면 아래에서 리바운드만</span>
-                  </p>
-                  <span className="hidden lg:inline text-[11px] text-[color:var(--mm-muted)]">B 누른 뒤 번호</span>
-                </div>
+              <div className={`flex flex-wrap items-center gap-1.5 rounded-xl px-2 py-1 ${blockKeyMode ? 'ring-2 ring-[color:var(--mm-yellow)]' : ''}`} style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                <span className="text-xs font-semibold text-[color:var(--mm-ink-soft)]">블록?</span>
                 {blocker ? (
-                  <p className="text-sm font-bold text-[color:var(--mm-ink)] px-1">🛡 {blocker.name} 블록 기록됨</p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {defenders.map(p => (
-                      <button key={p.id} onClick={() => doBlock(p.id)}
-                        className="px-2.5 min-h-9 rounded-lg text-xs font-bold cursor-pointer active:scale-95 transition-all bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-rule)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)]">
-                        {p.name} <span className="opacity-80">· {defTeam?.name ?? ''}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                  <span className="text-sm font-bold text-[color:var(--mm-ink)]">🛡 {blocker.name} 블록 기록됨</span>
+                ) : defenders.map(p => (
+                  <button key={p.id} onClick={() => doBlock(p.id)}
+                    className="px-2.5 min-h-9 rounded-lg text-xs font-bold cursor-pointer active:scale-95 transition-all bg-[color:var(--mm-panel)] hover:bg-[color:var(--mm-rule)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)]">
+                    {p.name}
+                  </button>
+                ))}
+                <span className="hidden lg:inline ml-auto text-[11px] text-[color:var(--mm-muted)]">B 누른 뒤 번호</span>
               </div>
             )
           })()}
-          <p className="text-xs text-[color:var(--mm-ink-soft)]">리바운드 선수 선택</p>
-          <button
-            onClick={() => doRebound(null)}
-            className="w-full py-2 min-h-11 rounded-xl text-sm font-bold bg-[color:var(--mm-rule)]/60 border border-[color:var(--mm-rule)]/50 text-[color:var(--mm-ink-soft)] hover:bg-[color:var(--mm-rule)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5 justify-center"><CircleDashed size={14} aria-hidden /> 아웃바운드 / 미기록</span>
-          </button>
-          {/* 수비 팀(수비 리바)을 위에 크게 — 실측 수비 리바 69% : 공격 리바 31% (2026-11-03). 눈이 가는 거리를 줄인다. */}
-          {[
-            { side: 'home' as const, players: homeDisplay, team: homeTeam, isShooterTeam: reboundShooterTeamId === homeTeam?.id },
-            { side: 'away' as const, players: awayDisplay, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
-          ].sort((a, b) => Number(a.isShooterTeam) - Number(b.isShooterTeam))
-          .map(({ side, players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
-            <div key={team?.id ?? side}>
-              {/* 팀 색이 없을 때 회색 리터럴로 떨어뜨리면 라이트 모드에서 3:1 이 안 나온다 —
-                  accentOrInk 는 인자가 없으면 테마 잉크로 간다. */}
-              <p className="t-label mb-1.5 px-1" style={{ color: accentOrInk(team?.color) }}>
-                {team?.name ?? '팀'} — {isShooterTeam ? '공격 리바' : '수비 리바'}
-              </p>
-              <div className={`grid gap-1.5 ${isShooterTeam ? 'grid-cols-5' : 'grid-cols-3'}`}>
-                {tPlayers.map((p, i) => {
-                  const bg = teamInk(team?.color).bg
-                  const fg = textOnBg(bg)
-                  const hk = playerHotkey(side, i)
-                  return (
-                    <button key={p.id} onClick={() => doRebound(p.id)}
-                      className={`relative rounded-xl font-bold cursor-pointer active:scale-95 transition-all truncate px-1 ${
-                        isShooterTeam ? 'py-1.5 min-h-11 text-xs' : 'py-3 min-h-[52px] text-sm'}`}
-                      style={{ backgroundColor: `${bg}cc`, color: fg }}>
-                      {p.name}
-                      {hk && <Kbd k={hk} />}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-          <button onClick={() => doRebound(null)}
-            className="text-xs text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer w-full text-center min-h-11">
-            리바운드 건너뛰기
-          </button>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-[color:var(--mm-ink-soft)]">리바운드 — 누가 잡았나요?</p>
+            <button onClick={() => doRebound(null)}
+              className="shrink-0 inline-flex items-center gap-1 px-3 min-h-9 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer">
+              <CircleDashed size={14} aria-hidden /> 없음
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { side: 'home' as const, players: homeDisplay, team: homeTeam },
+              { side: 'away' as const, players: awayDisplay, team: awayTeam },
+            ].map(({ side, players: tPlayers, team }) => {
+              const isShooterTeam = reboundShooterTeamId === team?.id
+              return (
+                <div key={team?.id ?? side}>
+                  <p className="t-label mb-1 px-1" style={{ color: accentOrInk(team?.color) }}>
+                    {team?.name ?? '팀'} · <span className={isShooterTeam ? '' : 'font-black'}>{isShooterTeam ? '공격 리바' : '수비 리바'}</span>
+                  </p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {tPlayers.map((p, i) => {
+                      const bg = teamInk(team?.color).bg
+                      const hk = playerHotkey(side, i)
+                      return (
+                        <button key={p.id} onClick={() => doRebound(p.id)}
+                          className="relative py-1 px-1 min-h-11 lg:min-h-[52px] rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
+                          style={{ backgroundColor: `${bg}cc`, color: textOnBg(bg) }}>
+                          {p.name}
+                          {hk && <Kbd k={hk} />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -965,7 +1027,10 @@ export default function LeagueEventInputPad({
                 </button>
               </div>
             </div>
-          ) : EVENT_GROUPS
+          ) : (<>
+          {!pendingShot && <div className="lg:hidden">{renderMobileCompact()}</div>}
+          <div className={pendingShot ? 'space-y-1' : 'hidden lg:block space-y-1'}>
+          {EVENT_GROUPS
             .filter(group => !pendingShot || groupOwns(group, pendingShot.type))
             .map(group => {
             const groupHasPending = !!pendingShot && groupOwns(group, pendingShot.type)
@@ -1027,29 +1092,7 @@ export default function LeagueEventInputPad({
                      종전엔 종류를 누른 뒤 성공/실패를 한 번 더 눌렀다(슛마다 1터치 · 경기당 35번).
                      기록원은 공이 들어가는 걸 보고 누르므로 결과를 이미 안다 — 한 번에 묻는다.
                      키보드(Q/W/E/R → A/S)는 종전 경로(pendingShot 오버레이)를 그대로 쓴다. */
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {group.buttons.map(btn => (
-                      <div key={btn.type}
-                        className="relative rounded-xl overflow-hidden border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)]">
-                        <div className="pt-1.5 pb-1 px-1 text-center text-xs font-bold leading-tight break-keep text-[color:var(--mm-ink)]">
-                          {btn.label}
-                          {SHOT_HOTKEYS[btn.type] && <Kbd k={SHOT_HOTKEYS[btn.type]} />}
-                        </div>
-                        <div className="grid grid-cols-2 gap-px bg-black/20">
-                          <button onClick={() => handleResult('made', btn)}
-                            aria-label={`${btn.label} 성공`}
-                            className="min-h-[44px] bg-green-600/90 hover:bg-green-500 text-[#fff] text-lg font-black cursor-pointer active:scale-95 transition-all">
-                            O
-                          </button>
-                          <button onClick={() => handleResult('missed', btn)}
-                            aria-label={`${btn.label} 실패`}
-                            className="min-h-[44px] bg-red-700/90 hover:bg-red-600 text-[#fff] text-lg font-black cursor-pointer active:scale-95 transition-all">
-                            X
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  renderShotBoxes(group.buttons)
                 ) : (
                   <div className={`grid gap-1.5 ${
                     group.cols === 5 ? 'grid-cols-5'
@@ -1077,6 +1120,8 @@ export default function LeagueEventInputPad({
               </div>
             )
           })}
+          </div>
+          </>)}
         </div>
       )}
 

@@ -142,7 +142,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   }, [pathname, showDraft, isEditMode, leagueName])
 
   return (
-    <div className="sticky top-0 z-10 mm-glass border-b border-[color:var(--mm-rule)]">
+    <div className="mm-rec-hide sticky top-0 z-10 mm-glass border-b border-[color:var(--mm-rule)]">
       <div className="max-w-[1280px] mx-auto px-4 lg:px-6">
         <div className="flex items-center">
           {/* 좌측: 리그/팀 이름 — 홈 링크. 모바일에서 예전 '현재 페이지 제목' 자리를 대체하고,
@@ -378,7 +378,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
       <nav
         aria-label="주요 메뉴"
-        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 mm-glass border-t ${isEditMode ? 'border-[color:var(--mm-yellow-strong)]' : 'border-[color:var(--mm-rule)]'}`}
+        className={`mm-rec-hide lg:hidden fixed bottom-0 inset-x-0 z-40 mm-glass border-t ${isEditMode ? 'border-[color:var(--mm-yellow-strong)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="relative flex items-stretch justify-around h-14">
           {/* 활성 인디케이터 — 탭마다 따로 그리지 않고 하나를 옮긴다.
@@ -455,7 +455,7 @@ function RecordAwareContainer({
 
   // 경기기록은 더 촘촘하게, 나머지는 전체 너비
   if (isRecord) {
-    return <main id="mm-main" tabIndex={-1} key={pathname} className={`px-3 py-3 outline-none ${enter}`}>{children}</main>
+    return <main id="mm-main" tabIndex={-1} key={pathname} className={`mm-rec-main px-3 py-3 outline-none ${enter}`}>{children}</main>
   }
   return <main id="mm-main" tabIndex={-1} key={pathname} className={`max-w-[1280px] mx-auto px-4 lg:px-6 py-6 outline-none ${enter}`}>{children}</main>
 }
@@ -535,7 +535,7 @@ function LeagueLayout({
           showDraft={showDraft}
         />
         {/* 모바일 하단 탭바(56px) + iOS safe-area 만큼 여백 확보 */}
-        <div className="pb-[calc(56px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <div className="mm-rec-nopad pb-[calc(56px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
             {children}
           </RecordAwareContainer>

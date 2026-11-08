@@ -1,6 +1,6 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useGameStore } from '@/store/gameStore'
@@ -42,6 +42,7 @@ import VideoColumn from './_components/VideoColumn'
 import CompletedBanner from './_components/CompletedBanner'
 import ScoreStrip from './_components/ScoreStrip'
 import QuarterSelector from './_components/QuarterSelector'
+import { QUARTER_OPTIONS } from './_lib/constants'
 import RecordingTools from './_components/RecordingTools'
 import StarterSelect from './_components/StarterSelect'
 import IrregularTeamModal from './_components/IrregularTeamModal'
@@ -219,6 +220,18 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     hasSources: prevStarterSources.length > 0, applyPrevStarters,
   })
 
+  // ── 폰 기록 집중 화면 (2026-11-08 운영진) ── 기록 중(시작 · 마감 전)에는 영상 + 점수줄 + 패드만.
+  //   <html> 에 mm-rec-focus 를 붙이면 globals.css 가 폰·태블릿에서만 위 메뉴·하단 탭·날짜·슬롯 등을 숨긴다.
+  //   「전체 화면 보기」로 그 경기 동안 끌 수 있다(경기를 바꾸면 다시 켜진다).
+  const [focusOffSlot, setFocusOffSlot] = useState<string | null>(null)
+  const recFocus = st.gameStarted && !!selectedSlot && !selectedSlot.is_complete && focusOffSlot !== selectedSlotId
+  useEffect(() => {
+    const el = document.documentElement
+    el.classList.toggle('mm-rec-focus', recFocus)
+    return () => el.classList.remove('mm-rec-focus')
+  }, [recFocus])
+  const mobileTabShown = recFocus ? 'record' : st.mobileTab
+
   // 이미 홈/어웨이 명단에 들어있는지 체크
   const assignedIds = new Set([...homeRoster.map(p => p.id), ...awayRoster.map(p => p.id)])
 
@@ -257,6 +270,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   // ── 슬롯 그리드 + 기록 UI ─────────────────────────────────
   return (
     <div className="mm-brand space-y-4">
+      <div className="mm-rec-hide space-y-4">
       <LeagueSubTabs group="games" />
 
       {/* 날짜 헤더 + YouTube 연동 (1행) */}
@@ -289,6 +303,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         </p>
       )}
 
+      </div>
+
       {/* 슬롯 미선택 */}
       {!selectedSlotId && (
         <div className="text-center py-8 text-sm" style={{ color: 'var(--mm-muted)' }}>
@@ -298,8 +314,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
       {/* 선택된 슬롯 기록 UI */}
       {selectedSlot && (
-        <div className="pt-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+        <div className="mm-rec-flat pt-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
           {/* ── 기록 준비 ── 경기 종류 · 팀 · 영상(접힘) · 고급(접힘) · 임시팀(친선전) */}
+          <div className="mm-rec-hide">
           <PrepCard
             selectedSlot={selectedSlot}
             isTournament={isTournament}
@@ -376,6 +393,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               />
             )}
           />
+          </div>
 
           {/* 영상 먼저 — 팀 미지정 시 절반 크기로 표시 (16:9 비율 유지) */}
           {activeVideo && !selectedSlot.home_team_id && (
@@ -410,13 +428,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 togglePlay={togglePlay}
                 playbackRate={playbackRate}
                 setPlaybackRate={setPlaybackRate}
+                quarterPicker={!singleSegment ? { value: currentQuarter, onChange: setCurrentQuarter, options: QUARTER_OPTIONS } : undefined}
                 openCompleteModal={openCompleteModal}
               />
 
               {/* ── 우측: 기록 패널 ── */}
               <div className="space-y-3">
                 {/* 모바일 탭 */}
-                <div className="flex gap-1 lg:hidden">
+                <div className="mm-rec-hide flex gap-1 lg:hidden">
                   {(['record', 'stats'] as const).map(tab => (
                     <button key={tab} onClick={() => setMobileTab(tab)}
                       className="flex-1 py-2 text-xs font-bold transition-colors cursor-pointer min-h-[44px]"
@@ -429,7 +448,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   ))}
                 </div>
 
-                <div className={mobileTab === 'record' ? '' : 'hidden lg:block'}>
+                <div className={mobileTabShown === 'record' ? '' : 'hidden lg:block'}>
                   {selectedSlot?.is_complete ? (
                     /* ── 마감된 경기 배너 ── */
                     <CompletedBanner
@@ -481,6 +500,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         handleEventSaved={handleEventSaved}
                         fetchLiveScore={fetchLiveScore}
                         loadRoster={loadRoster}
+                        focusOn={recFocus}
+                        toggleFocus={() => setFocusOffSlot(recFocus ? selectedSlotId : null)}
+                        openCompleteModal={openCompleteModal}
                       />
                     </>
                   ) : (
@@ -519,7 +541,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </div>
 
                 {/* 통계 (모바일) */}
-                <div className={mobileTab === 'stats' ? 'lg:hidden' : 'hidden'}>
+                <div className={mobileTabShown === 'stats' ? 'lg:hidden' : 'hidden'}>
                   <LeagueStatsPanel
                     leagueId={leagueId}
                     gameId={selectedSlotId}

@@ -117,7 +117,7 @@ export default function ScoreStrip({
           )
         }
         return (
-          <div className="flex items-center justify-between gap-2 px-3 py-1 border-t border-[color:var(--mm-rule)]">
+          <div className="mm-rec-hide flex items-center justify-between gap-2 px-3 py-1 border-t border-[color:var(--mm-rule)]">
             {chip(leftSide, 'left')}
             {!hideQuarterLabel && <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{qLabel}</span>}
             {chip(rightSide, 'right')}

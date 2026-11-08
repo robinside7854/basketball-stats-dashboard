@@ -8,7 +8,7 @@ export default function RecordingTools({
   leagueId, leagueHeaders, selectedSlot, selectedSlotId, currentQuarter, isTournament,
   leftSide, rightSide, sideView, onCourt,
   foulCounts, activePlusOneIds, oppTeam, statsRefresh,
-  handleEventSaved, fetchLiveScore, loadRoster,
+  handleEventSaved, fetchLiveScore, loadRoster, focusOn, toggleFocus, openCompleteModal,
 }: {
   leagueId: string
   leagueHeaders: Record<string, string>
@@ -27,6 +27,9 @@ export default function RecordingTools({
   handleEventSaved: (eventType?: string) => void
   fetchLiveScore: () => Promise<void>
   loadRoster: (slot: GameSlot) => Promise<void>
+  focusOn: boolean
+  toggleFocus: () => void
+  openCompleteModal: () => Promise<void>
 }) {
   return (
     <>
@@ -80,6 +83,19 @@ export default function RecordingTools({
         left={{ team: sideView(leftSide).team ?? undefined, players: sideView(leftSide).roster.filter(p => onCourt.includes(p.id)) }}
         right={{ team: sideView(rightSide).team ?? undefined, players: sideView(rightSide).roster.filter(p => onCourt.includes(p.id)) }}
       />
+      {/* 폰 기록 집중 화면의 맨 아래 — 마감(경기당 한 번이라 스크롤해서 누른다)과 집중 화면 켜고 끄기.
+          「경기 진행 중 · 마감」 상자는 집중 화면에서 숨겨지므로 마감은 여기서 한다. PC 는 영상 위 상자 그대로. */}
+      <div className="lg:hidden grid grid-cols-2 gap-2 pt-1">
+        <button type="button" onClick={toggleFocus}
+          className="min-h-11 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] cursor-pointer">
+          {focusOn ? '전체 화면 보기' : '기록 집중 화면으로'}
+        </button>
+        <button type="button" onClick={() => { void openCompleteModal() }}
+          className="min-h-11 rounded-lg text-xs font-bold cursor-pointer"
+          style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF' }}>
+          경기 마감
+        </button>
+      </div>
     </>
   )
 }

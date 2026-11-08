@@ -994,3 +994,18 @@
   display: block;
   overflow: visible;
 }
+
+
+/* ── 폰 기록 집중 화면 (2026-11-08 운영진) ─────────────────────────────
+   기록 중(경기 시작 · 마감 전) 폰·태블릿에서는 영상 + 점수줄 + 입력 패드만 남긴다 — 위 메뉴·하단 탭·날짜·슬롯·
+   「경기 진행 중」 상자·기록/통계 탭·쿼터 줄·팀파울 줄이 패드를 아래로 밀어 공격 리바를 잡으려면 스크롤해야 했다.
+   켜고 끄기는 기록 화면이 <html> 에 mm-rec-focus 를 붙이고 뗀다. PC(lg↑)에는 걸지 않는다. */
+.mm-rec-only { display: none; }
+@media (max-width: 1023.98px) {
+  html.mm-rec-focus .mm-rec-hide { display: none !important; }
+  html.mm-rec-focus .mm-rec-only { display: inline-flex; }
+  html.mm-rec-focus .mm-rec-nopad { padding-bottom: env(safe-area-inset-bottom, 0px) !important; }
+  html.mm-rec-focus .mm-rec-main { padding-top: 0; }
+  html.mm-rec-focus [data-rec-sticky] { top: 0 !important; }
+  html.mm-rec-focus .mm-rec-flat { padding-top: 0; border-top: 0 !important; }
+}

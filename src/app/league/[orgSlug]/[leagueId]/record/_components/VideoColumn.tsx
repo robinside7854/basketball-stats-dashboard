@@ -13,7 +13,7 @@ import { PLAYBACK_RATES, formatPlaybackRate, type PlaybackRate } from '@/lib/you
 //     · 신규: max-h + overflow-y-auto 로 컨테이너 내부에서 스크롤 가능
 export default function VideoColumn({
   selectedSlot, gameStarted, activeVideo, showQuarterUi, currentQuarter,
-  leftSide, rightSide, sideView, ytPlayer, seekRelative, togglePlay, playbackRate, setPlaybackRate, openCompleteModal,
+  leftSide, rightSide, sideView, ytPlayer, seekRelative, togglePlay, playbackRate, setPlaybackRate, quarterPicker, openCompleteModal,
 }: {
   selectedSlot: GameSlot
   gameStarted: boolean
@@ -28,6 +28,8 @@ export default function VideoColumn({
   togglePlay: () => void
   playbackRate: PlaybackRate
   setPlaybackRate: (rate: PlaybackRate) => void
+  /** 폰 기록 집중 화면의 쿼터 고르기(쿼터를 나누지 않는 경기면 넘기지 않는다) */
+  quarterPicker?: { value: number; onChange: (q: number) => void; options: readonly { value: number; label: string }[] }
   openCompleteModal: () => Promise<void>
 }) {
   return (
@@ -38,7 +40,7 @@ export default function VideoColumn({
 
       {/* 경기 시작/마감 (2026-07-18 · 비디오 위로 이동 · 항상 노출 · 스크롤 필요 없음) */}
       <div
-        className="mb-2 lg:mb-0 p-3"
+        className="mm-rec-hide mb-2 lg:mb-0 p-3"
         style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
       >
         {selectedSlot?.is_complete ? (
@@ -76,6 +78,7 @@ export default function VideoColumn({
 
       {activeVideo ? (
         <div
+          data-rec-sticky
           className="sticky z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden"
           style={{ top: 'var(--record-header-offset, 56px)' }}
         >
@@ -151,6 +154,16 @@ export default function VideoColumn({
                 }`}>
                 {formatPlaybackRate(playbackRate)}
               </button>
+              {/* 폰 기록 집중 화면에서만: 쿼터 고르기(쿼터 줄을 숨긴 대신). 경기당 몇 번 안 바꾸므로 작게. */}
+              {quarterPicker && (
+                <select
+                  aria-label="기록 중인 쿼터"
+                  value={quarterPicker.value}
+                  onChange={e => quarterPicker.onChange(Number(e.target.value))}
+                  className="mm-rec-only lg:!hidden min-h-[44px] px-1 rounded-lg text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)]">
+                  {quarterPicker.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              )}
             </div>
           )}
           {/* 재생 속도 — 영상 우하단 (2026-11-03). 10분 경기를 8분에 기록하고 있어

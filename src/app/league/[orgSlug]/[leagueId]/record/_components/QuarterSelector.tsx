@@ -12,7 +12,7 @@ export default function QuarterSelector({
   setCurrentQuarter: Setter<number>
 }) {
   return (
-    <div className="flex items-center gap-1.5 px-2 py-2 border-t border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
+    <div className="mm-rec-hide flex items-center gap-1.5 px-2 py-2 border-t border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
       <span className="pl-1 shrink-0 text-xs font-semibold text-[color:var(--mm-ink-soft)]">쿼터</span>
       {QUARTER_OPTIONS.map(q => {
         const active = currentQuarter === q.value
