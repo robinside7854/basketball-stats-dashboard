@@ -34,8 +34,10 @@ export default function StatHeader({ term, label, className, children, helpSize 
   }
 
   return (
-    <span className={className} style={{ display: 'inline-flex', alignItems: 'center', gap: 1, verticalAlign: 'middle' }}>
-      <span>{display}</span>
+    // 좁은 표 머리에서 「턴오버율 ⓘ ↓」가 한 덩어리로 밀려 이름이 「턴/오/버/율」로 쪼개졌다(2026-11-08) —
+    //   이름은 한 줄로 두고, 모자라면 아이콘만 아랫줄로 넘긴다.
+    <span className={className} style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, verticalAlign: 'middle' }}>
+      <span style={{ whiteSpace: 'nowrap' }}>{display}</span>
       <StatHelpTooltip statKey={term} size={helpSize} />
       {/* 낮을수록 좋은 지표만 작은 표식 — 색만으로 전달하지 않도록 아이콘 + title 병기 */}
       {def.direction === 'low' && (

@@ -260,6 +260,8 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
     return sortDir === 'desc' ? -diff : diff
   })
 
+  // 성공/시도는 「/」 뒤에서만 줄을 넘길 수 있게(2026-11-08 — 표 칸이 값 한가운데서 꺾이지 않도록 바꾼 뒤, 합계 줄 「185/477」이 옆 칸으로 넘쳤다)
+  const withSlashBreak = (v: string) => v.includes('/') ? <>{v.split('/')[0]}/<wbr />{v.split('/')[1]}</> : v
   function cellVal(rr: TotalLine & { gp?: number }, key: string): string {
     if (key === 'gp')       return String(rr.gp ?? 1)
     if (key === 'pts')      return String(rr.pts)
@@ -358,7 +360,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                     : undefined
                   return (
                     <td key={c.key} className={key ? 't-td-key' : 't-td'} style={color ? { color } : undefined}>
-                      {cellVal(rr, c.key)}
+                      {withSlashBreak(cellVal(rr, c.key))}
                       <PctUnder rr={rr} k={c.key} />
                     </td>
                   )
@@ -373,7 +375,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
               <th scope="row" className="t-th text-left px-3" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</th>
               {COLS.map(c => (
                 <td key={c.key} className="t-td-key" style={{ color: 'var(--mm-ink)' }}>
-                  {c.key === 'gp' ? (totalOpts?.gp != null ? String(totalOpts.gp) : '') : cellVal(total, c.key)}
+                  {c.key === 'gp' ? (totalOpts?.gp != null ? String(totalOpts.gp) : '') : withSlashBreak(cellVal(total, c.key))}
                   {c.key !== 'gp' && <PctUnder rr={total} k={c.key} />}
                 </td>
               ))}

@@ -915,10 +915,13 @@
    ⚠ 새 표를 만들 때 overflow-x-auto 로 감싸지 말고 이걸 붙인다. 열이 너무 많으면 성공/시도 + % 를 한 칸으로 합친다. */
 .mm-fit { width: 100%; table-layout: fixed; }
 .mm-fit :is(th, td) { padding-left: 0.25rem; padding-right: 0.25rem; }
-.mm-fit thead th { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.25; vertical-align: bottom; }
-.mm-fit td > * { white-space: normal; overflow-wrap: anywhere; }
-/* 안전장치(2026-11-04): 칸이 정말 모자라면 옆 칸으로 넘쳐 겹치지 말고 칸 안에서 접는다 — 리더보드 누적 「181/634」가 옆 칸과 겹쳤다 */
-.mm-fit td { white-space: normal; overflow-wrap: anywhere; } /* 숫자 아래 보조 줄(성공/시도·공/수·슛 분포)은 칸 안에서 접힌다 */
+.mm-fit thead th { white-space: normal; word-break: keep-all; overflow-wrap: normal; line-height: 1.25; vertical-align: bottom; } /* 머리글도 단어째로만 넘긴다(2026-11-08 — 「득/점」 꺾임) */
+/* 칸 안 줄바꿈 (2026-11-08 고침): 띄어쓰기·<wbr>(성공/시도의 「/」 뒤) 에서만 넘긴다.
+   종전엔 overflow-wrap: anywhere 라 칸이 조금만 모자라도 「28.3%」가 「28.3 / %」처럼 **숫자 한가운데서** 꺾였다
+   (PC 선수 카드 분기표). 이제 숫자는 통째로 한 줄 — 대신 칸이 정말 모자라면 넘치므로, 새 열을 더하면
+   `scripts`(점검: 칸 넘침 + 값 한가운데 꺾임) 로 360·390·768·1024·1280 폭을 다시 잰다. */
+.mm-fit td > * { white-space: normal; word-break: keep-all; overflow-wrap: normal; }
+.mm-fit td { white-space: normal; word-break: keep-all; overflow-wrap: normal; }
 .mm-fit tbody th, .mm-fit tfoot th { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
 @media (max-width: 1279px) { .mm-fit td { font-size: 0.9375rem; } }
 @media (max-width: 639px) {

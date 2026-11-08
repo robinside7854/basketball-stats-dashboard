@@ -3,6 +3,22 @@ import { createClient } from '@/lib/supabase/admin'
 import { isLeaguePublic } from '@/lib/auth/guard'
 import { glyphSet, loadKoreanFont } from '@/lib/og/font'
 import RootOnballCard from '@/app/opengraph-image'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { leagueLogoOf } from '@/lib/league/leagueLogo'
+
+// 동호회 로고(2026-11-08) — 있으면 카드 오른쪽에 크게. public/ 파일을 data URI 로 넣는다(satori 는 상대 경로를 못 읽는다).
+//   ⚠ 공개 리그 카드에만 그린다 — 비공개 리그는 위 프라이버시 규칙대로 온볼 공용 카드(로고·이름 없음).
+async function loadLogoDataUri(leagueId: string): Promise<string | null> {
+  const rel = leagueLogoOf(leagueId)
+  if (!rel) return null
+  try {
+    const buf = await readFile(path.join(process.cwd(), 'public', rel.replace(/^\//, '')))
+    return `data:image/png;base64,${buf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
 
 // 리그 링크 공유 카드 — "온볼 × {팀이름}" (2026-08-10)
 //
@@ -99,9 +115,9 @@ type Headline = { inline: boolean; size: number; lines: string[] }
 
 // 짧은 이름은 "온볼 × 팀이름" 한 줄(가장 보기 좋음), 길어지면 접두어를 윗줄로 올리고
 // 팀 이름을 축소 → 그래도 길면 두 줄로 접는다.
-function layoutHeadline(teamName: string): Headline {
+function layoutHeadline(teamName: string, contentW: number = CONTENT_W): Headline {
   const INLINE_SIZE = 76
-  const BUDGET = CONTENT_W * 0.96 // 근사 오차 여유 — 넘치는 것보다 한 단계 줄이는 쪽이 안전
+  const BUDGET = contentW * 0.96 // 근사 오차 여유 — 넘치는 것보다 한 단계 줄이는 쪽이 안전
   // 한 줄 배치는 '온볼' + '×' + 이름 세 덩어리 + × 좌우 여백(22px*2)로 이뤄진다.
   // 여백을 빼먹으면 실제 폭을 44px 과소평가한다.
   const inlineW = (widthEm('온볼') + widthEm('×') + widthEm(teamName)) * INLINE_SIZE + INLINE_GAP * 2
@@ -144,7 +160,9 @@ export default async function Image({
   const teamName = await loadPublicTeamName(leagueId)
   if (!teamName) return RootOnballCard()
 
-  const head = layoutHeadline(teamName)
+  const logo = await loadLogoDataUri(leagueId)
+  // 로고가 있으면 오른쪽 340px 를 비워 둔다
+  const head = layoutHeadline(teamName, logo ? CONTENT_W - 340 : CONTENT_W)
   // 팀 이름은 가변이므로 서브셋 요청 글리프에 반드시 포함시켜야 한다(빠지면 두부 현상).
   const fontData = await loadKoreanFont(glyphSet(BRAND, PREFIX, TAGLINE, teamName, '…'), 700)
 
@@ -219,6 +237,12 @@ export default async function Image({
             {TAGLINE}
           </div>
         </div>
+
+        {/* 동호회 로고 — 오른쪽 가운데. 이름 글자와 겹치지 않게 크기를 둔다(이름 폭 계산은 그대로) */}
+        {logo && (
+          // eslint-disable-next-line @next/next/no-img-element -- satori(ImageResponse) 는 img 만 받는다
+          <img src={logo} width={300} height={300} alt="" style={{ position: 'absolute', right: 70, top: 165, opacity: 0.98 }} />
+        )}
 
         {/* 하단 강조 바 — 루트 카드와 동일 */}
         <div style={{ display: 'flex', width: '100%', height: 12, background: COLOR.yellow, borderRadius: 6 }} />

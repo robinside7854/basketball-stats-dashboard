@@ -237,8 +237,8 @@ function StatsTable({
     {pctSort && (
       <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>{attemptRuleLabel(sortKey)} · 모자라면 「시도 부족」으로 뒤에 둬요</p>
     )}
-    {/* 모바일 정렬 칩 + 카드뷰 (md 미만) — 칩은 스탯 탭 정렬 칩과 같은 36px, 가로 스크롤 없이 줄바꿈(2026-10-25) */}
-    <div className="md:hidden">
+    {/* 폰·태블릿 정렬 + 카드뷰 (lg 미만 — 2026-11-08 「큰 표는 PC 에서만」: 768 에서 표 머리가 칸을 넘쳤다) */}
+    <div className="lg:hidden">
       {/* 폰: 정렬 칩 여러 줄 → 「정렬 ▾」 하나 + 방향 버튼(2026-11-04, 선수 탭·박스스코어와 같은 방식) */}
       <div className="flex items-center justify-between gap-2 flex-wrap pb-2">
         <SortSelect value={sortKey} options={cols.map(c => ({ key: c.key, label: c.label }))} onChange={k => setSort({ key: k, dir: 'desc' })} />
@@ -248,7 +248,7 @@ function StatsTable({
           {sortDir === 'desc' ? <><ChevronDown size={14} aria-hidden />높은 순</> : <><ChevronUp size={14} aria-hidden />낮은 순</>}
         </button>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
         {sorted.map(({ p, v, ok, rank }) => {
           const isLeader = leaderId && p.player_id === leaderId
           const subKeys = cols.map(c => c.key).filter(k => k !== sortKey).slice(0, 4)
@@ -301,8 +301,8 @@ function StatsTable({
       </div>
     </div>
 
-    {/* 데스크탑 테이블 (md 이상) — 셀 크기·굵기는 globals.css 의 t-th / t-td 가 정본 */}
-    <div className="hidden md:block">
+    {/* 데스크탑 테이블 (lg 이상) — 셀 크기·굵기는 globals.css 의 t-th / t-td 가 정본 */}
+    <div className="hidden lg:block">
       <table className="mm-fit">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
