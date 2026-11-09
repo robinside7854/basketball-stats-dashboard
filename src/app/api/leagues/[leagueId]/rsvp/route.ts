@@ -156,13 +156,22 @@ async function addGuest(sb: ReturnType<typeof createClient>, leagueId: string, g
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     guestId = (data as { id: string }).id
   }
-  const { data: prev } = await sb.from('weekly_rsvp').select('id').eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
-  if (prev) return NextResponse.json({ error: '이 게스트는 이번 주에 이미 신청돼 있어요' }, { status: 409 })
+  const { data: prev } = await sb.from('weekly_rsvp').select('id, answer')
+    .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
   const now = new Date().toISOString()
-  const { error } = await sb.from('weekly_rsvp').insert({
-    league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes',
-    answered_by_label: inviterLabel((inviter as { name?: string } | null)?.name ?? '회원'), answered_at: now, updated_at: now,
-  })
+  const label = inviterLabel((inviter as { name?: string } | null)?.name ?? '회원')
+  const pr = prev as { id: string; answer: string } | null
+  if (pr?.answer === 'yes') return NextResponse.json({ error: '이 게스트는 이번 주에 이미 신청돼 있어요' }, { status: 409 })
+  // 이번 주 기록이 「불」로 남아 있으면(취소가 삭제로 바뀌기 전에 취소한 것 등) 그 줄을 다시 「참」으로 살린다 — 2026-11-09 신고
+  const { error } = pr
+    ? await sb.from('weekly_rsvp').update({
+        answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false,
+        answered_by_label: label, answered_at: now, updated_at: now,
+      }).eq('id', pr.id)
+    : await sb.from('weekly_rsvp').insert({
+        league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes',
+        answered_by_label: label, answered_at: now, updated_at: now,
+      })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, guest_id: guestId }, { status: 201 })
 }
