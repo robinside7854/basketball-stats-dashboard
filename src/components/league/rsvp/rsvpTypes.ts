@@ -22,10 +22,10 @@ export interface RsvpRes {
   window: { gameDate: string; opensAt: string | null; closesAt: string | null; phase: 'open' | 'closed' } | null
   capacity: number
   isAdmin?: boolean
-  me: { answer: 'yes' | 'no' | null; approved: boolean; placed_team_id: string | null; kind: RsvpKind | null; tickets_left: number } | null
+  me: { answer: 'yes' | 'no' | null; approved: boolean; placed_team_id: string | null; kind: RsvpKind | null; tickets_left: number; month_team_id?: string | null } | null
   entries?: RsvpEntryView[]
   teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null }>
-  unanswered?: Array<{ player_id: string; name: string; kind: RsvpKind }>
+  unanswered?: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id?: string | null }>
 }
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토']

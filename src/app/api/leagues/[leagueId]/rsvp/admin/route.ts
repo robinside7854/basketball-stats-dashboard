@@ -10,8 +10,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { resolveAuditActor } from '@/lib/audit'
-import { walletErrorMessage } from '@/lib/wallet/wallet'
-import { loadRsvpRules, loadRsvpBoard, AUTO_LABEL } from '@/lib/rsvp/weekly'
+import { loadRsvpRules, loadRsvpBoard, placeEntry, AUTO_LABEL } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -79,37 +78,9 @@ export async function POST(req: Request, { params }: Ctx) {
 
   if (body.action === 'place') {
     const target = typeof body.teamId === 'string' && body.teamId ? body.teamId : null
-    if (target && r.answer !== 'yes') return NextResponse.json({ error: '「참」인 사람만 배치할 수 있어요' }, { status: 409 })
-    let ticketId = r.ticket_id
-    let ticketNote: string | null = null
-
-    if (target && !ticketId) {
-      // 비정규(정규권 없음 · 게스트 아님)면 이때 티켓 한 장 — 판정은 보드와 같은 한 벌
-      const board = await loadRsvpBoard(sb, leagueId, date)
-      const e = board.entries.find(x => x.player_id === playerId)
-      if (e?.kind === 'non_regular') {
-        const { data, error } = await sb.rpc('wallet_use_ticket', {
-          p_team_id: teamId, p_player_id: playerId, p_date: date, p_note: '참가 배치', p_actor: actor,
-        })
-        if (error) {
-          const msg = walletErrorMessage(error.message)
-          return NextResponse.json({ error: msg ? `${msg} — 회원이 비정규 티켓을 사야 배치할 수 있어요` : error.message }, { status: msg ? 409 : 500 })
-        }
-        ticketId = (data as { id: string }).id
-        ticketNote = '비정규 티켓 1장 사용'
-      }
-    }
-    if (!target && ticketId && body.returnTicket === true) {
-      const { error } = await sb.rpc('wallet_return_ticket', { p_team_id: teamId, p_ticket_id: ticketId, p_note: `${date} 배치 취소`, p_actor: actor })
-      if (error) return NextResponse.json({ error: walletErrorMessage(error.message) ?? error.message }, { status: 409 })
-      ticketId = null
-      ticketNote = '비정규 티켓 돌려줌'
-    }
-    const { error } = await sb.from('weekly_rsvp').update({
-      placed_team_id: target, ticket_id: ticketId, approved: target ? true : undefined, placed_by_label: actor, updated_at: now,
-    }).eq('league_id', leagueId).eq('game_date', date).eq('league_player_id', playerId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, ticket: ticketNote })
+    const res = await placeEntry(sb, leagueId, date, playerId, target, actor, { returnTicket: body.returnTicket === true })
+    if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
+    return NextResponse.json({ ok: true, ticket: res.ticket })
   }
 
   return NextResponse.json({ error: 'action 은 set_answer · approve · place · place_suggested · guest_paid' }, { status: 400 })

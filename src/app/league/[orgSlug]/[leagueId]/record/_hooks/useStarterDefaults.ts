@@ -29,10 +29,14 @@ export function useStarterDefaults(ctx: UseStarterDefaultsCtx) {
     }
 
     // 정규 선수만 기본 체크 (비정규는 기본 미체크 — GP 오염 방지)
-    const regularIds = [...homeRoster, ...awayRoster]
-      .filter(p => p.is_regular !== false)
-      .map(p => p.id)
-    setSelectedStarters(new Set(regularIds))
+    // ⚠ 팀마다 후보가 5명 이하일 때만 미리 체크한다(2026-11-09). 참가신청 배치로 한 팀이 6명이 되면
+    //   전원 체크가 「6/5」가 되어 경기 시작이 막혔다 — 그 팀은 비워 두고 기록원이 5명을 고른다
+    //   (다음 경기부터는 「지난 경기와 같은 선발」).
+    const pick = (roster: typeof homeRoster) => {
+      const c = roster.filter(p => p.is_regular !== false)
+      return c.length <= 5 ? c.map(p => p.id) : []
+    }
+    setSelectedStarters(new Set([...pick(homeRoster), ...pick(awayRoster)]))
     initializedSlotRef.current = selectedSlotId
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 세터는 useRecordState·훅에서 넘겨받은 것(안정). 의존성 배열은 분리 전 그대로 둔다.
   }, [homeRoster, awayRoster, gameStarted, selectedSlotId, isTournament])

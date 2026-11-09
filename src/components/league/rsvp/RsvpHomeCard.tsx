@@ -93,7 +93,13 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
                 : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
                   : open ? '아직 답하지 않았어요.' : '이번 주는 답하지 않았어요.'}
           </p>
-          {me.answer === 'yes' && me.kind === 'non_regular' && me.tickets_left === 0 && !myTeam && (
+          {me.kind === 'non_regular' && me.month_team_id && (
+            <p className="text-sm font-bold mt-1 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
+              이번 달 {data.teams?.find(t => t.id === me.month_team_id)?.name ?? ''}팀 정규인데 정규권이 없어요 — 정규권이 있으면 「참」만 눌러도 팀이 바로 정해져요.{' '}
+              <Link href={`${base}/wallet`} className="underline underline-offset-2">정규권 사기</Link>
+            </p>
+          )}
+          {me.answer === 'yes' && me.kind === 'non_regular' && !me.month_team_id && me.tickets_left === 0 && !myTeam && (
             <p className="text-sm font-bold mt-1 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
               비정규 티켓이 없어요 — 팀에 배치되려면 1장이 필요해요.{' '}
               <Link href={`${base}/wallet`} className="underline underline-offset-2">월렛에서 사기</Link>

@@ -1,4 +1,5 @@
 import { monthOf } from '@/lib/league/monthlyRoster'
+import { loadRsvpRules, currentWindow, autoPlaceAtClose } from '@/lib/rsvp/weekly'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canViewLeague } from '@/lib/auth/guard'
@@ -181,6 +182,39 @@ export async function GET(
         memberships = [
           ...memberships.filter(m => !overridden.has(m.league_player_id)),
           ...(moRows as unknown as MembershipRow[]).filter(r => r.team_id && teamIds.includes(r.team_id)),
+        ]
+      }
+    }
+  }
+
+  // 주간 참가신청(124) — 그 날짜에 신청 기록이 있으면 명단을 그 결과로 맞춘다(2026-11-09 운영진 「손을 거의 안 대게」).
+  //   ① 「불」 = 그날 안 나온 사람 → 명단에서 뺀다(이 경기에 이미 기록이 있으면 남긴다).
+  //   ② 팀에 배치된 사람 → 그 팀으로(비정규·게스트도 자동으로 들어온다). 분기·달 소속보다 우선,
+  //      이 경기 한정 배정(league_game_players)보다는 뒤 — 기록원이 경기 중에 옮긴 것이 마지막 말이다.
+  //   신청 기록이 없는 날(옛 경기 · 참가신청을 안 쓰는 리그)은 아무것도 바뀌지 않는다.
+  if (!isExhibition && game.date) {
+    const rules = await loadRsvpRules(supabase, leagueId)
+    if (rules) {
+      const unplacedYes = await supabase.from('weekly_rsvp').select('id', { count: 'exact', head: true })
+        .eq('league_id', leagueId).eq('game_date', game.date).eq('answer', 'yes').is('placed_team_id', null)
+      const win = currentWindow(rules)
+      const closed = !win || win.gameDate !== game.date || win.phase === 'closed'
+      if ((unplacedYes.count ?? 0) > 0 && closed) await autoPlaceAtClose(supabase, leagueId, game.date, rules.capacity)
+      const { data: rsvp } = await supabase.from('weekly_rsvp')
+        .select('league_player_id, answer, placed_team_id, league_players!inner(id, name, number, position, birth_date, plus_one, is_active)')
+        .eq('league_id', leagueId).eq('game_date', game.date)
+      const rows = (rsvp ?? []) as unknown as Array<{ league_player_id: string; answer: string; placed_team_id: string | null; league_players: unknown }>
+      if (rows.length > 0) {
+        const absent = new Set(rows.filter(r => r.answer === 'no' && !playedIds.has(r.league_player_id)).map(r => r.league_player_id))
+        const placed = rows.filter(r => r.answer === 'yes' && r.placed_team_id)
+        const placedIds = new Set(placed.map(r => r.league_player_id))
+        const wasRegular = new Set(memberships.filter(m => m.is_regular !== false).map(m => m.league_player_id))
+        memberships = [
+          ...memberships.filter(m => !absent.has(m.league_player_id) && !placedIds.has(m.league_player_id)),
+          ...placed.filter(r => teamIds.includes(r.placed_team_id!)).map(r => ({
+            team_id: r.placed_team_id!, is_regular: wasRegular.has(r.league_player_id) ? true : (null as unknown as boolean),
+            league_player_id: r.league_player_id, league_players: r.league_players,
+          })),
         ]
       }
     }

@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, autoPlaceAtClose, AUTO_LABEL } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -31,6 +31,10 @@ export async function GET(req: Request, { params }: Ctx) {
   if (!gameDate) return NextResponse.json({ enabled: true, window: null, capacity: rules.capacity, me: null, isAdmin }, NO_STORE)
 
   let board = await loadRsvpBoard(sb, leagueId, gameDate)
+  // 마감(토요일) 뒤 처음 열릴 때 남은 「참」을 자동 배치 — 정원 안일 때만(autoPlaceAtClose). 누가 열든 한 번 돌면 끝난다.
+  if (win?.phase === 'closed' && win.gameDate === gameDate && board.entries.some(e => e.answer === 'yes' && !e.placed_team_id)) {
+    if (await autoPlaceAtClose(sb, leagueId, gameDate, rules.capacity) > 0) board = await loadRsvpBoard(sb, leagueId, gameDate)
+  }
   // 이 기능 전에 「참」을 눌러 둔 정규 — 열어 볼 때 이번 달 팀으로 맞춘다(본인 줄만).
   const pending = session && board.entries.find(e => e.player_id === session.pid && e.answer === 'yes' && e.kind === 'regular' && !e.placed_team_id && e.suggested_team_id)
   if (pending && win?.gameDate === gameDate) {
@@ -51,7 +55,11 @@ export async function GET(req: Request, { params }: Ctx) {
     window: win && win.gameDate === gameDate ? win : { gameDate, opensAt: null, closesAt: null, phase: 'closed' },
     capacity: rules.capacity,
     isAdmin,
-    me: session ? { answer: mine?.answer ?? null, approved: mine?.approved ?? false, placed_team_id: mine?.placed_team_id ?? null, kind: meKind, tickets_left: meTickets } : null,
+    me: session ? {
+      answer: mine?.answer ?? null, approved: mine?.approved ?? false, placed_team_id: mine?.placed_team_id ?? null, kind: meKind, tickets_left: meTickets,
+      // 이번 달 팀이 정해진 사람(정규권 유무와 무관) — 「팀은 있는데 정규권이 없어요」 안내용
+      month_team_id: mine?.suggested_team_id ?? board.unanswered.find(u => u.player_id === session.pid)?.suggested_team_id ?? null,
+    } : null,
     entries: isAdmin ? board.entries : board.entries.filter(e => e.answer === 'yes'),
     teams: board.teams,
     unanswered: isAdmin ? board.unanswered : undefined,

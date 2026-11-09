@@ -80,7 +80,7 @@ export async function loadRsvpRules(sb: SB, leagueId: string): Promise<RsvpRules
 export interface RsvpBoard {
   entries: RsvpEntry[]
   /** 아직 답하지 않은 활동 선수 전원(구분 포함) — 어드민이 대신 눌러 주거나 게스트를 넣을 때 */
-  unanswered: Array<{ player_id: string; name: string; kind: RsvpKind }>
+  unanswered: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id: string | null }>
   /** uniform = 그 달 유니폼 색(어드민이 「달별 정규 멤버」에서 고른 것, 없으면 null = 기본 노랑) */
   teams: Array<{ id: string; name: string; color: string; uniform: Uniform | null }>
 }
@@ -144,7 +144,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const answered = new Set(entries.map(e => e.player_id))
   const unanswered = [...players.values()]
     .filter(p => !answered.has(p.id) && p.is_active !== false)
-    .map(p => ({ player_id: p.id, name: p.name, kind: kindOf(p.id) }))
+    .map(p => ({ player_id: p.id, name: p.name, kind: kindOf(p.id), suggested_team_id: regularTeam.get(p.id) ?? null }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
 
   const teams = ((teamsRes.data ?? []) as Array<{ id: string }>)
@@ -185,3 +185,84 @@ export async function autoPlaceRegular(sb: SB, leagueId: string, gameDate: strin
 }
 
 export const AUTO_LABEL = '자동(이번 달 팀)'
+
+/**
+ * 한 사람을 팀에 배치하거나(targetTeam) 배치를 푼다(null) — 어드민 「팀 배치」와 마감 자동 배치가 같은 한 벌을 쓴다.
+ *   · 비정규(정규권 없음·게스트 아님)를 처음 배치할 때 비정규 티켓 1장(wallet_use_ticket) → ticket_id.
+ *   · 이미 티켓을 쓴 사람은 팀을 옮겨도 다시 빠지지 않는다.
+ *   · 배치를 풀 때 returnTicket 이면 티켓을 돌려준다(포인트 환불 · 기록은 남는다).
+ * 실패하면 { error, status } — 화면에 그대로 보여 줄 문구다.
+ */
+export async function placeEntry(
+  sb: SB, leagueId: string, gameDate: string, playerId: string,
+  targetTeam: string | null, actor: string, opts: { returnTicket?: boolean; label?: string } = {},
+): Promise<{ ok: true; ticket: string | null } | { ok: false; error: string; status: number }> {
+  const teamId = await resolveTeamId(leagueId)
+  const { data: row } = await sb.from('weekly_rsvp').select('answer, ticket_id')
+    .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId).maybeSingle()
+  const r = row as { answer: string; ticket_id: string | null } | null
+  if (!r) return { ok: false, error: '신청 기록이 없어요', status: 404 }
+  if (targetTeam && r.answer !== 'yes') return { ok: false, error: '「참」인 사람만 배치할 수 있어요', status: 409 }
+
+  let ticketId = r.ticket_id
+  let ticket: string | null = null
+  if (targetTeam && !ticketId) {
+    const board = await loadRsvpBoard(sb, leagueId, gameDate)
+    const e = board.entries.find(x => x.player_id === playerId)
+    if (e?.kind === 'non_regular') {
+      const { data, error } = await sb.rpc('wallet_use_ticket', {
+        p_team_id: teamId, p_player_id: playerId, p_date: gameDate, p_note: '참가 배치', p_actor: actor,
+      })
+      if (error) {
+        const i = error.message.indexOf('wallet: ')
+        const msg = i >= 0 ? error.message.slice(i + 8) : null
+        return { ok: false, error: msg ? `${msg} — 비정규 티켓을 사야 배치할 수 있어요` : error.message, status: msg ? 409 : 500 }
+      }
+      ticketId = (data as { id: string }).id
+      ticket = '비정규 티켓 1장 사용'
+    }
+  }
+  if (!targetTeam && ticketId && opts.returnTicket) {
+    const { error } = await sb.rpc('wallet_return_ticket', { p_team_id: teamId, p_ticket_id: ticketId, p_note: `${gameDate} 배치 취소`, p_actor: actor })
+    if (error) return { ok: false, error: error.message, status: 409 }
+    ticketId = null
+    ticket = '비정규 티켓 돌려줌'
+  }
+  const { error } = await sb.from('weekly_rsvp').update({
+    placed_team_id: targetTeam, ticket_id: ticketId, ...(targetTeam ? { approved: true } : {}),
+    placed_by_label: opts.label ?? actor, updated_at: new Date().toISOString(),
+  }).eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId)
+  if (error) return { ok: false, error: error.message, status: 500 }
+  return { ok: true, ticket }
+}
+
+export const CLOSE_AUTO_LABEL = '자동(마감 배치)'
+
+/**
+ * 마감 자동 배치 (2026-11-09 운영진 — 「사람 손을 거의 거치지 않게」).
+ * 신청이 닫힌 뒤(토요일) 처음 화면이 열릴 때 한 번 돈다(같은 날 다시 불러도 남은 사람만 다룬다).
+ *   · 「참」 인원이 정원 이하일 때만 — 넘치면 팀장·총무 회의 몫이라 손대지 않는다.
+ *   · 정규 중 아직 안 된 사람은 이번 달 팀으로(autoPlaceRegular 와 같은 규칙).
+ *   · 비정규(티켓 있는 사람)·게스트는 먼저 신청한 순서대로 지금 인원이 가장 적은 팀에.
+ *     티켓이 없는 비정규는 남긴다(「팀 정하는 중」에 남아 어드민이 본다).
+ * 돌려준 값: 이번에 배치한 사람 수.
+ */
+export async function autoPlaceAtClose(sb: SB, leagueId: string, gameDate: string, capacity: number): Promise<number> {
+  const board = await loadRsvpBoard(sb, leagueId, gameDate)
+  const yes = board.entries.filter(e => e.answer === 'yes')
+  if (yes.length === 0 || yes.length > capacity || board.teams.length === 0) return 0
+  const size = new Map(board.teams.map(t => [t.id, yes.filter(e => e.placed_team_id === t.id).length]))
+  let placed = 0
+  for (const e of yes) {
+    if (e.placed_team_id) continue
+    let target: string | null = null
+    if (e.kind === 'regular' && e.suggested_team_id && size.has(e.suggested_team_id)) target = e.suggested_team_id
+    else if (e.kind === 'guest' || (e.kind === 'non_regular' && e.tickets_left > 0) || e.kind === 'regular') {
+      target = [...size.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null
+    }
+    if (!target) continue
+    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, target, CLOSE_AUTO_LABEL)
+    if (res.ok) { size.set(target, (size.get(target) ?? 0) + 1); placed++ }
+  }
+  return placed
+}
