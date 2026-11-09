@@ -10,7 +10,7 @@ import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { useState, useEffect, useMemo, useRef, Suspense, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
-import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users, Pencil } from 'lucide-react'
+import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users, Pencil, ArrowDown } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import dynamic from 'next/dynamic'
@@ -52,6 +52,8 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
   )
 }
 import StatHeader from '@/components/league/StatHeader'
+import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
+import { statDef } from '@/lib/stats/glossary'
 import SortSelect from '@/components/league/ui/SortSelect'
 import Avatar from '@/components/league/ui/Avatar'
 import type { PlayerStat } from '@/types/league'
@@ -67,6 +69,7 @@ type StatMode = 'basic'|'shooting'|'advanced'
 // 2026-08-15: 셀 아래 컬러 막대는 뺐다(뜻이 다른 지표가 같은 길이로 비교돼 보인다) — 숫자만.
 type Col = { key: string; label: string; term: string; desc?: string }
 // 하루 평균·누적 기본 표는 리더보드(스탯 탭)와 같은 열·순서(2026-11-09 운영진 「야투율·3점률·자유투율이 빠져 있다 — 리더보드처럼」).
+//   단, 턴오버율·속공은 팀 탭 표에서 뺀다(같은 날 운영진 — 열이 많아 머리가 두 줄로 들쭉날쭉했다).
 //   성공률은 한 칸 + 아래 줄 성공/시도(누적 합). 공격·수비 리바는 리바 칸 아래 줄.
 const AVG_COLS: Col[] = [
   { key: 'gp',      label: '출전',     term: 'R' },
@@ -79,8 +82,6 @@ const AVG_COLS: Col[] = [
   { key: 'fg3_pct', label: '3점률',    term: '3P%' },
   { key: 'ft_pct',  label: '자유투율', term: 'FT%' },
   { key: 'topg',    label: '턴오버',   term: '턴오버' },
-  { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
-  { key: 'fbpg',    label: '속공',     term: '속공' },
 ]
 const TOTAL_COLS: Col[] = [
   { key: 'gp',      label: '출전',     term: 'R' },
@@ -93,8 +94,6 @@ const TOTAL_COLS: Col[] = [
   { key: 'fg3_pct', label: '3점률',    term: '3P%' },
   { key: 'ft_pct',  label: '자유투율', term: 'FT%' },
   { key: 'tov',     label: '턴오버',   term: 'TOV' },
-  { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
-  { key: 'fb_pts',  label: '속공',     term: '속공' },
 ]
 const SHOOTING_COLS: Col[] = [
   { key: 'fg_pct',      label: '야투율',     term: 'FG%',  desc: '전체 야투 성공률' },
@@ -318,7 +317,8 @@ function StatsTable({
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
             <th className="t-th text-center w-10" style={{ color: 'var(--mm-muted)' }}>순위</th>
-            <th className="t-th text-left pr-3 w-28 lg:w-32" style={{ color: 'var(--mm-muted)' }}>선수</th>
+            {/* 선수 칸은 이름(3글자)+왕관이면 충분 — 좁혀서 남는 폭을 숫자 칸 머리에 준다(2026-11-09) */}
+            <th className="t-th text-left pr-2 w-24" style={{ color: 'var(--mm-muted)' }}>선수</th>
             {cols.map(({ key, label, term, desc }) => {
               const active = sortKey === key
               return (
@@ -326,8 +326,16 @@ function StatsTable({
                   aria-sort={active ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}
                   className="t-th text-right cursor-pointer select-none"
                   style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...(key === 'three_share' ? { borderLeft: '1px solid var(--mm-rule)' } : {}) }}>
-                  <StatHeader term={term} label={label} />
-                  <SortIcon active={active} dir={sortDir} />
+                  {/* 머리 칸 높이 통일(2026-11-09 운영진 「이름이 긴 열만 높낮이가 다르다」) —
+                      모든 열을 「위: 이름 한 줄 · 아래: 설명·낮을수록·정렬 아이콘 한 줄」 같은 두 줄 틀로 */}
+                  <span className="inline-flex flex-col items-end gap-0.5">
+                    <span className="whitespace-nowrap">{label}</span>
+                    <span className="inline-flex items-center">
+                      <StatHelpTooltip statKey={term} size={14} />
+                      {statDef(term)?.direction === 'low' && <ArrowDown size={14} strokeWidth={2.5} aria-label="낮을수록 좋은 지표" style={{ color: 'var(--mm-negative-fg)' }} />}
+                      <SortIcon active={active} dir={sortDir} />
+                    </span>
+                  </span>
                 </th>
               )
             })}
