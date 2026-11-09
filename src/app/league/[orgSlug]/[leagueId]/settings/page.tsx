@@ -357,9 +357,9 @@ export default function LeagueSettingsPage() {
           <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 · 소속 · +1)</span>
           <ChevronRight size={16} aria-hidden />
         </Link>
-        {/* 미라클 월렛(2026-11-09) — 충전 승인은 월렛 화면 아래 어드민 칸에서 */}
+        {/* 미라클 월렛(2026-11-09) — 충전 승인은 월렛 화면의 「어드민」 탭에서(바로 그 탭으로 연다) */}
         <Link
-          href={`/league/${orgSlug}/${leagueId}/wallet`}
+          href={`/league/${orgSlug}/${leagueId}/wallet?tab=admin`}
           className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
         >
           <span className="inline-flex items-center gap-2"><Wallet size={16} aria-hidden />월렛 · 충전 · 잔액</span>

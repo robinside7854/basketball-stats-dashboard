@@ -50,6 +50,7 @@ export function fmtP(n: number): string {
 }
 
 export function fmtSigned(n: number): string {
+  if (n === 0) return '0P'
   return `${n > 0 ? '+' : '−'}${Math.abs(n).toLocaleString()}P`
 }
 
