@@ -174,8 +174,17 @@ export default function RsvpTeamBoard({
     >
       {admin && <GripVertical size={14} aria-hidden className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />}
       <Mark kind="yes" />
-      {m.kind === 'guest' ? (
-        // 한 줄: 「듀란트(37) / SF / 211cm · 김로빈 게스트」(2026-11-09 운영진)
+      {m.kind === 'guest' && m.placed_team_id ? (
+        // 팀에 배치된 게스트는 정규와 같은 모양(이름 · 포지션) + 「게스트」 표시만(2026-11-09 운영진 —
+        // 나이·키는 대기명단에서 실력 가늠용이라 배치된 뒤엔 뺀다)
+        <>
+          <span className="text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
+          {m.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{m.position}</span>}
+          <span className="inline-flex items-center self-center px-1.5 text-xs font-black whitespace-nowrap"
+            style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>게스트</span>
+        </>
+      ) : m.kind === 'guest' ? (
+        // 대기명단: 「듀란트(37) / SF / 211cm · 김로빈 게스트」(2026-11-09 운영진 — 실력 가늠용)
         <span className="text-base sm:whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>
           {guestLine(m)}{inviter(m) && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> · {inviter(m)} 게스트</span>}
         </span>

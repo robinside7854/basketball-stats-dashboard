@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { ArrowRight, PlayCircle } from 'lucide-react'
 import { useHomeMe } from './HomeMeContext'
-import { Ring, RecordBar } from '@/components/league/ui/viz'
+import { RecordBar } from '@/components/league/ui/viz'
 
 function shortDate(date: string): string {
   const d = new Date(date + 'T00:00:00')
@@ -48,7 +48,8 @@ export default function MyLastDay({ base }: { base: string }) {
   const { w, l, d } = day.record
   const games = w + l + d
   // 스틸·블록 추가(2026-11-08 운영진) — 숫자 5개
-  const big: Array<[string, number]> = [['득점', line.pts], ['리바', line.reb], ['어시', line.ast], ['스틸', line.stl], ['블록', line.blk]]
+  // 출전 경기를 득점 왼쪽에(2026-11-09 운영진 — 오른쪽 득점 순위 고리는 뺐다)
+  const big: Array<[string, number]> = [['출전', games], ['득점', line.pts], ['리바', line.reb], ['어시', line.ast], ['스틸', line.stl], ['블록', line.blk]]
 
   return (
     <section aria-labelledby="my-last-day-title" className="px-4 pt-3.5 pb-3 lg:px-6 lg:pt-4" style={cardStyle}>
@@ -62,26 +63,14 @@ export default function MyLastDay({ base }: { base: string }) {
       <div className="mt-1.5 flex items-center gap-3">
         {/* 숫자 크기는 화면 폭(vw)이 아니라 이 줄의 폭(cqw)으로 — PC 에서 카드가 좁은 왼쪽 칸에 들어가면
             화면 폭 기준 큰 글자가 다섯 칸에 안 들어가 「35」「7」이 겹쳤다(2026-11-09). */}
-        <dl className="grid grid-cols-5 gap-1.5 sm:gap-2 flex-1 min-w-0" style={{ containerType: 'inline-size' }}>
+        <dl className="grid grid-cols-6 gap-1.5 sm:gap-2 flex-1 min-w-0" style={{ containerType: 'inline-size' }}>
           {big.map(([label, v]) => (
             <div key={label} className="min-w-0">
-              <dt className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
-              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 12.5cqw, 38px)' }}>{v}</dd>
+              <dt className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
+              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 10.5cqw, 38px)' }}>{v}</dd>
             </div>
           ))}
         </dl>
-        {day.ptsRank != null && day.dayPlayers > 1 && (
-          <div className="flex flex-col items-center shrink-0">
-            <Ring
-              ratio={1 - (day.ptsRank - 1) / Math.max(1, day.dayPlayers - 1)}
-              size={60}
-              label={`그날 득점 ${day.ptsRank}위 / ${day.dayPlayers}명`}
-            >
-              <span className="text-sm">{day.ptsRank}위</span>
-            </Ring>
-            <span className="text-[11px] font-bold mt-1 tabular-nums" style={{ color: 'var(--mm-muted)' }}>득점 순위 · {day.dayPlayers}명</span>
-          </div>
-        )}
       </div>
 
       {games > 0 && (
