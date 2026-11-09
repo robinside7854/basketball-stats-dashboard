@@ -93,7 +93,7 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
 
           {/* 팀별 현황 — 단톡방 공지 캡처와 같은 모양(색 점 · 팀명 · 인원 · 이름 · 포지션). 어드민은 색 점으로 유니폼 색을 고른다. */}
           <RsvpTeamBoard leagueId={leagueId} gameDate={gameDate} teams={data.teams ?? []} yes={yes} entries={entries} admin={admin} onChanged={load}
-            myGuestIds={data.me?.my_guest_ids ?? []} canCancelGuests={data.window?.phase === 'open'} />
+            myGuestIds={data.me?.my_guest_ids ?? []} canCancelGuests={data.window?.phase === 'open'} adminVote />
 
           <div className="grid gap-3 lg:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-start">
             <div className="space-y-3 min-w-0">
@@ -176,11 +176,11 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
                     {(data.unanswered ?? []).filter(u => u.kind === 'regular').map(u => u.name).join(' · ') || '없어요'}
                   </p>
                   <div className="mt-3 space-y-2">
-                    <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>대신 「참」 넣기 (회원)</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>대신 「참」 넣기 (비정규 · 정규는 팀 카드의 V/X)</div>
                     <select value={addPid} onChange={e => setAddPid(e.target.value)} aria-label="참으로 넣을 사람"
                       className="w-full min-h-11 px-2 text-sm border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]" style={{ color: 'var(--mm-ink)' }}>
                       <option value="">사람 고르기</option>
-                      {(data.unanswered ?? []).map(u => <option key={u.player_id} value={u.player_id}>{u.name} · {KIND_LABEL[u.kind]}</option>)}
+                      {(data.unanswered ?? []).filter(u => u.kind === 'non_regular').map(u => <option key={u.player_id} value={u.player_id}>{u.name}</option>)}
                     </select>
                     <button type="button" disabled={!addPid || busy === 'add'}
                       onClick={async () => { await act({ action: 'set_answer', playerId: addPid, answer: 'yes' }, 'add', '참으로 넣었어요'); setAddPid('') }}

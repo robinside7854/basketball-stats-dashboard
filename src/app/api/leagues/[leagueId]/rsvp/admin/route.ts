@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { resolveAuditActor } from '@/lib/audit'
-import { loadRsvpRules, loadRsvpBoard, placeEntry, AUTO_LABEL } from '@/lib/rsvp/weekly'
+import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -56,14 +56,20 @@ export async function POST(req: Request, { params }: Ctx) {
       return NextResponse.json({ ok: true, removed: true })
     }
     const { data: prev } = await key(playerId).maybeSingle()
-    if (body.answer === 'no' && (prev as { placed_team_id?: string | null } | null)?.placed_team_id) {
-      return NextResponse.json({ error: '먼저 팀 배치를 취소해 주세요' }, { status: 409 })
+    const pv = prev as { placed_team_id?: string | null; ticket_id?: string | null } | null
+    // 「불」로 바꿀 때: 티켓을 쓴 배치(비정규)는 먼저 배치를 풀어야 한다(티켓 돌려줄지 정해야 해서).
+    //   티켓 없는 배치(정규 자동 배치 등)는 같이 푼다 — V/X 원클릭(2026-11-09 운영진).
+    if (body.answer === 'no' && pv?.placed_team_id && pv.ticket_id) {
+      return NextResponse.json({ error: '비정규 티켓을 쓴 배치예요 — 먼저 대기명단으로 옮겨 티켓을 정리해 주세요' }, { status: 409 })
     }
     const { error } = await sb.from('weekly_rsvp').upsert({
       league_id: leagueId, game_date: date, league_player_id: playerId, answer: body.answer,
       answered_by_label: actor, ...(prev ? {} : { answered_at: now }), updated_at: now,
+      ...(body.answer === 'no' ? { placed_team_id: null } : {}),
     }, { onConflict: 'league_id,game_date,league_player_id' })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // 정규면 「참」 = 이번 달 팀으로 바로 배치(회원이 직접 누를 때와 같은 규칙)
+    if (body.answer === 'yes') await autoPlaceRegular(sb, leagueId, date, playerId)
     return NextResponse.json({ ok: true })
   }
 

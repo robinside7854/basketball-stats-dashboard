@@ -24,7 +24,7 @@ function Dot({ uniform, size = 22 }: { uniform: Uni | null; size?: number }) {
 }
 
 export default function RsvpTeamBoard({
-  leagueId, gameDate, teams, yes, admin, onChanged, compact = false, entries = [], myGuestIds = [], canCancelGuests = false,
+  leagueId, gameDate, teams, yes, admin, onChanged, compact = false, entries = [], myGuestIds = [], canCancelGuests = false, adminVote = false,
 }: {
   leagueId: string
   gameDate: string
@@ -38,6 +38,8 @@ export default function RsvpTeamBoard({
   /** 내가 부른 게스트 — 「취소」 버튼 */
   myGuestIds?: string[]
   canCancelGuests?: boolean
+  /** 어드민 원클릭 V/X — 정규 선수 줄 옆에서 참·불을 바로 바꾼다(참가 명단 화면, 2026-11-09 운영진) */
+  adminVote?: boolean
 }) {
   const [picking, setPicking] = useState<string | null>(null)
   const [over, setOver] = useState<string | null>(null)
@@ -90,6 +92,43 @@ export default function RsvpTeamBoard({
 
   const answerOf = new Map(entries.map(x => [x.player_id, x.answer]))
 
+  async function vote(pid: string, name: string, answer: 'yes' | 'no') {
+    if (answerOf.get(pid) === answer) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/rsvp/admin`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_answer', date: gameDate, playerId: pid, answer }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(j.error ?? '바꾸지 못했어요'); return }
+      toast.success(`${name} 님 ${answer === 'yes' ? '참' : '불참'}으로 바꿨어요`)
+      onChanged()
+    } finally { setBusy(false) }
+  }
+
+  // 정규 줄 옆 V / X — 지금 답이 칠해져 있다
+  const Vote = ({ pid, name }: { pid: string; name: string }) => {
+    if (!admin || !adminVote) return null
+    const cur = answerOf.get(pid)
+    const btn = (a: 'yes' | 'no') => (
+      <button type="button" disabled={busy} onClick={() => vote(pid, name, a)} aria-label={`${name} ${a === 'yes' ? '참' : '불참'}`} aria-pressed={cur === a}
+        className="mm-press inline-flex items-center justify-center w-7 h-7 border text-xs font-black disabled:opacity-50"
+        style={{
+          borderColor: cur === a ? (a === 'yes' ? '#059669' : 'var(--mm-live-bg)') : 'var(--mm-rule)',
+          background: cur === a ? (a === 'yes' ? '#059669' : 'var(--mm-live-bg)') : 'var(--mm-panel)',
+          color: cur === a ? '#fff' : 'var(--mm-muted)',
+          borderRadius: 'var(--mm-radius-chip)',
+        }}>
+        {a === 'yes' ? <Check size={14} aria-hidden /> : <X size={14} aria-hidden />}
+      </button>
+    )
+    return <span className="ml-auto inline-flex gap-1 self-center">{btn('yes')}{btn('no')}</span>
+  }
+
+  // 게스트를 부른 회원 — 「김로빈 초대」 → 「김로빈 게스트」
+  const inviter = (m: RsvpEntryView) => m.answered_by && m.answered_by.endsWith(' 초대') ? m.answered_by.slice(0, -3) : null
+
   const dropProps = (key: string) => admin ? {
     onDragOver: (ev: DragEvent) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; if (over !== key) setOver(key) },
     onDragLeave: () => setOver(o => (o === key ? null : o)),
@@ -118,31 +157,32 @@ export default function RsvpTeamBoard({
     <li
       draggable={admin}
       onDragStart={admin ? (ev => { ev.dataTransfer.setData('text/plain', m.player_id); ev.dataTransfer.effectAllowed = 'move' }) : undefined}
-      className={`flex items-baseline gap-2 flex-wrap ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+      className={`flex items-baseline gap-x-2 gap-y-0.5 flex-wrap sm:flex-nowrap ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
       title={admin ? '끌어서 다른 팀이나 대기명단에 놓기' : undefined}
     >
       {admin && <GripVertical size={14} aria-hidden className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />}
       <Mark kind="yes" />
       {m.kind === 'guest' ? (
-        <span className="text-base" style={{ color: 'var(--mm-ink)' }}>{guestLine(m)}</span>
+        // 한 줄: 「듀란트(37) / SF / 211cm · 김로빈 게스트」(2026-11-09 운영진)
+        <span className="text-base sm:whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>
+          {guestLine(m)}{inviter(m) && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}> · {inviter(m)} 게스트</span>}
+        </span>
       ) : (
         <>
-          <span className="text-base" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
+          <span className="text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
           {m.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{m.position}</span>}
         </>
       )}
-      {showKind && <span className="text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{KIND_LABEL[m.kind]}</span>}
-      {m.kind === 'guest' && m.answered_by && m.answered_by.endsWith('초대') && (
-        <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{m.answered_by}</span>
-      )}
-      {admin && m.kind === 'guest' && m.guest_paid && <span className="text-xs font-bold" style={{ color: '#059669' }}>게스트비 받음</span>}
+      {showKind && m.kind !== 'guest' && <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>{KIND_LABEL[m.kind]}</span>}
+      {admin && m.kind === 'guest' && m.guest_paid && <span className="text-xs font-bold whitespace-nowrap" style={{ color: '#059669' }}>게스트비 받음</span>}
       {admin && m.kind === 'non_regular' && !m.placed_team_id && (
-        <span className="text-xs" style={{ color: m.tickets_left > 0 ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>티켓 {m.tickets_left}장</span>
+        <span className="text-xs whitespace-nowrap" style={{ color: m.tickets_left > 0 ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>티켓 {m.tickets_left}장</span>
       )}
       {canCancelGuests && m.kind === 'guest' && myGuestIds.includes(m.player_id) && (
         <button type="button" disabled={busy} onClick={() => cancelGuest(m)}
-          className="mm-press min-h-8 px-2 text-xs font-bold underline" style={{ color: 'var(--mm-live-bg)' }}>취소</button>
+          className="mm-press min-h-8 px-2 text-xs font-bold underline whitespace-nowrap" style={{ color: 'var(--mm-live-bg)' }}>취소</button>
       )}
+      {m.kind === 'regular' && <Vote pid={m.player_id} name={m.name} />}
     </li>
   )
 
@@ -204,6 +244,7 @@ export default function RsvpTeamBoard({
                         <Mark kind={r.mark} />
                         <span className="text-base" style={{ color: 'var(--mm-ink)', textDecoration: r.mark === 'no' ? 'line-through' : undefined }}>{r.name}</span>
                         {r.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{r.position}</span>}
+                        <Vote pid={r.player_id} name={r.name} />
                       </li>
                     ))}
                   </ul>
@@ -212,22 +253,31 @@ export default function RsvpTeamBoard({
             </div>
           )
         })}
-        {(waiting.length > 0 || admin) && (
-          <div className={card} style={cardStyle(WAIT, true)} {...dropProps(WAIT)}>
-            <div className="flex items-center justify-between gap-2">
-              <b className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>대기명단</b>
-              <span className="text-sm tabular-nums" style={{ color: 'var(--mm-muted)' }}>{waiting.length}명</span>
+        {(waiting.length > 0 || admin) && (() => {
+          // PC·태블릿: 세 팀 아래 한 줄 전체 너비 · 안은 비정규 | 게스트 좌우(2026-11-09 운영진)
+          const nonReg = waiting.filter(m => m.kind !== 'guest')
+          const guests = waiting.filter(m => m.kind === 'guest')
+          const Col = ({ title, rows }: { title: string; rows: RsvpEntryView[] }) => (
+            <div className="min-w-0">
+              <div className="text-sm font-black" style={{ color: 'var(--mm-ink-soft)' }}>{title} <span className="tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rows.length}명</span></div>
+              {rows.length === 0 ? <p className="text-sm mt-1" style={{ color: 'var(--mm-muted)' }}>없어요</p> : (
+                <ul className="mt-1 space-y-1.5">{rows.map(m => <Person key={m.player_id} m={m} showKind={false} />)}</ul>
+              )}
             </div>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>비정규·게스트 — 어드민이 팀 수요에 맞춰 배치해요</p>
-            {waiting.length === 0 ? (
-              <p className="text-sm mt-2" style={{ color: 'var(--mm-muted)' }}>대기 중인 사람이 없어요</p>
-            ) : (
-              <ul className="mt-2 space-y-1.5">
-                {waiting.map(m => <Person key={m.player_id} m={m} showKind />)}
-              </ul>
-            )}
-          </div>
-        )}
+          )
+          return (
+            <div className={`${card} col-span-full`} style={cardStyle(WAIT, true)} {...dropProps(WAIT)}>
+              <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                <b className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>대기명단 <span className="text-sm font-normal" style={{ color: 'var(--mm-muted)' }}>어드민이 팀 수요에 맞춰 배치해요</span></b>
+                <span className="text-sm tabular-nums" style={{ color: 'var(--mm-muted)' }}>{waiting.length}명</span>
+              </div>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <Col title="비정규" rows={nonReg} />
+                <Col title="게스트" rows={guests} />
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
