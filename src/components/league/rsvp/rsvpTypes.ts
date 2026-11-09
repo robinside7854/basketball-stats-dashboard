@@ -27,7 +27,7 @@ export interface RsvpRes {
   isAdmin?: boolean
   me: { answer: 'yes' | 'no' | null; approved: boolean; placed_team_id: string | null; kind: RsvpKind | null; tickets_left: number; month_team_id?: string | null; my_guest_ids?: string[] } | null
   entries?: RsvpEntryView[]
-  teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null; regulars?: Array<{ player_id: string; name: string; position: string | null }> }>
+  teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null; leader_id?: string | null; regulars?: Array<{ player_id: string; name: string; position: string | null }> }>
   unanswered?: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id?: string | null }>
 }
 

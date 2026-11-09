@@ -87,7 +87,8 @@ export interface RsvpBoard {
   /** 아직 답하지 않은 활동 선수 전원(구분 포함) — 어드민이 대신 눌러 주거나 게스트를 넣을 때 */
   unanswered: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id: string | null }>
   /** uniform = 그 달 유니폼 색(어드민이 「달별 정규 멤버」에서 고른 것, 없으면 null = 기본 노랑) */
-  teams: Array<{ id: string; name: string; color: string; uniform: Uniform | null; regulars: Array<{ player_id: string; name: string; position: string | null }> }>
+  /** leader_id = 그 분기 팀장(league_team_quarter_leaders) — 팀 카드 맨 위 · 왕관 */
+  teams: Array<{ id: string; name: string; color: string; uniform: Uniform | null; leader_id: string | null; regulars: Array<{ player_id: string; name: string; position: string | null }> }>
 }
 
 /** 그 날짜의 신청 현황 전부 — 홈 카드 · 관리 화면 공용. */
@@ -97,7 +98,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const q = await loadCurrentQuarter(sb, leagueId)
   const inQuarter = !!q?.start_date && !!q?.end_date && gameDate >= q.start_date && gameDate <= q.end_date
 
-  const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes, uniforms] = await Promise.all([
+  const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes, uniforms, leadersRes] = await Promise.all([
     sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, answered_at, answered_by_label')
       .eq('league_id', leagueId).eq('game_date', gameDate),
     // 선수는 팀 소유 — league_id 로 찾지 않는다(CLAUDE.md)
@@ -111,6 +112,8 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
     loadIdentityResolver(sb, leagueId),
     sb.from('league_teams').select('id').eq('league_id', leagueId).is('exhibition_date', null).eq('is_external', false),
     loadMonthUniforms(sb, leagueId, month),
+    q ? sb.from('league_team_quarter_leaders').select('team_id, leader_player_id').eq('quarter_id', q.id)
+      : Promise.resolve({ data: [] as { team_id: string; leader_player_id: string }[] }),
   ])
   if (rowsRes.error) throw new Error(`weekly_rsvp 조회 실패 — ${rowsRes.error.message}`)
   if (playersRes.error) throw new Error(`league_players 조회 실패 — ${playersRes.error.message}`)
@@ -161,6 +164,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
     .filter((x): x is NonNullable<typeof x> => !!x)
     .map(x => ({
       id: x.team_id, name: x.display_name, color: x.color, uniform: uniforms.get(x.team_id) ?? null,
+      leader_id: ((leadersRes.data ?? []) as Array<{ team_id: string; leader_player_id: string }>).find(l => l.team_id === x.team_id)?.leader_player_id ?? null,
       // 이번 달 이 팀 정규 멤버 — 답하지 않은 사람(?)·불참(X)까지 팀 카드에 보이게(2026-11-09 운영진)
       regulars: [...regularTeam.entries()]
         .filter(([pid, tid]) => tid === x.team_id && players.get(pid) && players.get(pid)!.is_active !== false && !players.get(pid)!.is_guest)

@@ -9,7 +9,7 @@
 //     ✓ 참(맨 위) · ? 아직 답 안 함 · ✕ 불참. 게스트는 「이름(나이) / 포지션 / 신장」.
 import { useState, type DragEvent } from 'react'
 import { toast } from 'sonner'
-import { GripVertical, Check, X, HelpCircle } from 'lucide-react'
+import { GripVertical, Check, X, HelpCircle, Crown } from 'lucide-react'
 import { UNIFORM_FILL, UNIFORM_NAME, KIND_LABEL, guestLine, type RsvpEntryView, type RsvpRes } from './rsvpTypes'
 
 type Team = NonNullable<RsvpRes['teams']>[number]
@@ -127,9 +127,10 @@ export default function RsvpTeamBoard({
       <button type="button" disabled={busy} onClick={() => vote(pid, name, a)} aria-label={`${name} ${a === 'yes' ? '참' : '불참'}`} aria-pressed={cur === a}
         className="mm-press inline-flex items-center justify-center w-7 h-7 border text-xs font-black disabled:opacity-50"
         style={{
-          borderColor: cur === a ? (a === 'yes' ? '#059669' : 'var(--mm-live-bg)') : 'var(--mm-rule)',
+          // 고르지 않은 쪽도 V = 초록 · X = 빨강 아이콘(바탕은 비움) — 2026-11-09 운영진
+          borderColor: cur === a ? (a === 'yes' ? '#059669' : 'var(--mm-live-bg)') : (a === 'yes' ? '#05966966' : 'color-mix(in srgb, var(--mm-live-bg) 40%, transparent)'),
           background: cur === a ? (a === 'yes' ? '#059669' : 'var(--mm-live-bg)') : 'var(--mm-panel)',
-          color: cur === a ? '#fff' : 'var(--mm-muted)',
+          color: cur === a ? '#fff' : (a === 'yes' ? '#059669' : 'var(--mm-live-bg)'),
           borderRadius: 'var(--mm-radius-chip)',
         }}>
         {a === 'yes' ? <Check size={14} aria-hidden /> : <X size={14} aria-hidden />}
@@ -165,7 +166,26 @@ export default function RsvpTeamBoard({
       ? <X size={14} aria-label="불참" className="self-center shrink-0" style={{ color: 'var(--mm-live-bg)' }} />
       : <HelpCircle size={14} aria-label="아직 답 안 함" className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />
 
-  const Person = ({ m, showKind }: { m: RsvpEntryView; showKind: boolean }) => (
+  // 팀장 왕관 — 홈 「이번 달 우리 팀」과 같은 모양(노란 동그라미)
+  const CrownMark = () => (
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full self-center shrink-0" title="팀장"
+      style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
+      <Crown size={12} strokeWidth={2.5} aria-label="팀장" />
+    </span>
+  )
+
+  // 폰·태블릿(끌기가 안 되는 화면)용 팀 고르기 — 비정규·게스트 줄에만(2026-11-09 운영진 「폰에서도 배치」)
+  const MobilePlace = ({ m }: { m: RsvpEntryView }) => (!admin || m.kind === 'regular') ? null : (
+    <select aria-label={`${m.name} 팀 배치`} value={m.placed_team_id ?? ''} disabled={busy}
+      onChange={ev => { void move(m, ev.target.value || null) }}
+      className="lg:hidden ml-auto min-h-9 px-1.5 text-sm font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] self-center"
+      style={{ color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
+      <option value="">대기명단</option>
+      {teams.map(t => <option key={t.id} value={t.id}>TEAM {t.name}</option>)}
+    </select>
+  )
+
+  const Person = ({ m, showKind, leader = false }: { m: RsvpEntryView; showKind: boolean; leader?: boolean }) => (
     <li
       draggable={admin}
       onDragStart={admin ? (ev => { ev.dataTransfer.setData('text/plain', m.player_id); ev.dataTransfer.effectAllowed = 'move' }) : undefined}
@@ -190,7 +210,8 @@ export default function RsvpTeamBoard({
         </span>
       ) : (
         <>
-          <span className="text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
+          <span className="text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontWeight: leader ? 800 : undefined }}>{m.name}</span>
+          {leader && <CrownMark />}
           {m.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{m.position}</span>}
         </>
       )}
@@ -211,6 +232,7 @@ export default function RsvpTeamBoard({
           className="mm-press min-h-8 px-2 text-xs font-bold underline whitespace-nowrap" style={{ color: 'var(--mm-live-bg)' }}>취소</button>
       )}
       {m.kind === 'regular' && <Vote pid={m.player_id} name={m.name} />}
+      <MobilePlace m={m} />
     </li>
   )
 
@@ -234,7 +256,9 @@ export default function RsvpTeamBoard({
                       <Dot uniform={t.uniform} />
                     </button>
                   ) : <Dot uniform={t.uniform} />}
-                  <b className="font-black text-lg break-keep" style={{ color: 'var(--mm-ink)' }}>{t.name}팀</b>
+                  <b className="font-black text-lg break-keep" style={{ color: 'var(--mm-ink)' }}>
+                    <span className="text-xs font-black tracking-widest mr-1.5 align-middle" style={{ color: 'var(--mm-muted)' }}>TEAM</span>{t.name}
+                  </b>
                   {picking === t.id && (
                     <span className="absolute left-0 top-full mt-1 z-20 flex items-center gap-1.5 p-2"
                       style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', boxShadow: 'var(--mm-shadow-md)', borderRadius: 'var(--mm-radius-ctl)' }}>
@@ -263,18 +287,26 @@ export default function RsvpTeamBoard({
                 if (members.length === 0 && rest.length === 0) {
                   return <p className="text-sm mt-2" style={{ color: 'var(--mm-muted)' }}>{admin ? '여기에 끌어다 놓기' : '아직 없어요'}</p>
                 }
+                // 팀장은 늘 맨 위(답과 상관없이 · 왕관) — 2026-11-09 운영진. 그다음 ✓ 참, 그다음 ? / ✕.
+                const leaderId = t.leader_id ?? null
+                const restRow = (r: (typeof rest)[number]) => (
+                  <li key={r.player_id} className="flex items-baseline gap-2 flex-wrap" style={{ opacity: r.mark === 'no' ? 0.55 : 0.8 }}>
+                    {admin && <span className="w-[14px] shrink-0" aria-hidden />}
+                    <Mark kind={r.mark} />
+                    <span className="text-base" style={{ color: 'var(--mm-ink)', fontWeight: r.player_id === leaderId ? 800 : undefined, textDecoration: r.mark === 'no' ? 'line-through' : undefined }}>{r.name}</span>
+                    {r.player_id === leaderId && <CrownMark />}
+                    {r.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{r.position}</span>}
+                    <Vote pid={r.player_id} name={r.name} />
+                  </li>
+                )
+                const leaderMember = members.find(m => m.player_id === leaderId)
+                const leaderRest = rest.find(r => r.player_id === leaderId)
                 return (
                   <ul className="mt-2 space-y-1.5">
-                    {members.map(m => <Person key={m.player_id} m={m} showKind={m.kind !== 'regular'} />)}
-                    {rest.map(r => (
-                      <li key={r.player_id} className="flex items-baseline gap-2 flex-wrap" style={{ opacity: r.mark === 'no' ? 0.55 : 0.8 }}>
-                        {admin && <span className="w-[14px] shrink-0" aria-hidden />}
-                        <Mark kind={r.mark} />
-                        <span className="text-base" style={{ color: 'var(--mm-ink)', textDecoration: r.mark === 'no' ? 'line-through' : undefined }}>{r.name}</span>
-                        {r.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{r.position}</span>}
-                        <Vote pid={r.player_id} name={r.name} />
-                      </li>
-                    ))}
+                    {leaderMember && <Person key={leaderMember.player_id} m={leaderMember} showKind={leaderMember.kind !== 'regular'} leader />}
+                    {leaderRest && restRow(leaderRest)}
+                    {members.filter(m => m.player_id !== leaderId).map(m => <Person key={m.player_id} m={m} showKind={m.kind !== 'regular'} />)}
+                    {rest.filter(r => r.player_id !== leaderId).map(restRow)}
                   </ul>
                 )
               })()}

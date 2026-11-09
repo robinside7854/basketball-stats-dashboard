@@ -51,8 +51,9 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
     const on = me?.answer === a
     return {
       background: on ? (a === 'yes' ? 'var(--mm-yellow)' : 'var(--mm-ink)') : 'var(--mm-panel)',
-      color: on ? (a === 'yes' ? 'var(--mm-black)' : 'var(--mm-panel)') : 'var(--mm-ink)',
-      border: `2px solid ${on ? (a === 'yes' ? 'var(--mm-black)' : 'var(--mm-ink)') : 'var(--mm-rule)'}`,
+      // 고르기 전에도 참 = 초록 · 불 = 빨강으로 표시(바탕은 칠하지 않음) — 2026-11-09 운영진
+      color: on ? (a === 'yes' ? 'var(--mm-black)' : 'var(--mm-panel)') : (a === 'yes' ? '#059669' : 'var(--mm-live-bg)'),
+      border: `2px solid ${on ? (a === 'yes' ? 'var(--mm-black)' : 'var(--mm-ink)') : (a === 'yes' ? '#05966966' : 'color-mix(in srgb, var(--mm-live-bg) 40%, transparent)')}`,
     }
   }
 
