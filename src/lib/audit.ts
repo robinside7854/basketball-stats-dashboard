@@ -109,6 +109,10 @@ export type AuditAction =
   | 'draft_code.create'
   | 'draft_code.update'
   | 'draft_code.delete'
+  // 미라클 월렛(포인트) — 122
+  | 'wallet.charge.approve'
+  | 'wallet.charge.reject'
+  | 'wallet.adjust'
 
 export type AuditResult = 'success' | 'failure' | 'denied'
 

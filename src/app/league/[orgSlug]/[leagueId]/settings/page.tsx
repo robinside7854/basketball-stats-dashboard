@@ -6,7 +6,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Youtube, Calendar, ChevronRight, Globe, MapPin, Users } from 'lucide-react'
+import { Loader2, Lock, Youtube, Calendar, ChevronRight, Globe, MapPin, Users, Wallet } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import type { League } from '@/types/league'
@@ -324,6 +324,14 @@ export default function LeagueSettingsPage() {
         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
       >
         <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 추가 · 소속 · +1)</span>
+        <ChevronRight size={16} aria-hidden />
+      </Link>
+      {/* 미라클 월렛(2026-11-09) — 충전 승인은 월렛 화면 아래 어드민 칸에서. 월렛을 켜지 않은 팀은 그 화면이 「쓰지 않아요」 */}
+      <Link
+        href={`/league/${orgSlug}/${leagueId}/wallet`}
+        className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
+      >
+        <span className="inline-flex items-center gap-2"><Wallet size={16} aria-hidden />월렛 · 충전 확인 · 회원 잔액</span>
         <ChevronRight size={16} aria-hidden />
       </Link>
       <nav aria-label="설정 바로가기" className="flex flex-wrap gap-2">

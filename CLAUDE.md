@@ -171,6 +171,15 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   올리기 = `POST /players/[playerId]/uniform-photos`(운영진 또는 1회용 비밀번호 `x-upload-token` — `league_upload_tokens` 에 해시·기한, 쓰고 나면 지운다).
   ⚠ 선수가 새 사진을 올리면 그 사진이 photo_url 이 되지만 다음 맞추기 때 네 벌로 다시 덮인다 — 새 얼굴이면 네 벌도 다시 만들어야 한다.
 
+### 미라클 월렛 (포인트 지갑, 2026-11-09 운영진, 마이그레이션 122)
+- 미모바스켓 흡수 1단계(`docs/mimo-onboarding-plan.md`). 팀 단위 — `teams.wallet_name` 이 있는 팀에만 보인다(미라클 = 「미라클 월렛」, 입금 안내 `teams.wallet_bank`).
+- 표: `wallet_balances`(잔액 캐시) · `wallet_ledger`(**정본 장부**) · `wallet_charge_requests`(충전 요청, 한 사람당 대기 1건).
+- ⚠ **잔액은 DB 함수 `wallet_apply` · `wallet_review_charge` 로만 바꾼다** — 잔액 행을 잠그고 장부와 한 트랜잭션. 잔액을 직접 UPDATE 하지 말 것.
+  ⚠ **장부 행은 지우거나 고치지 않는다** — 되돌리기는 반대 부호 행(adjust·refund). 티켓 돌려주기도 이력을 남긴다(운영진).
+- 회원(승인 회원 본인만): `/wallet` 화면 — 잔액 · 충전 요청 · 사용 내역 · 충전 요청 이력. `GET/POST/DELETE /api/leagues/[id]/wallet`.
+- 어드민 **누구나**(+CEO): 같은 화면 아래 어드민 칸 — 승인/반려 · 회원별 잔액 · 보정(이유 필수). `GET/POST /wallet/admin`. 처리자는 `resolveAuditActor` 라벨로 장부·요청에 남고 감사 로그 `wallet.*`.
+- 포인트 유효기간 없음. 정규권 28,000P/월 · 비정규 티켓 12,000P/회(다음 단계). 게스트비는 같은 통장, 포인트 없음.
+
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`
   - UNIQUE INDEX `league_games_slot_unique` ON (league_id, date, slot_num) WHERE slot_num IS NOT NULL

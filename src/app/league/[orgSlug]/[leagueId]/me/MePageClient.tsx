@@ -11,7 +11,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronRight, ClipboardList } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronRight, ClipboardList, Wallet } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
@@ -37,6 +38,20 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   //   그리고 현재 분기에 진행 중인 세션이 있을 때만. 레이아웃 드래프트 탭과 같은 훅(useActiveDraft)으로 판정한다.
   const showDraft = useActiveDraft(leagueId)
 
+  // 미라클 월렛(2026-11-09) — 월렛을 켠 팀에서 로그인한 회원에게 잔액과 함께 바로가기를 보인다.
+  const [wallet, setWallet] = useState<{ name: string; balance: number | null } | null>(null)
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    fetch(`/api/leagues/${leagueId}/wallet`, { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((j: { enabled: boolean; name?: string; me?: { balance: number } | null } | null) => {
+        if (alive) setWallet(j?.enabled ? { name: j.name ?? '월렛', balance: j.me?.balance ?? null } : null)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [leagueId, user])
+
   return (
     <div className="space-y-4 lg:space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -54,6 +69,15 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       {/* 바로가기 — 드래프트(진행 중 · 어드민만)만 남았다. 「내 하이라이트」는 2026-10-12 부터
           대시보드의 「내 베스트샷」 카드 머리(전체 하이라이트)로 옮겼다 — 같은 링크를 두 곳에 두지 않는다. */}
       {/* PC: 바로가기·계정 카드는 위 대시보드 왼쪽 칼럼(380px) 폭에 맞춘다 — 전폭이면 버튼 한두 개 옆이 텅 비었다 */}
+      {user && wallet && (
+        <SectionCard variant="standalone" pad="none" className="lg:max-w-[380px]">
+          <ShortcutRow
+            href={`${base}/wallet`} Icon={Wallet} label={wallet.name}
+            sub={wallet.balance == null ? '포인트 충전 · 내역' : `잔액 ${wallet.balance.toLocaleString()}P · 충전 · 내역`} last
+          />
+        </SectionCard>
+      )}
+
       {showDraft && (
         <SectionCard variant="standalone" pad="none" className="lg:max-w-[380px]">
           <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />
