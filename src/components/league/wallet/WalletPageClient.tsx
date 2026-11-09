@@ -96,7 +96,7 @@ interface Row {
   rightColor: string
   under: string | null
   chip?: { label: string; bg: string; fg: string }
-  tone: 'in' | 'out' | 'ticket' | 'wait'
+  tone: 'in' | 'out' | 'ticket' | 'pass' | 'wait'
 }
 
 const REQ_CHIP: Record<RequestItem['status'], { bg: string; fg: string }> = {
@@ -110,9 +110,13 @@ function buildRows(ledger: LedgerItem[], requests: RequestItem[], tickets: Ticke
   const rows: Row[] = []
   for (const l of ledger) {
     rows.push({
-      id: `l-${l.id}`, at: l.created_at, group: 'point', title: KIND_LABEL[l.kind], sub: l.memo,
+      id: `l-${l.id}`, at: l.created_at, group: 'point',
+      title: l.kind === 'purchase' && l.memo?.startsWith('정규권') ? '정규권 구매' : l.kind === 'purchase' && l.memo?.includes('비정규') ? '비정규 티켓 구매' : KIND_LABEL[l.kind], sub: l.memo,
       right: fmtSigned(l.amount), rightColor: l.amount > 0 ? GREEN : 'var(--mm-ink)', under: `잔액 ${fmtP(l.balance_after)}`,
-      tone: l.amount > 0 ? 'in' : 'out',
+      // 티켓을 사고 돌려받은 줄은 종류 그림으로(정규권 = 왕관 · 비정규 = 표) — 2026-11-09 운영진(둘이 같아 헷갈렸다)
+      tone: (l.kind === 'purchase' || l.kind === 'refund') && l.memo?.startsWith('정규권') ? 'pass'
+        : (l.kind === 'purchase' || l.kind === 'refund') && l.memo?.includes('비정규') ? 'ticket'
+          : l.amount > 0 ? 'in' : 'out',
     })
   }
   // 승인된 요청은 장부(충전·환불 송금)에 이미 있다 — 기다리는 것·반려·취소만 요청으로 보인다.
@@ -127,12 +131,13 @@ function buildRows(ledger: LedgerItem[], requests: RequestItem[], tickets: Ticke
   }
   for (const t of tickets) {
     const name = t.kind === 'regular_pass' && t.month ? `${monthLabel(t.month)} 정규권` : '비정규 티켓'
-    rows.push({ id: `tb-${t.id}`, at: t.created_at, group: 'ticket', title: `${name} 구매`, sub: null, right: fmtP(t.price), rightColor: 'var(--mm-ink-soft)', under: null, tone: 'ticket' })
+    const tt: Row['tone'] = t.kind === 'regular_pass' ? 'pass' : 'ticket'
+    rows.push({ id: `tb-${t.id}`, at: t.created_at, group: 'ticket', title: `${name} 구매`, sub: null, right: fmtP(t.price), rightColor: 'var(--mm-ink-soft)', under: null, tone: tt })
     if (t.status === 'used' && t.used_date) {
-      rows.push({ id: `tu-${t.id}`, at: `${t.used_date}T12:00:00+09:00`, group: 'ticket', title: `${name} 사용`, sub: t.used_note, right: '1장', rightColor: 'var(--mm-ink)', under: null, tone: 'ticket' })
+      rows.push({ id: `tu-${t.id}`, at: `${t.used_date}T12:00:00+09:00`, group: 'ticket', title: `${name} 사용`, sub: t.used_note, right: '1장', rightColor: 'var(--mm-ink)', under: null, tone: tt })
     }
     if (t.status === 'returned') {
-      rows.push({ id: `tr-${t.id}`, at: t.created_at, group: 'ticket', title: `${name} 돌려받음`, sub: [t.returned_by_label, t.returned_note].filter(Boolean).join(' · ') || null, right: `+${fmtP(t.price)}`, rightColor: GREEN, under: null, tone: 'ticket' })
+      rows.push({ id: `tr-${t.id}`, at: t.created_at, group: 'ticket', title: `${name} 돌려받음`, sub: [t.returned_by_label, t.returned_note].filter(Boolean).join(' · ') || null, right: `+${fmtP(t.price)}`, rightColor: GREEN, under: null, tone: tt })
     }
   }
   return rows.sort((a, b) => b.at.localeCompare(a.at))
@@ -146,6 +151,7 @@ function RowIcon({ tone }: { tone: Row['tone'] }) {
     in: { Icon: ArrowDownLeft, bg: '#05966918', fg: GREEN },
     out: { Icon: ArrowUpRight, bg: 'var(--mm-panel-alt)', fg: 'var(--mm-ink-soft)' },
     ticket: { Icon: Ticket, bg: 'var(--mm-yellow-soft)', fg: 'var(--mm-ink)' },
+    pass: { Icon: Crown, bg: '#1a1a1a', fg: GOLD },
     wait: { Icon: Clock, bg: 'var(--mm-panel-alt)', fg: 'var(--mm-muted)' },
   }[tone]
   return (
@@ -157,7 +163,7 @@ function RowIcon({ tone }: { tone: Row['tone'] }) {
 
 const FIRST = 8
 
-function History({ rows }: { rows: Row[] }) {
+function History({ rows, fill = false }: { rows: Row[]; fill?: boolean }) {
   const [filter, setFilter] = useState<Filter>('all')
   const [open, setOpen] = useState(false)
   const shown = filter === 'all' ? rows.filter(r => !(r.group === 'ticket' && r.title.endsWith('구매'))) : rows.filter(r => r.group === filter)
@@ -167,7 +173,7 @@ function History({ rows }: { rows: Row[] }) {
     { key: 'request', label: waiting > 0 ? `요청 ${waiting}` : '요청' },
   ]
   return (
-    <SectionCard variant="standalone">
+    <SectionCard variant="standalone" className={fill ? 'lg:h-full lg:flex lg:flex-col' : ''}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>내역</h3>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="내역 거르기">
@@ -183,7 +189,7 @@ function History({ rows }: { rows: Row[] }) {
       {shown.length === 0 ? (
         <div className="py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>아직 내역이 없어요</div>
       ) : (
-        <ul className="mt-1">
+        <ul className={`mt-1 ${fill ? 'lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1' : ''}`}>
           {(open ? shown : shown.slice(0, FIRST)).map((r, i, arr) => {
             const day = kstDay(r.at)
             const newDay = i === 0 || kstDay(arr[i - 1].at) !== day
@@ -230,6 +236,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   const [depositor, setDepositor] = useState('')
   const [qty, setQty] = useState(1)
   const [refundHolder, setRefundHolder] = useState('')
+  const [refundBank, setRefundBank] = useState('')
   const [refundAccount, setRefundAccount] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -300,10 +307,12 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
 
   async function requestRefund() {
     if (!me) return
-    if (!refundHolder.trim() || !refundAccount.trim()) { toast.error('받을 계좌와 예금주를 적어 주세요'); return }
+    const acct = refundAccount.replace(/[^\d-]/g, '')
+    if (!refundBank.trim() || !acct || !refundHolder.trim()) { toast.error('은행 · 계좌번호 · 예금주를 모두 적어 주세요'); return }
+    if (acct.replace(/-/g, '').length < 8) { toast.error('계좌번호를 다시 확인해 주세요'); return }
     const lost = me.balance - me.refundable
     if (!confirm(`${me.refundable.toLocaleString()}원 환불을 요청할까요?${lost > 0 ? `\n환불하면 남은 ${fmtP(lost)}(보너스 등)는 사라지고 잔액이 0P 가 돼요.` : ''}`)) return
-    if (await post({ action: 'refund', holder: refundHolder.trim(), account: refundAccount.trim() },
+    if (await post({ action: 'refund', holder: refundHolder.trim(), account: `${refundBank.trim()} ${acct}` },
       '환불 요청을 보냈어요. 어드민이 송금하면 내역에 보여요')) setSheet(null)
   }
 
@@ -352,7 +361,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
       ) : !me ? (
         user ? <EmptyState icon={Wallet} title="가입 승인 후에 쓸 수 있어요" framed /> : <LoginTeaser />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
+        <div className="grid gap-3 lg:grid-cols-2 lg:items-stretch">
           <div className="space-y-3 min-w-0">
             {/* ① 포인트 — 토스 「내 포인트」처럼: 작은 이름표 + 큰 숫자 + 오른쪽 버튼 */}
             <SectionCard variant="standalone">
@@ -413,7 +422,10 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
           </div>
 
           {/* ③ 내역 하나 */}
-          <div className="min-w-0"><History rows={rows} /></div>
+          {/* 내역 — PC 에서는 왼쪽(포인트·티켓) 칸과 같은 높이로 맞추고 안에서 넘긴다(2026-11-09 운영진 — 내역만 세로로 길었다) */}
+          <div className="min-w-0 lg:relative">
+            <div className="lg:absolute lg:inset-0"><History rows={rows} fill /></div>
+          </div>
         </div>
       )}
 
@@ -557,10 +569,20 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
             </details>
             {me.refundable > 0 && !pending ? (
               <>
-                <label className="block text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
-                  받을 계좌 (은행 · 계좌번호)
-                  <input value={refundAccount} onChange={e => setRefundAccount(e.target.value)} maxLength={80} className={INPUT} style={{ borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }} placeholder="예: 카카오뱅크 3333-00-0000000" />
-                </label>
+                {/* 은행 · 계좌번호를 따로 받는다 — 어드민이 계좌번호만 한 번에 복사하게(2026-11-09 운영진) */}
+                <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2">
+                  <label className="block text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
+                    은행
+                    <input value={refundBank} onChange={e => setRefundBank(e.target.value)} maxLength={20} list="wallet-banks" className={INPUT} style={{ borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }} placeholder="예: 카카오뱅크" />
+                    <datalist id="wallet-banks">
+                      {['카카오뱅크', '토스뱅크', '국민', '신한', '우리', '하나', '농협', '기업', '케이뱅크', '새마을', '우체국', 'SC제일', '수협', '부산', '대구'].map(b => <option key={b} value={b} />)}
+                    </datalist>
+                  </label>
+                  <label className="block text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
+                    계좌번호 (숫자만)
+                    <input inputMode="numeric" value={refundAccount} onChange={e => setRefundAccount(e.target.value.replace(/[^\d-]/g, ''))} maxLength={30} className={`${INPUT} tabular-nums`} style={{ borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }} placeholder="3333000000000" />
+                  </label>
+                </div>
                 <label className="block text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
                   예금주
                   <input value={refundHolder} onChange={e => setRefundHolder(e.target.value)} maxLength={40} className={INPUT} style={{ borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }} />

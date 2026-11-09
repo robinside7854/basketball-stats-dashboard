@@ -6,11 +6,23 @@
 //   서버가 매 요청 canEditLeague 로 다시 확인한다 — 이 칸이 보이는 것은 화면 표시일 뿐.
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, X, Search } from 'lucide-react'
+import { Check, X, Search, Copy } from 'lucide-react'
 import { refreshPendingCharges } from '@/lib/hooks/usePendingCharges'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
 import { LedgerList, RequestList, TicketList, fmtP, fmtWhen, ticketTitle, type LedgerItem, type RequestItem, type TicketItem } from './walletParts'
+
+/** 환불 계좌에서 계좌번호(숫자·하이픈)만 — 「카카오뱅크 3333000000000」 → 「3333000000000」 */
+function accountDigits(a: string | null): string | null {
+  const m = (a ?? '').match(/\d[\d-]{6,}\d/)
+  return m ? m[0] : null
+}
+
+function copyAccount(a: string | null) {
+  const d = accountDigits(a)
+  if (!d) return
+  navigator.clipboard?.writeText(d).then(() => toast.success(`계좌번호를 복사했어요 · ${d}`), () => toast.error('복사하지 못했어요'))
+}
 
 interface AdminRes {
   pending: RequestItem[]
@@ -152,6 +164,14 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
                   <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                     {r.kind === 'refund' ? <>보낼 계좌 <span className="whitespace-nowrap">{r.refund_account ?? ''}</span> ({r.depositor_name})</> : `입금자 ${r.depositor_name}`} · <span className="whitespace-nowrap">{fmtWhen(r.created_at)}</span>
                   </div>
+                  {r.kind === 'refund' && accountDigits(r.refund_account) && (
+                    // 계좌번호만 복사(은행 이름·예금주 빼고) — 송금 앱에 바로 붙여 넣게(2026-11-09 운영진)
+                    <button type="button" onClick={() => copyAccount(r.refund_account)}
+                      className="mm-press mt-1 inline-flex items-center gap-1 min-h-9 px-2 text-xs font-bold border border-[color:var(--mm-rule)]"
+                      style={{ color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-chip)' }}>
+                      <Copy size={13} aria-hidden />계좌번호 복사 <span className="tabular-nums" style={{ color: 'var(--mm-muted)' }}>{accountDigits(r.refund_account)}</span>
+                    </button>
+                  )}
                 </div>
                 <div className="flex gap-1.5 shrink-0 ml-auto">
                   <button
