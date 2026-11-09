@@ -12,6 +12,7 @@ export interface RsvpEntryView {
   placed_team_id: string | null
   ticket_used: boolean
   guest_paid: boolean
+  answered_by?: string | null
   tickets_left: number
   suggested_team_id: string | null
   answered_at: string

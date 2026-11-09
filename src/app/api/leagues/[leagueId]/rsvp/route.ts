@@ -4,10 +4,14 @@
 //                    어드민은 ?date=YYYY-MM-DD 로 다른 주도 본다.
 //   POST { answer: 'yes'|'no' } → 내 참/불(신청 기간에만). 정규는 「참」이면 이번 달 팀으로 자동 배치, 「불」이면 자동 배치를 푼다.
 //                                 티켓을 쓴 배치(비정규)·어드민이 옮긴 배치 뒤에는 어드민에게.
+//   POST { action:'guest', name, age, position, height_cm } → 게스트 신청(2026-11-09 운영진 — 게스트를 부르는 회원이 직접).
+//                                 게스트 선수(is_guest)를 만들거나(같은 이름 게스트가 있으면 다시 씀) 「참」으로 넣고 대기명단에 둔다.
+//                                 팀 배치는 어드민이 한다. 나이는 「올해 − 나이」년 1월 1일 생년월일로 저장(선수 표에 나이 칸이 없다).
 //   회원은 「참」 명단(이름·구분·배치 팀)을 본다 — 불참 명단·미응답은 어드민만.
 //   캐시 없음(ISR Reads 0) — 홈 카드가 매번 최신을 본다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
+import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, autoPlaceAtClose, AUTO_LABEL } from '@/lib/rsvp/weekly'
@@ -31,9 +35,9 @@ export async function GET(req: Request, { params }: Ctx) {
   if (!gameDate) return NextResponse.json({ enabled: true, window: null, capacity: rules.capacity, me: null, isAdmin }, NO_STORE)
 
   let board = await loadRsvpBoard(sb, leagueId, gameDate)
-  // 마감(토요일) 뒤 처음 열릴 때 남은 「참」을 자동 배치 — 정원 안일 때만(autoPlaceAtClose). 누가 열든 한 번 돌면 끝난다.
+  // 마감(토요일) 뒤 처음 열릴 때 아직 팀 없는 정규만 이번 달 팀으로(autoPlaceAtClose). 비정규·게스트는 대기명단 — 어드민이 배치.
   if (win?.phase === 'closed' && win.gameDate === gameDate && board.entries.some(e => e.answer === 'yes' && !e.placed_team_id)) {
-    if (await autoPlaceAtClose(sb, leagueId, gameDate, rules.capacity) > 0) board = await loadRsvpBoard(sb, leagueId, gameDate)
+    if (await autoPlaceAtClose(sb, leagueId, gameDate) > 0) board = await loadRsvpBoard(sb, leagueId, gameDate)
   }
   // 이 기능 전에 「참」을 눌러 둔 정규 — 열어 볼 때 이번 달 팀으로 맞춘다(본인 줄만).
   const pending = session && board.entries.find(e => e.player_id === session.pid && e.answer === 'yes' && e.kind === 'regular' && !e.placed_team_id && e.suggested_team_id)
@@ -88,7 +92,10 @@ export async function POST(req: Request, { params }: Ctx) {
   const win = currentWindow(rules)
   if (!win || win.phase !== 'open') return NextResponse.json({ error: '지금은 신청 기간이 아니에요 (월요일 0시 ~ 금요일 밤)' }, { status: 409 })
 
-  const body = await req.json().catch(() => ({})) as { answer?: unknown }
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+
+  if (body.action === 'guest') return addGuest(sb, leagueId, win.gameDate, session.pid, body)
+
   if (body.answer !== 'yes' && body.answer !== 'no') return NextResponse.json({ error: '참 또는 불을 골라 주세요' }, { status: 400 })
 
   const { data: prev } = await sb.from('weekly_rsvp').select('placed_team_id, ticket_id, placed_by_label')
@@ -105,4 +112,48 @@ export async function POST(req: Request, { params }: Ctx) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const placed = await autoPlaceRegular(sb, leagueId, win.gameDate, session.pid)
   return NextResponse.json({ ok: true, placed_team_id: placed })
+}
+
+const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
+
+async function addGuest(sb: ReturnType<typeof createClient>, leagueId: string, gameDate: string, inviterId: string, body: Record<string, unknown>) {
+  const name = typeof body.name === 'string' ? body.name.trim().replace(/\s+/g, ' ').slice(0, 30) : ''
+  const age = Number(body.age)
+  const height = body.height_cm == null || body.height_cm === '' ? null : Number(body.height_cm)
+  const pos = (Array.isArray(body.position) ? body.position : String(body.position ?? '').split(','))
+    .map(p => String(p).trim().toUpperCase()).filter(p => POSITIONS.includes(p))
+  if (!name) return NextResponse.json({ error: '게스트 이름을 적어 주세요' }, { status: 400 })
+  if (!Number.isInteger(age) || age < 10 || age > 80) return NextResponse.json({ error: '나이를 숫자로 적어 주세요 (10~80)' }, { status: 400 })
+  if (height != null && (!Number.isInteger(height) || height < 140 || height > 230)) return NextResponse.json({ error: '키는 cm 숫자로 적어 주세요 (140~230)' }, { status: 400 })
+  if (pos.length === 0) return NextResponse.json({ error: '포지션을 하나 이상 골라 주세요' }, { status: 400 })
+
+  const teamId = await resolveTeamId(leagueId)
+  const year = Number(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 4))
+  const fields = { position: [...new Set(pos)].join(','), height_cm: height, birth_date: `${year - age}-01-01` }
+  const [{ data: inviter }, { data: same }] = await Promise.all([
+    sb.from('league_players').select('name').eq('id', inviterId).maybeSingle(),
+    sb.from('league_players').select('id, is_guest').eq('team_id', teamId).eq('name', name).limit(1),
+  ])
+  const existing = (same ?? [])[0] as { id: string; is_guest: boolean } | undefined
+  if (existing && !existing.is_guest) return NextResponse.json({ error: '같은 이름의 회원이 있어요 — 이름 뒤에 표시를 붙여 주세요(예: 홍길동G)' }, { status: 409 })
+
+  let guestId = existing?.id
+  if (guestId) {
+    const { error } = await sb.from('league_players').update({ ...fields, is_active: true }).eq('id', guestId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  } else {
+    const { data, error } = await sb.from('league_players')
+      .insert({ league_id: leagueId, team_id: teamId, name, is_guest: true, ...fields }).select('id').single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    guestId = (data as { id: string }).id
+  }
+  const { data: prev } = await sb.from('weekly_rsvp').select('id').eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
+  if (prev) return NextResponse.json({ error: '이 게스트는 이번 주에 이미 신청돼 있어요' }, { status: 409 })
+  const now = new Date().toISOString()
+  const { error } = await sb.from('weekly_rsvp').insert({
+    league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes',
+    answered_by_label: `${(inviter as { name?: string } | null)?.name ?? '회원'} 초대`, answered_at: now, updated_at: now,
+  })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true, guest_id: guestId }, { status: 201 })
 }

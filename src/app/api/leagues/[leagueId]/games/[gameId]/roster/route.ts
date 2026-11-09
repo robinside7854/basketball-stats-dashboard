@@ -199,7 +199,7 @@ export async function GET(
         .eq('league_id', leagueId).eq('game_date', game.date).eq('answer', 'yes').is('placed_team_id', null)
       const win = currentWindow(rules)
       const closed = !win || win.gameDate !== game.date || win.phase === 'closed'
-      if ((unplacedYes.count ?? 0) > 0 && closed) await autoPlaceAtClose(supabase, leagueId, game.date, rules.capacity)
+      if ((unplacedYes.count ?? 0) > 0 && closed) await autoPlaceAtClose(supabase, leagueId, game.date)
       const { data: rsvp } = await supabase.from('weekly_rsvp')
         .select('league_player_id, answer, placed_team_id, league_players!inner(id, name, number, position, birth_date, plus_one, is_active)')
         .eq('league_id', leagueId).eq('game_date', game.date)

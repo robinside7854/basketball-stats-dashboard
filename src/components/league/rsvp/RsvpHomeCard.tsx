@@ -6,15 +6,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Check, X, ChevronRight, CalendarCheck } from 'lucide-react'
+import { Check, X, ChevronRight, CalendarCheck, UserPlus } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import type { RsvpRes } from './rsvpTypes'
 import { dateLabel, countByKind } from './rsvpTypes'
 import RsvpTeamBoard from './RsvpTeamBoard'
+import GuestRequestSheet from './GuestRequestSheet'
 
 export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { leagueId: string; base: string; showBoard?: boolean }) {
   const [data, setData] = useState<RsvpRes | null>(null)
   const [busy, setBusy] = useState(false)
+  const [guestOpen, setGuestOpen] = useState(false)
   const api = `/api/leagues/${leagueId}/rsvp`
 
   const load = useCallback(async () => {
@@ -87,8 +89,8 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
             {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b>팀으로 배치됐어요.{!locked && open ? ' 못 나오게 되면 마감 전에 「불」로 바꿔 주세요.' : ''}</>
               : me.answer === 'yes'
                 ? (me.kind === 'regular' ? '정규권이 있어요 — 팀 배치를 기다려 주세요.'
-                  : me.kind === 'guest' ? '게스트 참가 — 어드민 확인 뒤 팀이 정해져요. 게스트비는 같은 통장으로.'
-                    : me.tickets_left > 0 ? `비정규 참가 — 자리가 정해지면 팀에 배치되고 그때 티켓 1장을 써요 (남은 티켓 ${me.tickets_left}장).`
+                  : me.kind === 'guest' ? '게스트 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 정해요. 게스트비는 같은 통장으로.'
+                    : me.tickets_left > 0 ? `비정규 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 배치하고, 그때 티켓 1장을 써요 (남은 티켓 ${me.tickets_left}장).`
                       : null)
                 : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
                   : open ? '아직 답하지 않았어요.' : '이번 주는 답하지 않았어요.'}
@@ -115,11 +117,18 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
       )}
 
       <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+        {me && open && (
+          <button type="button" onClick={() => setGuestOpen(true)}
+            className="mm-press inline-flex items-center gap-1.5 min-h-11 px-3 text-sm font-bold border border-[color:var(--mm-rule)]" style={{ color: 'var(--mm-ink)' }}>
+            <UserPlus size={16} aria-hidden />게스트 신청
+          </button>
+        )}
         {over && <span className="text-xs font-bold" style={{ color: 'var(--mm-live-bg)' }}>정원을 넘었어요 — 팀장·총무가 정해요</span>}
         <Link href={`${base}/rsvp`} className="mm-press ml-auto inline-flex items-center gap-1 min-h-11 text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
-          {data.isAdmin ? '명단 · 승인 · 팀 배치' : '참가 명단 보기'} <ChevronRight size={16} aria-hidden />
+          {data.isAdmin ? '명단 · 대기명단 배치' : '참가 명단 보기'} <ChevronRight size={16} aria-hidden />
         </Link>
       </div>
+      {me && <GuestRequestSheet leagueId={leagueId} open={guestOpen} onClose={() => setGuestOpen(false)} onDone={load} />}
     </SectionCard>
   )
 }

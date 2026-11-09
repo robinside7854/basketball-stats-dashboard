@@ -1,7 +1,7 @@
 'use client'
 // 참가 명단 화면 (/rsvp, 2026-11-09 운영진)
 //   회원: 이번 주 「참」 명단(구분 · 배치 팀) + 내 참/불.
-//   어드민: 지난 주·다음 주로 옮겨 보기 · 승인(비정규·게스트) · 팀 배치(비정규면 이때 티켓 1장) ·
+//   어드민: 지난 주·다음 주로 옮겨 보기 · 대기명단(비정규·게스트)을 끌어서 팀 배치(비정규면 이때 티켓 1장, 폰은 팀 고르기) ·
 //           정규를 이번 달 팀으로 한 번에 · 게스트비 받음 · 대신 참/불 눌러 주기 · 불참·미응답 명단.
 //   정원은 안내만 — 넘쳐도 막지 않는다(팀장·총무 회의).
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -118,12 +118,6 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
                             </span>
                             {admin && (
                               <span className="inline-flex items-center gap-1.5 flex-wrap">
-                                {kind !== 'regular' && (
-                                  <label className="inline-flex items-center gap-1 min-h-11 text-xs font-bold cursor-pointer" style={{ color: 'var(--mm-ink)' }}>
-                                    <input type="checkbox" checked={e.approved} disabled={busy === e.player_id}
-                                      onChange={ev => act({ action: 'approve', playerId: e.player_id, approved: ev.target.checked }, e.player_id)} />승인
-                                  </label>
-                                )}
                                 {kind === 'guest' && (
                                   <label className="inline-flex items-center gap-1 min-h-11 text-xs font-bold cursor-pointer" style={{ color: 'var(--mm-ink)' }}>
                                     <input type="checkbox" checked={e.guest_paid} disabled={busy === e.player_id}

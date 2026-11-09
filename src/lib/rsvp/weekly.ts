@@ -37,6 +37,8 @@ export interface RsvpEntry {
   placed_team_id: string | null
   ticket_used: boolean
   guest_paid: boolean
+  /** 「본인」 · 「OO 초대」(게스트) · 대신 눌러 준 어드민 */
+  answered_by: string | null
   tickets_left: number      // 비정규 티켓 남은 장수(배치 가능 여부 안내)
   suggested_team_id: string | null
   answered_at: string
@@ -93,7 +95,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const inQuarter = !!q?.start_date && !!q?.end_date && gameDate >= q.start_date && gameDate <= q.end_date
 
   const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes, uniforms] = await Promise.all([
-    sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, answered_at')
+    sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, answered_at, answered_by_label')
       .eq('league_id', leagueId).eq('game_date', gameDate),
     // 선수는 팀 소유 — league_id 로 찾지 않는다(CLAUDE.md)
     sb.from('league_players').select('id, name, photo_url, position, is_guest, is_active').eq('team_id', teamId),
@@ -125,7 +127,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
 
   const kindOf = (pid: string): RsvpKind => players.get(pid)?.is_guest ? 'guest' : passHolders.has(pid) ? 'regular' : 'non_regular'
 
-  const entries: RsvpEntry[] = ((rowsRes.data ?? []) as Array<{ league_player_id: string; answer: 'yes' | 'no'; approved: boolean; placed_team_id: string | null; ticket_id: string | null; guest_paid: boolean; answered_at: string }>)
+  const entries: RsvpEntry[] = ((rowsRes.data ?? []) as Array<{ league_player_id: string; answer: 'yes' | 'no'; approved: boolean; placed_team_id: string | null; ticket_id: string | null; guest_paid: boolean; answered_at: string; answered_by_label: string | null }>)
     .map(r => {
       const p = players.get(r.league_player_id)
       const kind = kindOf(r.league_player_id)
@@ -133,7 +135,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
         player_id: r.league_player_id, name: p?.name ?? '알 수 없음', photo_url: p?.photo_url ?? null, position: p?.position ?? null,
         kind, answer: r.answer,
         approved: kind === 'regular' ? r.answer === 'yes' : r.approved,
-        placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid,
+        placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid, answered_by: r.answered_by_label,
         tickets_left: ticketsLeft.get(r.league_player_id) ?? 0,
         suggested_team_id: regularTeam.get(r.league_player_id) ?? null,
         answered_at: r.answered_at,
@@ -239,30 +241,18 @@ export async function placeEntry(
 export const CLOSE_AUTO_LABEL = '자동(마감 배치)'
 
 /**
- * 마감 자동 배치 (2026-11-09 운영진 — 「사람 손을 거의 거치지 않게」).
- * 신청이 닫힌 뒤(토요일) 처음 화면이 열릴 때 한 번 돈다(같은 날 다시 불러도 남은 사람만 다룬다).
- *   · 「참」 인원이 정원 이하일 때만 — 넘치면 팀장·총무 회의 몫이라 손대지 않는다.
- *   · 정규 중 아직 안 된 사람은 이번 달 팀으로(autoPlaceRegular 와 같은 규칙).
- *   · 비정규(티켓 있는 사람)·게스트는 먼저 신청한 순서대로 지금 인원이 가장 적은 팀에.
- *     티켓이 없는 비정규는 남긴다(「팀 정하는 중」에 남아 어드민이 본다).
+ * 마감 자동 배치 — **정규만** (2026-11-09 운영진: 「비정규·게스트는 각 팀 수요에 맞춰 어드민이 배치한다 — 자동으로 채우면 안 된다」).
+ * 신청이 닫힌 뒤(토요일) 처음 화면이 열릴 때 한 번 돈다. 「참」인데 아직 팀이 없는 정규만 이번 달 팀으로.
+ * 비정규·게스트는 대기명단에 남아 어드민이 끌어다 놓는다. 정원과 무관(정규는 자리가 정해져 있다).
  * 돌려준 값: 이번에 배치한 사람 수.
  */
-export async function autoPlaceAtClose(sb: SB, leagueId: string, gameDate: string, capacity: number): Promise<number> {
+export async function autoPlaceAtClose(sb: SB, leagueId: string, gameDate: string): Promise<number> {
   const board = await loadRsvpBoard(sb, leagueId, gameDate)
-  const yes = board.entries.filter(e => e.answer === 'yes')
-  if (yes.length === 0 || yes.length > capacity || board.teams.length === 0) return 0
-  const size = new Map(board.teams.map(t => [t.id, yes.filter(e => e.placed_team_id === t.id).length]))
   let placed = 0
-  for (const e of yes) {
-    if (e.placed_team_id) continue
-    let target: string | null = null
-    if (e.kind === 'regular' && e.suggested_team_id && size.has(e.suggested_team_id)) target = e.suggested_team_id
-    else if (e.kind === 'guest' || (e.kind === 'non_regular' && e.tickets_left > 0) || e.kind === 'regular') {
-      target = [...size.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null
-    }
-    if (!target) continue
-    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, target, CLOSE_AUTO_LABEL)
-    if (res.ok) { size.set(target, (size.get(target) ?? 0) + 1); placed++ }
+  for (const e of board.entries) {
+    if (e.answer !== 'yes' || e.placed_team_id || e.kind !== 'regular' || !e.suggested_team_id) continue
+    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, e.suggested_team_id, CLOSE_AUTO_LABEL)
+    if (res.ok) placed++
   }
   return placed
 }
