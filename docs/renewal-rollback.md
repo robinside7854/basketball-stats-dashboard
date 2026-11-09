@@ -64,6 +64,7 @@
 | M39 | (이 커밋) | **표 값 꺾임 전역 수정 · 공유 그림 로고(2026-11-08)** — `globals.css` mm-fit 칸·머리 keep-all · `StatHeader` · `BoxscoreContent` `<wbr>` · 팀 탭 표 lg↑ · `opengraph-image.tsx` 로고(공개 리그만) | globals.css 두 줄을 `overflow-wrap: anywhere` 로 되돌리면 종전 줄바꿈 |
 | M40 | (이 커밋) | **비공개 리그 공유 그림에 로고만(2026-11-09)** — 공용 카드를 `lib/og/onballCard.tsx` 로 옮김 · 리그 `opengraph-image.tsx` 비공개 폴백이 로고를 넘김 | 리그 파일의 `renderOnballCard(await loadLogoDataUri(leagueId))` 를 `renderOnballCard()` 로 바꾸면 로고 없는 종전 카드 |
 | M41 | (이 커밋) | **달별 정규 멤버에서 게스트 제외(2026-11-09)** — `quarters/[quarterId]/players` select 에 `is_guest` · `MonthlyRosterPanel` 거르기 | 패널의 `&& !r.is_guest` 를 지우면 종전대로 보임 |
+| M42 | (이 커밋) | **팀 카드 분기 표기(2026-11-09)** — `lib/format/quarterSpan.ts` · 팀 탭 카드·표 | `quarterSpanLabel(...)` 를 `quarterLabels.join(' · ')` 로 되돌리면 종전 표기 |
 
 ## R5 (걷어내기)는 미뤘다
 

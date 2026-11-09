@@ -1,4 +1,5 @@
 'use client'
+import { quarterSpanLabel } from '@/lib/format/quarterSpan'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import PlayerName from '@/components/league/ui/PlayerName'
 import HeadToHeadSection, { prefetchHeadToHead } from '@/components/league/HeadToHeadSection'
@@ -1018,7 +1019,7 @@ function LeagueTeamsPageInner() {
                       <div className="min-w-0">
                         <span className="font-bold block break-keep text-base sm:text-xl" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', letterSpacing: '-0.005em', lineHeight: 1.15 }}>{s.displayName}</span>
                         {s.quarterLabels.length > 0 && selectedQId === 'all' && (
-                          <span className="text-xs font-mono" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>{s.quarterLabels.join(' · ')}</span>
+                          <span className="block text-xs font-bold mt-0.5" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>{quarterSpanLabel(s.quarterLabels)}</span>
                         )}
                       </div>
                     </div>
@@ -1262,7 +1263,7 @@ function LeagueTeamsPageInner() {
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color, boxShadow: swatchEdge(s.color) }} />
                   <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}>{s.displayName}</span>
                   {s.quarterLabels.length > 0 && selectedQId === 'all' && (
-                    <span className="text-xs font-mono" style={{ color: 'var(--mm-muted)' }}>· {s.quarterLabels.join(', ')}</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>· {quarterSpanLabel(s.quarterLabels)}</span>
                   )}
                   <span className="text-xs font-bold tracking-wider ml-1" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
                 </div>
