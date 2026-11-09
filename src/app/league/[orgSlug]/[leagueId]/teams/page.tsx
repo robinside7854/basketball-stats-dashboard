@@ -324,7 +324,7 @@ function StatsTable({
               return (
                 <th key={key} onClick={() => handleSort(key)} title={desc}
                   aria-sort={active ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}
-                  className="t-th text-right cursor-pointer select-none transition-colors duration-200"
+                  className="t-th text-right cursor-pointer select-none"
                   style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...(key === 'three_share' ? { borderLeft: '1px solid var(--mm-rule)' } : {}) }}>
                   <StatHeader term={term} label={label} />
                   <SortIcon active={active} dir={sortDir} />

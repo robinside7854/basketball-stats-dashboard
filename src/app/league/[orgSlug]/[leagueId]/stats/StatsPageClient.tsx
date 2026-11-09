@@ -141,8 +141,10 @@ function MyRecordLabel() {
 }
 
 function MobileStatCard({
-  rank, p, ineligible, lowAttempts = false, bigLabel, bigTerm, bigValue, items, footer, onOpen, mine = false, pinned = false, note,
+  rank, p, ineligible, lowAttempts = false, bigLabel, bigTerm, bigValue, bigSub, items, footer, onOpen, mine = false, pinned = false, note,
 }: {
+  /** 큰 숫자 아래 작은 줄(성공/시도 또는 성공률) */
+  bigSub?: string
   /** null = 순위 없음(성공률 정렬에서 시도 부족 · 순위 기준 미달) */
   rank: number | null
   p: PlayerStat
@@ -195,6 +197,7 @@ function MobileStatCard({
         </div>
         <div className="text-right shrink-0">
           <div className="font-jersey font-black tabular-nums leading-none" style={{ color: lowAttempts ? 'var(--mm-muted)' : 'var(--mm-ink)', fontSize: '26px', letterSpacing: '-0.015em' }}>{bigValue}</div>
+          {bigSub && <div className="text-xs font-semibold tabular-nums mt-0.5" style={{ color: 'var(--mm-muted)' }}>{bigSub}</div>}
           <div className="text-xs font-black mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink-soft)' }}>
             <StatHeader term={bigTerm} label={bigLabel} />
           </div>
@@ -663,9 +666,12 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       .filter((c): c is BasicCol => !!c)
       .map(c => ({ key: c.key, label: c.label, value: cellVal(p, c.key) }))
     const low = lowAttempts(p, basicPctKey)
+    // 성공률로 정렬하면 큰 숫자 아래에 성공/시도, 누적의 성공/시도로 정렬하면 아래에 성공률(2026-11-09)
+    const bigSub = (sortKey === 'fg_pct' || sortKey === 'fg3_pct' || sortKey === 'ft_pct') ? shotMadeAtt(p, sortKey)
+      : (sortKey === 'fgm' || sortKey === 'fg3m' || sortKey === 'ftm') ? shotPct(p, sortKey) : undefined
     return (
       <MobileStatCard key={opts.key ?? p.player_id} rank={low ? null : rank} p={p} ineligible={isIneligible(p)} lowAttempts={low}
-        bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)}
+        bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)} bigSub={bigSub}
         items={items} mine={isMe(p)} pinned={opts.pinned} note={opts.pinned ? myNote : undefined}
         onOpen={() => setQuickViewPlayer({ id: p.player_id, name: p.name })} />
     )
@@ -727,6 +733,16 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     const i = v.indexOf('/')
     return i < 0 ? v : <>{v.slice(0, i + 1)}<wbr />{v.slice(i + 1)}</>
   }
+  /** 야투·3점·자유투의 「성공/시도」(누적 합) — 성공률 칸·카드에서 시도 수를 함께 보인다 */
+  function shotMadeAtt(p: PlayerStat, key: string): string {
+    if (key === 'fg_pct' || key === 'fgm') return `${p.fgm}/${p.fga}`
+    if (key === 'fg3_pct' || key === 'fg3m') return `${p.fg3m}/${p.fg3a}`
+    return `${p.ftm}/${p.fta}`
+  }
+  function shotPct(p: PlayerStat, key: string): string {
+    const [m, a] = key === 'fgm' ? [p.fgm, p.fga] : key === 'fg3m' ? [p.fg3m, p.fg3a] : [p.ftm, p.fta]
+    return a > 0 ? `${fmt1((m / a) * 100)}%` : '—'
+  }
   function colHide(key: string): string {
     // 공리·수리는 1280↑ 에서만(리바 합은 남음) — 하루 평균 보기도 턴오버율 열이 생기며 1024 에서 %가 두 줄로 꺾였다(2026-11-08).
     //   지금 그 열로 정렬 중이면 숨기지 않는다.
@@ -756,6 +772,10 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                 style={{ color: cellColor }}
                 title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
               {slashBreak(cellVal(p, key))}
+              {/* 하루 평균 보기의 성공률 칸 아래에 성공/시도(누적 합) — 시도가 몇 번인지 늘 보이게(2026-11-09 운영진) */}
+              {viewMode === 'avg' && (key === 'fg_pct' || key === 'fg3_pct' || key === 'ft_pct') && (
+                <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{slashBreak(shotMadeAtt(p, key))}</span>
+              )}
               {/* 누적 보기의 야투·3점·자유투(성공/시도) 아래에 성공률 % (2026-11 운영진) */}
               {viewMode === 'total' && (key === 'fgm' || key === 'fg3m' || key === 'ftm') && (() => {
                 const [m, a] = key === 'fgm' ? [p.fgm, p.fga] : key === 'fg3m' ? [p.fg3m, p.fg3a] : [p.ftm, p.fta]
@@ -1049,7 +1069,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                     {COLS.map(({ key, label, term }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
                         // 누적 보기의 성공/시도 세 칸(「329/794」)은 다른 칸보다 넓게 — 똑같이 나누면 옆 칸과 겹쳤다(2026-11-04)
-                        className={`t-th select-none transition-colors duration-200 ${viewMode === 'total' && (key === 'fgm' || key === 'fg3m' || key === 'ftm') ? 'w-[4.75rem] xl:w-[5.25rem]' : ''} ${colHide(key)}`}
+                        className={`t-th select-none ${viewMode === 'total' && (key === 'fgm' || key === 'fg3m' || key === 'ftm') ? 'w-[4.75rem] xl:w-[5.25rem]' : ''} ${colHide(key)}`}
                         style={{
                           color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
@@ -1154,7 +1174,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                     <th scope="col" className="t-th"><StatHeader term="R" label="출전" /></th>
                     {ADV_COLS.map(({ key, label, term, desc }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(advSortKey === key, advSortDir)} title={desc}
-                        className="t-th select-none transition-colors duration-200"
+                        className="t-th select-none"
                         style={{
                           color: advSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: advSortKey === key ? 'var(--mm-ink)' : 'transparent',
