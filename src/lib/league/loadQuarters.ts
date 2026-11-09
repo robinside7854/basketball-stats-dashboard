@@ -31,12 +31,23 @@ export async function loadLeagueQuarters(
 
   if (error) return { quarters: null, error: error.message }
 
+  // 올해 분기 자동 생성 (2026-11-09 운영진 「분기는 1년 내내 같다 — 손으로 추가할 필요 없다」).
+  //   리그형 분기를 이미 쓰는 묶음(대회 묶음·분기 없는 연간 리그는 건드리지 않는다)에서
+  //   올해(KST) 1~4분기 중 빠진 것을 달력 날짜(1~3월 · 4~6월 · 7~9월 · 10~12월)로 만든다.
+  //   이름·순번은 DB 트리거(trg_league_quarters_fill_name_ord)가 채운다. 있는 분기는 손대지 않는다.
+  let list = (quarters ?? []) as Row[]
+  const added = await ensureCalendarQuarters(supabase, leagueId, list)
+  if (added) {
+    const again = await supabase.from('league_quarters').select('*').eq('league_id', leagueId).order('year').order('quarter')
+    if (!again.error) list = (again.data ?? []) as Row[]
+  }
+
   // 「현재 분기」 깃발을 **날짜로 바로잡는다** (2026-10-11).
   //   10월인데 설정·드래프트·팀 명단이 3분기를 「현재」로 보여줬다 — 홈·스탯은 날짜로 판정해
   //   4분기였는데, 깃발을 직접 읽는 화면들은 운영자가 깃발을 옮기기 전까지 옛 분기에 머물렀다.
   //   판정은 정본 `pickCurrentQuarter()`(① 오늘이 기간 안 ② 깃발 ③ 최근) 하나로 하고,
   //   DB 깃발도 그 결과로 맞춰 둔다 — 깃발을 직접 읽는 서버 코드까지 같은 답을 보게.
-  const rows = (quarters ?? []) as Row[]
+  const rows = list
   const pick = pickCurrentQuarter(rows)
   if (pick && !pick.is_current) {
     const { error: fixErr } = await supabase.from('league_quarters').update({ is_current: false }).eq('league_id', leagueId).neq('id', pick.id)
@@ -55,3 +66,30 @@ export async function loadLeagueQuarters(
  * 각자 부르면 조회(와 깃발 보정 쓰기)가 두 번 났다. 요청이 바뀌면 다시 읽는다(React cache).
  */
 export const getLeagueQuarters = cache((leagueId: string) => loadLeagueQuarters(createClient(), leagueId))
+
+const QUARTER_RANGE: Record<number, [string, string]> = {
+  1: ['01-01', '03-31'], 2: ['04-01', '06-30'], 3: ['07-01', '09-30'], 4: ['10-01', '12-31'],
+}
+
+/** 올해 빠진 분기를 만든다. 만들었으면 true. 실패해도 조용히 false — 목록 조회를 막지 않는다. */
+async function ensureCalendarQuarters(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+  rows: Row[],
+): Promise<boolean> {
+  const leagueRows = rows.filter(r => (r as { kind?: string | null }).kind !== 'tournament')
+  if (leagueRows.length === 0) return false
+  const year = Number(new Date().toLocaleString('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric' }))
+  const have = new Set(leagueRows.filter(r => r.year === year).map(r => r.quarter))
+  const missing = [1, 2, 3, 4].filter(q => !have.has(q))
+  if (missing.length === 0) return false
+  const { error } = await supabase.from('league_quarters').upsert(
+    missing.map(q => ({
+      league_id: leagueId, year, quarter: q, is_current: false,
+      start_date: `${year}-${QUARTER_RANGE[q][0]}`, end_date: `${year}-${QUARTER_RANGE[q][1]}`,
+    })),
+    { onConflict: 'league_id,year,quarter', ignoreDuplicates: true },
+  )
+  if (error) { console.error('[quarters] 올해 분기 자동 생성 실패', error.message); return false }
+  return true
+}

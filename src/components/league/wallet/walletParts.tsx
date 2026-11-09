@@ -74,29 +74,52 @@ export function LedgerList({ rows }: { rows: LedgerItem[] }) {
   )
 }
 
+const STATUS_STYLE: Record<RequestItem['status'], { bg: string; fg: string }> = {
+  pending: { bg: 'var(--mm-yellow)', fg: 'var(--mm-black)' },
+  approved: { bg: '#059669', fg: '#fff' },
+  rejected: { bg: '#C4362B', fg: '#fff' },
+  cancelled: { bg: 'var(--mm-panel-alt)', fg: 'var(--mm-ink-soft)' },
+}
+
+// 충전 요청 목록 (2026-11-09 운영진 — 요청·처리 시각이 한 줄에 나란히 있어 읽기 어려웠다)
+//   한 장 = 머리(상태 칩 · 금액) + 「요청」 줄 + 「처리」 줄. 줄마다 왼쪽에 이름표를 고정 폭으로 둔다.
 export function RequestList({ rows }: { rows: RequestItem[] }) {
   if (rows.length === 0) return <EmptyState title="아직 충전 요청이 없어요" variant="compact" />
   return (
-    <ul>
-      {rows.map(r => (
-        <li key={r.id} className="flex items-start justify-between gap-3 py-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <div className="min-w-0">
-            <div className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>
-              {r.name ? `${r.name} · ` : ''}입금자 {r.depositor_name}
+    <ul className="space-y-2">
+      {rows.map(r => {
+        const st = STATUS_STYLE[r.status]
+        const handled = r.status !== 'pending' && r.reviewed_at
+        return (
+          <li key={r.id} className="p-3" style={{ border: '1px solid var(--mm-rule)' }}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <span className="shrink-0 inline-flex items-center px-2 py-0.5 text-xs font-black" style={{ background: st.bg, color: st.fg, borderRadius: 'var(--mm-radius-chip)' }}>
+                  {STATUS_LABEL[r.status]}
+                </span>
+                {r.name && <span className="font-bold text-sm break-keep" style={{ color: 'var(--mm-ink)' }}>{r.name}</span>}
+              </span>
+              <span className="shrink-0 font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{fmtP(r.amount)}</span>
             </div>
-            <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-              요청 {fmtWhen(r.created_at)}
-              {r.reviewed_at && r.status !== 'pending' ? ` · 처리 ${fmtWhen(r.reviewed_at)}` : ''}
-              {r.reviewed_by_label && r.status !== 'cancelled' ? ` · ${r.reviewed_by_label}` : ''}
-            </div>
-            {r.admin_note && <div className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>메모: {r.admin_note}</div>}
-          </div>
-          <div className="shrink-0 text-right">
-            <div className="font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{fmtP(r.amount)}</div>
-            <div className="text-xs font-bold" style={{ color: r.status === 'rejected' ? '#C4362B' : 'var(--mm-muted)' }}>{STATUS_LABEL[r.status]}</div>
-          </div>
-        </li>
-      ))}
+            <dl className="mt-2 grid grid-cols-[3rem_1fr] gap-x-2 gap-y-1 text-xs">
+              <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>요청</dt>
+              <dd style={{ color: 'var(--mm-ink-soft)' }}>{fmtWhen(r.created_at)} · 입금자 {r.depositor_name}</dd>
+              <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>처리</dt>
+              <dd style={{ color: 'var(--mm-ink-soft)' }}>
+                {handled
+                  ? <>{fmtWhen(r.reviewed_at!)}{r.reviewed_by_label ? ` · ${r.status === 'cancelled' ? '본인 취소' : r.reviewed_by_label}` : ''}</>
+                  : '어드민 확인 기다리는 중'}
+              </dd>
+              {r.admin_note && (
+                <>
+                  <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>메모</dt>
+                  <dd style={{ color: 'var(--mm-ink-soft)' }}>{r.admin_note}</dd>
+                </>
+              )}
+            </dl>
+          </li>
+        )
+      })}
     </ul>
   )
 }

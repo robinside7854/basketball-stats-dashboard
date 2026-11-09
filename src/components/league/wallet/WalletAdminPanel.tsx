@@ -6,7 +6,8 @@
 //   서버가 매 요청 canEditLeague 로 다시 확인한다 — 이 칸이 보이는 것은 화면 표시일 뿐.
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, X, ChevronRight } from 'lucide-react'
+import { Check, X, Search } from 'lucide-react'
+import { refreshPendingCharges } from '@/lib/hooks/usePendingCharges'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
 import { LedgerList, RequestList, fmtP, fmtWhen, type LedgerItem, type RequestItem } from './walletParts'
@@ -27,6 +28,9 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
   const [adjSign, setAdjSign] = useState<1 | -1>(1)
   const [adjMemo, setAdjMemo] = useState('')
   const [showRecent, setShowRecent] = useState(false)
+  // 회원별 잔액 — 세로로 너무 길었다(2026-11-09 운영진) → 이름 찾기 + 「잔액 있는 사람만」 + 여러 칸 격자
+  const [query, setQuery] = useState('')
+  const [onlyWithBalance, setOnlyWithBalance] = useState(true)
 
   const api = `/api/leagues/${leagueId}/wallet/admin`
   const load = useCallback(async () => {
@@ -54,7 +58,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
     try {
       if (await post({ action: 'review', requestId: r.id, decision, note })) {
         toast.success(decision === 'approve' ? `${r.name} 님에게 ${fmtP(r.amount)} 충전했어요` : '반려했어요')
-        await load(); onChanged()
+        await load(); onChanged(); void refreshPendingCharges(leagueId)
       }
     } finally { setBusyId(null) }
   }
@@ -122,26 +126,56 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
       </SectionCard>
 
       <SectionCard variant="standalone">
-        <div className="flex items-baseline justify-between gap-2 flex-wrap mb-2">
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
           <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>회원별 잔액</h3>
-          <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>합계 {fmtP(data.total)}</span>
+          <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
+            합계 {fmtP(data.total)} · 잔액 있는 회원 {data.members.filter(m => m.balance > 0).length}명
+          </span>
         </div>
-        <ul>
-          {data.members.map(m => (
-            <li key={m.player_id}>
-              <button
-                type="button" onClick={() => openMember(m)}
-                className="mm-press w-full flex items-center justify-between gap-3 min-h-11 py-2 text-left"
-                style={{ borderBottom: '1px solid var(--mm-rule)' }}
-              >
-                <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
-                <span className="inline-flex items-center gap-1 tabular-nums font-black text-sm" style={{ color: m.balance > 0 ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
-                  {fmtP(m.balance)}<ChevronRight size={16} aria-hidden />
-                </span>
-              </button>
-            </li>
+        <div className="flex flex-wrap items-center gap-2 mt-2 mb-2">
+          <label className="relative flex-1 min-w-[160px]">
+            <Search size={16} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--mm-muted)' }} />
+            <input
+              value={query} onChange={e => setQuery(e.target.value)} placeholder="이름 찾기" aria-label="회원 이름 찾기"
+              className="w-full min-h-11 pl-9 pr-3 border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-base"
+            />
+          </label>
+          {([true, false] as const).map(v => (
+            <button
+              key={String(v)} type="button" onClick={() => setOnlyWithBalance(v)}
+              className="mm-press min-h-11 px-3 text-sm font-bold border"
+              style={{
+                borderColor: onlyWithBalance === v ? 'var(--mm-ink)' : 'var(--mm-rule)',
+                background: onlyWithBalance === v ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                color: onlyWithBalance === v ? 'var(--mm-black)' : 'var(--mm-ink)',
+              }}
+            >{v ? '잔액 있는 사람' : '전체'}</button>
           ))}
-        </ul>
+        </div>
+        {(() => {
+          const q = query.trim().normalize('NFC').replace(/\s/g, '')
+          const shown = data.members.filter(m =>
+            (q ? m.name.normalize('NFC').replace(/\s/g, '').includes(q) : !onlyWithBalance || m.balance > 0))
+          if (shown.length === 0) {
+            return <p className="text-sm py-2" style={{ color: 'var(--mm-ink-soft)' }}>{q ? '찾는 이름이 없어요' : '잔액이 있는 회원이 없어요 — 「전체」를 눌러 보세요'}</p>
+          }
+          return (
+            <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {shown.map(m => (
+                <li key={m.player_id}>
+                  <button
+                    type="button" onClick={() => openMember(m)}
+                    className="mm-press w-full flex flex-col items-start gap-0.5 min-h-11 px-2.5 py-1.5 text-left border border-[color:var(--mm-rule)] hover:bg-[color:var(--mm-panel-alt)]"
+                  >
+                    <span className="font-bold text-sm break-keep" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
+                    <span className="tabular-nums font-black text-sm" style={{ color: m.balance > 0 ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{fmtP(m.balance)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        })()}
+        <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)' }}>이름을 누르면 그 회원의 내역과 보정 칸이 열려요. 검색하면 잔액이 없는 회원도 나와요.</p>
       </SectionCard>
 
       <Sheet open={!!openPlayer} onClose={() => setOpenPlayer(null)} title={openPlayer ? `${openPlayer.name} · ${fmtP(openPlayer.balance)}` : ''}>

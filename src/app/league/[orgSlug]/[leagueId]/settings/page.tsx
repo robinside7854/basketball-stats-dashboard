@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { usePendingCharges } from '@/lib/hooks/usePendingCharges'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -39,6 +40,7 @@ const SETTINGS_JUMPS: { id: string; label: string; needsQuarters?: boolean }[] =
 export default function LeagueSettingsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
+  const chargeCount = usePendingCharges(leagueId)
   const router = useRouter()
   const pathname = usePathname()
   const { isEditMode, isInitialized, leagueHeaders, openLogin } = useLeagueEditMode()
@@ -332,7 +334,14 @@ export default function LeagueSettingsPage() {
         className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
       >
         <span className="inline-flex items-center gap-2"><Wallet size={16} aria-hidden />월렛 · 충전 확인 · 회원 잔액</span>
-        <ChevronRight size={16} aria-hidden />
+        <span className="inline-flex items-center gap-2">
+          {chargeCount > 0 && (
+            <span className="inline-flex items-center min-h-6 px-2 text-xs font-black" style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: 'var(--mm-radius-chip)' }}>
+              충전 요청 {chargeCount}건
+            </span>
+          )}
+          <ChevronRight size={16} aria-hidden />
+        </span>
       </Link>
       <nav aria-label="설정 바로가기" className="flex flex-wrap gap-2">
         {SETTINGS_JUMPS.filter(j => !j.needsQuarters || quarters.length > 0).map(j => (
@@ -770,12 +779,18 @@ export default function LeagueSettingsPage() {
         <div id="settings-quarters" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-[color:var(--mm-muted)]" />
-            <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 날짜 범위</h3>
+            <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기</h3>
           </div>
-          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
-            각 분기의 시작일/종료일을 지정하면 경기 날짜 → 분기 자동 매핑, 분기별 스탯 집계에 사용됩니다.
+          {/* 2026-11-09 운영진: 분기는 해마다 같다 — 올해 1~4분기는 앱이 달력대로 알아서 만든다(loadQuarters).
+              날짜를 손으로 바꿀 일은 거의 없어 접어 둔다. */}
+          <p className="text-sm text-[color:var(--mm-ink-soft)] leading-relaxed max-w-prose">
+            해마다 1분기(1~3월) · 2분기(4~6월) · 3분기(7~9월) · 4분기(10~12월)가 자동으로 만들어져요. 따로 추가하지 않아도 돼요.
           </p>
-          <div className="space-y-2">
+          <details className="group">
+            <summary className="min-h-11 inline-flex items-center text-sm font-bold underline underline-offset-2 cursor-pointer text-[color:var(--mm-ink-soft)]">
+              분기 날짜 바꾸기 (특별한 경우만)
+            </summary>
+          <div className="space-y-2 mt-2">
             {quarters.map(q => (
               <div key={q.id} className="bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -825,6 +840,7 @@ export default function LeagueSettingsPage() {
               </div>
             ))}
           </div>
+          </details>
         </div>
       )}
     </div>

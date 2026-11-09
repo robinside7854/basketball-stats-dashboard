@@ -18,6 +18,7 @@ import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
 import PlayerSearch from '@/components/league/PlayerSearch'
 import { rememberLeague } from '@/lib/lastLeague'
 import { usePendingSignups } from '@/lib/hooks/usePendingSignups'
+import { usePendingCharges } from '@/lib/hooks/usePendingCharges'
 import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 
 // 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
@@ -62,7 +63,12 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   const { isEditMode, isAdminSession } = useLeagueEditMode()
   // 대기 중인 가입 신청 건수 — 톱니바퀴 배지용. 홈 카드와 같은 훅을 보므로 요청은 한 번만 나가고
   // 승인 직후 둘이 함께 사라진다. 어드민이 아니면 훅이 아예 요청하지 않는다.
-  const pendingCount = usePendingSignups(leagueId).length
+  const signupCount = usePendingSignups(leagueId).length
+  // 확인을 기다리는 월렛 충전 요청(2026-11-09 운영진) — 가입 신청과 같은 빨간 배지에 더한다.
+  const chargeCount = usePendingCharges(leagueId)
+  const pendingCount = signupCount + chargeCount
+  const pendingLabel = [signupCount > 0 ? `가입 신청 ${signupCount}건` : '', chargeCount > 0 ? `충전 요청 ${chargeCount}건` : '']
+    .filter(Boolean).join(' · ')
   const { user, loading: authLoading } = useCurrentUser()
 
   // #5 가입 승인 대기 배지 — 가입 접수 시 저장한 플래그(로그인되면 해제)
@@ -250,7 +256,8 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
             {isEditMode && (
               <Link
                 href={`${base}/settings`}
-                aria-label={pendingCount > 0 ? `리그 설정 · 가입 신청 ${pendingCount}건 대기` : '리그 설정'}
+                aria-label={pendingCount > 0 ? `리그 설정 · ${pendingLabel} 대기` : '리그 설정'}
+                title={pendingCount > 0 ? `${pendingLabel} 대기` : undefined}
                 className="relative flex items-center justify-center w-11 h-11 rounded-md text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer btn-press"
               >
                 <Settings size={20} />

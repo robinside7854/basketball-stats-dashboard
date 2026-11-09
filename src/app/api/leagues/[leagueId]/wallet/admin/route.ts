@@ -1,6 +1,7 @@
 // 미라클 월렛 — 팀 어드민(누구나) · CEO (마이그레이션 122, 2026-11-09 운영진 「충전 승인은 어드민 누구나」)
 //   GET                     → { pending, recent, members: [{ player_id, name, balance }], total }
 //   GET ?playerId=          → 그 회원의 장부
+//   GET ?count=1            → { pending: N } — 상단 톱니바퀴 빨간 배지용(가볍게 개수만)
 //   POST { action:'review', requestId, decision:'approve'|'reject', note? }
 //   POST { action:'adjust', playerId, amount(±), memo }   — 보정. 이유(memo) 필수, 장부에 남는다.
 //   누가 처리했는지(actor_label)는 감사 로그와 같은 판정(resolveAuditActor)으로 장부·요청에 남긴다.
@@ -22,8 +23,16 @@ export async function GET(req: Request, { params }: Ctx) {
   const teamId = await resolveTeamId(leagueId)
   if (!(await loadWalletConfig(teamId))) return NextResponse.json({ error: '월렛이 꺼져 있어요' }, { status: 404 })
   const sb = createClient()
+  const sp = new URL(req.url).searchParams
 
-  const playerId = new URL(req.url).searchParams.get('playerId')
+  if (sp.get('count')) {
+    const { count, error } = await sb.from('wallet_charge_requests')
+      .select('id', { count: 'exact', head: true }).eq('team_id', teamId).eq('status', 'pending')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ pending: count ?? 0 }, NO_STORE)
+  }
+
+  const playerId = sp.get('playerId')
   if (playerId) return NextResponse.json({ ledger: await loadLedger(teamId, playerId) }, NO_STORE)
 
   const [pendingRes, recentRes, playersRes, balRes] = await Promise.all([
