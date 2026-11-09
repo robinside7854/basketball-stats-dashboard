@@ -4,7 +4,7 @@
 // mm-* 팔레트 · font-jersey · rounded 최소 · 그라디언트 제거
 import { useEffect, useState } from 'react'
 import { Trophy, ShieldCheck, Flame, HandCoins, Target, Activity, Zap, TrendingUp } from 'lucide-react'
-import { accentOrInk } from '@/lib/util/contrastColor'
+import { accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import { ShimmerRows } from '@/components/league/teams/TeamsSkeleton'
 
 /** 하루치 최다 기록 카드는 경기일이 이만큼 쌓여야 뜻이 있다 — 분기 초엔 「최다」가 전부 같은 하루라 7장이 비슷하다 */
@@ -211,6 +211,8 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                       style={{
                         width: `${(row.team / max) * 100}%`,
                         backgroundColor: teamColor,
+                        // 흰색 팀(빅현욱)은 밝은 바탕에서 막대가 통째로 사라졌다(2026-11-09) — 바탕과 비슷하면 테두리
+                        boxShadow: swatchEdge(teamColor),
                         opacity: teamWins ? 1 : 0.45,
                         minWidth: row.team > 0 ? 2 : 0,
                       }}

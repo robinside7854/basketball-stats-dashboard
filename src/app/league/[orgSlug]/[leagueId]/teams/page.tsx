@@ -44,7 +44,7 @@ function LeaderAvatar({ name, photoUrl, color }: { name: string; photoUrl?: stri
         <Image src={photoUrl} alt="" fill sizes="40px" className="object-cover object-top" />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center text-xs font-black" style={{ color: textOnBg(color) }} aria-hidden>
-          {name.length > 1 ? name.slice(1) : name}
+          {name.length > 1 ? name.slice(1, 3) : name}
         </span>
       )}
     </div>
@@ -446,7 +446,8 @@ function TeamDetailPanel({
         {/* 승·패는 바로 위 팀 카드 머리(승률 · N경기 + 승패 막대)에 이미 있다 — 여기서 다시 쓰지 않는다 */}
       </div>
 
-      <div className="px-4 py-4 pl-5 lg:px-6 lg:py-5 space-y-6">
+      {/* 낱말 가운데서 꺾지 않는다(「효/율」 — 2026-11-09 패널 점검) — 안쪽 TeamInsights 까지 물려받는다 */}
+      <div className="px-4 py-4 pl-5 lg:px-6 lg:py-5 space-y-6 break-keep">
         {players.length === 0 ? (
           <p className="text-sm text-center py-6" style={{ color: 'var(--mm-muted)' }}>이 기간에 이 팀 기록이 아직 없어요</p>
         ) : (
@@ -495,7 +496,7 @@ function TeamDetailPanel({
             {computed?.byPpg && (
               <div>
                 <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 내 1위</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-4px)]">
                   {[
                     { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)}점` : null },
                     { label: '리바운드', player: computed.byRpg, val: computed.byRpg ? `리바 ${computed.byRpg.rpg.toFixed(1)}` : null },
@@ -512,7 +513,8 @@ function TeamDetailPanel({
                       {item.player && <LeaderAvatar name={item.player.name} photoUrl={item.player.photo_url} color={team.color} />}
                       <div className="min-w-0">
                         <div className="t-label" style={{ color: 'var(--mm-muted)' }}>{item.label}</div>
-                        <div className="font-bold whitespace-nowrap lg:truncate" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>{item.player?.name}</div>
+                        {/* 띄어쓰기 없는 긴 이름만 칸 안에서 접힌다(3글자 이름은 그대로 한 줄) */}
+                        <div className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '16px', overflowWrap: 'anywhere' }}>{item.player?.name}</div>
                         {/* 폰 2칸에서 「스틸+블록 2.1」이 칸을 넘쳤다(2026-11-08) — 띄어쓰기 자리에서 줄을 넘긴다 */}
                         <div className="text-xs font-black tabular-nums" style={{ color: accentOrInk(team.color), wordBreak: 'keep-all' }}>{item.val}</div>
                       </div>
