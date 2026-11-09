@@ -2,14 +2,15 @@
 //   GET            → { enabled, window, capacity, me, entries, isAdmin, teams, unanswered? }
 //                    window = 지금 열린 주(월 00:00 ~ 금 23:59 신청, 토 마감 결과) — 일요일은 null.
 //                    어드민은 ?date=YYYY-MM-DD 로 다른 주도 본다.
-//   POST { answer: 'yes'|'no' } → 내 참/불(신청 기간에만). 팀에 배치된 뒤에는 어드민에게.
+//   POST { answer: 'yes'|'no' } → 내 참/불(신청 기간에만). 정규는 「참」이면 이번 달 팀으로 자동 배치, 「불」이면 자동 배치를 푼다.
+//                                 티켓을 쓴 배치(비정규)·어드민이 옮긴 배치 뒤에는 어드민에게.
 //   회원은 「참」 명단(이름·구분·배치 팀)을 본다 — 불참 명단·미응답은 어드민만.
 //   캐시 없음(ISR Reads 0) — 홈 카드가 매번 최신을 본다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -29,7 +30,13 @@ export async function GET(req: Request, { params }: Ctx) {
   const gameDate = isAdmin && asked && YMD.test(asked) ? asked : win?.gameDate
   if (!gameDate) return NextResponse.json({ enabled: true, window: null, capacity: rules.capacity, me: null, isAdmin }, NO_STORE)
 
-  const board = await loadRsvpBoard(sb, leagueId, gameDate)
+  let board = await loadRsvpBoard(sb, leagueId, gameDate)
+  // 이 기능 전에 「참」을 눌러 둔 정규 — 열어 볼 때 이번 달 팀으로 맞춘다(본인 줄만).
+  const pending = session && board.entries.find(e => e.player_id === session.pid && e.answer === 'yes' && e.kind === 'regular' && !e.placed_team_id && e.suggested_team_id)
+  if (pending && win?.gameDate === gameDate) {
+    await autoPlaceRegular(sb, leagueId, gameDate, session!.pid)
+    board = await loadRsvpBoard(sb, leagueId, gameDate)
+  }
   const mine = session ? board.entries.find(e => e.player_id === session.pid) ?? null : null
   // 내 구분·티켓은 답하기 전에도 보여야 한다(「비정규 티켓이 없어요」 안내)
   let meKind: string | null = mine?.kind ?? null
@@ -76,15 +83,18 @@ export async function POST(req: Request, { params }: Ctx) {
   const body = await req.json().catch(() => ({})) as { answer?: unknown }
   if (body.answer !== 'yes' && body.answer !== 'no') return NextResponse.json({ error: '참 또는 불을 골라 주세요' }, { status: 400 })
 
-  const { data: prev } = await sb.from('weekly_rsvp').select('placed_team_id')
+  const { data: prev } = await sb.from('weekly_rsvp').select('placed_team_id, ticket_id, placed_by_label')
     .eq('league_id', leagueId).eq('game_date', win.gameDate).eq('league_player_id', session.pid).maybeSingle()
-  if ((prev as { placed_team_id: string | null } | null)?.placed_team_id) {
-    return NextResponse.json({ error: '이미 팀에 배치됐어요 — 바꾸려면 어드민에게 말해 주세요' }, { status: 409 })
+  const pr = prev as { placed_team_id: string | null; ticket_id: string | null; placed_by_label: string | null } | null
+  // 자동 배치(정규)는 본인이 바꿀 수 있다. 티켓을 쓴 배치·어드민이 정한 배치는 어드민에게.
+  if (pr?.placed_team_id && (pr.ticket_id || pr.placed_by_label !== AUTO_LABEL)) {
+    return NextResponse.json({ error: '어드민이 팀에 배치했어요 — 바꾸려면 어드민에게 말해 주세요' }, { status: 409 })
   }
   const { error } = await sb.from('weekly_rsvp').upsert({
     league_id: leagueId, game_date: win.gameDate, league_player_id: session.pid,
     answer: body.answer, answered_by_label: '본인', answered_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   }, { onConflict: 'league_id,game_date,league_player_id' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  const placed = await autoPlaceRegular(sb, leagueId, win.gameDate, session.pid)
+  return NextResponse.json({ ok: true, placed_team_id: placed })
 }

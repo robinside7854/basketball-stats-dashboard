@@ -10,8 +10,9 @@ import { Check, X, ChevronRight, CalendarCheck } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import type { RsvpRes } from './rsvpTypes'
 import { dateLabel, countByKind } from './rsvpTypes'
+import RsvpTeamBoard from './RsvpTeamBoard'
 
-export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; base: string }) {
+export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { leagueId: string; base: string; showBoard?: boolean }) {
   const [data, setData] = useState<RsvpRes | null>(null)
   const [busy, setBusy] = useState(false)
   const api = `/api/leagues/${leagueId}/rsvp`
@@ -30,6 +31,8 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
   const me = data.me
   const myTeam = me?.placed_team_id ? data.teams?.find(t => t.id === me.placed_team_id) ?? null : null
   const over = yes.length > data.capacity
+  // 정규의 자동 배치는 본인이 참/불로 바꿀 수 있다. 비정규·게스트의 배치(티켓·어드민)는 잠근다.
+  const locked = !!me?.placed_team_id && me.kind !== 'regular'
 
   async function answer(a: 'yes' | 'no') {
     setBusy(true)
@@ -71,17 +74,17 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
       {me && (
         <>
           <div className="grid grid-cols-2 gap-2 mt-3">
-            <button type="button" disabled={busy || !open || !!me.placed_team_id} onClick={() => answer('yes')}
+            <button type="button" disabled={busy || !open || locked} onClick={() => answer('yes')}
               className="mm-press min-h-14 text-lg font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-60" style={btn('yes')}>
               <Check size={20} aria-hidden />참
             </button>
-            <button type="button" disabled={busy || !open || !!me.placed_team_id} onClick={() => answer('no')}
+            <button type="button" disabled={busy || !open || locked} onClick={() => answer('no')}
               className="mm-press min-h-14 text-lg font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-60" style={btn('no')}>
               <X size={20} aria-hidden />불
             </button>
           </div>
           <p className="text-sm mt-2" style={{ color: 'var(--mm-ink-soft)' }}>
-            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b> 팀으로 배치됐어요.</>
+            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b>팀으로 배치됐어요.{!locked && open ? ' 못 나오게 되면 마감 전에 「불」로 바꿔 주세요.' : ''}</>
               : me.answer === 'yes'
                 ? (me.kind === 'regular' ? '정규권이 있어요 — 팀 배치를 기다려 주세요.'
                   : me.kind === 'guest' ? '게스트 참가 — 어드민 확인 뒤 팀이 정해져요. 게스트비는 같은 통장으로.'
@@ -97,6 +100,12 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
             </p>
           )}
         </>
+      )}
+
+      {showBoard && (data.teams ?? []).length > 0 && (
+        <div className="mt-3">
+          <RsvpTeamBoard leagueId={leagueId} gameDate={win.gameDate} teams={data.teams ?? []} yes={yes} admin={!!data.isAdmin} onChanged={load} compact />
+        </div>
       )}
 
       <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">

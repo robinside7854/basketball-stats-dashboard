@@ -11,7 +11,7 @@ import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { resolveAuditActor } from '@/lib/audit'
 import { walletErrorMessage } from '@/lib/wallet/wallet'
-import { loadRsvpRules, loadRsvpBoard } from '@/lib/rsvp/weekly'
+import { loadRsvpRules, loadRsvpBoard, AUTO_LABEL } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -34,7 +34,7 @@ export async function POST(req: Request, { params }: Ctx) {
     const board = await loadRsvpBoard(sb, leagueId, date)
     const targets = board.entries.filter(e => e.answer === 'yes' && e.kind === 'regular' && !e.placed_team_id && e.suggested_team_id)
     for (const e of targets) {
-      await sb.from('weekly_rsvp').update({ placed_team_id: e.suggested_team_id, approved: true, placed_by_label: actor, updated_at: now })
+      await sb.from('weekly_rsvp').update({ placed_team_id: e.suggested_team_id, approved: true, placed_by_label: AUTO_LABEL, updated_at: now })
         .eq('league_id', leagueId).eq('game_date', date).eq('league_player_id', e.player_id)
     }
     return NextResponse.json({ ok: true, placed: targets.length })

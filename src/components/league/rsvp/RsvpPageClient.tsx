@@ -11,6 +11,7 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import EmptyState from '@/components/league/ui/EmptyState'
 import { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import RsvpHomeCard from './RsvpHomeCard'
+import RsvpTeamBoard from './RsvpTeamBoard'
 import { KIND_LABEL, countByKind, dateLabel, type RsvpEntryView, type RsvpKind, type RsvpRes } from './rsvpTypes'
 
 function shift(ymd: string, days: number): string {
@@ -88,13 +89,16 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
       ) : (
         <>
           {/* 내 참/불 — 홈 카드와 같은 카드(이번 주일 때만) */}
-          {!date && data.me && <RsvpHomeCard leagueId={leagueId} base={base} />}
+          {!date && data.me && <RsvpHomeCard leagueId={leagueId} base={base} showBoard={false} />}
+
+          {/* 팀별 현황 — 단톡방 공지 캡처와 같은 모양(색 점 · 팀명 · 인원 · 이름 · 포지션). 어드민은 색 점으로 유니폼 색을 고른다. */}
+          <RsvpTeamBoard leagueId={leagueId} gameDate={gameDate} teams={data.teams ?? []} yes={yes} admin={admin} onChanged={load} />
 
           <div className="grid gap-3 lg:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-start">
             <div className="space-y-3 min-w-0">
               {KIND_ORDER.map(kind => {
                 const rows = yes.filter(e => e.kind === kind)
-                if (rows.length === 0 && !admin) return null
+                if (!admin) return null
                 return (
                   <SectionCard key={kind} variant="standalone">
                     <h3 className="font-black text-lg mb-2" style={{ color: 'var(--mm-ink)' }}>참 · {KIND_LABEL[kind]} <span className="tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rows.length}명</span></h3>
@@ -155,19 +159,6 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
                 <div className="font-black text-2xl tabular-nums" style={{ color: yes.length > data.capacity ? 'var(--mm-live-bg)' : 'var(--mm-ink)' }}>참 {yes.length}명 / {data.capacity}</div>
                 <div className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>정규 {counts.regular} · 비정규 {counts.non_regular} · 게스트 {counts.guest}</div>
                 {yes.length > data.capacity && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>정원을 넘었어요 — 팀장·총무가 협의해 정해요(7명 팀 등).</p>}
-                {(data.teams ?? []).length > 0 && (
-                  <ul className="mt-3 space-y-1.5">
-                    {(data.teams ?? []).map(t => {
-                      const members = yes.filter(e => e.placed_team_id === t.id)
-                      return (
-                        <li key={t.id} className="text-sm">
-                          <b style={{ color: 'var(--mm-ink)' }}>{t.name}</b> <span className="tabular-nums" style={{ color: 'var(--mm-muted)' }}>{members.length}명</span>
-                          {members.length > 0 && <div className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>{members.map(m => m.name).join(' · ')}</div>}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
                 {admin && unplacedRegular > 0 && (
                   <button type="button" disabled={busy === 'bulk'} onClick={() => act({ action: 'place_suggested' }, 'bulk', `정규 ${unplacedRegular}명을 이번 달 팀으로 배치했어요`)}
                     className="mm-press w-full mt-3 min-h-11 text-sm font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-50"

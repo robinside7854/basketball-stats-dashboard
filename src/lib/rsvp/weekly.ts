@@ -10,6 +10,7 @@ import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
+import { loadMonthUniforms, type Uniform } from '@/lib/league/uniformPhoto'
 
 type SB = ReturnType<typeof createClient>
 
@@ -29,6 +30,7 @@ export interface RsvpEntry {
   player_id: string
   name: string
   photo_url: string | null
+  position: string | null
   kind: RsvpKind
   answer: 'yes' | 'no'
   approved: boolean
@@ -79,7 +81,8 @@ export interface RsvpBoard {
   entries: RsvpEntry[]
   /** 아직 답하지 않은 활동 선수 전원(구분 포함) — 어드민이 대신 눌러 주거나 게스트를 넣을 때 */
   unanswered: Array<{ player_id: string; name: string; kind: RsvpKind }>
-  teams: Array<{ id: string; name: string; color: string }>
+  /** uniform = 그 달 유니폼 색(어드민이 「달별 정규 멤버」에서 고른 것, 없으면 null = 기본 노랑) */
+  teams: Array<{ id: string; name: string; color: string; uniform: Uniform | null }>
 }
 
 /** 그 날짜의 신청 현황 전부 — 홈 카드 · 관리 화면 공용. */
@@ -89,11 +92,11 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const q = await loadCurrentQuarter(sb, leagueId)
   const inQuarter = !!q?.start_date && !!q?.end_date && gameDate >= q.start_date && gameDate <= q.end_date
 
-  const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes] = await Promise.all([
+  const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes, uniforms] = await Promise.all([
     sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, answered_at')
       .eq('league_id', leagueId).eq('game_date', gameDate),
     // 선수는 팀 소유 — league_id 로 찾지 않는다(CLAUDE.md)
-    sb.from('league_players').select('id, name, photo_url, is_guest, is_active').eq('team_id', teamId),
+    sb.from('league_players').select('id, name, photo_url, position, is_guest, is_active').eq('team_id', teamId),
     sb.from('wallet_tickets').select('league_player_id').eq('team_id', teamId).eq('kind', 'regular_pass')
       .eq('month', month).in('status', ['active', 'used']),
     sb.from('wallet_tickets').select('league_player_id').eq('team_id', teamId).eq('kind', 'non_regular').eq('status', 'active'),
@@ -102,11 +105,12 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
     loadMonthRoster(sb, leagueId, inQuarter ? month : null),
     loadIdentityResolver(sb, leagueId),
     sb.from('league_teams').select('id').eq('league_id', leagueId).is('exhibition_date', null).eq('is_external', false),
+    loadMonthUniforms(sb, leagueId, month),
   ])
   if (rowsRes.error) throw new Error(`weekly_rsvp 조회 실패 — ${rowsRes.error.message}`)
   if (playersRes.error) throw new Error(`league_players 조회 실패 — ${playersRes.error.message}`)
 
-  const players = new Map(((playersRes.data ?? []) as Array<{ id: string; name: string; photo_url: string | null; is_guest: boolean | null; is_active: boolean | null }>).map(p => [p.id, p]))
+  const players = new Map(((playersRes.data ?? []) as Array<{ id: string; name: string; photo_url: string | null; position: string | null; is_guest: boolean | null; is_active: boolean | null }>).map(p => [p.id, p]))
   const passHolders = new Set(((passRes.data ?? []) as Array<{ league_player_id: string }>).map(r => r.league_player_id))
   const ticketsLeft = new Map<string, number>()
   for (const r of (nonRegRes.data ?? []) as Array<{ league_player_id: string }>) ticketsLeft.set(r.league_player_id, (ticketsLeft.get(r.league_player_id) ?? 0) + 1)
@@ -126,7 +130,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
       const p = players.get(r.league_player_id)
       const kind = kindOf(r.league_player_id)
       return {
-        player_id: r.league_player_id, name: p?.name ?? '알 수 없음', photo_url: p?.photo_url ?? null,
+        player_id: r.league_player_id, name: p?.name ?? '알 수 없음', photo_url: p?.photo_url ?? null, position: p?.position ?? null,
         kind, answer: r.answer,
         approved: kind === 'regular' ? r.answer === 'yes' : r.approved,
         placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid,
@@ -146,7 +150,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const teams = ((teamsRes.data ?? []) as Array<{ id: string }>)
     .map(t => resolve(t.id, q?.id ?? null))
     .filter((x): x is NonNullable<typeof x> => !!x)
-    .map(x => ({ id: x.team_id, name: x.display_name, color: x.color }))
+    .map(x => ({ id: x.team_id, name: x.display_name, color: x.color, uniform: uniforms.get(x.team_id) ?? null }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
 
   return { entries, unanswered, teams }
@@ -155,3 +159,29 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
 export function rsvpKindLabel(k: RsvpKind): string {
   return k === 'regular' ? '정규' : k === 'guest' ? '게스트' : '비정규'
 }
+
+/**
+ * 정규(정규권 있음)가 「참」이면 이번 달 팀으로 자동 배치, 「불」이면 자동 배치를 푼다 (2026-11-09 운영진 —
+ * 「나는 이미 락다운이라서 참을 누르면 자동으로 팀 배정이 되어야 한다」).
+ * 티켓을 쓴 배치(비정규)나 어드민이 다른 팀으로 옮긴 배치는 건드리지 않는다 — 자동 배치(placed_by_label '자동')만 푼다.
+ * 돌려준 값: 배치된 팀 id(없으면 null).
+ */
+export async function autoPlaceRegular(sb: SB, leagueId: string, gameDate: string, playerId: string): Promise<string | null> {
+  const board = await loadRsvpBoard(sb, leagueId, gameDate)
+  const e = board.entries.find(x => x.player_id === playerId)
+  if (!e) return null
+  const now = new Date().toISOString()
+  if (e.answer === 'yes' && e.kind === 'regular' && !e.placed_team_id && e.suggested_team_id) {
+    await sb.from('weekly_rsvp').update({ placed_team_id: e.suggested_team_id, approved: true, placed_by_label: AUTO_LABEL, updated_at: now })
+      .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId)
+    return e.suggested_team_id
+  }
+  if (e.answer === 'no' && e.placed_team_id && !e.ticket_used) {
+    await sb.from('weekly_rsvp').update({ placed_team_id: null, placed_by_label: AUTO_LABEL, updated_at: now })
+      .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId).eq('placed_by_label', AUTO_LABEL)
+    return null
+  }
+  return e.placed_team_id
+}
+
+export const AUTO_LABEL = '자동(이번 달 팀)'

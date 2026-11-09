@@ -5,6 +5,7 @@ export interface RsvpEntryView {
   player_id: string
   name: string
   photo_url: string | null
+  position: string | null
   kind: RsvpKind
   answer: 'yes' | 'no'
   approved: boolean
@@ -23,7 +24,7 @@ export interface RsvpRes {
   isAdmin?: boolean
   me: { answer: 'yes' | 'no' | null; approved: boolean; placed_team_id: string | null; kind: RsvpKind | null; tickets_left: number } | null
   entries?: RsvpEntryView[]
-  teams?: Array<{ id: string; name: string; color: string }>
+  teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null }>
   unanswered?: Array<{ player_id: string; name: string; kind: RsvpKind }>
 }
 
@@ -42,3 +43,7 @@ export function countByKind(rows: Array<{ kind: RsvpKind }>): Record<RsvpKind, n
 }
 
 export const KIND_LABEL: Record<RsvpKind, string> = { regular: '정규', non_regular: '비정규', guest: '게스트' }
+
+/** 유니폼 색 칠 — 홈 「이번 달 우리 팀」과 같은 색(HomeMonthTeams) */
+export const UNIFORM_FILL = { yellow: '#F2B705', white: '#ffffff', black: '#1a1a1a' } as const
+export const UNIFORM_NAME = { yellow: '노랑', white: '흰색', black: '검정' } as const
