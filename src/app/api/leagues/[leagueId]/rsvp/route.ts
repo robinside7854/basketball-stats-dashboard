@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, autoPlaceAtClose, AUTO_LABEL, inviterLabel } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, type RsvpRules } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -35,11 +35,14 @@ export async function GET(req: Request, { params }: Ctx) {
   const gameDate = isAdmin && asked && YMD.test(asked) ? asked : win?.gameDate
   if (!gameDate) return NextResponse.json({ enabled: true, window: null, capacity: rules.capacity, me: null, isAdmin }, NO_STORE)
 
-  let board = await loadRsvpBoard(sb, leagueId, gameDate)
-  // 마감(토요일) 뒤 처음 열릴 때 아직 팀 없는 정규만 이번 달 팀으로(autoPlaceAtClose). 비정규·게스트는 대기명단 — 어드민이 배치.
-  if (win?.phase === 'closed' && win.gameDate === gameDate && board.entries.some(e => e.answer === 'yes' && !e.placed_team_id)) {
-    if (await autoPlaceAtClose(sb, leagueId, gameDate) > 0) board = await loadRsvpBoard(sb, leagueId, gameDate)
+  let closure = await loadClosure(sb, leagueId, gameDate)
+  // 경기일(토)이 됐는데 아직 마감 기록이 없으면 여기서 마감한다(정규 자동 배치 · 일정 넣기 · 빈 경기 칸).
+  //   비정규·게스트는 대기명단 — 어드민이 배치. 마감 표가 없으면(126 전) closeWeek 가 실패하고 옛 동작(배치만)과 같다.
+  if (win?.phase === 'closed' && win.gameDate === gameDate && !closure) {
+    await closeWeek(sb, leagueId, gameDate, SATURDAY_CLOSE_LABEL)
+    closure = await loadClosure(sb, leagueId, gameDate)
   }
+  let board = await loadRsvpBoard(sb, leagueId, gameDate)
   // 이 기능 전에 「참」을 눌러 둔 정규 — 열어 볼 때 이번 달 팀으로 맞춘다(본인 줄만).
   const pending = session && board.entries.find(e => e.player_id === session.pid && e.answer === 'yes' && e.kind === 'regular' && !e.placed_team_id && e.suggested_team_id)
   if (pending && win?.gameDate === gameDate) {
@@ -61,9 +64,18 @@ export async function GET(req: Request, { params }: Ctx) {
     meKind = probe.kind; meTickets = probe.tickets
   }
 
+  const locked = await rosterLocked(sb, leagueId, gameDate)
+  const thisWeek = !!win && win.gameDate === gameDate
+  // 어드민이 마감했으면 신청 기간 안이어도 「마감」 — 홈 카드가 사라지고 회원은 참/불을 못 바꾼다.
+  const phase = thisWeek && win!.phase === 'open' && !closure ? 'open' : 'closed'
+
   return NextResponse.json({
     enabled: true,
-    window: win && win.gameDate === gameDate ? win : { gameDate, opensAt: null, closesAt: null, phase: 'closed' },
+    window: thisWeek ? { ...win!, phase } : { gameDate, opensAt: null, closesAt: null, phase: 'closed' },
+    closure,
+    locked,
+    // 마감 취소는 신청 기간 안 · 기록 전에만(토요일 자동 마감은 되돌릴 수 없다)
+    can_reopen: isAdmin && !!closure && !locked && thisWeek && win!.phase === 'open',
     capacity: rules.capacity,
     isAdmin,
     me: session ? {
@@ -98,8 +110,8 @@ export async function POST(req: Request, { params }: Ctx) {
   const sb = createClient()
   const rules = await loadRsvpRules(sb, leagueId)
   if (!rules) return NextResponse.json({ error: '참가신청을 쓰지 않는 리그예요' }, { status: 404 })
-  const win = currentWindow(rules)
-  if (!win || win.phase !== 'open') return NextResponse.json({ error: '지금은 신청 기간이 아니에요 (월요일 0시 ~ 금요일 밤)' }, { status: 409 })
+  const win = await openWindow(sb, leagueId, rules)
+  if (!win) return NextResponse.json({ error: '참가신청이 마감됐어요 — 바꾸려면 어드민에게 말해 주세요' }, { status: 409 })
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
 
@@ -121,6 +133,14 @@ export async function POST(req: Request, { params }: Ctx) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const placed = await autoPlaceRegular(sb, leagueId, win.gameDate, session.pid)
   return NextResponse.json({ ok: true, placed_team_id: placed })
+}
+
+/** 회원이 참/불·게스트를 바꿀 수 있는 창 — 신청 기간 안이고 어드민이 마감하지 않았을 때만. */
+async function openWindow(sb: ReturnType<typeof createClient>, leagueId: string, rules: RsvpRules) {
+  const win = currentWindow(rules)
+  if (!win || win.phase !== 'open') return null
+  if (await loadClosure(sb, leagueId, win.gameDate)) return null
+  return win
 }
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
@@ -184,8 +204,8 @@ export async function DELETE(req: Request, { params }: Ctx) {
   if (!guestId) return NextResponse.json({ error: 'guestId 필수' }, { status: 400 })
   const sb = createClient()
   const rules = await loadRsvpRules(sb, leagueId)
-  const win = rules ? currentWindow(rules) : null
-  if (!win || win.phase !== 'open') return NextResponse.json({ error: '신청 기간이 끝나 어드민에게 말해 주세요' }, { status: 409 })
+  const win = rules ? await openWindow(sb, leagueId, rules) : null
+  if (!win) return NextResponse.json({ error: '신청이 마감돼 어드민에게 말해 주세요' }, { status: 409 })
   const [{ data: me }, { data: row }] = await Promise.all([
     sb.from('league_players').select('name').eq('id', session.pid).maybeSingle(),
     sb.from('weekly_rsvp').select('id, answered_by_label, ticket_id, league_players!inner(is_guest)')

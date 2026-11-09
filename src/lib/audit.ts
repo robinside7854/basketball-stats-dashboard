@@ -117,6 +117,9 @@ export type AuditAction =
   | 'wallet.refund.reject'
   | 'wallet.ticket.use'
   | 'wallet.ticket.return'
+  // 주간 참가신청 — 126
+  | 'rsvp.close'
+  | 'rsvp.reopen'
 
 export type AuditResult = 'success' | 'failure' | 'denied'
 

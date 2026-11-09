@@ -11,6 +11,7 @@ import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
 import { loadMonthUniforms, type Uniform } from '@/lib/league/uniformPhoto'
+import { ensureDateSlots } from '@/lib/league/videoSchedule'
 
 type SB = ReturnType<typeof createClient>
 
@@ -278,4 +279,53 @@ export async function autoPlaceAtClose(sb: SB, leagueId: string, gameDate: strin
 /** 게스트를 부른 회원 표시 — 신청 기록의 answered_by_label. 본인 취소 판정에도 쓴다. */
 export function inviterLabel(name: string): string {
   return `${name} 초대`
+}
+
+// ── 마감 (마이그레이션 126, 2026-11-09 운영진) ─────────────────────────────
+//   어드민이 「마감」을 누르거나 경기일(토)이 되면 마감. 마감 = 회원 참/불 끝 · 홈 카드 사라짐 ·
+//   정규 자동 배치 · 그 날짜를 일정에 넣고 빈 경기 칸 깔기. 명단 고치기는 일정 탭에서(기록 시작 전까지).
+
+export interface RsvpClosure { closed_at: string; closed_by_label: string | null }
+
+/** 그 주 마감 기록. 표가 없으면(마이그레이션 전) null — 시각 규칙만 쓴다. */
+export async function loadClosure(sb: SB, leagueId: string, gameDate: string): Promise<RsvpClosure | null> {
+  const { data, error } = await sb.from('weekly_rsvp_closures').select('closed_at, closed_by_label')
+    .eq('league_id', leagueId).eq('game_date', gameDate).maybeSingle()
+  if (error || !data) return null
+  return data as RsvpClosure
+}
+
+/** 그날 기록이 시작됐는가 — 그러면 참가 명단은 잠긴다(기록 명단이 이 명단을 따른다). */
+export async function rosterLocked(sb: SB, leagueId: string, gameDate: string): Promise<boolean> {
+  const { data } = await sb.from('league_games').select('id').eq('league_id', leagueId).eq('date', gameDate).eq('is_started', true).limit(1)
+  return (data ?? []).length > 0
+}
+
+export const SATURDAY_CLOSE_LABEL = '자동(경기일)'
+
+/**
+ * 마감하기 — 여러 번 불러도 같다(이미 마감이면 기록만 그대로 두고 일정·배치를 다시 맞춘다).
+ * 돌려준 값: 이번에 자동 배치한 정규 수 · 일정 칸 생성 실패 여부.
+ */
+export async function closeWeek(sb: SB, leagueId: string, gameDate: string, label: string): Promise<{ ok: boolean; placed: number; error?: string }> {
+  const { error } = await sb.from('weekly_rsvp_closures')
+    .upsert({ league_id: leagueId, game_date: gameDate, closed_by_label: label }, { onConflict: 'league_id,game_date', ignoreDuplicates: true })
+  // 마감 표가 없어도(126 전) 정규 자동 배치·일정 넣기는 한다 — 결과에 실패만 알린다.
+  const closeErr = error?.message
+  const placed = await autoPlaceAtClose(sb, leagueId, gameDate)
+  // 일정 넣기 + 빈 경기 칸(정규일정 당 경기 수만큼). 이미 있으면 빠진 번호만 채운다.
+  await sb.from('league_schedule_dates').upsert({ league_id: leagueId, date: gameDate, is_skipped: false }, { onConflict: 'league_id,date' })
+  const { data: lg } = await sb.from('leagues').select('games_per_round').eq('id', leagueId).maybeSingle()
+  try {
+    await ensureDateSlots(sb, leagueId, gameDate, (lg as { games_per_round?: number | null } | null)?.games_per_round ?? 10)
+  } catch (e) {
+    return { ok: !closeErr, placed, error: closeErr ?? (e instanceof Error ? e.message : '경기 칸을 만들지 못했어요') }
+  }
+  return closeErr ? { ok: false, placed, error: closeErr } : { ok: true, placed }
+}
+
+/** 마감 취소 — 기록 전에만. 일정·배치는 그대로 둔다(다시 마감하면 이어서 맞춘다). */
+export async function reopenWeek(sb: SB, leagueId: string, gameDate: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await sb.from('weekly_rsvp_closures').delete().eq('league_id', leagueId).eq('game_date', gameDate)
+  return error ? { ok: false, error: error.message } : { ok: true }
 }

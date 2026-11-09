@@ -1,6 +1,6 @@
 'use client'
 // 홈 맨 위 「이번 주 참가신청」 카드 (2026-11-09 운영진 — 월요일 00시가 되면 홈 상단에 뜨고, 거기서 바로 참/불)
-//   월~금: 참/불 버튼 + 지금 몇 명(정원 대비) · 토: 마감 — 내 배치 결과 · 일: 안 보인다(다음 주는 월요일에 열린다).
+//   월~금: 참/불 버튼 + 지금 몇 명(정원 대비) · 마감(어드민이 누르거나 토요일)되면 안 보인다(다음 주는 월요일에 열린다).
 //   열고 닫는 것은 서버 시각 계산(lib/rsvp/weekly.ts) — 이 카드는 받은 window 를 그대로 그린다.
 //   비회원·참가신청을 안 쓰는 리그면 아무것도 그리지 않는다.
 import { useCallback, useEffect, useState } from 'react'
@@ -25,7 +25,8 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
   }, [api])
   useEffect(() => { void load() }, [load])
 
-  if (!data?.enabled || !data.window || (!data.me && !data.isAdmin)) return null
+  // 마감되면(어드민 마감 · 경기일) 홈에서 사라진다 — 2026-11-09 운영진. 명단은 일정 탭에서.
+  if (!data?.enabled || !data.window || data.window.phase !== 'open' || (!data.me && !data.isAdmin)) return null
   const win = data.window
   const open = win.phase === 'open'
   const yes = (data.entries ?? []).filter(e => e.answer === 'yes')

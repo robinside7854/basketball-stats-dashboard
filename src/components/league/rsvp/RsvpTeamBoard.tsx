@@ -219,9 +219,11 @@ export default function RsvpTeamBoard({
       {admin && m.kind === 'guest' && (
         // 게스트비(통장 입금) 받음 표시 — 누를 때마다 바뀐다(종전 참가 명단 목록의 체크를 여기로 옮겼다)
         <button type="button" disabled={busy} onClick={() => toggleGuestPaid(m)} aria-pressed={m.guest_paid}
-          className="mm-press min-h-8 px-1.5 text-xs font-bold whitespace-nowrap border disabled:opacity-50"
-          style={{ borderColor: m.guest_paid ? '#059669' : 'var(--mm-rule)', color: m.guest_paid ? '#059669' : 'var(--mm-muted)', borderRadius: 'var(--mm-radius-chip)' }}>
-          {m.guest_paid ? '게스트비 받음' : '게스트비 미확인'}
+          title={m.guest_paid ? '게스트비 입금 확인됨 — 누르면 취소' : '게스트비 입금 확인하면 누르기'}
+          aria-label={`${m.name} 게스트비 ${m.guest_paid ? '입금 확인됨' : '입금 미확인'}`}
+          className="mm-press inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-black whitespace-nowrap border disabled:opacity-50 self-center"
+          style={{ borderColor: m.guest_paid ? '#059669' : 'var(--mm-rule)', background: m.guest_paid ? '#059669' : 'transparent', color: m.guest_paid ? '#fff' : 'var(--mm-muted)', borderRadius: 'var(--mm-radius-chip)' }}>
+          입금{m.guest_paid && <Check size={12} strokeWidth={3} aria-hidden />}
         </button>
       )}
       {admin && m.kind === 'non_regular' && !m.placed_team_id && (

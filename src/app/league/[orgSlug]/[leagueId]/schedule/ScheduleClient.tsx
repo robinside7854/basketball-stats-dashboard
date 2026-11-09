@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff, PenLine } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff, PenLine, ClipboardList } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
@@ -17,6 +17,7 @@ import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { tallyDayRecord, identityKeyOf, type DayRecord } from '@/lib/stats/dayRecord'
 import { swatchEdge } from '@/lib/util/contrastColor'
+import RsvpPageClient from '@/components/league/rsvp/RsvpPageClient'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
@@ -213,6 +214,8 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
   const { isEditMode, leagueHeaders } = useLeagueEditMode()
+  // 참가 명단 펼친 날짜(어드민) — 마감 뒤 명단 고치기는 여기서(2026-11-09 운영진). 기록이 시작되면 잠긴다.
+  const [rosterDate, setRosterDate] = useState<string | null>(null)
   const searchParams = useSearchParams()
   // 구 /boxscore 목록에서 리다이렉트로 들어온 ?quarter= 보존 — 공유된 링크의 분기 필터가 이어지게 한다.
   const quarterFromRedirect = searchParams.get('quarter')
@@ -688,6 +691,17 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                     </Link>
                   )}
                   {!upcoming && boxscoreEl}
+                  {!sd.is_skipped && (
+                    <button
+                      onClick={() => setRosterDate(rosterDate === sd.date ? null : sd.date)}
+                      className="inline-flex items-center justify-center gap-1.5 text-sm font-bold whitespace-nowrap px-3 py-2 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
+                      style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
+                      aria-expanded={rosterDate === sd.date}
+                    >
+                      <ClipboardList size={14} aria-hidden />
+                      참가 명단
+                    </button>
+                  )}
                   {/* 대관 없음 토글 — 지정하면 그 주는 모이지 않는 것으로 표시한다.
                       되돌릴 수 있어야 한다: 대관이 뒤늦게 잡히는 일이 흔하다. */}
                   {isFuture && (
@@ -820,6 +834,11 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                 </div>
               )}
 
+              {isEditMode && rosterDate === sd.date && (
+                <div className="pt-1">
+                  <RsvpPageClient leagueId={leagueId} base={`/league/${orgSlug}/${leagueId}`} initialDate={sd.date} embedded />
+                </div>
+              )}
               {isEditMode && upcoming && editingDate === sd.date && (
                 <ScheduleDetailEditor
                   sd={sd}

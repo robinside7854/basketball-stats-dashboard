@@ -81,7 +81,7 @@ async function uploadedVideoDates(channelId: string, apiKey: string, sinceYmd: s
 }
 
 /** 그 날짜에 games_per_round 만큼 빈 슬롯을 깐다(빠진 번호만). 친선 슬롯이 있으면 손대지 않는다. */
-async function ensureDateSlots(supabase: SupabaseClient, leagueId: string, date: string, slotCount: number) {
+export async function ensureDateSlots(supabase: SupabaseClient, leagueId: string, date: string, slotCount: number) {
   const { data: existing } = await supabase
     .from('league_games').select('slot_num, is_exhibition').eq('league_id', leagueId).eq('date', date)
   if ((existing ?? []).some(g => g.is_exhibition)) return
@@ -189,6 +189,14 @@ export async function reconcileScheduleWithVideos(
     .map(r => r.date)
     .filter(d => !videoDates.has(d))                 // 영상이 올라온 날은 대상 아님
     .filter(d => d > today || d < graceFrom)         // 앞날(예정) 또는 유예 지난 과거
+  // 참가신청을 마감해 만든 날짜(126)는 영상이 없어도 지우지 않는다 — 표가 없으면(마이그레이션 전) 그냥 넘어간다.
+  if (candidates.length > 0) {
+    const { data: closed, error: closedErr } = await supabase.from('weekly_rsvp_closures').select('game_date').eq('league_id', leagueId).in('game_date', candidates)
+    if (!closedErr) {
+      const keep = new Set(((closed ?? []) as Array<{ game_date: string }>).map(r => r.game_date))
+      for (let i = candidates.length - 1; i >= 0; i--) if (keep.has(candidates[i])) candidates.splice(i, 1)
+    }
+  }
 
   if (candidates.length > 0) {
     const { data: games } = await supabase

@@ -4,13 +4,16 @@
 //   POST { action:'place', date, playerId, teamId|null, returnTicket? } — 팀 배치(비정규면 이때 티켓 1장 사용)
 //   POST { action:'place_suggested', date }                            — 정규를 이번 달 소속 팀으로 한 번에
 //   POST { action:'guest_paid', date, playerId, paid:boolean }          — 게스트비 받음 표시(통장 입금)
+//   POST { action:'close', date } / { action:'reopen', date }            — 마감(일정·빈 경기 칸 생성) / 마감 취소(기록 전 · 신청 기간 안)
+//   ⚠ 그날 기록이 시작되면 명단(참/불·배치)은 잠긴다 — 게스트비 표시만 계속 고칠 수 있다.
 //   정원(18)은 안내만 — 넘쳐도 막지 않는다(팀장·총무 회의로 정함).
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { resolveAuditActor } from '@/lib/audit'
-import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL } from '@/lib/rsvp/weekly'
+import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL, closeWeek, reopenWeek, rosterLocked, loadClosure } from '@/lib/rsvp/weekly'
+import { logAudit } from '@/lib/audit'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -28,6 +31,29 @@ export async function POST(req: Request, { params }: Ctx) {
   const teamId = await resolveTeamId(leagueId)
   const now = new Date().toISOString()
   const key = (pid: string) => sb.from('weekly_rsvp').select('*').eq('league_id', leagueId).eq('game_date', date).eq('league_player_id', pid)
+
+  if (body.action === 'close') {
+    const res = await closeWeek(sb, leagueId, date, actor)
+    if (!res.ok) return NextResponse.json({ error: res.error?.includes('weekly_rsvp_closures') ? '마감 기능 준비가 아직 안 됐어요(마이그레이션 126)' : res.error }, { status: 500 })
+    await logAudit({ req, action: 'rsvp.close', targetTable: 'weekly_rsvp_closures', targetId: date, leagueId, teamId, detail: { date, placed: res.placed } })
+    return NextResponse.json({ ok: true, placed: res.placed, warning: res.error ?? null })
+  }
+
+  const locked = await rosterLocked(sb, leagueId, date)
+
+  if (body.action === 'reopen') {
+    if (locked) return NextResponse.json({ error: '그날 기록이 시작돼 마감을 취소할 수 없어요' }, { status: 409 })
+    if (!(await loadClosure(sb, leagueId, date))) return NextResponse.json({ ok: true })
+    const res = await reopenWeek(sb, leagueId, date)
+    if (!res.ok) return NextResponse.json({ error: res.error }, { status: 500 })
+    await logAudit({ req, action: 'rsvp.reopen', targetTable: 'weekly_rsvp_closures', targetId: date, leagueId, teamId, detail: { date } })
+    return NextResponse.json({ ok: true })
+  }
+
+  // 명단을 바꾸는 일(참/불·배치)은 기록이 시작되면 막는다 — 기록 명단이 이 명단을 따른다.
+  if (locked && body.action !== 'guest_paid') {
+    return NextResponse.json({ error: '그날 기록이 시작돼 명단을 고칠 수 없어요' }, { status: 409 })
+  }
 
   if (body.action === 'place_suggested') {
     const board = await loadRsvpBoard(sb, leagueId, date)

@@ -25,6 +25,11 @@ export interface RsvpRes {
   window: { gameDate: string; opensAt: string | null; closesAt: string | null; phase: 'open' | 'closed' } | null
   capacity: number
   isAdmin?: boolean
+  /** 마감 기록(어드민 마감 · 경기일 자동 마감) — 126 */
+  closure?: { closed_at: string; closed_by_label: string | null } | null
+  /** 그날 기록이 시작돼 명단을 못 고침 */
+  locked?: boolean
+  can_reopen?: boolean
   me: { answer: 'yes' | 'no' | null; approved: boolean; placed_team_id: string | null; kind: RsvpKind | null; tickets_left: number; month_team_id?: string | null; my_guest_ids?: string[] } | null
   entries?: RsvpEntryView[]
   teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null; leader_id?: string | null; regulars?: Array<{ player_id: string; name: string; position: string | null }> }>
