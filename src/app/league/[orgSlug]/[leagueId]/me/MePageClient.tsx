@@ -52,26 +52,22 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
     return () => { alive = false }
   }, [leagueId, user])
 
-  // 월렛 · 드래프트 바로가기 · 계정 — PC 는 왼쪽 칸 프로필 바로 아래(스크롤 없이 보이게, 2026-11-09 운영진),
-  //   폰은 제목 바로 아래(계정 카드만 맨 아래). 같은 묶음을 두 자리에 그리고 화면 폭으로 하나만 보인다.
+  // 월렛 · 드래프트 바로가기 — PC·폰 모두 제목 바로 아래. 계정 카드는 PC 왼쪽 칸 아래 · 폰 맨 아래.
   const shortcuts = (wallet && user) || showDraft ? (
     <SectionCard variant="standalone" pad="none">
       {user && wallet && (
         <ShortcutRow
           href={`${base}/wallet`} Icon={Wallet} label={wallet.name}
-          sub={wallet.balance == null ? '포인트 충전 · 내역' : `잔액 ${wallet.balance.toLocaleString()}P · 충전 · 내역`}
+          sub="충전 · 티켓 · 내역" accent
+          right={wallet.balance != null && <span className="shrink-0 font-black text-xl tabular-nums" style={{ color: 'var(--mm-ink)' }}>{wallet.balance.toLocaleString()}P</span>}
           last={!showDraft}
         />
       )}
       {showDraft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />}
     </SectionCard>
   ) : null
-  const side = (
-    <>
-      {shortcuts}
-      <AccountCard leagueId={leagueId} />
-    </>
-  )
+  // PC 왼쪽 칸 아래에는 계정만 — 월렛·드래프트는 PC·폰 모두 제목 바로 아래(2026-11-09 운영진 — PC 에서도 안 보였다)
+  const side = <AccountCard leagueId={leagueId} />
 
   return (
     <div className="space-y-3 lg:space-y-4">
@@ -81,8 +77,8 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         <MePageSkeleton />
       ) : user ? (
         <>
-          {/* 폰·태블릿: 월렛·드래프트 바로가기는 맨 위(2026-11-09 운영진 — 맨 아래라 찾기 불편했다), 계정은 맨 아래 */}
-          {shortcuts && <div className="lg:hidden">{shortcuts}</div>}
+          {/* 월렛·드래프트 바로가기는 PC·폰 모두 맨 위(2026-11-09 운영진 — PC 는 프로필 카드 아래라 화면 밖이었다), 계정은 맨 아래 */}
+          {shortcuts && <div className="lg:max-w-[720px]">{shortcuts}</div>}
           <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} side={side} />
           <div className="lg:hidden"><AccountCard leagueId={leagueId} /></div>
         </>
@@ -98,8 +94,8 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
 }
 
 function ShortcutRow({
-  href, Icon, label, sub, last = false,
-}: { href: string; Icon: LucideIcon; label: string; sub: string; last?: boolean }) {
+  href, Icon, label, sub, last = false, right, accent = false,
+}: { href: string; Icon: LucideIcon; label: string; sub: string; last?: boolean; right?: React.ReactNode; accent?: boolean }) {
   return (
     <Link
       href={href}
@@ -108,7 +104,7 @@ function ShortcutRow({
     >
       <span
         className="shrink-0 inline-flex items-center justify-center w-10 h-10"
-        style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
+        style={{ background: accent ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)', color: accent ? 'var(--mm-black)' : 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
       >
         <Icon size={20} aria-hidden />
       </span>
@@ -116,6 +112,7 @@ function ShortcutRow({
         <div className="font-bold text-sm md:text-base" style={{ color: 'var(--mm-ink)' }}>{label}</div>
         <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{sub}</div>
       </div>
+      {right}
       <ChevronRight size={20} className="shrink-0" style={{ color: 'var(--mm-muted)' }} aria-hidden />
     </Link>
   )
