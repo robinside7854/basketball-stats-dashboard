@@ -2,6 +2,8 @@
 //   GET                     → { pending, recent, members: [{ player_id, name, balance }], total }
 //   GET ?playerId=          → 그 회원의 장부 · 티켓 · 환불 가능 금액
 //   GET ?count=1            → { pending: N } — 상단 톱니바퀴 빨간 배지용(가볍게 개수만)
+//   GET ?bank=1             → { connected, created_at, last_used_at, events } — 카카오뱅크 자동 승인 연결 상태 · 최근 알림 20건(128)
+//   POST { action:'bank_token' | 'bank_disconnect' }       — 연결 비밀번호 새로 만들기(원문은 이때 한 번만) · 끊기
 //   GET ?passes=1           → { months: PassMonth[] } — 어드민 홈 「정규권 안 산 사람」 알림(이번 달 · 20일부터 다음 달)
 //   POST { action:'review', requestId, decision:'approve'|'reject', note? }  — 충전이면 승인(+보너스), 환불이면 「송금했어요」
 //   POST { action:'use_ticket', playerId, date, note? }      — 비정규 티켓 한 장 사용 처리(참가신청 전까지는 손으로)
@@ -19,6 +21,7 @@ import {
 } from '@/lib/wallet/wallet'
 import { parseMimoText, previewMimo, applyMimo } from '@/lib/wallet/mimoImport'
 import { loadPassStatus } from '@/lib/wallet/passStatus'
+import { hashToken, newToken, type BankEvent } from '@/lib/wallet/bankAuto'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -36,6 +39,31 @@ export async function GET(req: Request, { params }: Ctx) {
       .select('id', { count: 'exact', head: true }).eq('team_id', teamId).eq('status', 'pending')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ pending: count ?? 0 }, NO_STORE)
+  }
+
+  if (sp.get('bank')) {
+    const [hookRes, evRes] = await Promise.all([
+      sb.from('wallet_bank_hooks').select('created_at, created_by, last_used_at').eq('team_id', teamId).maybeSingle(),
+      sb.from('wallet_bank_events').select('id, raw_text, amount, status, request_id, created_at').eq('team_id', teamId)
+        .order('created_at', { ascending: false }).limit(20),
+    ])
+    if (hookRes.error && /does not exist|schema cache/i.test(hookRes.error.message)) return NextResponse.json({ ready: false }, NO_STORE)
+    const events = (evRes.data ?? []) as BankEvent[]
+    const reqIds = events.map(e => e.request_id).filter(Boolean) as string[]
+    const names = new Map<string, string>()
+    if (reqIds.length) {
+      const { data: rq } = await sb.from('wallet_charge_requests').select('id, league_player_id').in('id', reqIds)
+      const pids = (rq ?? []).map(r => r.league_player_id as string)
+      const { data: ps } = pids.length ? await sb.from('league_players').select('id, name').in('id', pids) : { data: [] }
+      const pn = new Map((ps ?? []).map(p => [p.id as string, p.name as string]))
+      for (const r of rq ?? []) names.set(r.id as string, pn.get(r.league_player_id as string) ?? '')
+    }
+    const hook = hookRes.data as { created_at: string; created_by: string | null; last_used_at: string | null } | null
+    return NextResponse.json({
+      ready: true, connected: !!hook, created_at: hook?.created_at ?? null, created_by: hook?.created_by ?? null,
+      last_used_at: hook?.last_used_at ?? null,
+      events: events.map(e => ({ ...e, name: e.request_id ? names.get(e.request_id) ?? null : null })),
+    }, NO_STORE)
   }
 
   if (sp.get('passes')) {
@@ -94,6 +122,22 @@ export async function POST(req: Request, { params }: Ctx) {
   const fail = (error: { message: string }) => {
     const msg = walletErrorMessage(error.message)
     return NextResponse.json({ error: msg ?? error.message }, { status: msg ? 409 : 500 })
+  }
+
+  if (body.action === 'bank_token') {
+    const token = newToken()
+    const { error } = await sb.from('wallet_bank_hooks').upsert({
+      team_id: teamId, token_hash: hashToken(token), created_at: new Date().toISOString(), created_by: actor, last_used_at: null,
+    })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await logAudit({ req, action: 'wallet.bank.connect', targetTable: 'wallet_bank_hooks', leagueId, teamId })
+    return NextResponse.json({ token, url: `${new URL(req.url).origin}/api/leagues/${leagueId}/wallet/bank-notify` })
+  }
+  if (body.action === 'bank_disconnect') {
+    const { error } = await sb.from('wallet_bank_hooks').delete().eq('team_id', teamId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await logAudit({ req, action: 'wallet.bank.disconnect', targetTable: 'wallet_bank_hooks', leagueId, teamId })
+    return NextResponse.json({ ok: true })
   }
 
   if (body.action === 'review') {

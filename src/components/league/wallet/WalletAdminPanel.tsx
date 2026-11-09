@@ -11,6 +11,7 @@ import { refreshPendingCharges } from '@/lib/hooks/usePendingCharges'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
 import MimoImportBox from './MimoImportBox'
+import BankAutoBox from './BankAutoBox'
 import { LedgerList, RequestList, TicketList, fmtP, fmtWhen, ticketTitle, type LedgerItem, type RequestItem, type TicketItem } from './walletParts'
 
 /** 환불 계좌에서 계좌번호(숫자·하이픈)만 — 「카카오뱅크 3333000000000」 → 「3333000000000」 */
@@ -251,6 +252,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
 
       {/* 미모바스켓 잔액 옮기기(2026-11-09 운영진) — 한 번 쓰고 마는 일이라 접어 둔다 */}
       <SectionCard variant="standalone">
+        <BankAutoBox leagueId={leagueId} />
         <MimoImportBox leagueId={leagueId} onDone={() => { void load(); onChanged() }} />
       </SectionCard>
 

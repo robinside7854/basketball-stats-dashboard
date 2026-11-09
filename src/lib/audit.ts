@@ -118,6 +118,8 @@ export type AuditAction =
   | 'wallet.ticket.use'
   | 'wallet.ticket.return'
   | 'wallet.import'
+  | 'wallet.bank.connect'
+  | 'wallet.bank.disconnect'
   // 주간 참가신청 — 126
   | 'rsvp.close'
   | 'rsvp.reopen'

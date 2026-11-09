@@ -6,6 +6,7 @@
 //   DELETE ?requestId=  → 내 대기 중 요청 취소
 //   본인 것만 본다. 캐시 없음(돈이라 늘 최신 · ISR Reads 0).
 import { NextResponse } from 'next/server'
+import { matchLateRequest } from '@/lib/wallet/bankAuto'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -107,6 +108,12 @@ export async function POST(req: Request, { params }: Ctx) {
     // 23505 = 대기 중 요청이 이미 있음(wallet_charge_requests_one_pending)
     if (error.code === '23505') return NextResponse.json({ error: '이미 확인을 기다리는 요청이 있어요' }, { status: 409 })
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  // 입금부터 하고 요청을 나중에 보낸 경우 — 먼저 와 있던 카카오뱅크 입금 알림과 짝지어 바로 승인(마이그레이션 128)
+  const row = data as unknown as { id: string; amount: number; depositor_name: string }
+  if (await matchLateRequest(sb, teamId, row)) {
+    const { data: fresh } = await sb.from('wallet_charge_requests').select(REQUEST_COLS).eq('id', row.id).single()
+    return NextResponse.json({ ...(fresh ?? data), auto_approved: true }, { status: 201 })
   }
   return NextResponse.json(data, { status: 201 })
 }
