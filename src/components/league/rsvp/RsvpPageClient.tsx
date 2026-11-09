@@ -1,5 +1,5 @@
 'use client'
-// 참가신청 관리 화면 (/rsvp, 2026-11-09 운영진) — 어드민 전용(회원은 홈 카드에서 참/불·명단을 본다).
+// 참가신청 현황 화면 (/rsvp, 2026-11-09 운영진) — 회원은 보기 전용, 어드민만 배치·수정. 참/불은 홈 카드에서.
 //   신청 받는 곳이 아니라 관리하는 곳이라 「이번 주 나오나요?」 카드는 두지 않는다.
 //   어드민: 지난 주·다음 주로 옮겨 보기 · 대기명단(비정규·게스트)을 끌어서 팀 배치(비정규면 이때 티켓 1장, 폰은 팀 고르기) ·
 //           정규를 이번 달 팀으로 한 번에 · 게스트비 받음 · 대신 참/불 눌러 주기 · 불참·미응답 명단.
@@ -53,11 +53,9 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   if (!data.enabled) return <EmptyState title="이 리그는 참가신청을 쓰지 않아요" framed />
   // 일정 탭 안(embedded): 그날 신청 기록이 하나도 없으면 아무것도 그리지 않는다
   if (embedded && (data.entries ?? []).length === 0 && !data.closure) return <p className="text-sm py-2" style={{ color: 'var(--mm-muted)' }}>이 날짜에는 참가신청 기록이 없어요.</p>
-  // 관리 화면 = 어드민 전용(2026-11-09 운영진). 회원은 홈 카드에서 참/불·명단을 본다.
-  if (!data.isAdmin) return data.me
-    ? <EmptyState title="어드민 전용 화면이에요" description="참가신청과 명단은 홈 화면 맨 위 카드에서 볼 수 있어요." framed />
-    : <LoginTeaser />
-  const admin = true
+  // 신청 현황 화면 — 회원은 보기만, 어드민만 배치·수정(2026-11-09 운영진). 참/불은 홈 카드에서.
+  if (!data.me && !data.isAdmin) return <LoginTeaser />
+  const admin = !!data.isAdmin
 
   async function act(body: Record<string, unknown>, tag: string, ok?: string) {
     setBusy(tag)
@@ -83,7 +81,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
     <div className={embedded ? 'space-y-3' : 'space-y-3 lg:space-y-4 max-w-lg lg:max-w-4xl lg:mx-auto'}>
       {!embedded && <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="font-black text-[28px] lg:text-[32px] leading-none text-[color:var(--mm-ink)] tracking-tight">
-          참가신청{gameDate ? ` · ${dateLabel(gameDate)}` : ''}
+          {admin ? '참가신청' : '신청 현황'}{gameDate ? ` · ${dateLabel(gameDate)}` : ''}
         </h2>
         {admin && gameDate && (
           <div className="inline-flex gap-1">
@@ -125,7 +123,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                   )}
                   {!closed ? (
                     <button type="button" disabled={busy === 'close'}
-                      onClick={() => { if (confirm(`${dateLabel(gameDate)} 참가신청을 마감할까요?\n· 홈 화면 카드가 사라지고 회원은 참/불을 못 바꿔요\n· 그날 일정과 빈 경기 칸이 만들어져요\n· 명단은 일정 탭에서 기록 전까지 고칠 수 있어요`)) void act({ action: 'close' }, 'close', '마감했어요 — 일정 탭에 그날 일정이 생겼어요') }}
+                      onClick={() => { const waiting = yes.filter(e => !e.placed_team_id).length; if (waiting > 0 && !confirm(`아직 팀에 배치되지 않은 사람이 ${waiting}명 있어요(대기명단).\n그대로 마감해도 일정 탭에서 기록 전까지 배치할 수 있어요. 계속할까요?`)) return; if (confirm(`${dateLabel(gameDate)} 참가신청을 마감할까요?\n· 홈 화면 카드가 사라지고 회원은 참/불을 못 바꿔요\n· 그날 일정과 빈 경기 칸이 만들어져요\n· 명단은 일정 탭에서 기록 전까지 고칠 수 있어요`)) void act({ action: 'close' }, 'close', '마감했어요 — 일정 탭에 그날 일정이 생겼어요') }}
                       className="mm-press w-full min-h-11 text-sm font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                       style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <Lock size={15} aria-hidden />참가신청 마감하기

@@ -6,7 +6,7 @@
 //   금액 계산(보너스·환불 가능액·티켓 가격)은 서버 DB 함수가 정본이다 — 화면은 미리보기만 한다.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Wallet, Copy, Loader2, X, Minus, Plus, Ticket, Crown, ArrowDownLeft, ArrowUpRight, Clock, RotateCcw, ChevronDown } from 'lucide-react'
+import { Wallet, Copy, Loader2, X, Minus, Plus, Ticket, Crown, ArrowDownLeft, ArrowUpRight, Clock, RotateCcw } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { usePendingCharges } from '@/lib/hooks/usePendingCharges'
@@ -17,7 +17,7 @@ import EmptyState from '@/components/league/ui/EmptyState'
 import { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import WalletAdminPanel from './WalletAdminPanel'
 import {
-  KIND_LABEL, STATUS_LABEL, fmtP, fmtSigned, monthLabel,
+  KIND_LABEL, STATUS_LABEL, fmtP, fmtSigned, monthLabel, Pager, pageSlice,
   type LedgerItem, type RequestItem, type TicketItem,
 } from './walletParts'
 
@@ -166,7 +166,7 @@ const FIRST = 8
 
 function History({ rows, fill = false }: { rows: Row[]; fill?: boolean }) {
   const [filter, setFilter] = useState<Filter>('all')
-  const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(0)
   const shown = filter === 'all' ? rows.filter(r => !(r.group === 'ticket' && r.title.endsWith('구매'))) : rows.filter(r => r.group === filter)
   const waiting = rows.filter(r => r.chip?.label === STATUS_LABEL.pending).length
   const chips: Array<{ key: Filter; label: string }> = [
@@ -179,7 +179,7 @@ function History({ rows, fill = false }: { rows: Row[]; fill?: boolean }) {
         <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>내역</h3>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="내역 거르기">
           {chips.map(c => (
-            <button key={c.key} type="button" aria-pressed={filter === c.key} onClick={() => { setFilter(c.key); setOpen(false) }}
+            <button key={c.key} type="button" aria-pressed={filter === c.key} onClick={() => { setFilter(c.key); setPage(0) }}
               className="mm-press min-h-9 px-3 text-sm font-bold"
               style={{ background: filter === c.key ? 'var(--mm-ink)' : 'var(--mm-panel-alt)', color: filter === c.key ? 'var(--mm-panel)' : 'var(--mm-ink-soft)', borderRadius: 999 }}>
               {c.label}
@@ -191,7 +191,7 @@ function History({ rows, fill = false }: { rows: Row[]; fill?: boolean }) {
         <div className="py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>아직 내역이 없어요</div>
       ) : (
         <ul className={`mt-1 ${fill ? 'lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1' : ''}`}>
-          {(open ? shown : shown.slice(0, FIRST)).map((r, i, arr) => {
+          {pageSlice(shown, page, FIRST).map((r, i, arr) => {
             const day = kstDay(r.at)
             const newDay = i === 0 || kstDay(arr[i - 1].at) !== day
             return (
@@ -214,11 +214,7 @@ function History({ rows, fill = false }: { rows: Row[]; fill?: boolean }) {
           })}
         </ul>
       )}
-      {shown.length > FIRST && (
-        <button type="button" onClick={() => setOpen(v => !v)} className="w-full min-h-11 mt-1 inline-flex items-center justify-center gap-1 text-sm font-bold cursor-pointer hover:bg-[color:var(--mm-panel-alt)]" style={{ color: 'var(--mm-ink-soft)' }}>
-          {open ? '접기' : `${shown.length - FIRST}개 더 보기`}<ChevronDown size={15} aria-hidden className={open ? 'rotate-180' : ''} />
-        </button>
-      )}
+      <Pager page={page} total={shown.length} size={FIRST} onChange={setPage} />
     </SectionCard>
   )
 }

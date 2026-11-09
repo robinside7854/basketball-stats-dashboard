@@ -60,24 +60,48 @@ export function fmtWhen(iso: string): string {
   })
 }
 
-// 처음엔 몇 줄만 — 내역이 쌓이면 화면이 끝없이 길어진다(2026-11-09 점검)
+// 쪽 나누기(2026-11-09 운영진 — 「더 보기」로 펼치면 화면이 끝없이 길어졌다). 회원 내역 · 어드민 칸 공용.
 const FIRST = 6
-function MoreButton({ total, open, onToggle }: { total: number; open: boolean; onToggle: () => void }) {
-  if (total <= FIRST) return null
+
+/** 그 쪽에 보일 줄 — page 는 0부터 */
+export function pageSlice<T>(rows: T[], page: number, size: number): T[] {
+  return rows.slice(page * size, page * size + size)
+}
+
+/** ‹ 1 2 3 … 9 › — 한 쪽뿐이면 그리지 않는다 */
+export function Pager({ page, total, size, onChange }: { page: number; total: number; size: number; onChange: (p: number) => void }) {
+  const pages = Math.ceil(total / size)
+  if (pages <= 1) return null
+  // 처음·끝·지금 앞뒤 한 쪽만 숫자로, 사이는 「…」 칸(글자 말줄임이 아니라 쪽 건너뜀 표시)
+  const nums: Array<number | 'gap'> = []
+  for (let i = 0; i < pages; i++) {
+    if (i === 0 || i === pages - 1 || Math.abs(i - page) <= 1) nums.push(i)
+    else if (nums[nums.length - 1] !== 'gap') nums.push('gap')
+  }
+  const btn = 'mm-press inline-flex items-center justify-center min-w-9 min-h-9 px-2 text-sm font-bold tabular-nums disabled:opacity-30'
   return (
-    <button type="button" onClick={onToggle} className="w-full min-h-11 mt-1 text-sm font-bold cursor-pointer hover:bg-[color:var(--mm-panel-alt)]" style={{ color: 'var(--mm-ink-soft)' }}>
-      {open ? '접기' : `${total - FIRST}개 더 보기`}
-    </button>
+    <nav aria-label="쪽 넘기기" className="mt-2 flex items-center justify-center gap-1 flex-wrap">
+      <button type="button" className={btn} disabled={page === 0} onClick={() => onChange(page - 1)} aria-label="앞 쪽" style={{ color: 'var(--mm-ink-soft)' }}>‹</button>
+      {nums.map((n, i) => n === 'gap'
+        ? <span key={`g${i}`} aria-hidden className="px-1 text-sm" style={{ color: 'var(--mm-muted)' }}>·</span>
+        : (
+          <button key={n} type="button" className={btn} aria-current={n === page ? 'page' : undefined} onClick={() => onChange(n)}
+            style={{ background: n === page ? 'var(--mm-ink)' : 'transparent', color: n === page ? 'var(--mm-panel)' : 'var(--mm-ink-soft)', borderRadius: 999 }}>
+            {n + 1}
+          </button>
+        ))}
+      <button type="button" className={btn} disabled={page >= pages - 1} onClick={() => onChange(page + 1)} aria-label="다음 쪽" style={{ color: 'var(--mm-ink-soft)' }}>›</button>
+    </nav>
   )
 }
 
 export function LedgerList({ rows }: { rows: LedgerItem[] }) {
-  const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(0)
   if (rows.length === 0) return <EmptyState title="아직 내역이 없어요" variant="compact" />
   return (
     <>
     <ul>
-      {(open ? rows : rows.slice(0, FIRST)).map(r => (
+      {pageSlice(rows, page, FIRST).map(r => (
         <li key={r.id} className="flex items-start justify-between gap-3 py-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
           <div className="min-w-0">
             <div className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{KIND_LABEL[r.kind]}</div>
@@ -91,7 +115,7 @@ export function LedgerList({ rows }: { rows: LedgerItem[] }) {
         </li>
       ))}
     </ul>
-    <MoreButton total={rows.length} open={open} onToggle={() => setOpen(v => !v)} />
+    <Pager page={page} total={rows.length} size={FIRST} onChange={setPage} />
     </>
   )
 }
@@ -106,12 +130,12 @@ const STATUS_STYLE: Record<RequestItem['status'], { bg: string; fg: string }> = 
 // 충전 요청 목록 (2026-11-09 운영진 — 요청·처리 시각이 한 줄에 나란히 있어 읽기 어려웠다)
 //   한 장 = 머리(상태 칩 · 금액) + 「요청」 줄 + 「처리」 줄. 줄마다 왼쪽에 이름표를 고정 폭으로 둔다.
 export function RequestList({ rows }: { rows: RequestItem[] }) {
-  const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(0)
   if (rows.length === 0) return <EmptyState title="아직 충전 요청이 없어요" variant="compact" />
   return (
     <>
     <ul className="space-y-2">
-      {(open ? rows : rows.slice(0, FIRST)).map(r => {
+      {pageSlice(rows, page, FIRST).map(r => {
         const st = STATUS_STYLE[r.status]
         const handled = r.status !== 'pending' && r.reviewed_at
         return (
@@ -148,7 +172,7 @@ export function RequestList({ rows }: { rows: RequestItem[] }) {
         )
       })}
     </ul>
-    <MoreButton total={rows.length} open={open} onToggle={() => setOpen(v => !v)} />
+    <Pager page={page} total={rows.length} size={FIRST} onChange={setPage} />
     </>
   )
 }
