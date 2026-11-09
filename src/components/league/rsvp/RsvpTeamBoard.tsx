@@ -5,10 +5,12 @@
 //     어드민이 이름을 **끌어서 팀 카드에 놓아** 배치한다(각 팀 수요에 맞춰 — 자동으로 채우지 않는다, 운영진).
 //     팀 → 대기명단으로 끌면 배치를 푼다(비정규 티켓을 썼으면 돌려줄지 묻는다). 팀 → 다른 팀도 된다.
 //   · 끌기는 마우스(PC)용이다. 폰에서는 /rsvp 아래 목록의 팀 고르기로 같은 일을 한다.
+//   · 팀 카드에는 이번 달 그 팀 정규 멤버가 **늘 보인다**(2026-11-09 운영진 — 답을 했는지 모르겠다):
+//     ✓ 참(맨 위) · ? 아직 답 안 함 · ✕ 불참. 게스트는 「이름(나이) / 포지션 / 신장」.
 import { useState, type DragEvent } from 'react'
 import { toast } from 'sonner'
-import { GripVertical } from 'lucide-react'
-import { UNIFORM_FILL, UNIFORM_NAME, KIND_LABEL, type RsvpEntryView, type RsvpRes } from './rsvpTypes'
+import { GripVertical, Check, X, HelpCircle } from 'lucide-react'
+import { UNIFORM_FILL, UNIFORM_NAME, KIND_LABEL, guestLine, type RsvpEntryView, type RsvpRes } from './rsvpTypes'
 
 type Team = NonNullable<RsvpRes['teams']>[number]
 type Uni = keyof typeof UNIFORM_FILL
@@ -22,7 +24,7 @@ function Dot({ uniform, size = 22 }: { uniform: Uni | null; size?: number }) {
 }
 
 export default function RsvpTeamBoard({
-  leagueId, gameDate, teams, yes, admin, onChanged, compact = false,
+  leagueId, gameDate, teams, yes, admin, onChanged, compact = false, entries = [], myGuestIds = [], canCancelGuests = false,
 }: {
   leagueId: string
   gameDate: string
@@ -31,6 +33,11 @@ export default function RsvpTeamBoard({
   admin: boolean
   onChanged: () => void
   compact?: boolean
+  /** 전체 신청(참·불) — 정규 멤버의 ? / ✕ 판정용 */
+  entries?: RsvpEntryView[]
+  /** 내가 부른 게스트 — 「취소」 버튼 */
+  myGuestIds?: string[]
+  canCancelGuests?: boolean
 }) {
   const [picking, setPicking] = useState<string | null>(null)
   const [over, setOver] = useState<string | null>(null)
@@ -69,6 +76,20 @@ export default function RsvpTeamBoard({
     } finally { setBusy(false) }
   }
 
+  async function cancelGuest(e: RsvpEntryView) {
+    if (!confirm(`${e.name} 님 게스트 신청을 취소할까요?`)) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/rsvp?guestId=${e.player_id}`, { method: 'DELETE' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(j.error ?? '취소하지 못했어요'); return }
+      toast.success('게스트 신청을 취소했어요')
+      onChanged()
+    } finally { setBusy(false) }
+  }
+
+  const answerOf = new Map(entries.map(x => [x.player_id, x.answer]))
+
   const dropProps = (key: string) => admin ? {
     onDragOver: (ev: DragEvent) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; if (over !== key) setOver(key) },
     onDragLeave: () => setOver(o => (o === key ? null : o)),
@@ -87,6 +108,12 @@ export default function RsvpTeamBoard({
     borderRadius: 'var(--mm-radius-card)',
   })
 
+  const Mark = ({ kind }: { kind: 'yes' | 'unknown' | 'no' }) => kind === 'yes'
+    ? <Check size={14} aria-label="참" className="self-center shrink-0" style={{ color: '#059669' }} />
+    : kind === 'no'
+      ? <X size={14} aria-label="불참" className="self-center shrink-0" style={{ color: 'var(--mm-live-bg)' }} />
+      : <HelpCircle size={14} aria-label="아직 답 안 함" className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />
+
   const Person = ({ m, showKind }: { m: RsvpEntryView; showKind: boolean }) => (
     <li
       draggable={admin}
@@ -95,8 +122,15 @@ export default function RsvpTeamBoard({
       title={admin ? '끌어서 다른 팀이나 대기명단에 놓기' : undefined}
     >
       {admin && <GripVertical size={14} aria-hidden className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />}
-      <span className="text-base" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
-      {m.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{m.position}</span>}
+      <Mark kind="yes" />
+      {m.kind === 'guest' ? (
+        <span className="text-base" style={{ color: 'var(--mm-ink)' }}>{guestLine(m)}</span>
+      ) : (
+        <>
+          <span className="text-base" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
+          {m.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{m.position}</span>}
+        </>
+      )}
       {showKind && <span className="text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{KIND_LABEL[m.kind]}</span>}
       {m.kind === 'guest' && m.answered_by && m.answered_by.endsWith('초대') && (
         <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{m.answered_by}</span>
@@ -104,6 +138,10 @@ export default function RsvpTeamBoard({
       {admin && m.kind === 'guest' && m.guest_paid && <span className="text-xs font-bold" style={{ color: '#059669' }}>게스트비 받음</span>}
       {admin && m.kind === 'non_regular' && !m.placed_team_id && (
         <span className="text-xs" style={{ color: m.tickets_left > 0 ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>티켓 {m.tickets_left}장</span>
+      )}
+      {canCancelGuests && m.kind === 'guest' && myGuestIds.includes(m.player_id) && (
+        <button type="button" disabled={busy} onClick={() => cancelGuest(m)}
+          className="mm-press min-h-8 px-2 text-xs font-bold underline" style={{ color: 'var(--mm-live-bg)' }}>취소</button>
       )}
     </li>
   )
@@ -145,15 +183,32 @@ export default function RsvpTeamBoard({
                     </span>
                   )}
                 </span>
-                <span className="text-sm tabular-nums shrink-0" style={{ color: 'var(--mm-muted)' }}>{members.length}명</span>
+                <span className="text-sm tabular-nums shrink-0" style={{ color: 'var(--mm-muted)' }}>참 {members.length}명</span>
               </div>
-              {members.length === 0 ? (
-                <p className="text-sm mt-2" style={{ color: 'var(--mm-muted)' }}>{admin ? '여기에 끌어다 놓기' : '아직 없어요'}</p>
-              ) : (
-                <ul className="mt-2 space-y-1.5">
-                  {members.map(m => <Person key={m.player_id} m={m} showKind={m.kind !== 'regular'} />)}
-                </ul>
-              )}
+              {(() => {
+                const inTeam = new Set(members.map(m => m.player_id))
+                // 이번 달 이 팀 정규 중 아직 이 팀에 「참」으로 들어오지 않은 사람 — ? 답 안 함 · ✕ 불참
+                //   (「참」인데 다른 팀·대기명단에 있으면 거기서 보이므로 여기선 뺀다)
+                const rest = (t.regulars ?? []).filter(r => !inTeam.has(r.player_id) && answerOf.get(r.player_id) !== 'yes')
+                  .map(r => ({ ...r, mark: answerOf.get(r.player_id) === 'no' ? 'no' as const : 'unknown' as const }))
+                  .sort((a, b) => (a.mark === b.mark ? a.name.localeCompare(b.name, 'ko') : a.mark === 'unknown' ? -1 : 1))
+                if (members.length === 0 && rest.length === 0) {
+                  return <p className="text-sm mt-2" style={{ color: 'var(--mm-muted)' }}>{admin ? '여기에 끌어다 놓기' : '아직 없어요'}</p>
+                }
+                return (
+                  <ul className="mt-2 space-y-1.5">
+                    {members.map(m => <Person key={m.player_id} m={m} showKind={m.kind !== 'regular'} />)}
+                    {rest.map(r => (
+                      <li key={r.player_id} className="flex items-baseline gap-2 flex-wrap" style={{ opacity: r.mark === 'no' ? 0.55 : 0.8 }}>
+                        {admin && <span className="w-[14px] shrink-0" aria-hidden />}
+                        <Mark kind={r.mark} />
+                        <span className="text-base" style={{ color: 'var(--mm-ink)', textDecoration: r.mark === 'no' ? 'line-through' : undefined }}>{r.name}</span>
+                        {r.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{r.position}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              })()}
             </div>
           )
         })}

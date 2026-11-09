@@ -7,14 +7,15 @@
 //   POST { action:'guest', name, age, position, height_cm } → 게스트 신청(2026-11-09 운영진 — 게스트를 부르는 회원이 직접).
 //                                 게스트 선수(is_guest)를 만들거나(같은 이름 게스트가 있으면 다시 씀) 「참」으로 넣고 대기명단에 둔다.
 //                                 팀 배치는 어드민이 한다. 나이는 「올해 − 나이」년 1월 1일 생년월일로 저장(선수 표에 나이 칸이 없다).
-//   회원은 「참」 명단(이름·구분·배치 팀)을 본다 — 불참 명단·미응답은 어드민만.
+//   DELETE ?guestId= → 내가 부른 게스트 신청 취소(신청 기간에만 · 기록은 지운다 — 게스트는 이번 주 신청이 전부다)
+//   회원도 참·불 명단을 본다(팀 카드의 ✓ / ? / ✕). 미응답 전체 목록(대신 넣기용)은 어드민만.
 //   캐시 없음(ISR Reads 0) — 홈 카드가 매번 최신을 본다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, autoPlaceAtClose, AUTO_LABEL } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, autoPlaceAtClose, AUTO_LABEL, inviterLabel } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -46,6 +47,12 @@ export async function GET(req: Request, { params }: Ctx) {
     board = await loadRsvpBoard(sb, leagueId, gameDate)
   }
   const mine = session ? board.entries.find(e => e.player_id === session.pid) ?? null : null
+  let myGuestIds: string[] = []
+  if (session) {
+    const { data: meRow } = await sb.from('league_players').select('name').eq('id', session.pid).maybeSingle()
+    const label = inviterLabel((meRow as { name?: string } | null)?.name ?? '')
+    myGuestIds = board.entries.filter(e => e.kind === 'guest' && e.answered_by === label).map(e => e.player_id)
+  }
   // 내 구분·티켓은 답하기 전에도 보여야 한다(「비정규 티켓이 없어요」 안내)
   let meKind: string | null = mine?.kind ?? null
   let meTickets = mine?.tickets_left ?? 0
@@ -62,9 +69,11 @@ export async function GET(req: Request, { params }: Ctx) {
     me: session ? {
       answer: mine?.answer ?? null, approved: mine?.approved ?? false, placed_team_id: mine?.placed_team_id ?? null, kind: meKind, tickets_left: meTickets,
       // 이번 달 팀이 정해진 사람(정규권 유무와 무관) — 「팀은 있는데 정규권이 없어요」 안내용
+      my_guest_ids: myGuestIds,
       month_team_id: mine?.suggested_team_id ?? board.unanswered.find(u => u.player_id === session.pid)?.suggested_team_id ?? null,
     } : null,
-    entries: isAdmin ? board.entries : board.entries.filter(e => e.answer === 'yes'),
+    // 회원도 「불」까지 받는다 — 팀 카드에서 정규 멤버의 ✕(불참)를 보여 주려고(2026-11-09 운영진).
+    entries: board.entries,
     teams: board.teams,
     unanswered: isAdmin ? board.unanswered : undefined,
   }, NO_STORE)
@@ -152,8 +161,33 @@ async function addGuest(sb: ReturnType<typeof createClient>, leagueId: string, g
   const now = new Date().toISOString()
   const { error } = await sb.from('weekly_rsvp').insert({
     league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes',
-    answered_by_label: `${(inviter as { name?: string } | null)?.name ?? '회원'} 초대`, answered_at: now, updated_at: now,
+    answered_by_label: inviterLabel((inviter as { name?: string } | null)?.name ?? '회원'), answered_at: now, updated_at: now,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, guest_id: guestId }, { status: 201 })
+}
+
+export async function DELETE(req: Request, { params }: Ctx) {
+  const { leagueId } = await params
+  const session = await getApprovedSession(leagueId)
+  if (!session) return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
+  const guestId = new URL(req.url).searchParams.get('guestId')
+  if (!guestId) return NextResponse.json({ error: 'guestId 필수' }, { status: 400 })
+  const sb = createClient()
+  const rules = await loadRsvpRules(sb, leagueId)
+  const win = rules ? currentWindow(rules) : null
+  if (!win || win.phase !== 'open') return NextResponse.json({ error: '신청 기간이 끝나 어드민에게 말해 주세요' }, { status: 409 })
+  const [{ data: me }, { data: row }] = await Promise.all([
+    sb.from('league_players').select('name').eq('id', session.pid).maybeSingle(),
+    sb.from('weekly_rsvp').select('id, answered_by_label, ticket_id, league_players!inner(is_guest)')
+      .eq('league_id', leagueId).eq('game_date', win.gameDate).eq('league_player_id', guestId).maybeSingle(),
+  ])
+  const r = row as unknown as { id: string; answered_by_label: string | null; ticket_id: string | null; league_players: { is_guest: boolean } } | null
+  if (!r || !r.league_players?.is_guest) return NextResponse.json({ error: '게스트 신청을 찾을 수 없어요' }, { status: 404 })
+  if (r.answered_by_label !== inviterLabel((me as { name?: string } | null)?.name ?? '')) {
+    return NextResponse.json({ error: '내가 부른 게스트만 취소할 수 있어요' }, { status: 403 })
+  }
+  const { error } = await sb.from('weekly_rsvp').delete().eq('id', r.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }

@@ -31,6 +31,9 @@ export interface RsvpEntry {
   name: string
   photo_url: string | null
   position: string | null
+  /** 게스트 정보 — 나이(생년월일의 해로 계산) · 키 */
+  age: number | null
+  height_cm: number | null
   kind: RsvpKind
   answer: 'yes' | 'no'
   approved: boolean
@@ -84,7 +87,7 @@ export interface RsvpBoard {
   /** 아직 답하지 않은 활동 선수 전원(구분 포함) — 어드민이 대신 눌러 주거나 게스트를 넣을 때 */
   unanswered: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id: string | null }>
   /** uniform = 그 달 유니폼 색(어드민이 「달별 정규 멤버」에서 고른 것, 없으면 null = 기본 노랑) */
-  teams: Array<{ id: string; name: string; color: string; uniform: Uniform | null }>
+  teams: Array<{ id: string; name: string; color: string; uniform: Uniform | null; regulars: Array<{ player_id: string; name: string; position: string | null }> }>
 }
 
 /** 그 날짜의 신청 현황 전부 — 홈 카드 · 관리 화면 공용. */
@@ -98,7 +101,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
     sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, answered_at, answered_by_label')
       .eq('league_id', leagueId).eq('game_date', gameDate),
     // 선수는 팀 소유 — league_id 로 찾지 않는다(CLAUDE.md)
-    sb.from('league_players').select('id, name, photo_url, position, is_guest, is_active').eq('team_id', teamId),
+    sb.from('league_players').select('id, name, photo_url, position, birth_date, height_cm, is_guest, is_active').eq('team_id', teamId),
     sb.from('wallet_tickets').select('league_player_id').eq('team_id', teamId).eq('kind', 'regular_pass')
       .eq('month', month).in('status', ['active', 'used']),
     sb.from('wallet_tickets').select('league_player_id').eq('team_id', teamId).eq('kind', 'non_regular').eq('status', 'active'),
@@ -112,7 +115,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   if (rowsRes.error) throw new Error(`weekly_rsvp 조회 실패 — ${rowsRes.error.message}`)
   if (playersRes.error) throw new Error(`league_players 조회 실패 — ${playersRes.error.message}`)
 
-  const players = new Map(((playersRes.data ?? []) as Array<{ id: string; name: string; photo_url: string | null; position: string | null; is_guest: boolean | null; is_active: boolean | null }>).map(p => [p.id, p]))
+  const players = new Map(((playersRes.data ?? []) as Array<{ id: string; name: string; photo_url: string | null; position: string | null; birth_date: string | null; height_cm: number | null; is_guest: boolean | null; is_active: boolean | null }>).map(p => [p.id, p]))
   const passHolders = new Set(((passRes.data ?? []) as Array<{ league_player_id: string }>).map(r => r.league_player_id))
   const ticketsLeft = new Map<string, number>()
   for (const r of (nonRegRes.data ?? []) as Array<{ league_player_id: string }>) ticketsLeft.set(r.league_player_id, (ticketsLeft.get(r.league_player_id) ?? 0) + 1)
@@ -125,6 +128,8 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
     else regularTeam.delete(pid)
   }
 
+  const thisYear = Number(gameDate.slice(0, 4))
+  const ageOf = (pid: string) => { const b = players.get(pid)?.birth_date; return b ? thisYear - Number(b.slice(0, 4)) : null }
   const kindOf = (pid: string): RsvpKind => players.get(pid)?.is_guest ? 'guest' : passHolders.has(pid) ? 'regular' : 'non_regular'
 
   const entries: RsvpEntry[] = ((rowsRes.data ?? []) as Array<{ league_player_id: string; answer: 'yes' | 'no'; approved: boolean; placed_team_id: string | null; ticket_id: string | null; guest_paid: boolean; answered_at: string; answered_by_label: string | null }>)
@@ -133,6 +138,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
       const kind = kindOf(r.league_player_id)
       return {
         player_id: r.league_player_id, name: p?.name ?? '알 수 없음', photo_url: p?.photo_url ?? null, position: p?.position ?? null,
+        age: ageOf(r.league_player_id), height_cm: p?.height_cm ?? null,
         kind, answer: r.answer,
         approved: kind === 'regular' ? r.answer === 'yes' : r.approved,
         placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid, answered_by: r.answered_by_label,
@@ -145,14 +151,22 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
 
   const answered = new Set(entries.map(e => e.player_id))
   const unanswered = [...players.values()]
-    .filter(p => !answered.has(p.id) && p.is_active !== false)
+    // 게스트는 빼 둔다 — 게스트는 부르는 회원이 「게스트 신청」으로만 넣는다(2026-11-09 운영진)
+    .filter(p => !answered.has(p.id) && p.is_active !== false && !p.is_guest)
     .map(p => ({ player_id: p.id, name: p.name, kind: kindOf(p.id), suggested_team_id: regularTeam.get(p.id) ?? null }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
 
   const teams = ((teamsRes.data ?? []) as Array<{ id: string }>)
     .map(t => resolve(t.id, q?.id ?? null))
     .filter((x): x is NonNullable<typeof x> => !!x)
-    .map(x => ({ id: x.team_id, name: x.display_name, color: x.color, uniform: uniforms.get(x.team_id) ?? null }))
+    .map(x => ({
+      id: x.team_id, name: x.display_name, color: x.color, uniform: uniforms.get(x.team_id) ?? null,
+      // 이번 달 이 팀 정규 멤버 — 답하지 않은 사람(?)·불참(X)까지 팀 카드에 보이게(2026-11-09 운영진)
+      regulars: [...regularTeam.entries()]
+        .filter(([pid, tid]) => tid === x.team_id && players.get(pid) && players.get(pid)!.is_active !== false && !players.get(pid)!.is_guest)
+        .map(([pid]) => ({ player_id: pid, name: players.get(pid)!.name, position: players.get(pid)!.position ?? null }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
 
   return { entries, unanswered, teams }
@@ -255,4 +269,9 @@ export async function autoPlaceAtClose(sb: SB, leagueId: string, gameDate: strin
     if (res.ok) placed++
   }
   return placed
+}
+
+/** 게스트를 부른 회원 표시 — 신청 기록의 answered_by_label. 본인 취소 판정에도 쓴다. */
+export function inviterLabel(name: string): string {
+  return `${name} 초대`
 }

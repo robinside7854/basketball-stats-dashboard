@@ -1,5 +1,5 @@
 // 주간 참가신청 — 팀 어드민(누구나) · CEO (마이그레이션 124, 2026-11-09 운영진)
-//   POST { action:'set_answer', date, playerId, answer:'yes'|'no' }   — 대신 눌러 주기 · 게스트 추가(언제든)
+//   POST { action:'set_answer', date, playerId, answer:'yes'|'no' }   — 대신 눌러 주기(회원만 · 게스트는 「불」 = 그 주 신청 지우기)
 //   POST { action:'approve', date, playerId, approved:boolean }        — 비정규·게스트 승인
 //   POST { action:'place', date, playerId, teamId|null, returnTicket? } — 팀 배치(비정규면 이때 티켓 1장 사용)
 //   POST { action:'place_suggested', date }                            — 정규를 이번 달 소속 팀으로 한 번에
@@ -46,6 +46,15 @@ export async function POST(req: Request, { params }: Ctx) {
 
   if (body.action === 'set_answer') {
     if (body.answer !== 'yes' && body.answer !== 'no') return NextResponse.json({ error: 'answer 는 yes · no' }, { status: 400 })
+    const { data: who } = await sb.from('league_players').select('is_guest').eq('id', playerId).maybeSingle()
+    const isGuest = !!(who as { is_guest?: boolean } | null)?.is_guest
+    // 게스트는 「게스트 신청」으로만 들어온다 — 대신 참으로 넣지 않는다. 불참으로 바꾸면 그 주 신청을 지운다.
+    if (isGuest && body.answer === 'yes') return NextResponse.json({ error: '게스트는 회원이 「게스트 신청」으로 넣어요' }, { status: 409 })
+    if (isGuest) {
+      const { error } = await sb.from('weekly_rsvp').delete().eq('league_id', leagueId).eq('game_date', date).eq('league_player_id', playerId)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true, removed: true })
+    }
     const { data: prev } = await key(playerId).maybeSingle()
     if (body.answer === 'no' && (prev as { placed_team_id?: string | null } | null)?.placed_team_id) {
       return NextResponse.json({ error: '먼저 팀 배치를 취소해 주세요' }, { status: 409 })

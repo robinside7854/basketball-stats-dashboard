@@ -12,7 +12,7 @@ import EmptyState from '@/components/league/ui/EmptyState'
 import { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import RsvpHomeCard from './RsvpHomeCard'
 import RsvpTeamBoard from './RsvpTeamBoard'
-import { KIND_LABEL, countByKind, dateLabel, type RsvpEntryView, type RsvpKind, type RsvpRes } from './rsvpTypes'
+import { KIND_LABEL, countByKind, dateLabel, guestLine, type RsvpEntryView, type RsvpKind, type RsvpRes } from './rsvpTypes'
 
 function shift(ymd: string, days: number): string {
   return new Date(Date.parse(`${ymd}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10)
@@ -92,7 +92,8 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
           {!date && data.me && <RsvpHomeCard leagueId={leagueId} base={base} showBoard={false} />}
 
           {/* 팀별 현황 — 단톡방 공지 캡처와 같은 모양(색 점 · 팀명 · 인원 · 이름 · 포지션). 어드민은 색 점으로 유니폼 색을 고른다. */}
-          <RsvpTeamBoard leagueId={leagueId} gameDate={gameDate} teams={data.teams ?? []} yes={yes} admin={admin} onChanged={load} />
+          <RsvpTeamBoard leagueId={leagueId} gameDate={gameDate} teams={data.teams ?? []} yes={yes} entries={entries} admin={admin} onChanged={load}
+            myGuestIds={data.me?.my_guest_ids ?? []} canCancelGuests={data.window?.phase === 'open'} />
 
           <div className="grid gap-3 lg:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-start">
             <div className="space-y-3 min-w-0">
@@ -108,7 +109,8 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
                           <li key={e.player_id} className="flex items-center justify-between gap-2 flex-wrap py-1.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                             <span className="inline-flex items-baseline gap-2 min-w-0">
                               <span className="text-xs tabular-nums w-5 text-right" style={{ color: 'var(--mm-muted)' }}>{i + 1}</span>
-                              <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{e.name}</span>
+                              <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{e.kind === 'guest' ? guestLine(e) : e.name}</span>
+                              {e.kind === 'guest' && e.answered_by && <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{e.answered_by}</span>}
                               {kind === 'non_regular' && admin && (
                                 <span className="text-xs" style={{ color: e.ticket_used ? 'var(--mm-ink-soft)' : e.tickets_left > 0 ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>
                                   {e.ticket_used ? '티켓 사용함' : `티켓 ${e.tickets_left}장`}
@@ -135,8 +137,11 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
                                     <option key={t.id} value={t.id}>{t.name}{t.id === e.suggested_team_id ? ' ★' : ''}</option>
                                   ))}
                                 </select>
-                                <button type="button" disabled={busy === e.player_id || !!e.placed_team_id} onClick={() => act({ action: 'set_answer', playerId: e.player_id, answer: 'no' }, e.player_id, '불참으로 옮겼어요')}
-                                  className="mm-press min-h-11 px-2 text-xs font-bold border border-[color:var(--mm-rule)] disabled:opacity-40" style={{ color: 'var(--mm-ink-soft)' }}>불참으로</button>
+                                <button type="button" disabled={busy === e.player_id || (!!e.placed_team_id && e.kind !== 'guest')} onClick={() => {
+                                    if (e.kind === 'guest' && !confirm(`${e.name} 님 게스트 신청을 취소할까요? (이번 주 신청이 지워져요)`)) return
+                                    void act({ action: 'set_answer', playerId: e.player_id, answer: 'no' }, e.player_id, e.kind === 'guest' ? '게스트 신청을 취소했어요' : '불참으로 옮겼어요')
+                                  }}
+                                  className="mm-press min-h-11 px-2 text-xs font-bold border border-[color:var(--mm-rule)] disabled:opacity-40" style={{ color: 'var(--mm-ink-soft)' }}>{e.kind === 'guest' ? '게스트 취소' : '불참으로'}</button>
                               </span>
                             )}
                           </li>
@@ -171,7 +176,7 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
                     {(data.unanswered ?? []).filter(u => u.kind === 'regular').map(u => u.name).join(' · ') || '없어요'}
                   </p>
                   <div className="mt-3 space-y-2">
-                    <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>대신 「참」 넣기 · 게스트 추가</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>대신 「참」 넣기 (회원)</div>
                     <select value={addPid} onChange={e => setAddPid(e.target.value)} aria-label="참으로 넣을 사람"
                       className="w-full min-h-11 px-2 text-sm border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]" style={{ color: 'var(--mm-ink)' }}>
                       <option value="">사람 고르기</option>
@@ -180,7 +185,7 @@ export default function RsvpPageClient({ leagueId, base }: { leagueId: string; b
                     <button type="button" disabled={!addPid || busy === 'add'}
                       onClick={async () => { await act({ action: 'set_answer', playerId: addPid, answer: 'yes' }, 'add', '참으로 넣었어요'); setAddPid('') }}
                       className="mm-press w-full min-h-11 text-sm font-black disabled:opacity-50" style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)' }}>참으로 넣기</button>
-                    <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>새 게스트는 먼저 「명단 관리」에서 게스트 선수로 추가해 주세요.</p>
+                    <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>게스트는 부르는 회원이 홈 카드의 「게스트 신청」으로 넣어요.</p>
                   </div>
                 </SectionCard>
               )}

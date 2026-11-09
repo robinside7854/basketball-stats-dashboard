@@ -112,7 +112,7 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
 
       {showBoard && (data.teams ?? []).length > 0 && (
         <div className="mt-3">
-          <RsvpTeamBoard leagueId={leagueId} gameDate={win.gameDate} teams={data.teams ?? []} yes={yes} admin={!!data.isAdmin} onChanged={load} compact />
+          <RsvpTeamBoard leagueId={leagueId} gameDate={win.gameDate} teams={data.teams ?? []} yes={yes} entries={data.entries ?? []} admin={!!data.isAdmin} onChanged={load} compact myGuestIds={me?.my_guest_ids ?? []} canCancelGuests={open} />
         </div>
       )}
 
