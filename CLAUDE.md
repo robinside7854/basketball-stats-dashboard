@@ -185,6 +185,16 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   - 티켓: `wallet_tickets` 한 장 = 한 행. 정규권(이번 달·다음 달, 달마다 1장) · 비정규(1~10장). 가격은 DB 가 팀 규칙에서 읽는다(`wallet_buy_ticket`). 비정규는 팀 배치 때 `wallet_use_ticket`(참가신청 전까지 어드민 손 처리), 돌려주기 `wallet_return_ticket`(포인트 환불 · 행은 returned 로 남김).
 - 포인트 유효기간 없음. 게스트비는 같은 통장, 포인트 없음.
 
+### 주간 참가신청 (2026-11-09 운영진, 마이그레이션 124) — 정본 `src/lib/rsvp/weekly.ts`
+- `leagues.rsvp_rules`(미라클 = 토요일 · 정원 18)가 있는 리그에만. 표 `weekly_rsvp(league_id, game_date, league_player_id, answer yes/no, approved, placed_team_id, ticket_id, guest_paid)`.
+  ⚠ 옛 `league_rsvp` 는 일정 날짜에 묶여 있어 쓰지 않는다 — 앞날 빈 일정은 밤마다 「영상으로 일정 맞추기」가 지운다.
+- 창 = `currentWindow()`: 월 00:00 ~ 금 23:59(KST) 신청 · 토 마감(결과) · 일 없음. 따로 여닫는 버튼 없음.
+- 구분: 정규 = 경기 달 정규권(`wallet_tickets` regular_pass) · 게스트 = `is_guest` · 나머지 비정규. 정규는 「참」이면 승인, 비정규·게스트는 어드민 승인.
+- 배치(`POST /rsvp/admin {action:'place'}`) 순간 비정규면 `wallet_use_ticket` → `ticket_id`. 팀을 옮겨도 다시 안 빠짐. 배치 취소 때 티켓 돌려줄지 어드민이 고른다.
+  추천 팀(★) = 이번 달 정규 소속(month-teams 와 같은 규칙) · 「정규를 이번 달 팀으로 한 번에」.
+- 정원은 안내만(넘치면 빨강) — 팀장·총무 회의로 정한다(자동으로 자르지 않는다).
+- 화면: 홈 맨 위 `RsvpHomeCard`(참/불 큰 버튼) · `/rsvp`(명단 · 어드민 승인·배치·게스트비·대신 넣기, 지난 주/다음 주). 캐시 없음.
+
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`
   - UNIQUE INDEX `league_games_slot_unique` ON (league_id, date, slot_num) WHERE slot_num IS NOT NULL
@@ -693,7 +703,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - **배지 제도** — 자동 배지(퍼펙트·DD/TD·위닝샷)·리더 배지·특성 배지·배지 도감·배지 cron 전부. DB 표(`player_badges` 등)는 보존.
   박스스코어의 DD/TD 칩은 배지가 아니라 표시라 남았다(`lib/stats/doubleDouble.ts`). 명경기 위닝샷 문구는 `classicGames.ts` 가 직접 판정.
 - **AI 기능** — 파란날개 AI MVP/X-FACTOR/투혼상, 리그 AI 프로필 사진. SDK 2종 제거. `games.ai_mvp` 값은 보존.
-- **참여신청(RSVP)**, 어드민 콘솔 「일정 자동 생성」·`manage` 페이지.
+- ~~참여신청(RSVP)~~ → **2026-11-09 운영진이 새 방식으로 되살렸다**(아래 「주간 참가신청」 — 옛 `league_rsvp` 표는 쓰지 않는다). 어드민 콘솔 「일정 자동 생성」·`manage` 페이지는 폐지 그대로.
 - **인스타 카드(`/social`)** (2026-10-12 리뉴얼 0단계). 드래프트는 팀 어드민 전용 · 대회 전환 스위치는 CEO 전용으로 숨겼다(대회 사실상 미사용).
 - **역할 라벨(「플레이 스타일」)** (2026-10-16) — 선수 카드 칩·CEO 미리보기·API·`roleLabels.ts` 전부. `leagues.rules.role_labels_public` 값은 보존(읽는 코드 없음).
 - **스탯 어워즈·시즌 하이 8칸** (2026-10-14) — 「기록실」은 통산 누적 순위(`CareerLeadersBoard`)만. 2026-10-16 부터 스탯 서브탭 `/records`(리더보드 · 팀 · **기록실**)로 독립 — 부문별 1위 카드 + 선택 부문 상위 10명. 옛 `/stats?mode=records` 는 리다이렉트.

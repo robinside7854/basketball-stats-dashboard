@@ -1,6 +1,7 @@
 ﻿import Image from 'next/image'
 import { leagueLogoOf } from '@/lib/league/leagueLogo'
 import HomeMonthTeams from '@/components/league/home/HomeMonthTeams'
+import RsvpHomeCard from '@/components/league/rsvp/RsvpHomeCard'
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
@@ -422,6 +423,8 @@ export default async function LeagueDetailPage({
           신청한 사람은 승인될 때까지 아무것도 못 보고 기다렸다. 가입률이 관문인 지금
           그 지연은 그대로 이탈이 된다. 참여신청 카드보다 위에 두는 이유는 이게
           '나만 처리할 수 있는 일'이기 때문이다. */}
+      {/* 이번 주 참가신청(2026-11-09 운영진) — 월요일 0시에 저절로 열리고, 여기서 바로 참/불. 회원·어드민에게만, 일요일엔 안 보인다. */}
+      <RsvpHomeCard leagueId={leagueId} base={`/league/${orgSlug}/${leagueId}`} />
       <PendingSignupsAlert leagueId={leagueId} />
       {draftLive && <DraftInProgressBanner orgSlug={orgSlug} leagueId={leagueId} />}
 
