@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, type RsvpRules } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, type RsvpRules } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -51,11 +51,15 @@ export async function GET(req: Request, { params }: Ctx) {
   }
   const mine = session ? board.entries.find(e => e.player_id === session.pid) ?? null : null
   let myGuestIds: string[] = []
+  let myLabel: string | null = null
   if (session) {
     const { data: meRow } = await sb.from('league_players').select('name').eq('id', session.pid).maybeSingle()
-    const label = inviterLabel((meRow as { name?: string } | null)?.name ?? '')
-    myGuestIds = board.entries.filter(e => e.kind === 'guest' && e.answered_by === label).map(e => e.player_id)
+    myLabel = inviterLabel((meRow as { name?: string } | null)?.name ?? '')
+    myGuestIds = board.entries.filter(e => e.kind === 'guest' && e.answered_by === myLabel).map(e => e.player_id)
   }
+  // 지난 게스트(한 번 배치된 사람) — 어드민은 전부, 회원은 내가 부른 사람만
+  const pool = await loadGuestPool(sb, leagueId, gameDate)
+  const guestPool = isAdmin ? pool : pool.filter(g => g.inviter_label === myLabel)
   // 내 구분·티켓은 답하기 전에도 보여야 한다(「비정규 티켓이 없어요」 안내)
   let meKind: string | null = mine?.kind ?? null
   let meTickets = mine?.tickets_left ?? 0
@@ -88,6 +92,7 @@ export async function GET(req: Request, { params }: Ctx) {
     entries: board.entries,
     teams: board.teams,
     unanswered: isAdmin ? board.unanswered : undefined,
+    guest_pool: guestPool,
   }, NO_STORE)
 }
 
@@ -116,6 +121,18 @@ export async function POST(req: Request, { params }: Ctx) {
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
 
   if (body.action === 'guest') return addGuest(sb, leagueId, win.gameDate, session.pid, body)
+  if (body.action === 'guest_again') {
+    // 지난 게스트 다시 부르기 — 내가 처음 부른 게스트만(2026-11-09 운영진)
+    const guestId = typeof body.guestId === 'string' ? body.guestId : ''
+    const { data: meRow } = await sb.from('league_players').select('name').eq('id', session.pid).maybeSingle()
+    const label = inviterLabel((meRow as { name?: string } | null)?.name ?? '')
+    const g = (await loadGuestPool(sb, leagueId, win.gameDate)).find(x => x.player_id === guestId)
+    if (!g) return NextResponse.json({ error: '다시 부를 수 있는 게스트가 아니에요' }, { status: 404 })
+    if (g.inviter_label !== label) return NextResponse.json({ error: '내가 부른 게스트만 다시 부를 수 있어요' }, { status: 403 })
+    const res = await reinviteGuest(sb, leagueId, win.gameDate, guestId, label)
+    if (!res.ok) return NextResponse.json({ error: res.error }, { status: 409 })
+    return NextResponse.json({ ok: true }, { status: 201 })
+  }
 
   if (body.answer !== 'yes' && body.answer !== 'no') return NextResponse.json({ error: '참 또는 불을 골라 주세요' }, { status: 400 })
 

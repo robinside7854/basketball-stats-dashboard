@@ -329,3 +329,58 @@ export async function reopenWeek(sb: SB, leagueId: string, gameDate: string): Pr
   const { error } = await sb.from('weekly_rsvp_closures').delete().eq('league_id', leagueId).eq('game_date', gameDate)
   return error ? { ok: false, error: error.message } : { ok: true }
 }
+
+// ── 지난 게스트 다시 부르기 (2026-11-09 운영진) ─────────────────────────────
+//   한 번 팀에 배치된(= 승인된) 게스트는 목록에 남아 다음 주에 한 번에 다시 신청할 수 있다.
+//   부른 회원(신청 기록의 「OO 초대」) 또는 어드민만. 다시 부를 때도 처음 부른 회원 이름표를 그대로 쓴다.
+
+export interface GuestPoolItem {
+  player_id: string
+  name: string
+  age: number | null
+  position: string | null
+  height_cm: number | null
+  /** 처음 부른 회원 이름표 — 「김로빈 초대」 */
+  inviter_label: string | null
+  last_date: string
+}
+
+export async function loadGuestPool(sb: SB, leagueId: string, gameDate: string): Promise<GuestPoolItem[]> {
+  const teamId = await resolveTeamId(leagueId)
+  const [{ data: guests }, { data: rows }] = await Promise.all([
+    sb.from('league_players').select('id, name, position, birth_date, height_cm').eq('team_id', teamId).eq('is_guest', true),
+    sb.from('weekly_rsvp').select('league_player_id, game_date, placed_team_id, answered_by_label, answer')
+      .eq('league_id', leagueId).lte('game_date', gameDate).order('game_date', { ascending: false }).limit(2000),
+  ])
+  const g = new Map(((guests ?? []) as Array<{ id: string; name: string; position: string | null; birth_date: string | null; height_cm: number | null }>).map(x => [x.id, x]))
+  const thisWeek = new Set<string>()
+  const last = new Map<string, { date: string; label: string | null }>()
+  for (const r of (rows ?? []) as Array<{ league_player_id: string; game_date: string; placed_team_id: string | null; answered_by_label: string | null; answer: string }>) {
+    if (!g.has(r.league_player_id)) continue
+    if (r.game_date === gameDate) { thisWeek.add(r.league_player_id); continue }
+    if (!r.placed_team_id || last.has(r.league_player_id)) continue
+    last.set(r.league_player_id, { date: r.game_date, label: r.answered_by_label })
+  }
+  const year = Number(gameDate.slice(0, 4))
+  return [...last.entries()].filter(([pid]) => !thisWeek.has(pid)).map(([pid, v]) => {
+    const p = g.get(pid)!
+    return {
+      player_id: pid, name: p.name, position: p.position, height_cm: p.height_cm,
+      age: p.birth_date ? year - Number(p.birth_date.slice(0, 4)) : null,
+      inviter_label: v.label, last_date: v.date,
+    }
+  }).sort((a, b) => b.last_date.localeCompare(a.last_date) || a.name.localeCompare(b.name, 'ko'))
+}
+
+/** 그 주 「참」으로 다시 넣는다(대기명단). 「불」로 남은 줄이 있으면 살린다. */
+export async function reinviteGuest(sb: SB, leagueId: string, gameDate: string, guestId: string, label: string | null): Promise<{ ok: boolean; error?: string }> {
+  const now = new Date().toISOString()
+  const { data: prev } = await sb.from('weekly_rsvp').select('id, answer')
+    .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
+  const pr = prev as { id: string; answer: string } | null
+  if (pr?.answer === 'yes') return { ok: false, error: '이번 주에 이미 신청돼 있어요' }
+  const { error } = pr
+    ? await sb.from('weekly_rsvp').update({ answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false, answered_by_label: label, answered_at: now, updated_at: now }).eq('id', pr.id)
+    : await sb.from('weekly_rsvp').insert({ league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes', answered_by_label: label, answered_at: now, updated_at: now })
+  return error ? { ok: false, error: error.message } : { ok: true }
+}

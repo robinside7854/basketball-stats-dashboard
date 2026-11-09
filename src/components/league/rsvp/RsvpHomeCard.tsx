@@ -134,7 +134,7 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
           </Link>
         )}
       </div>
-      {me && <GuestRequestSheet leagueId={leagueId} open={guestOpen} onClose={() => setGuestOpen(false)} onDone={load} />}
+      {me && <GuestRequestSheet leagueId={leagueId} open={guestOpen} onClose={() => setGuestOpen(false)} onDone={load} pool={data.guest_pool ?? []} />}
     </SectionCard>
   )
 }

@@ -53,7 +53,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   }, [leagueId, user])
 
   // 월렛 · 드래프트 바로가기 · 계정 — PC 는 왼쪽 칸 프로필 바로 아래(스크롤 없이 보이게, 2026-11-09 운영진),
-  //   폰은 종전처럼 맨 아래. 같은 묶음을 두 자리에 그리고 화면 폭으로 하나만 보인다.
+  //   폰은 제목 바로 아래(계정 카드만 맨 아래). 같은 묶음을 두 자리에 그리고 화면 폭으로 하나만 보인다.
   const shortcuts = (wallet && user) || showDraft ? (
     <SectionCard variant="standalone" pad="none">
       {user && wallet && (
@@ -81,9 +81,10 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         <MePageSkeleton />
       ) : user ? (
         <>
+          {/* 폰·태블릿: 월렛·드래프트 바로가기는 맨 위(2026-11-09 운영진 — 맨 아래라 찾기 불편했다), 계정은 맨 아래 */}
+          {shortcuts && <div className="lg:hidden">{shortcuts}</div>}
           <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} side={side} />
-          {/* 폰·태블릿: 맨 아래 */}
-          <div className="lg:hidden space-y-3">{side}</div>
+          <div className="lg:hidden"><AccountCard leagueId={leagueId} /></div>
         </>
       ) : (
         <>

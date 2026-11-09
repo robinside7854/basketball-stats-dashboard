@@ -34,6 +34,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   const [data, setData] = useState<RsvpRes | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [addPid, setAddPid] = useState('')
+  const [guestPid, setGuestPid] = useState('')
   const api = `/api/leagues/${leagueId}/rsvp`
 
   const load = useCallback(async () => {
@@ -156,7 +157,22 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                     onClick={async () => { await act({ action: 'set_answer', playerId: addPid, answer: 'yes' }, 'add', '참으로 넣었어요 — 대기명단에서 팀에 끌어다 놓으세요'); setAddPid('') }}
                     className="mm-press shrink-0 min-h-11 px-4 text-sm font-black disabled:opacity-50" style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>참으로 넣기</button>
                 </div>
-                <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)' }}>게스트는 부르는 회원이 홈 카드의 「게스트 신청」으로 넣어요.</p>
+                {(data.guest_pool ?? []).length > 0 && (
+                  <>
+                    <div className="mt-3 text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>지난 게스트 다시 넣기 <span className="font-normal" style={{ color: 'var(--mm-muted)' }}>한 번 배치된 게스트</span></div>
+                    <div className="mt-2 flex gap-2">
+                      <select value={guestPid} onChange={e => setGuestPid(e.target.value)} aria-label="다시 넣을 게스트"
+                        className="flex-1 min-w-0 min-h-11 px-2 text-sm border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]" style={{ color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                        <option value="">게스트 고르기</option>
+                        {(data.guest_pool ?? []).map(g => <option key={g.player_id} value={g.player_id}>{g.name}{g.inviter_label ? ` · ${g.inviter_label.replace(/ 초대$/, '')} 게스트` : ''}</option>)}
+                      </select>
+                      <button type="button" disabled={!guestPid || busy === 'guest'}
+                        onClick={async () => { await act({ action: 'guest_again', playerId: guestPid }, 'guest', '대기명단에 넣었어요'); setGuestPid('') }}
+                        className="mm-press shrink-0 min-h-11 px-4 text-sm font-black disabled:opacity-50" style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>다시 넣기</button>
+                    </div>
+                  </>
+                )}
+                <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)' }}>처음 오는 게스트는 부르는 회원이 홈 카드의 「게스트 신청」으로 넣어요.</p>
               </SectionCard>
             )}
           </div>

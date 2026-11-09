@@ -4,6 +4,7 @@
 //   POST { action:'place', date, playerId, teamId|null, returnTicket? } — 팀 배치(비정규면 이때 티켓 1장 사용)
 //   POST { action:'place_suggested', date }                            — 정규를 이번 달 소속 팀으로 한 번에
 //   POST { action:'guest_paid', date, playerId, paid:boolean }          — 게스트비 받음 표시(통장 입금)
+//   POST { action:'guest_again', date, playerId }                     — 지난 게스트 다시 넣기(처음 부른 회원 이름표 그대로)
 //   POST { action:'close', date } / { action:'reopen', date }            — 마감(일정·빈 경기 칸 생성) / 마감 취소(기록 전 · 신청 기간 안)
 //   ⚠ 그날 기록이 시작되면 명단(참/불·배치)은 잠긴다 — 게스트비 표시만 계속 고칠 수 있다.
 //   정원(18)은 안내만 — 넘쳐도 막지 않는다(팀장·총무 회의로 정함).
@@ -12,7 +13,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { resolveAuditActor } from '@/lib/audit'
-import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL, closeWeek, reopenWeek, rosterLocked, loadClosure } from '@/lib/rsvp/weekly'
+import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL, closeWeek, reopenWeek, rosterLocked, loadClosure, loadGuestPool, reinviteGuest } from '@/lib/rsvp/weekly'
 import { logAudit } from '@/lib/audit'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -69,6 +70,14 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!playerId) return NextResponse.json({ error: 'playerId 필수' }, { status: 400 })
   const { data: p } = await sb.from('league_players').select('id').eq('id', playerId).eq('team_id', teamId).maybeSingle()
   if (!p) return NextResponse.json({ error: '이 팀 회원이 아니에요' }, { status: 404 })
+
+  if (body.action === 'guest_again') {
+    const g = (await loadGuestPool(sb, leagueId, date)).find(x => x.player_id === playerId)
+    if (!g) return NextResponse.json({ error: '다시 부를 수 있는 게스트가 아니에요(한 번 팀에 배치된 게스트만)' }, { status: 404 })
+    const res = await reinviteGuest(sb, leagueId, date, playerId, g.inviter_label ?? `${actor} 초대`)
+    if (!res.ok) return NextResponse.json({ error: res.error }, { status: 409 })
+    return NextResponse.json({ ok: true })
+  }
 
   if (body.action === 'set_answer') {
     if (body.answer !== 'yes' && body.answer !== 'no') return NextResponse.json({ error: 'answer 는 yes · no' }, { status: 400 })

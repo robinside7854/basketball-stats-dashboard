@@ -90,6 +90,27 @@ export default function RsvpTeamBoard({
     } finally { setBusy(false) }
   }
 
+  // 어드민 「취소」 — 비정규·게스트의 이번 주 참가를 뺀다(2026-11-09 운영진).
+  //   비정규 = 「불」로 바꿈(티켓을 쓴 배치면 먼저 배치를 풀고 티켓 돌려줄지 묻는다) · 게스트 = 그 주 신청을 지움(다음에 「다시 넣기」로 부를 수 있다).
+  async function adminCancel(e: RsvpEntryView) {
+    if (!confirm(`${e.name} 님의 이번 주 참가를 취소할까요?`)) return
+    setBusy(true)
+    try {
+      const post = (body: Record<string, unknown>) => fetch(`/api/leagues/${leagueId}/rsvp/admin`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: gameDate, playerId: e.player_id, ...body }),
+      }).then(async r => ({ ok: r.ok, j: await r.json().catch(() => ({})) }))
+      if (e.kind !== 'guest' && e.placed_team_id && e.ticket_used) {
+        const returnTicket = confirm('쓴 비정규 티켓 1장을 돌려줄까요?\n(확인 = 돌려줌 · 취소 = 돌려주지 않음)')
+        const r1 = await post({ action: 'place', teamId: null, returnTicket })
+        if (!r1.ok) { toast.error(r1.j.error ?? '배치를 풀지 못했어요'); return }
+      }
+      const r2 = await post({ action: 'set_answer', answer: 'no' })
+      if (!r2.ok) { toast.error(r2.j.error ?? '취소하지 못했어요'); return }
+      toast.success(`${e.name} 님 참가를 취소했어요`)
+      onChanged()
+    } finally { setBusy(false) }
+  }
+
   const answerOf = new Map(entries.map(x => [x.player_id, x.answer]))
 
   async function vote(pid: string, name: string, answer: 'yes' | 'no') {
@@ -235,6 +256,13 @@ export default function RsvpTeamBoard({
       )}
       {m.kind === 'regular' && <Vote pid={m.player_id} name={m.name} />}
       <MobilePlace m={m} />
+      {admin && m.kind !== 'regular' && (
+        <button type="button" disabled={busy} onClick={() => adminCancel(m)} aria-label={`${m.name} 참가 취소`}
+          className="mm-press inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-bold whitespace-nowrap border disabled:opacity-50 self-center"
+          style={{ borderColor: 'color-mix(in srgb, var(--mm-live-bg) 40%, transparent)', color: 'var(--mm-live-bg)', borderRadius: 'var(--mm-radius-chip)' }}>
+          <X size={12} strokeWidth={3} aria-hidden />취소
+        </button>
+      )}
     </li>
   )
 
