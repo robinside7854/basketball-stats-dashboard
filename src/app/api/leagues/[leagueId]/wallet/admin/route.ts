@@ -2,6 +2,7 @@
 //   GET                     → { pending, recent, members: [{ player_id, name, balance }], total }
 //   GET ?playerId=          → 그 회원의 장부 · 티켓 · 환불 가능 금액
 //   GET ?count=1            → { pending: N } — 상단 톱니바퀴 빨간 배지용(가볍게 개수만)
+//   GET ?passes=1           → { months: PassMonth[] } — 어드민 홈 「정규권 안 산 사람」 알림(이번 달 · 20일부터 다음 달)
 //   POST { action:'review', requestId, decision:'approve'|'reject', note? }  — 충전이면 승인(+보너스), 환불이면 「송금했어요」
 //   POST { action:'use_ticket', playerId, date, note? }      — 비정규 티켓 한 장 사용 처리(참가신청 전까지는 손으로)
 //   POST { action:'return_ticket', ticketId, note }           — 티켓 돌려주기(포인트 환불 · 기록은 남는다)
@@ -17,6 +18,7 @@ import {
   loadWalletConfig, loadLedger, loadTickets, loadRefundable, walletErrorMessage, REQUEST_COLS, type ChargeRequestRow,
 } from '@/lib/wallet/wallet'
 import { parseMimoText, previewMimo, applyMimo } from '@/lib/wallet/mimoImport'
+import { loadPassStatus } from '@/lib/wallet/passStatus'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -34,6 +36,10 @@ export async function GET(req: Request, { params }: Ctx) {
       .select('id', { count: 'exact', head: true }).eq('team_id', teamId).eq('status', 'pending')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ pending: count ?? 0 }, NO_STORE)
+  }
+
+  if (sp.get('passes')) {
+    return NextResponse.json({ months: await loadPassStatus(sb, leagueId, teamId) }, NO_STORE)
   }
 
   const playerId = sp.get('playerId')

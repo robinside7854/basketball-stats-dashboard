@@ -1,6 +1,7 @@
 ﻿import Image from 'next/image'
 import { leagueLogoOf } from '@/lib/league/leagueLogo'
 import RsvpHomeCard from '@/components/league/rsvp/RsvpHomeCard'
+import AdminPassAlert from '@/components/league/wallet/AdminPassAlert'
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
@@ -423,6 +424,8 @@ export default async function LeagueDetailPage({
       {/* 이번 주 참가신청(2026-11-09 운영진) — 월요일 0시에 저절로 열리고, 여기서 바로 참/불. 회원·어드민에게만, 일요일엔 안 보인다. */}
       <RsvpHomeCard leagueId={leagueId} base={`/league/${orgSlug}/${leagueId}`} />
       <PendingSignupsAlert leagueId={leagueId} />
+      {/* 정규권 안 산 사람(어드민 전용 · 이번 달 + 20일부터 다음 달) — 2026-11-09 운영진 */}
+      <AdminPassAlert leagueId={leagueId} base={`/league/${orgSlug}/${leagueId}`} />
       {draftLive && <DraftInProgressBanner orgSlug={orgSlug} leagueId={leagueId} />}
 
       {/* ── 홈 통합 개편 (2026-10-14) ────────────────────────────────────────────────
