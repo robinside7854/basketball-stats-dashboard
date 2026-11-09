@@ -85,9 +85,11 @@ interface Props {
   orgSlug: string
   /** 브라우저 경로 기준 리그 base(`/league/<org>/<slug>`) — 없으면 UUID 경로로 만든다 */
   base?: string
+  /** PC(lg↑)에서 왼쪽 칸 프로필 아래에 붙일 카드(월렛·바로가기·계정). 폰에서는 그리지 않는다. */
+  side?: ReactNode
 }
 
-export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
+export default function PersonalDashboard({ leagueId, orgSlug, base, side }: Props) {
   const { user, loading: authLoading } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -155,9 +157,12 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
 
   return (
     <>
-      <div className="grid gap-4 lg:gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start">
-        {/* ── 왼쪽: 나 (PC 에서 스크롤해도 따라온다) ── */}
-        <div className="min-w-0 lg:sticky lg:top-[64px]">
+      <div className="grid gap-3 lg:gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
+        {/* ── 왼쪽: 나 + (PC) 월렛·바로가기·계정 ──
+            2026-11-09 운영진: PC 에서 월렛·계정이 맨 아래라 스크롤해야 보였다 → 왼쪽 칸 프로필 아래로 올렸다(side).
+            폰은 그대로 맨 아래(MePageClient 가 lg:hidden 으로 한 번 더 그린다).
+            칸이 길어져 화면보다 커질 수 있어 따라오기(sticky)는 뺐다 — 아래쪽이 영영 안 보일 수 있다. */}
+        <div className="min-w-0 space-y-3">
           <SectionCard variant="standalone" emphasized pad="none">
             {/* 헤더 · 유저 프로필 */}
             <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -213,6 +218,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
             </div>
 
           </SectionCard>
+          {side && <div className="hidden lg:block space-y-3">{side}</div>}
         </div>
 
         {/* ── 오른쪽: 나에게만 있는 것 ── */}
@@ -238,7 +244,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base }: Props) {
         ) : !ready ? (
           <DashboardCardsSkeleton />
         ) : (
-          <div className="min-w-0 space-y-4 lg:space-y-5">
+          <div className="min-w-0 space-y-3 lg:space-y-4">
             <AttendanceCard attendance={data.attendance} quarterLabel={data.quarter_label ?? null} />
             <BestShotsCard
               clips={data.pinned_clips ?? []}

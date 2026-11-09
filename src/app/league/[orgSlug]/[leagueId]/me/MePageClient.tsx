@@ -52,42 +52,46 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
     return () => { alive = false }
   }, [leagueId, user])
 
+  // 월렛 · 드래프트 바로가기 · 계정 — PC 는 왼쪽 칸 프로필 바로 아래(스크롤 없이 보이게, 2026-11-09 운영진),
+  //   폰은 종전처럼 맨 아래. 같은 묶음을 두 자리에 그리고 화면 폭으로 하나만 보인다.
+  const shortcuts = (wallet && user) || showDraft ? (
+    <SectionCard variant="standalone" pad="none">
+      {user && wallet && (
+        <ShortcutRow
+          href={`${base}/wallet`} Icon={Wallet} label={wallet.name}
+          sub={wallet.balance == null ? '포인트 충전 · 내역' : `잔액 ${wallet.balance.toLocaleString()}P · 충전 · 내역`}
+          last={!showDraft}
+        />
+      )}
+      {showDraft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />}
+    </SectionCard>
+  ) : null
+  const side = (
+    <>
+      {shortcuts}
+      <AccountCard leagueId={leagueId} />
+    </>
+  )
+
   return (
-    <div className="space-y-4 lg:space-y-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-black text-[28px] lg:text-[40px] leading-none text-[color:var(--mm-ink)] tracking-tight">내 기록</h2>
-      </div>
+    <div className="space-y-3 lg:space-y-4">
+      <h2 className="font-black text-[28px] lg:text-[32px] leading-none text-[color:var(--mm-ink)] tracking-tight">내 기록</h2>
 
       {authLoading ? (
         <MePageSkeleton />
       ) : user ? (
-        <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} />
+        <>
+          <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} side={side} />
+          {/* 폰·태블릿: 맨 아래 */}
+          <div className="lg:hidden space-y-3">{side}</div>
+        </>
       ) : (
-        <LoginTeaser />
+        <>
+          <LoginTeaser />
+          {/* 비로그인: 앱 설치만 남는 계정 카드 */}
+          <div className="lg:max-w-[360px]"><AccountCard leagueId={leagueId} /></div>
+        </>
       )}
-
-      {/* 바로가기 — 드래프트(진행 중 · 어드민만)만 남았다. 「내 하이라이트」는 2026-10-12 부터
-          대시보드의 「내 베스트샷」 카드 머리(전체 하이라이트)로 옮겼다 — 같은 링크를 두 곳에 두지 않는다. */}
-      {/* PC: 바로가기·계정 카드는 위 대시보드 왼쪽 칼럼(380px) 폭에 맞춘다 — 전폭이면 버튼 한두 개 옆이 텅 비었다 */}
-      {user && wallet && (
-        <SectionCard variant="standalone" pad="none" className="lg:max-w-[380px]">
-          <ShortcutRow
-            href={`${base}/wallet`} Icon={Wallet} label={wallet.name}
-            sub={wallet.balance == null ? '포인트 충전 · 내역' : `잔액 ${wallet.balance.toLocaleString()}P · 충전 · 내역`} last
-          />
-        </SectionCard>
-      )}
-
-      {showDraft && (
-        <SectionCard variant="standalone" pad="none" className="lg:max-w-[380px]">
-          <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />
-        </SectionCard>
-      )}
-
-      {/* 계정 — 아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃(비로그인이면 앱 설치만).
-          라이트/다크 토글은 2026-08-15 에 헤더 우측 아이콘으로 옮겼다(`LeagueLayoutClient`) — 같은 설정을
-          두 곳에 두지 않는다. 인증 확인 중에는 그리지 않는다(스켈레톤 아래 버튼이 먼저 튀어나오지 않게). */}
-      {!authLoading && <AccountCard leagueId={leagueId} className="lg:max-w-[380px]" />}
     </div>
   )
 }
