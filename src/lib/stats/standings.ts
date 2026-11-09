@@ -29,6 +29,8 @@ export interface TeamForm {
   /** 지금 이어지는 연승(W)·연패(L) — 마지막 경기가 무거나 경기가 없으면 null */
   streakKind: 'W' | 'L' | null
   streakCount: number
+  /** 최근 10경기 성적(2026-11-09 운영진 — 팀 카드 흐름 줄). 옛 캐시 항목엔 없을 수 있다 */
+  last10?: { wins: number; losses: number; draws: number; games: number }
   /** 그 팀이 마지막으로 뛴 날의 성적 */
   lastDay: { date: string; wins: number; losses: number; draws: number } | null
 }
@@ -62,6 +64,10 @@ export function computeTeamForm(games: readonly FormGame[]): Map<string, TeamFor
     const day = arr.filter(x => x.date === last.date)
     out.set(key, {
       last5: arr.slice(-5).map(x => x.r),
+      last10: (() => {
+        const t = arr.slice(-10)
+        return { wins: t.filter(x => x.r === 'W').length, losses: t.filter(x => x.r === 'L').length, draws: t.filter(x => x.r === 'D').length, games: t.length }
+      })(),
       streakKind: last.r === 'D' ? null : last.r,
       streakCount: last.r === 'D' ? 0 : n,
       lastDay: {

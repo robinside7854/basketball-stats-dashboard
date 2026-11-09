@@ -66,6 +66,7 @@
 | M41 | (이 커밋) | **달별 정규 멤버에서 게스트 제외(2026-11-09)** — `quarters/[quarterId]/players` select 에 `is_guest` · `MonthlyRosterPanel` 거르기 | 패널의 `&& !r.is_guest` 를 지우면 종전대로 보임 |
 | M42 | (이 커밋) | **팀 카드 분기 표기(2026-11-09)** — `lib/format/quarterSpan.ts` · 팀 탭 카드·표 | `quarterSpanLabel(...)` 를 `quarterLabels.join(' · ')` 로 되돌리면 종전 표기 |
 | M43 | (이 커밋) | **팀 상세 패널 점검(2026-11-09)** — `teams/page.tsx` TeamDetailPanel(break-keep·팀 내 1위 칸) · `TeamInsights.tsx` 4요소 막대 테두리 | 각 줄을 되돌리면 종전 모습 |
+| M44 | (이 커밋) | **팀 탭 흐름 줄·팀 특성 비교·선수 표 열(2026-11-09)** — `TeamFormLine`·`standings.ts last10` · `teams/_lib/teamTraits.ts`·`TraitCompare` · `AVG_COLS`/`TOTAL_COLS`·PC 순위 칸 | 이 커밋을 되돌리면 종전(점·승차, 고리, 열 9개) |
 
 ## R5 (걷어내기)는 미뤘다
 

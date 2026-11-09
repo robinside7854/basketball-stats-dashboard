@@ -16,6 +16,7 @@ import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import dynamic from 'next/dynamic'
 import type { Team } from './_types'
 import { pickTeamLeader } from './_lib/teamLeaders'
+import { computeTeamTraits, type TeamTraits, type TraitKey } from './_lib/teamTraits'
 import TeamsSkeleton from '@/components/league/teams/TeamsSkeleton'
 import { isPctStatKey, meetsAttemptMin, attemptRuleLabel } from '@/lib/stats/eligibility'
 import TeamInsights from '@/components/league/TeamInsights'
@@ -23,7 +24,7 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import TeamDailyRecordGrid, { type GridGame } from '@/components/league/TeamDailyRecordGrid'
-import { RecordBar, VersusBar, Ring } from '@/components/league/ui/viz'
+import { RecordBar, VersusBar } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import { tovPct } from '@/lib/stats/advanced'
 import TeamFormLine from '@/components/league/nba/TeamFormLine'
@@ -65,16 +66,21 @@ type StatMode = 'basic'|'shooting'|'advanced'
 //   공격·수비 리바는 리바 칸 아래 줄. 하루 평균의 성공률은 「슈팅」 보기에만 둔다.
 // 2026-08-15: 셀 아래 컬러 막대는 뺐다(뜻이 다른 지표가 같은 길이로 비교돼 보인다) — 숫자만.
 type Col = { key: string; label: string; term: string; desc?: string }
+// 하루 평균·누적 기본 표는 리더보드(스탯 탭)와 같은 열·순서(2026-11-09 운영진 「야투율·3점률·자유투율이 빠져 있다 — 리더보드처럼」).
+//   성공률은 한 칸 + 아래 줄 성공/시도(누적 합). 공격·수비 리바는 리바 칸 아래 줄.
 const AVG_COLS: Col[] = [
-  { key: 'gp',   label: '출전',   term: 'R' },
-  { key: 'ppg',  label: '득점',   term: '득점' },
-  { key: 'rpg',  label: '리바',   term: '리바' },
-  { key: 'apg',  label: '어시',   term: '어시' },
-  { key: 'spg',  label: '스틸',   term: '스틸' },
-  { key: 'bpg',  label: '블록',   term: '블록' },
-  { key: 'topg', label: '턴오버', term: '턴오버' },
-  // 턴오버율(2026-11-08 운영진) — 「상세 지표」 안에만 있던 것을 기본 표로. 정본 lib/stats/advanced.ts tovPct
+  { key: 'gp',      label: '출전',     term: 'R' },
+  { key: 'ppg',     label: '득점',     term: '득점' },
+  { key: 'rpg',     label: '리바',     term: '리바' },
+  { key: 'apg',     label: '어시',     term: '어시' },
+  { key: 'spg',     label: '스틸',     term: '스틸' },
+  { key: 'bpg',     label: '블록',     term: '블록' },
+  { key: 'fg_pct',  label: '야투율',   term: 'FG%' },
+  { key: 'fg3_pct', label: '3점률',    term: '3P%' },
+  { key: 'ft_pct',  label: '자유투율', term: 'FT%' },
+  { key: 'topg',    label: '턴오버',   term: '턴오버' },
   { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
+  { key: 'fbpg',    label: '속공',     term: '속공' },
 ]
 const TOTAL_COLS: Col[] = [
   { key: 'gp',      label: '출전',     term: 'R' },
@@ -83,11 +89,12 @@ const TOTAL_COLS: Col[] = [
   { key: 'ast',     label: '어시',     term: 'AST' },
   { key: 'stl',     label: '스틸',     term: 'STL' },
   { key: 'blk',     label: '블록',     term: 'BLK' },
-  { key: 'tov',     label: '턴오버',   term: 'TOV' },
-  { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
   { key: 'fg_pct',  label: '야투율',   term: 'FG%' },
   { key: 'fg3_pct', label: '3점률',    term: '3P%' },
   { key: 'ft_pct',  label: '자유투율', term: 'FT%' },
+  { key: 'tov',     label: '턴오버',   term: 'TOV' },
+  { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
+  { key: 'fb_pts',  label: '속공',     term: '속공' },
 ]
 const SHOOTING_COLS: Col[] = [
   { key: 'fg_pct',      label: '야투율',     term: 'FG%',  desc: '전체 야투 성공률' },
@@ -116,7 +123,7 @@ const DEFAULT_SORT = (mode: StatMode, viewMode: 'avg'|'total') =>
   // 슈팅 기본 정렬은 스탯 탭과 같은 진실야투(ts_pct)
   mode === 'shooting' ? 'ts_pct' : mode === 'advanced' ? 'at_ratio' : viewMode === 'avg' ? 'ppg' : 'pts'
 
-const INT_KEYS = new Set(['gp','pts','reb','ast','stl','blk','tov','a1_total'])
+const INT_KEYS = new Set(['gp','pts','reb','ast','stl','blk','tov','a1_total','fb_pts'])
 const PCT_KEYS = new Set(['fg_pct','fg2_pct','fg3_pct','efg_pct','ft_pct','ts_pct','ft_rate','ast_pct','tov_pct','orb_pct','trb_pct'])
 
 // 리뉴얼 1단계(2026-10-12): 의미색만 — 턴오버=negative · 공격 리바=--mm-or · 3점 계열=yellow-strong · 나머지 잉크 단계
@@ -229,8 +236,11 @@ function StatsTable({
     return <p className="text-xs py-4 text-center" style={{ color: 'var(--mm-muted)' }}>아직 기록이 없어요</p>
   }
 
+  // 성공/시도는 「/」 뒤에서만 줄을 넘긴다(값 한가운데 꺾임 금지 — CLAUDE.md 가로 스크롤 금지)
   const Sub = ({ text }: { text: string | null }) =>
-    text ? <span className="block text-xs font-normal tabular-nums" style={{ color: 'var(--mm-muted)' }}>{text}</span> : null
+    text ? <span className="block text-xs font-normal tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+      {text.split('/').map((part, i) => <span key={i}>{i > 0 && <>/<wbr /></>}{part}</span>)}
+    </span> : null
   const sortCol = cols.find(c => c.key === sortKey) ?? cols[0]
 
   return (
@@ -307,7 +317,8 @@ function StatsTable({
       <table className="mm-fit">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-            <th className="t-th text-left pr-3 w-28 lg:w-36" style={{ color: 'var(--mm-muted)' }}>선수</th>
+            <th className="t-th text-center w-10" style={{ color: 'var(--mm-muted)' }}>순위</th>
+            <th className="t-th text-left pr-3 w-28 lg:w-32" style={{ color: 'var(--mm-muted)' }}>선수</th>
             {cols.map(({ key, label, term, desc }) => {
               const active = sortKey === key
               return (
@@ -323,10 +334,17 @@ function StatsTable({
           </tr>
         </thead>
         <tbody>
-          {sorted.map(({ p, ok }) => {
+          {sorted.map(({ p, ok, rank }) => {
             const isLeader = leaderId && p.player_id === leaderId
             return (
               <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                {/* 순위 — 1~3 금·은·동(리더보드·폰 카드와 같은 색), 시도 부족은 「—」 */}
+                <td className="py-2 text-center">
+                  <span className="w-7 h-7 inline-flex items-center justify-center t-num font-black text-sm"
+                    style={rank != null && rank <= 3
+                      ? { background: `var(--rank-${rank}-bg)`, color: `var(--rank-${rank}-fg)`, borderRadius: 'var(--mm-radius-chip)' }
+                      : { color: 'var(--mm-muted)' }}>{rank ?? '—'}</span>
+                </td>
                 <td className="py-2 pr-3">
                   <button onClick={() => openPlayer(p)}
                     className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow-strong)] underline-offset-4">
@@ -363,11 +381,80 @@ function StatsTable({
   )
 }
 
+// 팀 특성 다섯 칸의 정의 — 값·표기·설명(2026-11-09). 순위는 늘 「높은 순」(좋고 나쁨은 칸마다 달라 판정하지 않는다)
+type TraitDef = { key: TraitKey; title: string; desc: string; fmt: (v: number) => string; diff: (d: number) => string; sub?: (t: TeamTraits) => string | null }
+const TRAIT_DEFS: TraitDef[] = [
+  { key: 'ace',   title: '에이스 의존도', desc: '팀 득점 중 득점 1위 몫', fmt: v => `${v.toFixed(0)}%`, diff: d => `${d.toFixed(0)}%p` },
+  { key: 'three', title: '외곽 스타일',   desc: '야투 중 3점 시도 비율', fmt: v => `${v.toFixed(0)}%`, diff: d => `${d.toFixed(0)}%p` },
+  { key: 'fb',    title: '속공',          desc: '팀 득점 중 속공 비중',  fmt: v => `${v.toFixed(0)}%`, diff: d => `${d.toFixed(0)}%p`, sub: t => `경기당 ${t.fbPg.toFixed(1)}점` },
+  { key: 'def',   title: '수비 강도',     desc: '경기당 스틸+블록',      fmt: v => v.toFixed(1), diff: d => d.toFixed(1) },
+  { key: 'ft',    title: '자유투 성공률', desc: '팀 자유투 성공률',      fmt: v => `${v.toFixed(0)}%`, diff: d => `${d.toFixed(0)}%p` },
+]
+
+/** 한 칸 — 이 팀 값(크게) · N팀 중 M위 · 모든 팀 막대(이 팀 진하게) */
+function TraitCompare({ def, peers, selfKey }: { def: TraitDef; peers: TraitPeer[]; selfKey: string }) {
+  const rows = peers
+    .map(p => ({ ...p, v: p.traits ? p.traits[def.key] : null }))
+    .filter((r): r is typeof r & { v: number } => r.v != null)
+    .sort((a, b) => b.v - a.v)
+  const self = rows.find(r => r.key === selfKey)
+  const selfTraits = peers.find(p => p.key === selfKey)?.traits ?? null
+  const max = Math.max(...rows.map(r => r.v), 0) || 1
+  // 순위는 화면에 보이는 값(반올림)으로 — 모두 「15%」인데 3위로 나오던 것(동률은 공동 순위)
+  const shown = (v: number) => Number(def.fmt(v).replace(/[^0-9.]/g, ''))
+  const rank = self ? rows.filter(r => shown(r.v) > shown(self.v)).length + 1 : null
+  const avg = rows.length > 0 ? rows.reduce((s, r) => s + r.v, 0) / rows.length : null
+  const diff = self && avg != null ? self.v - avg : null
+  return (
+    <div className="p-3 flex flex-col gap-2" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="t-label" style={{ color: 'var(--mm-ink)' }}>{def.title}</div>
+          <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{def.desc}</div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '24px' }}>{self ? def.fmt(self.v) : '—'}</div>
+          {rank != null && (
+            <div className="text-xs font-bold mt-1 whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>{rows.length}팀 중 {rank}위</div>
+          )}
+        </div>
+      </div>
+      {/* 모든 팀 막대 — 높은 순. 이 팀은 진하게·굵게, 다른 팀은 흐리게 */}
+      <ul className="space-y-1" aria-label={`${def.title} 팀별 비교`}>
+        {rows.map(r => {
+          const mine = r.key === selfKey
+          return (
+            <li key={r.key} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-1.5 text-xs tabular-nums">
+              <span className={mine ? 'font-black' : 'font-bold'} style={{ color: mine ? 'var(--mm-ink)' : 'var(--mm-muted)', wordBreak: 'keep-all', lineHeight: 1.2 }}>{r.name}</span>
+              <span className="h-2.5 block" style={{ background: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)' }}>
+                <span className="h-full block" style={{ width: `${Math.max(2, r.v / max * 100)}%`, background: r.color, boxShadow: swatchEdge(r.color), opacity: mine ? 1 : 0.4, borderRadius: 'var(--mm-radius-chip)' }} />
+              </span>
+              <span className={mine ? 'font-black' : 'font-bold'} style={{ color: mine ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{def.fmt(r.v)}</span>
+            </li>
+          )
+        })}
+      </ul>
+      {(diff != null || (def.sub && selfTraits)) && (
+        <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+          {/* 평균과의 차이 — 반올림해 0 이면 「평균 수준」(종전 「−0%」) */}
+          {diff != null && rows.length > 1 && (def.diff(Math.abs(diff)).replace(/[^0-9]/g, '').replace(/^0+/, '') === ''
+            ? <>평균 수준</>
+            : <>평균보다 <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{diff >= 0 ? '+' : '−'}{def.diff(Math.abs(diff))}</span></>)}
+          {def.sub && selfTraits && <>{diff != null && rows.length > 1 ? ' · ' : ''}{def.sub(selfTraits)}</>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── TeamDetailPanel ────────────────────────────────────────────────────────
 type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
 
+/** 팀 특성 비교에 쓰는 같은 기간 다른 팀(이 팀 포함) */
+type TraitPeer = { key: string; name: string; color: string; traits: TeamTraits | null }
+
 function TeamDetailPanel({
-  teamId, team, standing, players, regularIds, leagueId, quarterId,
+  teamId, team, standing, players, regularIds, leagueId, quarterId, peers, selfKey,
 }: {
   teamId: string
   team: Team
@@ -379,6 +466,9 @@ function TeamDetailPanel({
   regularIds: ReadonlySet<string>
   leagueId: string
   quarterId: string | 'all'
+  /** 팀 특성을 다른 팀과 견줄 재료(2026-11-09) — 이 팀 포함 */
+  peers: TraitPeer[]
+  selfKey: string
 }) {
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
   const openPlayerCard = useOpenPlayerCard()
@@ -536,69 +626,17 @@ function TeamDetailPanel({
               <ChevronDown size={16} aria-hidden className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
             </button>
             {moreOpen && (<>
-            {/* D. 팀 특성 — 비율은 고리 게이지, 숫자는 고리 안 (2026-10-12) */}
+            {/* D. 팀 특성 — 같은 기간 모든 팀과 나란히 견준다(2026-11-09 운영진 「다른 팀 대비 어떤지」).
+                종전(2026-10-12)엔 이 팀 값만 고리로 그려 높은지 낮은지 알 수 없었다. 식은 _lib/teamTraits.ts 한 벌. */}
             {computed && (
               <div>
-                <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>팀 특성</p>
-                {/* 에이스 칸이 빠져 3장이면 폰 2열에서 마지막 한 장만 가운데로(왼쪽 반만 차던 것) */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:justify-self-center max-sm:[&>:last-child:nth-child(odd)]:w-[calc(50%-5px)]">
-                  {[
-                    // 에이스(정규 득점 1위)가 없으면 0% 가 초록으로 '좋음'처럼 보인다 — 카드째 뺀다
-                    ...(computed.byPpg ? [{
-                      title: '에이스 의존도',
-                      ratio: (computed.acePct / 100) as number | null,
-                      value: `${computed.acePct.toFixed(0)}%`,
-                      desc: '팀 득점 중 1위 비중',
-                      color: computed.acePct > 40 ? 'var(--mm-negative)' : computed.acePct > 30 ? 'var(--mm-neutral-strong)' : 'var(--mm-positive)',
-                    }] : []),
-                    {
-                      title: '외곽 스타일',
-                      ratio: (computed.threePct / 100) as number | null,
-                      value: `${computed.threePct.toFixed(0)}%`,
-                      desc: '3점 시도 비율',
-                      color: computed.threePct > 35 ? 'var(--mm-neutral-strong)' : 'var(--mm-yellow-strong)',
-                    },
-                    {
-                      title: '속공',
-                      ratio: (computed.fbPct / 100) as number | null,
-                      value: `${computed.fbPct.toFixed(0)}%`,
-                      desc: `팀 득점 중 비중 · 경기당 ${computed.fbPg.toFixed(1)}점`,
-                      color: computed.fbPct > 20 ? 'var(--mm-positive)' : computed.fbPct > 10 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)',
-                    },
-                    {
-                      title: '수비 강도',
-                      // 비율이 아니라 횟수라 고리를 채우지 않는다(임의 상한을 만들지 않음)
-                      ratio: null as number | null,
-                      value: computed.defPg.toFixed(1),
-                      desc: '평균 스틸+블록',
-                      color: computed.defPg > 5 ? 'var(--mm-positive)' : computed.defPg > 3 ? 'var(--mm-neutral-strong)' : 'var(--mm-muted)',
-                    },
-                    {
-                      title: '자유투 성공률',
-                      ratio: (computed.ftPct / 100) as number | null,
-                      value: `${computed.ftPct.toFixed(0)}%`,
-                      desc: '팀 클러치 지표',
-                      color: computed.ftPct > 75 ? 'var(--mm-positive)' : computed.ftPct > 60 ? 'var(--mm-neutral-strong)' : 'var(--mm-negative)',
-                    },
-                  ].map(tile => (
-                    <div key={tile.title} className="p-3 flex flex-col items-center text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
-                      {tile.ratio != null ? (
-                        <Ring ratio={tile.ratio} size={72} stroke={7} color={tile.color} label={`${tile.title} ${tile.value}`}>
-                          <span className="text-base font-black tabular-nums" style={{ color: tile.color }}>{tile.value}</span>
-                        </Ring>
-                      ) : (
-                        <div
-                          className="flex items-center justify-center rounded-full shrink-0"
-                          style={{ width: 72, height: 72, border: '7px solid var(--mm-panel)' }}
-                          role="img"
-                          aria-label={`${tile.title} ${tile.value}`}
-                        >
-                          <span className="text-base font-black tabular-nums" style={{ color: tile.color }}>{tile.value}</span>
-                        </div>
-                      )}
-                      <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{tile.title}</div>
-                      <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{tile.desc}</div>
-                    </div>
+                <p className="text-base font-black mb-3" style={{ color: 'var(--mm-ink)' }}>
+                  팀 특성 <span className="text-xs font-bold ml-1" style={{ color: 'var(--mm-muted)' }}>{peers.length}팀 비교</span>
+                </p>
+                {/* 1024 에서 5칸이면 막대가 너무 짧았다 — PC 3칸, 아주 넓은 화면(1536↑)만 5칸 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-2.5">
+                  {TRAIT_DEFS.map(def => (
+                    <TraitCompare key={def.key} def={def} peers={peers} selfKey={selfKey} />
                   ))}
                 </div>
               </div>
@@ -892,6 +930,11 @@ function LeagueTeamsPageInner() {
   }, [myPlayerId, identities, regularIdsByIdentity])
 
   // 팀별 선수 탭에 보일 행 — 게스트는 늘 빼고, 끔이면 정규 명단만
+  // 팀 특성 비교 재료 — 지금 보이는 모든 팀(2026-11-09). 분모 gp 는 카드 승패와 같은 경기 집합
+  const traitPeers = useMemo(() => standings.map(st => ({
+    key: st.identityKey, name: st.displayName, color: st.color,
+    traits: computeTeamTraits(teamStats[st.identityKey] ?? [], regularIdsByIdentity[st.identityKey] ?? EMPTY_IDS, st.w + st.d + st.l),
+  })), [standings, teamStats, regularIdsByIdentity])
   const visibleTeamPlayers = (key: string) => (teamStats[key] ?? []).filter(p =>
     !isGuest(p) && (showIrregular || (regularIdsByIdentity[key]?.has(p.player_id) ?? false)))
   const scopeSuffix = selectedQId === 'all' ? ' (현재 분기)' : ''
@@ -1095,6 +1138,8 @@ function LeagueTeamsPageInner() {
                   regularIds={regularIdsByIdentity[selectedTeamId] ?? EMPTY_IDS}
                   leagueId={leagueId}
                   quarterId={selectedQId}
+                  peers={traitPeers}
+                  selfKey={selectedTeamId}
                 />
               </div>
             )
