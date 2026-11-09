@@ -179,7 +179,11 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 회원(승인 회원 본인만): `/wallet` 화면 — 잔액 · 충전 요청 · 사용 내역 · 충전 요청 이력. `GET/POST/DELETE /api/leagues/[id]/wallet`.
 - 어드민 **누구나**(+CEO): 같은 화면 아래 어드민 칸 — 승인/반려 · 회원별 잔액 · 보정(이유 필수). `GET/POST /wallet/admin`. 처리자는 `resolveAuditActor` 라벨로 장부·요청에 남고 감사 로그 `wallet.*`.
 - 어드민 화면(2026-11-09): 회원별 잔액 = 이름 찾기 + 「잔액 있는 사람/전체」 + 2~3칸 격자 · 충전 요청 카드 = 상태 칩 + 「요청」·「처리」 줄. 대기 중 충전 요청 수는 상단 톱니바퀴 빨간 배지(가입 신청 수와 합산 — `usePendingCharges`, `GET /wallet/admin?count=1`)와 설정의 월렛 버튼에.
-- 포인트 유효기간 없음. 정규권 28,000P/월 · 비정규 티켓 12,000P/회(다음 단계). 게스트비는 같은 통장, 포인트 없음.
+- **2단계(마이그레이션 123, 2026-11-09 운영진)**: 규칙은 `teams.wallet_rules`(bonus_min 50,000 · bonus_pct 10 · regular_pass_price 28,000 · non_regular_price 12,000).
+  - 충전 보너스: 승인 때 DB 가 `bonus` 장부 행을 따로 쓴다(5만원 → 55,000P).
+  - 환불: 회원이 받을 계좌로 요청(`wallet_charge_requests.kind='refund'`) → 어드민이 송금 후 「송금했어요」 → `withdraw`(−환불액) + `forfeit`(−나머지). 환불액 = 마지막 환불 이후 (charge·opening·adjust 합 − 티켓에 쓴 것), 0~잔액 — **정본 `wallet_refundable()`**. 보너스는 환불 제외.
+  - 티켓: `wallet_tickets` 한 장 = 한 행. 정규권(이번 달·다음 달, 달마다 1장) · 비정규(1~10장). 가격은 DB 가 팀 규칙에서 읽는다(`wallet_buy_ticket`). 비정규는 팀 배치 때 `wallet_use_ticket`(참가신청 전까지 어드민 손 처리), 돌려주기 `wallet_return_ticket`(포인트 환불 · 행은 returned 로 남김).
+- 포인트 유효기간 없음. 게스트비는 같은 통장, 포인트 없음.
 
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`

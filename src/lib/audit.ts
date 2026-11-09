@@ -113,6 +113,10 @@ export type AuditAction =
   | 'wallet.charge.approve'
   | 'wallet.charge.reject'
   | 'wallet.adjust'
+  | 'wallet.refund.approve'
+  | 'wallet.refund.reject'
+  | 'wallet.ticket.use'
+  | 'wallet.ticket.return'
 
 export type AuditResult = 'success' | 'failure' | 'denied'
 

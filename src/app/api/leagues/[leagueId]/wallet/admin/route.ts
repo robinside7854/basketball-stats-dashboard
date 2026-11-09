@@ -1,8 +1,10 @@
 // 미라클 월렛 — 팀 어드민(누구나) · CEO (마이그레이션 122, 2026-11-09 운영진 「충전 승인은 어드민 누구나」)
 //   GET                     → { pending, recent, members: [{ player_id, name, balance }], total }
-//   GET ?playerId=          → 그 회원의 장부
+//   GET ?playerId=          → 그 회원의 장부 · 티켓 · 환불 가능 금액
 //   GET ?count=1            → { pending: N } — 상단 톱니바퀴 빨간 배지용(가볍게 개수만)
-//   POST { action:'review', requestId, decision:'approve'|'reject', note? }
+//   POST { action:'review', requestId, decision:'approve'|'reject', note? }  — 충전이면 승인(+보너스), 환불이면 「송금했어요」
+//   POST { action:'use_ticket', playerId, date, note? }      — 비정규 티켓 한 장 사용 처리(참가신청 전까지는 손으로)
+//   POST { action:'return_ticket', ticketId, note }           — 티켓 돌려주기(포인트 환불 · 기록은 남는다)
 //   POST { action:'adjust', playerId, amount(±), memo }   — 보정. 이유(memo) 필수, 장부에 남는다.
 //   누가 처리했는지(actor_label)는 감사 로그와 같은 판정(resolveAuditActor)으로 장부·요청에 남긴다.
 import { NextResponse } from 'next/server'
@@ -11,7 +13,7 @@ import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { logAudit, resolveAuditActor } from '@/lib/audit'
 import {
-  loadWalletConfig, loadLedger, walletErrorMessage, REQUEST_COLS, type ChargeRequestRow,
+  loadWalletConfig, loadLedger, loadTickets, loadRefundable, walletErrorMessage, REQUEST_COLS, type ChargeRequestRow,
 } from '@/lib/wallet/wallet'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -33,7 +35,12 @@ export async function GET(req: Request, { params }: Ctx) {
   }
 
   const playerId = sp.get('playerId')
-  if (playerId) return NextResponse.json({ ledger: await loadLedger(teamId, playerId) }, NO_STORE)
+  if (playerId) {
+    const [ledger, tickets, refundable] = await Promise.all([
+      loadLedger(teamId, playerId), loadTickets(teamId, playerId), loadRefundable(teamId, playerId),
+    ])
+    return NextResponse.json({ ledger, tickets, refundable }, NO_STORE)
+  }
 
   const [pendingRes, recentRes, playersRes, balRes] = await Promise.all([
     sb.from('wallet_charge_requests').select(REQUEST_COLS).eq('team_id', teamId).eq('status', 'pending')
@@ -76,25 +83,55 @@ export async function POST(req: Request, { params }: Ctx) {
   const note = typeof body.note === 'string' ? body.note.trim().slice(0, 200) || null : null
   const sb = createClient()
 
+  const fail = (error: { message: string }) => {
+    const msg = walletErrorMessage(error.message)
+    return NextResponse.json({ error: msg ?? error.message }, { status: msg ? 409 : 500 })
+  }
+
   if (body.action === 'review') {
     const decision = body.decision
     if (typeof body.requestId !== 'string' || (decision !== 'approve' && decision !== 'reject')) {
       return NextResponse.json({ error: 'requestId · decision 필수' }, { status: 400 })
     }
-    const { data, error } = await sb.rpc('wallet_review_charge', {
+    const { data: found } = await sb.from('wallet_charge_requests').select('kind').eq('id', body.requestId).eq('team_id', teamId).maybeSingle()
+    if (!found) return NextResponse.json({ error: '요청을 찾을 수 없어요' }, { status: 404 })
+    const isRefund = (found as { kind: string }).kind === 'refund'
+    const { data, error } = await sb.rpc(isRefund ? 'wallet_review_refund' : 'wallet_review_charge', {
       p_team_id: teamId, p_request_id: body.requestId, p_action: decision, p_note: note, p_actor: actor,
     })
-    if (error) {
-      const msg = walletErrorMessage(error.message)
-      return NextResponse.json({ error: msg ?? error.message }, { status: msg ? 409 : 500 })
-    }
+    if (error) return fail(error)
     const row = data as ChargeRequestRow
     await logAudit({
-      req, action: decision === 'approve' ? 'wallet.charge.approve' : 'wallet.charge.reject',
+      req,
+      action: isRefund
+        ? (decision === 'approve' ? 'wallet.refund.approve' : 'wallet.refund.reject')
+        : (decision === 'approve' ? 'wallet.charge.approve' : 'wallet.charge.reject'),
       targetTable: 'wallet_charge_requests', targetId: row.id, leagueId, teamId,
       detail: { amount: row.amount, player: row.league_player_id },
     })
     return NextResponse.json(row)
+  }
+
+  if (body.action === 'use_ticket') {
+    const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : null
+    if (typeof body.playerId !== 'string' || !date) return NextResponse.json({ error: '회원 · 날짜를 확인해 주세요' }, { status: 400 })
+    const { data, error } = await sb.rpc('wallet_use_ticket', {
+      p_team_id: teamId, p_player_id: body.playerId, p_date: date, p_note: note, p_actor: actor,
+    })
+    if (error) return fail(error)
+    await logAudit({ req, action: 'wallet.ticket.use', targetTable: 'wallet_tickets', targetId: (data as { id: string }).id, leagueId, teamId, detail: { date } })
+    return NextResponse.json(data)
+  }
+
+  if (body.action === 'return_ticket') {
+    if (typeof body.ticketId !== 'string') return NextResponse.json({ error: 'ticketId 필수' }, { status: 400 })
+    if (!note) return NextResponse.json({ error: '돌려주는 이유를 적어 주세요 — 기록에 남아요' }, { status: 400 })
+    const { data, error } = await sb.rpc('wallet_return_ticket', {
+      p_team_id: teamId, p_ticket_id: body.ticketId, p_note: note, p_actor: actor,
+    })
+    if (error) return fail(error)
+    await logAudit({ req, action: 'wallet.ticket.return', targetTable: 'wallet_tickets', targetId: body.ticketId, leagueId, teamId })
+    return NextResponse.json(data)
   }
 
   if (body.action === 'adjust') {
@@ -111,10 +148,7 @@ export async function POST(req: Request, { params }: Ctx) {
       p_team_id: teamId, p_player_id: body.playerId, p_kind: 'adjust', p_amount: amount,
       p_memo: memo, p_ref_type: null, p_ref_id: null, p_actor: actor,
     })
-    if (error) {
-      const msg = walletErrorMessage(error.message)
-      return NextResponse.json({ error: msg ?? error.message }, { status: msg ? 409 : 500 })
-    }
+    if (error) return fail(error)
     await logAudit({
       req, action: 'wallet.adjust', targetTable: 'wallet_ledger',
       targetId: (data as { id: string }).id, leagueId, teamId, detail: { amount, player: body.playerId },
@@ -122,5 +156,5 @@ export async function POST(req: Request, { params }: Ctx) {
     return NextResponse.json(data)
   }
 
-  return NextResponse.json({ error: 'action 은 review · adjust' }, { status: 400 })
+  return NextResponse.json({ error: 'action 은 review · adjust · use_ticket · return_ticket' }, { status: 400 })
 }

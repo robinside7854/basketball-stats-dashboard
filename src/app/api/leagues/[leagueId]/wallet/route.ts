@@ -1,16 +1,17 @@
-// 미라클 월렛 — 회원 본인 (마이그레이션 122, 2026-11-09)
-//   GET                               → { enabled, name, bank, me: { balance, requests, ledger } | null }
-//   POST { amount, depositor_name }   → 충전 요청(승인 회원 본인). 대기 중 요청은 한 사람당 하나.
-//   DELETE ?requestId=                → 내 대기 중 요청 취소
-//   본인 것만 본다 — 다른 회원의 잔액·내역은 어드민 라우트(/wallet/admin)에서만.
-//   캐시 없음(돈이라 늘 최신 · ISR Reads 0).
+// 미라클 월렛 — 회원 본인 (마이그레이션 122·123, 2026-11-09)
+//   GET  → { enabled, name, bank, rules, months, me: { balance, refundable, ledger, requests, tickets } | null }
+//   POST { action:'charge', amount, depositor_name }          → 충전 요청(5만원↑ 보너스는 승인 때 DB 가 붙인다)
+//   POST { action:'refund', holder, account }                  → 환불 요청(금액은 서버가 계산 — 입금액 − 사용액)
+//   POST { action:'buy', kind:'regular_pass'|'non_regular', month?, qty? } → 티켓 사기(가격은 DB 가 팀 규칙에서 읽는다)
+//   DELETE ?requestId=  → 내 대기 중 요청 취소
+//   본인 것만 본다. 캐시 없음(돈이라 늘 최신 · ISR Reads 0).
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import {
-  loadWalletConfig, loadBalance, loadLedger, parseAmount, MAX_CHARGE, REQUEST_COLS,
-  type ChargeRequestRow,
+  loadWalletConfig, loadBalance, loadLedger, loadTickets, loadRefundable, buyableMonths,
+  parseAmount, walletErrorMessage, MAX_CHARGE, REQUEST_COLS, type ChargeRequestRow,
 } from '@/lib/wallet/wallet'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -25,17 +26,19 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!session) return NextResponse.json({ enabled: true, name: config.name, bank: null, me: null })
 
   const sb = createClient()
-  const [balance, ledger, reqRes] = await Promise.all([
+  const [balance, ledger, tickets, refundable, reqRes] = await Promise.all([
     loadBalance(teamId, session.pid),
     loadLedger(teamId, session.pid),
+    loadTickets(teamId, session.pid),
+    loadRefundable(teamId, session.pid),
     sb.from('wallet_charge_requests').select(REQUEST_COLS)
       .eq('team_id', teamId).eq('league_player_id', session.pid)
       .order('created_at', { ascending: false }).limit(50),
   ])
   if (reqRes.error) return NextResponse.json({ error: reqRes.error.message }, { status: 500 })
   return NextResponse.json({
-    enabled: true, name: config.name, bank: config.bank,
-    me: { balance, ledger, requests: (reqRes.data ?? []) as ChargeRequestRow[] },
+    enabled: true, name: config.name, bank: config.bank, rules: config.rules, months: buyableMonths(),
+    me: { balance, refundable, ledger, tickets, requests: (reqRes.data ?? []) as ChargeRequestRow[] },
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
@@ -45,19 +48,64 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!session) return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   const teamId = await resolveTeamId(leagueId)
   if (!(await loadWalletConfig(teamId))) return NextResponse.json({ error: '월렛이 꺼져 있어요' }, { status: 404 })
+  const sb = createClient()
 
-  const body = await req.json().catch(() => ({})) as { amount?: unknown; depositor_name?: unknown }
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const action = body.action ?? 'charge'
+  const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
+
+  if (action === 'buy') {
+    const kind = body.kind
+    if (kind !== 'regular_pass' && kind !== 'non_regular') return NextResponse.json({ error: '티켓 종류를 골라 주세요' }, { status: 400 })
+    let month: string | null = null
+    let qty = 1
+    if (kind === 'regular_pass') {
+      month = typeof body.month === 'string' ? body.month : ''
+      if (!buyableMonths().includes(month)) return NextResponse.json({ error: '이번 달·다음 달 정규권만 살 수 있어요' }, { status: 400 })
+    } else {
+      qty = Number(body.qty)
+      if (!Number.isInteger(qty) || qty < 1 || qty > 10) return NextResponse.json({ error: '비정규 티켓은 한 번에 1~10장이에요' }, { status: 400 })
+    }
+    const { data, error } = await sb.rpc('wallet_buy_ticket', {
+      p_team_id: teamId, p_player_id: session.pid, p_kind: kind, p_month: month, p_qty: qty,
+      p_actor: `본인 ${session.loginId}`,
+    })
+    if (error) {
+      const msg = walletErrorMessage(error.message)
+      return NextResponse.json({ error: msg ?? error.message }, { status: msg ? 409 : 500 })
+    }
+    return NextResponse.json({ ok: true, qty: data }, { status: 201 })
+  }
+
+  if (action === 'refund') {
+    const holder = str(body.holder, 40)
+    const account = str(body.account, 80)
+    if (!holder || !account) return NextResponse.json({ error: '받을 계좌(은행·번호)와 예금주를 적어 주세요' }, { status: 400 })
+    const refundable = await loadRefundable(teamId, session.pid)
+    if (refundable <= 0) return NextResponse.json({ error: '지금은 환불받을 금액이 없어요' }, { status: 400 })
+    const { data, error } = await sb.from('wallet_charge_requests').insert({
+      team_id: teamId, league_player_id: session.pid, kind: 'refund', amount: refundable,
+      depositor_name: holder, refund_account: account,
+    }).select(REQUEST_COLS).single()
+    if (error) {
+      if (error.code === '23505') return NextResponse.json({ error: '이미 확인을 기다리는 요청이 있어요' }, { status: 409 })
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json(data, { status: 201 })
+  }
+
+  if (action !== 'charge') return NextResponse.json({ error: 'action 은 charge · refund · buy' }, { status: 400 })
   const amount = parseAmount(body.amount)
   if (!amount) return NextResponse.json({ error: `금액은 1 ~ ${MAX_CHARGE.toLocaleString()}원 사이로 적어 주세요` }, { status: 400 })
-  const depositor = typeof body.depositor_name === 'string' ? body.depositor_name.trim().slice(0, 40) : ''
+  const depositor = str(body.depositor_name, 40)
   if (!depositor) return NextResponse.json({ error: '입금자명을 적어 주세요' }, { status: 400 })
 
-  const { data, error } = await createClient().from('wallet_charge_requests').insert({
-    team_id: teamId, league_player_id: session.pid, amount, depositor_name: depositor,
+  const { data, error } = await sb.from('wallet_charge_requests').insert({
+    team_id: teamId, league_player_id: session.pid, kind: 'charge', amount, depositor_name: depositor,
   }).select(REQUEST_COLS).single()
   if (error) {
     // 23505 = 대기 중 요청이 이미 있음(wallet_charge_requests_one_pending)
-    if (error.code === '23505') return NextResponse.json({ error: '이미 확인을 기다리는 충전 요청이 있어요' }, { status: 409 })
+    if (error.code === '23505') return NextResponse.json({ error: '이미 확인을 기다리는 요청이 있어요' }, { status: 409 })
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   return NextResponse.json(data, { status: 201 })

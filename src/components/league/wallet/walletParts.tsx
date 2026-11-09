@@ -1,10 +1,11 @@
 'use client'
 // 미라클 월렛 — 회원 화면 · 어드민 화면이 같이 쓰는 목록 (장부 · 충전 요청)
+import type { ReactNode } from 'react'
 import EmptyState from '@/components/league/ui/EmptyState'
 
 export interface LedgerItem {
   id: string
-  kind: 'opening' | 'charge' | 'purchase' | 'refund' | 'adjust'
+  kind: 'opening' | 'charge' | 'bonus' | 'purchase' | 'refund' | 'adjust' | 'withdraw' | 'forfeit'
   amount: number
   balance_after: number
   memo: string | null
@@ -14,6 +15,8 @@ export interface LedgerItem {
 export interface RequestItem {
   id: string
   league_player_id: string
+  kind: 'charge' | 'refund'
+  refund_account: string | null
   amount: number
   depositor_name: string
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
@@ -27,14 +30,17 @@ export interface RequestItem {
 export const KIND_LABEL: Record<LedgerItem['kind'], string> = {
   opening: '미모바스켓에서 옮김',
   charge: '충전',
-  purchase: '사용',
-  refund: '환불',
+  bonus: '충전 보너스',
+  purchase: '티켓 구매',
+  refund: '티켓 돌려받음',
   adjust: '어드민 보정',
+  withdraw: '환불 송금',
+  forfeit: '환불 때 소멸',
 }
 
 export const STATUS_LABEL: Record<RequestItem['status'], string> = {
   pending: '확인 중',
-  approved: '충전됨',
+  approved: '완료',
   rejected: '반려',
   cancelled: '취소',
 }
@@ -97,13 +103,16 @@ export function RequestList({ rows }: { rows: RequestItem[] }) {
                 <span className="shrink-0 inline-flex items-center px-2 py-0.5 text-xs font-black" style={{ background: st.bg, color: st.fg, borderRadius: 'var(--mm-radius-chip)' }}>
                   {STATUS_LABEL[r.status]}
                 </span>
-                {r.name && <span className="font-bold text-sm break-keep" style={{ color: 'var(--mm-ink)' }}>{r.name}</span>}
+                <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{r.kind === 'refund' ? '환불' : '충전'}</span>
+                {r.name && <span className="font-bold text-sm break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{r.name}</span>}
               </span>
-              <span className="shrink-0 font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{fmtP(r.amount)}</span>
+              <span className="shrink-0 font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{r.kind === 'refund' ? `${r.amount.toLocaleString()}원` : fmtP(r.amount)}</span>
             </div>
             <dl className="mt-2 grid grid-cols-[3rem_1fr] gap-x-2 gap-y-1 text-xs">
               <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>요청</dt>
-              <dd style={{ color: 'var(--mm-ink-soft)' }}>{fmtWhen(r.created_at)} · 입금자 {r.depositor_name}</dd>
+              <dd style={{ color: 'var(--mm-ink-soft)' }}>
+                {fmtWhen(r.created_at)} · {r.kind === 'refund' ? `받을 계좌 ${r.refund_account ?? ''} (${r.depositor_name})` : `입금자 ${r.depositor_name}`}
+              </dd>
               <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>처리</dt>
               <dd style={{ color: 'var(--mm-ink-soft)' }}>
                 {handled
@@ -117,6 +126,64 @@ export function RequestList({ rows }: { rows: RequestItem[] }) {
                 </>
               )}
             </dl>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+export interface TicketItem {
+  id: string
+  kind: 'regular_pass' | 'non_regular'
+  month: string | null
+  price: number
+  status: 'active' | 'used' | 'returned'
+  used_date: string | null
+  used_note: string | null
+  returned_by_label: string | null
+  returned_note: string | null
+  actor_label: string | null
+  created_at: string
+}
+
+export function monthLabel(m: string): string {
+  const [y, mm] = m.split('-').map(Number)
+  return `${y}년 ${mm}월`
+}
+
+export function ticketTitle(t: TicketItem): string {
+  return t.kind === 'regular_pass' && t.month ? `정규권 ${monthLabel(t.month)}` : '비정규 티켓'
+}
+
+const TICKET_STATUS: Record<TicketItem['status'], { label: string; bg: string; fg: string }> = {
+  active: { label: '사용 가능', bg: '#059669', fg: '#fff' },
+  used: { label: '사용함', bg: 'var(--mm-panel-alt)', fg: 'var(--mm-ink-soft)' },
+  returned: { label: '돌려받음', bg: 'var(--mm-panel-alt)', fg: 'var(--mm-ink-soft)' },
+}
+
+/** 티켓 목록 — 회원 화면 · 어드민 회원 시트 공용. actions 를 주면 줄마다 버튼(어드민). */
+export function TicketList({ rows, actions }: { rows: TicketItem[]; actions?: (t: TicketItem) => ReactNode }) {
+  if (rows.length === 0) return <EmptyState title="아직 산 티켓이 없어요" variant="compact" />
+  return (
+    <ul className="space-y-2">
+      {rows.map(t => {
+        const st = TICKET_STATUS[t.status]
+        return (
+          <li key={t.id} className="p-3" style={{ border: '1px solid var(--mm-rule)' }}>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center px-2 py-0.5 text-xs font-black" style={{ background: st.bg, color: st.fg, borderRadius: 'var(--mm-radius-chip)' }}>{st.label}</span>
+                <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{ticketTitle(t)}</span>
+              </span>
+              <span className="font-black tabular-nums text-sm" style={{ color: 'var(--mm-ink)' }}>{fmtP(t.price)}</span>
+            </div>
+            <div className="mt-1 text-xs space-y-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+              <div>산 날 {fmtWhen(t.created_at)}</div>
+              {t.status === 'used' && t.used_date && <div>사용 {t.used_date}{t.used_note ? ` · ${t.used_note}` : ''}</div>}
+              {t.status === 'returned' && <div>돌려받음{t.returned_by_label ? ` · ${t.returned_by_label}` : ''}{t.returned_note ? ` · ${t.returned_note}` : ''}</div>}
+            </div>
+            {actions && <div className="mt-2 flex flex-wrap gap-2">{actions(t)}</div>}
           </li>
         )
       })}

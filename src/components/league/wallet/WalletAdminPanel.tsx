@@ -1,7 +1,7 @@
 'use client'
 // 미라클 월렛 — 어드민 칸 (팀 어드민 누구나 · CEO, 2026-11-09 운영진)
-//   ① 확인 기다리는 충전 요청 — 통장에 찍힌 입금자명·금액을 보고 승인/반려
-//   ② 회원별 잔액(합계) — 누르면 그 회원의 내역 + 보정(이유 필수, 회원도 내역에서 본다)
+//   ① 확인 기다리는 요청 — 충전(통장 입금 확인 → 승인, 5만원↑ 보너스는 자동) · 환불(회원 계좌로 송금 → 「송금했어요」)
+//   ② 회원별 잔액(합계) — 누르면 그 회원의 내역 · 티켓(사용 처리 · 돌려주기) + 보정(이유 필수, 회원도 내역에서 본다)
 //   ③ 최근 처리한 요청
 //   서버가 매 요청 canEditLeague 로 다시 확인한다 — 이 칸이 보이는 것은 화면 표시일 뿐.
 import { useCallback, useEffect, useState } from 'react'
@@ -10,7 +10,7 @@ import { Check, X, Search } from 'lucide-react'
 import { refreshPendingCharges } from '@/lib/hooks/usePendingCharges'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
-import { LedgerList, RequestList, fmtP, fmtWhen, type LedgerItem, type RequestItem } from './walletParts'
+import { LedgerList, RequestList, TicketList, fmtP, fmtWhen, ticketTitle, type LedgerItem, type RequestItem, type TicketItem } from './walletParts'
 
 interface AdminRes {
   pending: RequestItem[]
@@ -24,6 +24,9 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
   const [busyId, setBusyId] = useState<string | null>(null)
   const [openPlayer, setOpenPlayer] = useState<{ player_id: string; name: string; balance: number } | null>(null)
   const [ledger, setLedger] = useState<LedgerItem[] | null>(null)
+  const [tickets, setTickets] = useState<TicketItem[]>([])
+  const [refundable, setRefundable] = useState(0)
+  const [sheetTab, setSheetTab] = useState<'ledger' | 'tickets'>('tickets')
   const [adjAmount, setAdjAmount] = useState('')
   const [adjSign, setAdjSign] = useState<1 | -1>(1)
   const [adjMemo, setAdjMemo] = useState('')
@@ -47,26 +50,68 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
   }
 
   async function review(r: RequestItem, decision: 'approve' | 'reject') {
+    const refund = r.kind === 'refund'
     let note: string | null = null
     if (decision === 'approve') {
-      if (!confirm(`${r.name} · 입금자 「${r.depositor_name}」 ${fmtP(r.amount)}\n통장에서 입금을 확인했나요? 승인하면 바로 포인트가 들어갑니다.`)) return
+      const msg = refund
+        ? `${r.name} 님 환불 ${r.amount.toLocaleString()}원\n받을 계좌: ${r.refund_account ?? ''} (${r.depositor_name})\n\n이 계좌로 송금했나요? 「확인」을 누르면 장부에 환불이 기록되고 회원 잔액이 0P 가 돼요.\n(금액은 지금 시점으로 다시 계산돼요)`
+        : `${r.name} · 입금자 「${r.depositor_name}」 ${r.amount.toLocaleString()}원\n통장에서 입금을 확인했나요? 승인하면 바로 포인트가 들어갑니다(5만원 이상이면 보너스도).`
+      if (!confirm(msg)) return
     } else {
-      note = prompt('반려 이유 (회원에게 보여요 · 비워도 됨)', '입금 확인이 안 돼요')
+      note = prompt('반려 이유 (회원에게 보여요 · 비워도 됨)', refund ? '' : '입금 확인이 안 돼요')
       if (note === null) return
     }
     setBusyId(r.id)
     try {
       if (await post({ action: 'review', requestId: r.id, decision, note })) {
-        toast.success(decision === 'approve' ? `${r.name} 님에게 ${fmtP(r.amount)} 충전했어요` : '반려했어요')
+        toast.success(decision === 'reject' ? '반려했어요' : refund ? `${r.name} 님 환불을 기록했어요` : `${r.name} 님 충전을 승인했어요`)
         await load(); onChanged(); void refreshPendingCharges(leagueId)
       }
     } finally { setBusyId(null) }
   }
 
   async function openMember(m: AdminRes['members'][number]) {
-    setOpenPlayer(m); setLedger(null); setAdjAmount(''); setAdjMemo(''); setAdjSign(1)
+    setOpenPlayer(m); setLedger(null); setTickets([]); setRefundable(0); setAdjAmount(''); setAdjMemo(''); setAdjSign(1)
     const res = await fetch(`${api}?playerId=${m.player_id}`, { cache: 'no-store' })
-    if (res.ok) setLedger((await res.json()).ledger)
+    if (res.ok) {
+      const j = await res.json() as { ledger: LedgerItem[]; tickets: TicketItem[]; refundable: number }
+      setLedger(j.ledger); setTickets(j.tickets ?? []); setRefundable(j.refundable ?? 0)
+    }
+  }
+
+  async function reopen(delta = 0) {
+    if (!openPlayer) return
+    await load(); onChanged()
+    await openMember({ ...openPlayer, balance: openPlayer.balance + delta })
+  }
+
+  // 비정규 티켓 사용 처리 — 참가신청(다음 단계)이 붙기 전까지 어드민이 손으로 한다.
+  async function useTicket() {
+    if (!openPlayer) return
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+    const date = prompt(`${openPlayer.name} 님 비정규 티켓 한 장을 사용 처리해요.\n경기 날짜 (YYYY-MM-DD)`, today)
+    if (date === null) return
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) { toast.error('날짜를 2026-11-14 처럼 적어 주세요'); return }
+    setBusyId('use')
+    try {
+      if (await post({ action: 'use_ticket', playerId: openPlayer.player_id, date: date.trim(), note: '어드민 사용 처리' })) {
+        toast.success('비정규 티켓 한 장을 사용 처리했어요')
+        await reopen()
+      }
+    } finally { setBusyId(null) }
+  }
+
+  async function returnTicket(t: TicketItem) {
+    const note = prompt(`${ticketTitle(t)} — ${fmtP(t.price)}를 돌려줘요(포인트 환불).\n이유 (필수 · 회원도 내역에서 봐요)`, '')
+    if (note === null) return
+    if (!note.trim()) { toast.error('이유를 적어 주세요'); return }
+    setBusyId(t.id)
+    try {
+      if (await post({ action: 'return_ticket', ticketId: t.id, note: note.trim() })) {
+        toast.success('티켓을 돌려줬어요')
+        await reopen(t.price)
+      }
+    } finally { setBusyId(null) }
   }
 
   async function adjust() {
@@ -91,8 +136,8 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
   return (
     <>
       <SectionCard variant="standalone" emphasized>
-        <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>어드민 · 충전 확인</h3>
-        <p className="text-xs mb-3" style={{ color: 'var(--mm-muted)' }}>통장에 찍힌 입금자명과 금액이 맞으면 승인해요. 어드민 누구나 할 수 있고, 처리한 사람이 기록에 남아요.</p>
+        <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>어드민 · 충전·환불 확인</h3>
+        <p className="text-xs mb-3" style={{ color: 'var(--mm-muted)' }}>충전은 통장에 찍힌 입금자명·금액이 맞으면 승인(5만원 이상이면 보너스 자동), 환불은 회원 계좌로 송금한 뒤 「송금했어요」. 어드민 누구나 할 수 있고, 처리한 사람이 기록에 남아요.</p>
         {data.pending.length === 0 ? (
           <p className="text-sm py-2" style={{ color: 'var(--mm-ink-soft)' }}>확인을 기다리는 요청이 없어요</p>
         ) : (
@@ -100,15 +145,20 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
             {data.pending.map(r => (
               <li key={r.id} className="py-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="min-w-0">
-                  <div className="font-black" style={{ color: 'var(--mm-ink)' }}>{r.name} <span className="tabular-nums">{fmtP(r.amount)}</span></div>
-                  <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>입금자 {r.depositor_name} · {fmtWhen(r.created_at)}</div>
+                  <div className="font-black" style={{ color: 'var(--mm-ink)' }}>
+                    <span className="inline-flex items-center px-1.5 mr-1.5 text-xs" style={{ background: r.kind === 'refund' ? 'var(--mm-live-bg)' : 'var(--mm-yellow)', color: r.kind === 'refund' ? '#fff' : 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>{r.kind === 'refund' ? '환불' : '충전'}</span>
+                    {r.name} <span className="tabular-nums">{r.amount.toLocaleString()}원</span>
+                  </div>
+                  <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    {r.kind === 'refund' ? `보낼 계좌 ${r.refund_account ?? ''} (${r.depositor_name})` : `입금자 ${r.depositor_name}`} · {fmtWhen(r.created_at)}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="button" disabled={busyId === r.id} onClick={() => review(r, 'approve')}
                     className="mm-press inline-flex items-center gap-1 min-h-11 px-3 text-sm font-black disabled:opacity-50"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
-                  ><Check size={16} aria-hidden />승인</button>
+                  ><Check size={16} aria-hidden />{r.kind === 'refund' ? '송금했어요' : '승인'}</button>
                   <button
                     type="button" disabled={busyId === r.id} onClick={() => review(r, 'reject')}
                     className="mm-press inline-flex items-center gap-1 min-h-11 px-3 text-sm font-bold border border-[color:var(--mm-rule)] disabled:opacity-50"
@@ -211,7 +261,43 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
               style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)' }}
             >보정하기</button>
           </div>
-          {ledger ? <LedgerList rows={ledger} /> : <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>불러오는 중</p>}
+          <p className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
+            비정규 티켓 남은 {tickets.filter(t => t.kind === 'non_regular' && t.status === 'active').length}장 · 환불 가능 {refundable.toLocaleString()}원
+          </p>
+          <div className="flex gap-2">
+            {(['tickets', 'ledger'] as const).map(k => (
+              <button
+                key={k} type="button" onClick={() => setSheetTab(k)}
+                className="mm-press flex-1 min-h-11 text-sm font-bold border"
+                style={{
+                  borderColor: sheetTab === k ? 'var(--mm-ink)' : 'var(--mm-rule)',
+                  background: sheetTab === k ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                  color: sheetTab === k ? 'var(--mm-black)' : 'var(--mm-ink)',
+                }}
+              >{k === 'tickets' ? '티켓' : '포인트 내역'}</button>
+            ))}
+          </div>
+          {!ledger ? <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>불러오는 중</p> : sheetTab === 'ledger' ? <LedgerList rows={ledger} /> : (
+            <div className="space-y-2">
+              {tickets.some(t => t.kind === 'non_regular' && t.status === 'active') && (
+                <button
+                  type="button" disabled={busyId === 'use'} onClick={useTicket}
+                  className="mm-press w-full min-h-11 text-sm font-black border border-[color:var(--mm-ink)] disabled:opacity-50"
+                  style={{ color: 'var(--mm-ink)' }}
+                >비정규 티켓 한 장 사용 처리</button>
+              )}
+              <TicketList
+                rows={tickets}
+                actions={t => t.status === 'returned' ? null : (
+                  <button
+                    type="button" disabled={busyId === t.id} onClick={() => returnTicket(t)}
+                    className="mm-press min-h-11 px-3 text-sm font-bold border border-[color:var(--mm-rule)] disabled:opacity-50"
+                    style={{ color: 'var(--mm-ink)' }}
+                  >돌려주기 (포인트 환불)</button>
+                )}
+              />
+            </div>
+          )}
         </div>
       </Sheet>
     </>
