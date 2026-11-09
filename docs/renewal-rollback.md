@@ -74,7 +74,8 @@
 | M49 | 061a2ec | **리그 설정 세로 줄이기(2026-11-09)** — `settings/page.tsx` 카드 합치기 · `AccountApprovalPanel` 재구성(어드민 지정 버튼·초기 비밀번호·최근 접속 순) · accounts API 에 `password_changed_at` | 이 커밋 되돌리기 |
 | M50 | 0bd7c8f | **월렛 화면 점검(2026-11-09)** — `WalletPageClient`(계좌 줄·보너스 문구·빠른 금액·쉼표) · `walletParts`(6개 + 더 보기) · `WalletAdminPanel`(확인 줄·찾기 줄) | 이 커밋 되돌리기 |
 | M51 | 52240f7 | **숫자 겹침 · 흰색 팀 칩(2026-11-09)** — `MyLastDay`(cqw 글자 크기) · `HighlightsFilterBar`·`PlayerHighlightsBrowser`(팀 칩 글자색·테두리) | 이 커밋 되돌리기 |
-| M52 | (이 커밋) | **홈 「지난 토요일 나」 출전 칸 · 공유 버튼 삭제 · 배치된 게스트 표시(2026-11-09)** — `MyLastDay` · 홈 `page.tsx`(AdminDayShare 제거) · `RsvpTeamBoard` | 이 커밋 되돌리기 |
+| M52 | 2ab438d | **홈 「지난 토요일 나」 출전 칸 · 공유 버튼 삭제 · 배치된 게스트 표시(2026-11-09)** — `MyLastDay` · 홈 `page.tsx`(AdminDayShare 제거) · `RsvpTeamBoard` | 이 커밋 되돌리기 |
+| M53 | (이 커밋) | **홈 「지난 토요일 나」를 「지난 토요일」 카드 안으로(2026-11-09)** — `MyLastDay`(embedded) · `LastRound.tsx` · 홈 `page.tsx` | 이 커밋 되돌리기 |
 
 ## R5 (걷어내기)는 미뤘다
 

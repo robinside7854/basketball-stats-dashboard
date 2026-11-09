@@ -18,7 +18,6 @@ import type { RoundSummary, RoundTeamSummary, RoundGame } from '@/components/lea
 import { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import { HomeMeProvider } from '@/components/league/home/HomeMeContext'
 import { LastRoundTimeline } from '@/components/league/home/LastRound'
-import MyLastDay from '@/components/league/home/MyLastDay'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import DraftInProgressBanner from '@/components/league/home/DraftInProgressBanner'
@@ -438,7 +437,6 @@ export default async function LeagueDetailPage({
       {latestRound && (
         <HomeMeProvider leagueId={leagueId} latestDate={latestRound.date} serverMember={isMember}>
           <div className="space-y-4 lg:space-y-5">
-            <MyLastDay base={`/league/${orgSlug}/${leagueId}`} />
             <LastRoundTimeline round={latestRound} orgSlug={orgSlug} leagueId={leagueId} />
             {/* 「결과 단톡방에 공유」(AdminDayShare)는 2026-11-09 운영진 결정으로 뺐다 — 박스스코어 안 공유로 쓴다 */}
           </div>

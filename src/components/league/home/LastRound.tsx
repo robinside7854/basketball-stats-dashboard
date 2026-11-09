@@ -16,6 +16,7 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import { RecordBar, MarginFigure } from '@/components/league/ui/viz'
 import type { RoundSummary, RoundGame } from './roundTypes'
+import MyLastDay from './MyLastDay'
 import { useHomeMe } from './HomeMeContext'
 
 function dayEyebrow(date: string): string {
@@ -124,9 +125,11 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
             {round.gamesCount}경기{myCount > 0 ? ` · 내 경기 ${myCount}` : ''}
           </span>
         </div>
+        {/* 「지난 토요일 나」를 이 카드 안으로(2026-11-09 운영진 — 최근 기록 한 곳에서). 회원·그날 기록이 없으면 그리지 않는다 */}
+        {(!day || day.date === round.date) && <MyLastDay base={base} embedded />}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Link
-            href={`${base}/boxscore/${round.date}`}
+            href={`${base}/boxscore/${round.date}${myCount > 0 ? '?me=1' : ''}`}
             className="mm-press inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-sm font-black whitespace-nowrap hover:brightness-95"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >

@@ -15,11 +15,14 @@ function shortDate(date: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} (${days[d.getDay()]})`
 }
 
-export default function MyLastDay({ base }: { base: string }) {
+// embedded — 홈에서는 「지난 토요일」 카드(LastRoundTimeline) 안에 한 줄로 들어간다(2026-11-09 운영진 — 두 카드를 합침).
+//   카드 테두리·제목·버튼 없이 숫자 6칸 + 내 승패 막대만. 박스스코어·하이라이트 버튼은 그 카드 것을 쓴다. /me 는 종전 카드 그대로.
+export default function MyLastDay({ base, embedded = false }: { base: string; embedded?: boolean }) {
   const { isMember, serverMember, status, day } = useHomeMe()
   // 회원이 아니면 자리도 잡지 않는다. 회원인데 아직 받는 중이면 같은 높이의 자리.
   if (!serverMember) return null
   if (!isMember || status === 'loading' || status === 'idle') {
+    if (embedded) return <div aria-hidden className="mm-shimmer h-[64px] mt-3" style={{ borderRadius: 'var(--mm-radius-ctl)' }} />
     return <div aria-hidden className="mm-shimmer h-[132px]" style={{ borderRadius: 'var(--mm-radius-card)' }} />
   }
   if (status === 'error' || !day) return null
@@ -33,6 +36,7 @@ export default function MyLastDay({ base }: { base: string }) {
   } as const
 
   if (!line) {
+    if (embedded) return null
     return (
       <section aria-label="지난 경기일 내 기록" className="px-4 py-3.5 lg:px-6 flex items-center justify-between gap-3" style={cardStyle}>
         <p className="text-sm font-bold break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
@@ -51,6 +55,28 @@ export default function MyLastDay({ base }: { base: string }) {
   // 출전 경기를 득점 왼쪽에(2026-11-09 운영진 — 오른쪽 득점 순위 고리는 뺐다)
   const big: Array<[string, number]> = [['출전', games], ['득점', line.pts], ['리바', line.reb], ['어시', line.ast], ['스틸', line.stl], ['블록', line.blk]]
 
+  const stats = (
+    <dl className="grid grid-cols-6 gap-1.5 sm:gap-2 flex-1 min-w-0" style={{ containerType: 'inline-size' }}>
+      {big.map(([label, v]) => (
+        <div key={label} className="min-w-0">
+          <dt className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
+          <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 9cqw, 36px)' }}>{v}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+
+  if (embedded) {
+    return (
+      <div className="mt-3 px-3 pt-2.5 pb-3" aria-label="이날 내 기록"
+        style={{ background: 'radial-gradient(80% 160% at 100% 0%, var(--mm-yellow-soft), transparent 62%), var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+        <p className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>나</p>
+        <div className="mt-1 flex items-center gap-3">{stats}</div>
+        {games > 0 && <div className="mt-2"><RecordBar wins={w} losses={l} draws={d} height={20} /></div>}
+      </div>
+    )
+  }
+
   return (
     <section aria-labelledby="my-last-day-title" className="px-4 pt-3.5 pb-3 lg:px-6 lg:pt-4" style={cardStyle}>
       <div className="flex items-baseline justify-between gap-2">
@@ -67,7 +93,7 @@ export default function MyLastDay({ base }: { base: string }) {
           {big.map(([label, v]) => (
             <div key={label} className="min-w-0">
               <dt className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
-              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 10.5cqw, 38px)' }}>{v}</dd>
+              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 9cqw, 36px)' }}>{v}</dd>
             </div>
           ))}
         </dl>
