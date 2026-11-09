@@ -107,6 +107,18 @@ export default function RsvpTeamBoard({
     } finally { setBusy(false) }
   }
 
+  async function toggleGuestPaid(m: RsvpEntryView) {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/rsvp/admin`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'guest_paid', date: gameDate, playerId: m.player_id, paid: !m.guest_paid }),
+      })
+      if (!res.ok) { toast.error('바꾸지 못했어요'); return }
+      onChanged()
+    } finally { setBusy(false) }
+  }
+
   // 정규 줄 옆 V / X — 지금 답이 칠해져 있다
   const Vote = ({ pid, name }: { pid: string; name: string }) => {
     if (!admin || !adminVote) return null
@@ -174,7 +186,14 @@ export default function RsvpTeamBoard({
         </>
       )}
       {showKind && m.kind !== 'guest' && <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>{KIND_LABEL[m.kind]}</span>}
-      {admin && m.kind === 'guest' && m.guest_paid && <span className="text-xs font-bold whitespace-nowrap" style={{ color: '#059669' }}>게스트비 받음</span>}
+      {admin && m.kind === 'guest' && (
+        // 게스트비(통장 입금) 받음 표시 — 누를 때마다 바뀐다(종전 참가 명단 목록의 체크를 여기로 옮겼다)
+        <button type="button" disabled={busy} onClick={() => toggleGuestPaid(m)} aria-pressed={m.guest_paid}
+          className="mm-press min-h-8 px-1.5 text-xs font-bold whitespace-nowrap border disabled:opacity-50"
+          style={{ borderColor: m.guest_paid ? '#059669' : 'var(--mm-rule)', color: m.guest_paid ? '#059669' : 'var(--mm-muted)', borderRadius: 'var(--mm-radius-chip)' }}>
+          {m.guest_paid ? '게스트비 받음' : '게스트비 미확인'}
+        </button>
+      )}
       {admin && m.kind === 'non_regular' && !m.placed_team_id && (
         <span className="text-xs whitespace-nowrap" style={{ color: m.tickets_left > 0 ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>티켓 {m.tickets_left}장</span>
       )}
