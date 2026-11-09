@@ -37,7 +37,6 @@ const EVENT_OPTS = [
   { v: 'steal',         l: '스틸'         },
   { v: 'block',         l: '블록'         },
   { v: 'turnover',      l: '턴오버'       },
-  { v: 'foul',          l: '파울'         },
 ]
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']

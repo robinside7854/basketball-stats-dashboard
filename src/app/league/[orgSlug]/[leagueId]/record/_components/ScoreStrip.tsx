@@ -1,12 +1,11 @@
 import { ClipboardList, RefreshCw, Zap } from 'lucide-react'
 import { accentOrInk } from '@/lib/util/contrastColor'
-import { QUARTER_OPTIONS } from '../_lib/constants'
 import type { SideView } from '../_lib/sides'
 import type { GameSlot, RosterPlayer, Setter } from '../_lib/types'
 
 // 컴팩트 스코어 스트립 (기록 중) — 점수 · 기록 내역 · +1 · 교체 · 스탯 + 지금 쿼터 팀파울
 export default function ScoreStrip({
-  selectedSlot, homeRoster, awayRoster, currentQuarter, hideQuarterLabel = false, leftSide, rightSide, sideView, teamFoulsOf,
+  selectedSlot, homeRoster, awayRoster, leftSide, rightSide, sideView,
   setShowGameLog, setPlusOneConflict, setShowPlusOneModal, setShowSubModal, setShowBoxscoreModal,
 }: {
   selectedSlot: GameSlot
@@ -92,38 +91,7 @@ export default function ScoreStrip({
           <span className="hidden sm:inline">스탯</span>
         </button>
       </div>
-      {/* 팀 파울 — 지금 쿼터 기준. 5개부터 보너스(상대 자유투)라 강조한다.
-          좌우는 위 스트립과 같은 sideView 를 따른다. 외부(대회 상대) 팀은
-          파울을 기록하지 않으므로 칸을 비운다 — 0 으로 보이면 사실처럼 읽힌다. */}
-      {(() => {
-        const qLabel = QUARTER_OPTIONS.find(q => q.value === currentQuarter)?.label ?? `${currentQuarter}Q`
-        const chip = (side: 'home' | 'away', align: 'left' | 'right') => {
-          const v = sideView(side)
-          if (!v.team || v.team.is_external) return <span />
-          const n = teamFoulsOf(v.team.id)
-          const bonus = n >= 5
-          return (
-            <span
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-bold tabular-nums ${align === 'right' ? 'flex-row-reverse' : ''}`}
-              style={bonus
-                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
-                : n === 4
-                ? { color: 'var(--mm-yellow)' }
-                : { color: 'var(--mm-muted)' }}
-              title={bonus ? `${v.team.name} 팀파울 ${n}개 — 상대 보너스(자유투) 구간` : `${v.team.name} 팀파울 ${n}개${hideQuarterLabel ? '' : ` (${qLabel})`}`}
-            >
-              팀파울 {n}{bonus && <span>· 보너스</span>}
-            </span>
-          )
-        }
-        return (
-          <div className="mm-rec-hide flex items-center justify-between gap-2 px-3 py-1 border-t border-[color:var(--mm-rule)]">
-            {chip(leftSide, 'left')}
-            {!hideQuarterLabel && <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{qLabel}</span>}
-            {chip(rightSide, 'right')}
-          </div>
-        )
-      })()}
+      {/* 팀 파울 줄은 2026-11-09 운영진 결정으로 뺐다 — 미라클은 파울을 기록하지 않는다(파울 버튼은 2026-11-03 제거). */}
     </div>
   )
 }

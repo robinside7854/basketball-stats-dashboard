@@ -156,7 +156,6 @@ export default function LeagueEventInputPad({
   onOpponentRegistered,
   opponentRecording = true,
   currentQuarter = 1,
-  foulCounts,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
 
@@ -745,7 +744,6 @@ export default function LeagueEventInputPad({
   function renderPlayerBtn(p: RosterPlayer, teamColor: string, hotkey: string | null = null) {
     const isSelected = selectedPlayer === p.id
     const hasPossession = possessionPlayerId === p.id
-    const fouls = foulCounts?.[p.id] ?? 0
     // 선택 시 배경 = 팀 컬러(또는 소유 표시 초록). 흰/노랑 등 밝은 팀 컬러에서
     // 텍스트가 안 보이는 것을 방지하기 위해 배경 휘도에 따라 텍스트 컬러 자동 결정.
     const selectedBg = hasPossession ? '#16a34a' : teamColor
@@ -760,7 +758,6 @@ export default function LeagueEventInputPad({
             : 'bg-[color:var(--mm-panel-alt)]/80 border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] hover:border-[color:var(--mm-muted)]'
         } ${(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? 'ring-1 ring-amber-400/60' : ''}`}
         style={isSelected ? { backgroundColor: selectedBg, borderColor: selectedBg, color: selectedText } : {}}
-        aria-label={fouls > 0 ? `${p.name} (개인 파울 ${fouls}개${fouls >= 5 ? ' · 퇴장 기준' : ''})` : undefined}
       >
         {p.number != null && (
           <div className="text-base font-black font-mono leading-none mb-0.5">#{p.number}</div>
@@ -772,21 +769,7 @@ export default function LeagueEventInputPad({
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? (
           <span className="absolute top-1 right-1 text-xs font-black text-amber-300 leading-none">+1</span>
         ) : hotkey && <Kbd k={hotkey} />}
-        {/* 개인 파울 — 4개 주의 · 5개 퇴장 기준만 보인다. 파울 버튼을 뺀 뒤(2026-11-03) 옛 기록 1건이 「F1」로
-            크게 보여 오류로 오인됐다. 경고가 필요한 수부터만 그린다. */}
-        {fouls >= 4 && (
-          <span
-            className="absolute top-1 left-1 px-1 text-xs font-black leading-tight tabular-nums"
-            style={fouls >= 5
-              ? { background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: '3px' }
-              : fouls >= 4
-              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }
-              : { color: 'inherit', opacity: 0.75 }}
-            title={fouls >= 5 ? `개인 파울 ${fouls}개 — 퇴장 기준(5반칙)` : `개인 파울 ${fouls}개`}
-          >
-            F{fouls}
-          </span>
-        )}
+        {/* 개인 파울(F4·F5) 표시는 2026-11-09 운영진 결정으로 뺐다 — 미라클은 파울을 기록하지 않는다 */}
       </button>
     )
   }

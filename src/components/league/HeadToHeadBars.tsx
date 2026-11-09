@@ -35,7 +35,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
     { label: '스틸', a: A.stl, b: B.stl },
     { label: '블록', a: A.blk, b: B.blk },
     { label: '턴오버', a: A.tov, b: B.tov },
-    { label: '파울', a: A.pf, b: B.pf },
+    // 「파울」 줄은 뺐다(2026-11-09 운영진 — 파울을 기록하지 않는다)
     { label: '야투율', a: pct(A.fgm, A.fga), b: pct(B.fgm, B.fga), suffix: '%', fraction: [A.fgm, A.fga, B.fgm, B.fga] },
     { label: '3점률', a: pct(A.fg3m, A.fg3a), b: pct(B.fg3m, B.fg3a), suffix: '%', fraction: [A.fg3m, A.fg3a, B.fg3m, B.fg3a] },
     { label: '자유투율', a: pct(A.ftm, A.fta), b: pct(B.ftm, B.fta), suffix: '%', fraction: [A.ftm, A.fta, B.ftm, B.fta] },
