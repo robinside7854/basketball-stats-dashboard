@@ -1,6 +1,5 @@
 ﻿import Image from 'next/image'
 import { leagueLogoOf } from '@/lib/league/leagueLogo'
-import HomeMonthTeams from '@/components/league/home/HomeMonthTeams'
 import RsvpHomeCard from '@/components/league/rsvp/RsvpHomeCard'
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
@@ -443,9 +442,8 @@ export default async function LeagueDetailPage({
         </HomeMeProvider>
       )}
 
-      {/* 「이번 분기 · 리그 리더」(NbaLeaders)는 2026-11-08 운영진 결정으로 뺐다 → 「이번 달 우리 팀」(팀·유니폼 색·팀원).
-          리더는 「기록 → 리더보드」에 그대로 있다. 되돌리기: renewal-rollback M38 */}
-      <HomeMonthTeams leagueId={leagueId} />
+      {/* 「이번 분기 · 리그 리더」(NbaLeaders)는 2026-11-08 뺐고, 그 자리의 「이번 달 우리 팀」(HomeMonthTeams)도
+          2026-11-09 운영진 결정으로 뺐다(파일은 남김). 팀 구성은 참가신청 현황 · 명단 편집에서 본다. */}
 
       {/* 하이라이트 · 마일스톤 탭은 2026-10-26 뺐다(점검 MVP 3) — 클러치샷·마일스톤이 대부분의 주에 빈 카드였는데
           홈에서 가장 무거운 계산(24일치 경기·이벤트 전체 스캔)이었다. 그날 클립은 위 경기일 카드·「지난 토요일 나」의
