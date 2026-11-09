@@ -143,25 +143,25 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
         ) : (
           <ul>
             {data.pending.map(r => (
-              <li key={r.id} className="py-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <div className="min-w-0">
+              <li key={r.id} className="py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <div className="min-w-0 flex-1 basis-56">
                   <div className="font-black" style={{ color: 'var(--mm-ink)' }}>
                     <span className="inline-flex items-center px-1.5 mr-1.5 text-xs" style={{ background: r.kind === 'refund' ? 'var(--mm-live-bg)' : 'var(--mm-yellow)', color: r.kind === 'refund' ? '#fff' : 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>{r.kind === 'refund' ? '환불' : '충전'}</span>
-                    {r.name} <span className="tabular-nums">{r.amount.toLocaleString()}원</span>
+                    {r.name} <span className="tabular-nums whitespace-nowrap">{r.amount.toLocaleString()}원</span>
                   </div>
                   <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                    {r.kind === 'refund' ? `보낼 계좌 ${r.refund_account ?? ''} (${r.depositor_name})` : `입금자 ${r.depositor_name}`} · {fmtWhen(r.created_at)}
+                    {r.kind === 'refund' ? <>보낼 계좌 <span className="whitespace-nowrap">{r.refund_account ?? ''}</span> ({r.depositor_name})</> : `입금자 ${r.depositor_name}`} · <span className="whitespace-nowrap">{fmtWhen(r.created_at)}</span>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 shrink-0 ml-auto">
                   <button
                     type="button" disabled={busyId === r.id} onClick={() => review(r, 'approve')}
-                    className="mm-press inline-flex items-center gap-1 min-h-11 px-3 text-sm font-black disabled:opacity-50"
+                    className="mm-press inline-flex items-center gap-1 min-h-11 px-2.5 text-sm font-black whitespace-nowrap disabled:opacity-50"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
                   ><Check size={16} aria-hidden />{r.kind === 'refund' ? '송금했어요' : '승인'}</button>
                   <button
                     type="button" disabled={busyId === r.id} onClick={() => review(r, 'reject')}
-                    className="mm-press inline-flex items-center gap-1 min-h-11 px-3 text-sm font-bold border border-[color:var(--mm-rule)] disabled:opacity-50"
+                    className="mm-press inline-flex items-center gap-1 min-h-11 px-2.5 text-sm font-bold whitespace-nowrap border border-[color:var(--mm-rule)] disabled:opacity-50"
                     style={{ color: 'var(--mm-ink)' }}
                   ><X size={16} aria-hidden />반려</button>
                 </div>
@@ -182,8 +182,8 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
             합계 {fmtP(data.total)} · 잔액 있는 회원 {data.members.filter(m => m.balance > 0).length}명
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 mt-2 mb-2">
-          <label className="relative flex-1 min-w-[160px]">
+        <div className="flex items-center gap-1.5 mt-2 mb-2">
+          <label className="relative flex-1 min-w-0 basis-28">
             <Search size={16} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--mm-muted)' }} />
             <input
               value={query} onChange={e => setQuery(e.target.value)} placeholder="이름 찾기" aria-label="회원 이름 찾기"
@@ -193,13 +193,13 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
           {([true, false] as const).map(v => (
             <button
               key={String(v)} type="button" onClick={() => setOnlyWithBalance(v)}
-              className="mm-press min-h-11 px-3 text-sm font-bold border"
+              className="mm-press shrink-0 min-h-11 px-2.5 text-sm font-bold border whitespace-nowrap"
               style={{
                 borderColor: onlyWithBalance === v ? 'var(--mm-ink)' : 'var(--mm-rule)',
                 background: onlyWithBalance === v ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                 color: onlyWithBalance === v ? 'var(--mm-black)' : 'var(--mm-ink)',
               }}
-            >{v ? '잔액 있는 사람' : '전체'}</button>
+            >{v ? '잔액 있음' : '전체'}</button>
           ))}
         </div>
         {(() => {
@@ -210,7 +210,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
             return <p className="text-sm py-2" style={{ color: 'var(--mm-ink-soft)' }}>{q ? '찾는 이름이 없어요' : '잔액이 있는 회원이 없어요 — 「전체」를 눌러 보세요'}</p>
           }
           return (
-            <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
               {shown.map(m => (
                 <li key={m.player_id}>
                   <button

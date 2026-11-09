@@ -206,7 +206,7 @@ export default function WalletPageClient({ leagueId }: { leagueId: string }) {
               <h3 className="font-black text-lg mb-2" style={{ color: 'var(--mm-ink)' }}>충전하기</h3>
               {rules?.bonus_min != null && rules.bonus_pct > 0 && (
                 <p className="text-sm font-bold mb-2 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', border: '1px solid var(--mm-yellow-strong)' }}>
-                  {(rules.bonus_min / 10000).toLocaleString()}만원 이상 충전하면 {rules.bonus_pct}% 보너스! 5만원 → {fmtP(50000 + bonusOf(50000, rules))} · 10만원 → {fmtP(100000 + bonusOf(100000, rules))}
+                  {(rules.bonus_min / 10000).toLocaleString()}만원 이상 충전하면 {rules.bonus_pct}% 보너스! <span className="whitespace-nowrap">5만원 → {fmtP(50000 + bonusOf(50000, rules))}</span> · <span className="whitespace-nowrap">10만원 → {fmtP(100000 + bonusOf(100000, rules))}</span>
                 </p>
               )}
               {pending ? (
@@ -214,7 +214,7 @@ export default function WalletPageClient({ leagueId }: { leagueId: string }) {
                   <p className="text-sm" style={{ color: 'var(--mm-ink)' }}>
                     {pending.kind === 'refund'
                       ? <>환불 <b className="tabular-nums">{pending.amount.toLocaleString()}원</b> 요청을 어드민이 처리하고 있어요.</>
-                      : <><b className="tabular-nums">{pending.amount.toLocaleString()}원</b> 충전 요청을 어드민이 확인하고 있어요 (입금자 {pending.depositor_name}).</>}
+                      : <><b className="tabular-nums">{pending.amount.toLocaleString()}원</b> 충전 요청을 어드민이 확인하고 있어요 · <span className="whitespace-nowrap">입금자 {pending.depositor_name}</span></>}
                     {' '}요청은 하나씩만 보낼 수 있어요.
                   </p>
                   <button
@@ -231,23 +231,23 @@ export default function WalletPageClient({ leagueId }: { leagueId: string }) {
                     <li>어드민이 통장을 확인하면 포인트가 들어와요</li>
                   </ol>
                   {data.bank && (
-                    <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2" style={{ background: 'var(--mm-panel-alt)' }}>
-                      <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{data.bank}</span>
-                      <button type="button" onClick={copyBank} className="mm-press inline-flex items-center gap-1 min-h-11 px-2 text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
+                    <div className="flex items-center justify-between gap-2 pl-3 pr-1 py-1" style={{ background: 'var(--mm-panel-alt)' }}>
+                      <span className="font-bold text-sm min-w-0 break-keep" style={{ color: 'var(--mm-ink)' }}>{data.bank}</span>
+                      <button type="button" onClick={copyBank} className="mm-press shrink-0 inline-flex items-center gap-1 min-h-11 px-2 text-sm font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>
                         <Copy size={16} aria-hidden />복사
                       </button>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {QUICK.map(q => (
-                      <button key={q} type="button" onClick={() => setAmount(String(q))} className="mm-press min-h-11 px-2 text-sm font-bold border" style={chip(typedAmount === q)}>
+                      <button key={q} type="button" onClick={() => setAmount(String(q))} className="mm-press min-h-11 px-1 text-sm font-bold border whitespace-nowrap" style={chip(typedAmount === q)}>
                         {(q / 10000).toLocaleString()}만원
                       </button>
                     ))}
                   </div>
                   <label className="block text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
                     입금한 금액(원)
-                    <input inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d]/g, ''))} className={`${INPUT} tabular-nums`} placeholder="예: 50000" />
+                    <input inputMode="numeric" value={amount ? Number(amount).toLocaleString() : ''} onChange={e => setAmount(e.target.value.replace(/[^\d]/g, '').replace(/^0+/, ''))} className={`${INPUT} tabular-nums`} placeholder="예: 50,000" />
                   </label>
                   {typedAmount > 0 && (
                     <p className="text-sm" style={{ color: 'var(--mm-ink)' }}>

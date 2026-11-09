@@ -1,6 +1,6 @@
 'use client'
 // 미라클 월렛 — 회원 화면 · 어드민 화면이 같이 쓰는 목록 (장부 · 충전 요청)
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import EmptyState from '@/components/league/ui/EmptyState'
 
 export interface LedgerItem {
@@ -59,11 +59,24 @@ export function fmtWhen(iso: string): string {
   })
 }
 
+// 처음엔 몇 줄만 — 내역이 쌓이면 화면이 끝없이 길어진다(2026-11-09 점검)
+const FIRST = 6
+function MoreButton({ total, open, onToggle }: { total: number; open: boolean; onToggle: () => void }) {
+  if (total <= FIRST) return null
+  return (
+    <button type="button" onClick={onToggle} className="w-full min-h-11 mt-1 text-sm font-bold cursor-pointer hover:bg-[color:var(--mm-panel-alt)]" style={{ color: 'var(--mm-ink-soft)' }}>
+      {open ? '접기' : `${total - FIRST}개 더 보기`}
+    </button>
+  )
+}
+
 export function LedgerList({ rows }: { rows: LedgerItem[] }) {
+  const [open, setOpen] = useState(false)
   if (rows.length === 0) return <EmptyState title="아직 내역이 없어요" variant="compact" />
   return (
+    <>
     <ul>
-      {rows.map(r => (
+      {(open ? rows : rows.slice(0, FIRST)).map(r => (
         <li key={r.id} className="flex items-start justify-between gap-3 py-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
           <div className="min-w-0">
             <div className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{KIND_LABEL[r.kind]}</div>
@@ -77,6 +90,8 @@ export function LedgerList({ rows }: { rows: LedgerItem[] }) {
         </li>
       ))}
     </ul>
+    <MoreButton total={rows.length} open={open} onToggle={() => setOpen(v => !v)} />
+    </>
   )
 }
 
@@ -90,10 +105,12 @@ const STATUS_STYLE: Record<RequestItem['status'], { bg: string; fg: string }> = 
 // 충전 요청 목록 (2026-11-09 운영진 — 요청·처리 시각이 한 줄에 나란히 있어 읽기 어려웠다)
 //   한 장 = 머리(상태 칩 · 금액) + 「요청」 줄 + 「처리」 줄. 줄마다 왼쪽에 이름표를 고정 폭으로 둔다.
 export function RequestList({ rows }: { rows: RequestItem[] }) {
+  const [open, setOpen] = useState(false)
   if (rows.length === 0) return <EmptyState title="아직 충전 요청이 없어요" variant="compact" />
   return (
+    <>
     <ul className="space-y-2">
-      {rows.map(r => {
+      {(open ? rows : rows.slice(0, FIRST)).map(r => {
         const st = STATUS_STYLE[r.status]
         const handled = r.status !== 'pending' && r.reviewed_at
         return (
@@ -130,6 +147,8 @@ export function RequestList({ rows }: { rows: RequestItem[] }) {
         )
       })}
     </ul>
+    <MoreButton total={rows.length} open={open} onToggle={() => setOpen(v => !v)} />
+    </>
   )
 }
 

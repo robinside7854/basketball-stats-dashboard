@@ -71,7 +71,8 @@
 | M46 | (이 커밋) | **팀 탭 선수 표 머리 두 줄 틀·턴오버율/속공 열 제거(2026-11-09)** — `teams/page.tsx` StatsTable thead · AVG/TOTAL_COLS | 이 커밋 되돌리기 |
 | M47 | (이 커밋) | **박스스코어 표 머리 높이 통일(2026-11-09)** — `BoxscoreContent.tsx` thead | 이 커밋 되돌리기 |
 | M48 | ba519ba | **파울 표시 전역 제거(2026-11-09)** — `LeagueEventInputPad`·`ScoreStrip`·`HeadToHeadBars`·`GameLogModal` | 이 커밋 되돌리기 |
-| M49 | (이 커밋) | **리그 설정 세로 줄이기(2026-11-09)** — `settings/page.tsx` 카드 합치기 · `AccountApprovalPanel` 재구성(어드민 지정 버튼·초기 비밀번호·최근 접속 순) · accounts API 에 `password_changed_at` | 이 커밋 되돌리기 |
+| M49 | 061a2ec | **리그 설정 세로 줄이기(2026-11-09)** — `settings/page.tsx` 카드 합치기 · `AccountApprovalPanel` 재구성(어드민 지정 버튼·초기 비밀번호·최근 접속 순) · accounts API 에 `password_changed_at` | 이 커밋 되돌리기 |
+| M50 | (이 커밋) | **월렛 화면 점검(2026-11-09)** — `WalletPageClient`(계좌 줄·보너스 문구·빠른 금액·쉼표) · `walletParts`(6개 + 더 보기) · `WalletAdminPanel`(확인 줄·찾기 줄) | 이 커밋 되돌리기 |
 
 ## R5 (걷어내기)는 미뤘다
 
