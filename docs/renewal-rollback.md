@@ -69,6 +69,7 @@
 | M44 | (이 커밋) | **팀 탭 흐름 줄·팀 특성 비교·선수 표 열(2026-11-09)** — `TeamFormLine`·`standings.ts last10` · `teams/_lib/teamTraits.ts`·`TraitCompare` · `AVG_COLS`/`TOTAL_COLS`·PC 순위 칸 | 이 커밋을 되돌리면 종전(점·승차, 고리, 열 9개) |
 | M45 | (이 커밋) | **리더보드 머리 칸 전환 효과 제거 · 야투 시도 표시(2026-11-09)** — `StatsPageClient.tsx`(th·shotMadeAtt·bigSub) · `teams/page.tsx` th | 각 줄을 되돌리면 종전 |
 | M46 | (이 커밋) | **팀 탭 선수 표 머리 두 줄 틀·턴오버율/속공 열 제거(2026-11-09)** — `teams/page.tsx` StatsTable thead · AVG/TOTAL_COLS | 이 커밋 되돌리기 |
+| M47 | (이 커밋) | **박스스코어 표 머리 높이 통일(2026-11-09)** — `BoxscoreContent.tsx` thead | 이 커밋 되돌리기 |
 
 ## R5 (걷어내기)는 미뤘다
 

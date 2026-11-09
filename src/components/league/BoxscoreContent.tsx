@@ -293,8 +293,11 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
           <tr style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
             <th
               scope="col"
-              className="t-th text-left px-3 w-[7.5rem] xl:w-44"
-            >선수 / 팀</th>
+              className="t-th text-left p-0 px-3 w-[7.5rem] xl:w-44"
+            >
+              {/* 다른 열과 같은 두 줄 틀 — 아래 아이콘 줄 자리만 비워 이름 줄 높이를 맞춘다 */}
+              <span className="h-14 flex flex-col justify-end gap-0.5 py-2"><span className="whitespace-nowrap">선수 / 팀</span><span className="h-3.5 shrink-0" aria-hidden /></span>
+            </th>
             {COLS.map(c => {
               const isActive = sortKey === c.sortKey
               return (
@@ -308,13 +311,15 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                     <button
                       type="button"
                       onClick={() => handleSort(c.sortKey!)}
-                      className="mm-press w-full h-full inline-flex flex-wrap items-center justify-center break-keep px-0.5 py-2.5 cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset"
+                      // 머리 칸 높이 통일(2026-11-09 운영진) — 1024 에서 「턴오버」「자유투」만 아이콘이 아랫줄로 밀려 높낮이가 달랐다.
+                      //   모든 열을 「위: 이름 한 줄 · 아래: 정렬 아이콘」 같은 두 줄 틀로 그린다.
+                      className="mm-press w-full h-14 flex flex-col items-center justify-end gap-0.5 px-0.5 py-2 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-inset"
                       style={{ font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', borderRadius: 'var(--mm-radius-ctl)' }}
                     >
-                      {c.label}
+                      <span className="whitespace-nowrap">{c.label}</span>
                       {isActive
-                        ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" aria-hidden /> : <ChevronUp size={14} className="inline ml-0.5" aria-hidden />)
-                        : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-30" aria-hidden />}
+                        ? (sortDir === 'desc' ? <ChevronDown size={14} aria-hidden /> : <ChevronUp size={14} aria-hidden />)
+                        : <ChevronsUpDown size={14} className="opacity-30" aria-hidden />}
                     </button>
                   ) : c.label}
                 </th>
