@@ -19,6 +19,7 @@ type Row = {
   id: string
   name: string
   is_active?: boolean | null
+  is_guest?: boolean | null
   team_id: string | null
   is_regular: boolean | null
   month_override?: boolean
@@ -108,7 +109,8 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
     const done = (list: Row[]) => { if (alive) { setRows(list); setLoadedKey(`${qId}|${month}`) } }
     fetch(`/api/leagues/${leagueId}/quarters/${qId}/players?month=${month}`)
       .then(r => (r.ok ? r.json() : []))
-      .then((data: Row[]) => done(data.filter(r => r.is_active !== false)))
+      // 게스트는 달별 정규 대상이 아니라 뺀다(2026-11-09 운영진)
+      .then((data: Row[]) => done(data.filter(r => r.is_active !== false && !r.is_guest)))
       .catch(() => done([]))
     return () => { alive = false }
   }, [leagueId, qId, month])
