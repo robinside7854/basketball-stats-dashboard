@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useParams, useRouter, usePathname } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { usePendingCharges } from '@/lib/hooks/usePendingCharges'
@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { Loader2, Lock, Youtube, Calendar, ChevronRight, Globe, MapPin, Users, Wallet } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
+import InfoTip from '@/components/league/ui/InfoTip'
 import type { League } from '@/types/league'
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean; start_date: string | null; end_date: string | null }
@@ -27,22 +28,31 @@ const STATUS_OPTIONS = [
 ]
 
 // 설정 바로가기 칩 — 아래 카드의 id 와 짝. 분기 카드는 분기가 있어야 그려진다.
+//   2026-11-09 카드를 합쳐(기본 = 공개·상태·+1 / 일정 = 정기 일정·고정 대관 / 영상 = 채널·별칭) 칩도 줄였다.
 const SETTINGS_JUMPS: { id: string; label: string; needsQuarters?: boolean }[] = [
+  { id: 'settings-basic', label: '기본' },
   { id: 'settings-members', label: '회원' },
-  { id: 'settings-visibility', label: '공개' },
-  { id: 'settings-schedule', label: '일정' },
-  { id: 'settings-venue', label: '대관' },
+  { id: 'settings-schedule', label: '일정 · 대관' },
   { id: 'settings-video', label: '영상' },
-  { id: 'settings-plusone', label: '+1' },
   { id: 'settings-quarters', label: '분기', needsQuarters: true },
 ]
+
+const CARD = 'scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-4 sm:p-5 space-y-4'
+const FIELD = 'bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none min-h-11'
+const SAVE_BTN = 'mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none min-h-11'
+function segClass(active: boolean) {
+  return `min-h-11 py-2 px-3 whitespace-nowrap border text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
+    active
+      ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+      : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
+  }`
+}
 
 export default function LeagueSettingsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
   const chargeCount = usePendingCharges(leagueId)
   const router = useRouter()
-  const pathname = usePathname()
   const { isEditMode, isInitialized, leagueHeaders, openLogin } = useLeagueEditMode()
 
   // 서버 가드 대체 — 편집 모드 확인 후 미인증이면 리그 홈으로 리다이렉트.
@@ -292,6 +302,25 @@ export default function LeagueSettingsPage() {
     }
   }
 
+  // 정기 일정 + 고정 대관을 한 번에 저장 — 서버는 두 갈래라 차례로 보내고 결과는 한 번만 알린다.
+  async function saveScheduleAndVenue() {
+    setSaving('schedule')
+    const put = (body: object) => fetch(`/api/leagues/${leagueId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const a = await put({ match_day: matchDay, start_date: startDate, season_type: seasonType, games_per_round: gamesPerRound })
+    const b = a.ok ? await put({
+      default_start_time: defTime || null,
+      default_place: defPlace.trim() || null,
+      default_capacity: defCapacity ? Number(defCapacity) : null,
+    }) : null
+    setSaving(null)
+    const bad = !a.ok ? a : b && !b.ok ? b : null
+    if (!bad) { toast.success('저장 완료'); load(); return }
+    const err = await bad.json().catch(() => null) as { error?: string } | null
+    toast.error('저장 실패', { description: bad.status === 401 ? '어드민으로 로그인했는지 확인해 주세요' : err?.error })
+  }
+
   if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
   if (!league) return null
 
@@ -318,37 +347,37 @@ export default function LeagueSettingsPage() {
     <div className="space-y-5 max-w-lg lg:max-w-2xl lg:mx-auto">
       <h2 className="font-black text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
 
-      {/* 바로가기 (2026-10-15) — 설정이 카드 열 개 넘게 세로로 이어져, 회원 승인·명단을 찾으려면 한참 내려가야 했다.
-          명단은 이 화면이 아니라 팀 탭의 편집 모드(?edit=1)에 있어서 어드민이 「명단은 어디서 고치나」에서 멈췄다. */}
-      <Link
-        href={`/league/${orgSlug}/${leagueId}/teams?edit=1`}
-        className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)]"
-        style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
-      >
-        <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 추가 · 소속 · +1)</span>
-        <ChevronRight size={16} aria-hidden />
-      </Link>
-      {/* 미라클 월렛(2026-11-09) — 충전 승인은 월렛 화면 아래 어드민 칸에서. 월렛을 켜지 않은 팀은 그 화면이 「쓰지 않아요」 */}
-      <Link
-        href={`/league/${orgSlug}/${leagueId}/wallet`}
-        className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
-      >
-        <span className="inline-flex items-center gap-2"><Wallet size={16} aria-hidden />월렛 · 충전 확인 · 회원 잔액</span>
-        <span className="inline-flex items-center gap-2">
-          {chargeCount > 0 && (
-            <span className="inline-flex items-center min-h-6 px-2 text-xs font-black" style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: 'var(--mm-radius-chip)' }}>
-              충전 요청 {chargeCount}건
-            </span>
-          )}
+      {/* 바로가기 — 명단·월렛은 이 화면 밖에 있다. PC 는 두 칸 나란히(세로 길이 줄이기, 2026-11-09) */}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Link
+          href={`/league/${orgSlug}/${leagueId}/teams?edit=1`}
+          className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)]"
+          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+        >
+          <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 · 소속 · +1)</span>
           <ChevronRight size={16} aria-hidden />
-        </span>
-      </Link>
+        </Link>
+        {/* 미라클 월렛(2026-11-09) — 충전 승인은 월렛 화면 아래 어드민 칸에서 */}
+        <Link
+          href={`/league/${orgSlug}/${leagueId}/wallet`}
+          className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
+        >
+          <span className="inline-flex items-center gap-2"><Wallet size={16} aria-hidden />월렛 · 충전 · 잔액</span>
+          <span className="inline-flex items-center gap-2">
+            {chargeCount > 0 && (
+              <span className="inline-flex items-center min-h-6 px-2 text-xs font-black" style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: 'var(--mm-radius-chip)' }}>
+                충전 요청 {chargeCount}건
+              </span>
+            )}
+            <ChevronRight size={16} aria-hidden />
+          </span>
+        </Link>
+      </div>
       <nav aria-label="설정 바로가기" className="flex flex-wrap gap-2">
         {SETTINGS_JUMPS.filter(j => !j.needsQuarters || quarters.length > 0).map(j => (
           <a
             key={j.id}
-            // 분기 카드는 「팀 이름」(별칭 팀이 있을 때)이 「날짜 범위」보다 위에 있다 — 위의 것으로 보낸다
-            href={`#${j.id === 'settings-quarters' && aliasTeams.length > 0 ? 'settings-quarter-names' : j.id}`}
+            href={`#${j.id}`}
             className="shrink-0 inline-flex items-center min-h-11 px-3 text-sm font-bold whitespace-nowrap border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
           >
             {j.label}
@@ -356,249 +385,177 @@ export default function LeagueSettingsPage() {
         ))}
       </nav>
 
-      {/* 공개 범위 (2026-08-04 신규) — 링크만으로 열람 가능한지, 승인 회원만 볼 수 있는지 */}
-      <div id="settings-visibility" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          {isPublic ? <Globe size={16} className="text-[color:var(--mm-muted)]" /> : <Lock size={16} className="text-[color:var(--mm-muted)]" />}
-          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">공개 범위</h3>
+      {/* 기본 — 공개 범위 · 리그 상태 · 플러스원 나이를 한 카드로(2026-11-09 운영진 「세로 스크롤 줄이기」).
+          줄마다 「이름 | 고르기」 — 공개·상태는 누르면 바로 저장된다(저장 버튼을 따로 누르던 것을 없앴다). */}
+      <div id="settings-basic" className={CARD}>
+        <h3 className="font-black text-lg text-[color:var(--mm-ink)]">기본</h3>
+
+        <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
+          <div className="flex items-center gap-1.5">
+            {isPublic ? <Globe size={16} className="text-[color:var(--mm-muted)]" aria-hidden /> : <Lock size={16} className="text-[color:var(--mm-muted)]" aria-hidden />}
+            <span className="text-sm font-bold text-[color:var(--mm-ink)]">공개 범위</span>
+            <InfoTip text={isPublic
+              ? '링크를 아는 사람은 로그인 없이 경기 기록·명단·순위를 볼 수 있어요.'
+              : '로그인한 승인 회원만 볼 수 있어요. 링크가 있어도 로그인 전에는 아무것도 보이지 않아요.'} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setVisibility(true)} disabled={savingVisibility || isPublic === null} className={segClass(isPublic === true)}>공개</button>
+            <button onClick={() => setVisibility(false)} disabled={savingVisibility || isPublic === null} className={segClass(isPublic === false)}>
+              {savingVisibility ? <Loader2 size={14} className="animate-spin inline" /> : '비공개'}
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setVisibility(true)}
-            disabled={savingVisibility || isPublic === null}
-            className={`min-h-11 py-2.5 px-3 border text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
- isPublic === true
- ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
- : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
- }`}
-          >
-            공개
-          </button>
-          <button
-            onClick={() => setVisibility(false)}
-            disabled={savingVisibility || isPublic === null}
-            className={`min-h-11 py-2.5 px-3 border text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
- isPublic === false
- ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
- : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
- }`}
-          >
-            비공개
-          </button>
+
+        <div id="settings-status" className="scroll-mt-24 grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
+          <span className="text-sm font-bold text-[color:var(--mm-ink)]">리그 상태</span>
+          <div className="grid grid-cols-3 gap-2">
+            {STATUS_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => { if (opt.value !== status && saving !== 'status') { setStatus(opt.value); save('status', { status: opt.value }) } }}
+                disabled={saving === 'status'}
+                className={segClass(status === opt.value)}
+              >
+                <span className={status === opt.value ? opt.color : ''}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
-          {isPublic
-            ? '링크를 아는 사람은 로그인 없이 경기 기록·명단·순위를 볼 수 있습니다.'
-            : '로그인한 승인 회원만 볼 수 있습니다. 링크가 있어도 로그인 전에는 아무것도 보이지 않습니다.'}
-        </p>
-        {savingVisibility && <Loader2 size={14} className="animate-spin text-[color:var(--mm-muted)]" />}
+
+        <div id="settings-plusone" className="scroll-mt-24 grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-[color:var(--mm-ink)]">플러스원 나이</span>
+            <InfoTip text="이 만 나이 이상 선수는 자유투를 뺀 득점에 +1 이 더해져요. 비워 두면 플러스원을 쓰지 않아요." />
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number" min={1} max={99} placeholder="예: 40"
+              aria-label="플러스원 나이 기준"
+              value={plusOneAge}
+              onChange={e => setPlusOneAge(e.target.value)}
+              className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none w-24 min-h-11"
+            />
+            <span className="text-sm text-[color:var(--mm-muted)] whitespace-nowrap">세 이상</span>
+            <Button
+              onClick={() => save('plus_one_age', { plus_one_age: plusOneAge ? Number(plusOneAge) : null })}
+              disabled={saving === 'plus_one_age' || (plusOneAge || '') === String(league.plus_one_age ?? '')}
+              className={`${SAVE_BTN} shrink-0 ml-auto`}
+              size="sm"
+            >
+              {saving === 'plus_one_age' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* 회원 가입 · 계정 관리 (2026-07-20 신규) */}
+      {/* 회원 가입 · 계정 관리 */}
       <div id="settings-members" className="scroll-mt-24">
         <AccountApprovalPanel leagueId={leagueId} leagueHeaders={leagueHeaders} />
       </div>
 
-      {/* 푸시 알림 (공지·알럿 발송) (2026-07-27 신규) */}
+      {/* 정기 일정 · 고정 대관 — 두 카드·두 저장 버튼이던 것을 하나로(2026-11-09 운영진).
+          저장은 두 곳(schedule-settings · default-venue)에 차례로 보낸다.
+          ⚠ 고정 대관은 일정 행에 복사해 넣지 않는다 — 복사하면 체육관이 바뀌었을 때 이미 만들어진
+             예정 일정이 옛 장소에 굳는다. 특정 주만 다르면 경기 > 일정에서 그 날짜만 덮는다. */}
+      <div id="settings-schedule" className={CARD}>
+        <div className="flex items-center gap-2">
+          <MapPin size={16} className="text-[color:var(--mm-yellow-strong)]" aria-hidden />
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">정기 일정 · 고정 대관</h3>
+          <InfoTip text="매주 반복되는 요일·시간·장소예요. 일정에 자동으로 보여요. 특정 주만 다르면 경기 > 일정에서 그 날짜만 바꾸고, 아예 안 모이는 주는 「대관 없음」으로 지정하세요." />
+        </div>
 
-      {/* 리그 상태 */}
-      <div id="settings-status" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-        <h3 className="font-black text-lg text-[color:var(--mm-ink)]">리그 상태</h3>
-        <div className="flex gap-2">
-          {STATUS_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setStatus(opt.value)}
-              className={`flex-1 py-2.5 min-h-11 whitespace-nowrap border text-sm font-bold transition-colors cursor-pointer ${
- status === opt.value
- ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
- : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
- }`}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <label htmlFor="set-matchday" className="t-label">요일</label>
+            <select
+              id="set-matchday"
+              value={matchDay}
+              onChange={e => setMatchDay(e.target.value)}
+              className="w-full min-h-11 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none px-3 py-2 text-sm cursor-pointer focus:outline-none focus:border-[color:var(--mm-ink)]"
             >
-              <span className={status === opt.value ? opt.color : ''}>{opt.label}</span>
-            </button>
-          ))}
-        </div>
-        <Button
-          onClick={() => save('status', { status })}
-          disabled={saving === 'status' || status === league.status}
-          className="mm-press w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
-          size="sm"
-        >
-          {saving === 'status' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}상태 저장
-        </Button>
-      </div>
-
-      {/* 정기 일정 설정 */}
-      <div id="settings-schedule" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
-        <h3 className="font-black text-lg text-[color:var(--mm-ink)]">정기 일정 설정</h3>
-
-        <div className="space-y-1.5">
-          <label className="t-label">정기 경기 요일</label>
-          <select
-            value={matchDay}
-            onChange={e => setMatchDay(e.target.value)}
-            className="w-full bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none px-3 py-2 text-sm cursor-pointer focus:outline-none focus:border-[color:var(--mm-ink)]"
-          >
-            {DOW_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+              {DOW_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="set-time" className="t-label">시작 시간</label>
+            <Input id="set-time" type="time" value={defTime} onChange={e => setDefTime(e.target.value)} className={FIELD} />
+          </div>
+          <div className="space-y-1.5 col-span-2 sm:col-span-1">
+            <label htmlFor="set-place" className="t-label">장소</label>
+            <Input id="set-place" value={defPlace} onChange={e => setDefPlace(e.target.value)} placeholder="예: 상암 체육관" className={FIELD} />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="set-capacity" className="t-label">정원</label>
+            <Input id="set-capacity" type="number" min={1} inputMode="numeric" value={defCapacity} onChange={e => setDefCapacity(e.target.value)} placeholder="무제한" className={FIELD} />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="set-games" className="t-label">하루 경기 수</label>
+            <Input id="set-games" type="number" min={1} max={10} value={gamesPerRound} onChange={e => setGamesPerRound(Number(e.target.value))} className={FIELD} />
+          </div>
+          <div className="space-y-1.5 col-span-2 sm:col-span-1">
+            <label htmlFor="set-start" className="t-label">첫 정기 일정</label>
+            <Input id="set-start" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={FIELD} />
+          </div>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="t-label">첫 정기 일정 날짜</label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="t-label">시즌 구분</label>
+        <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
+          <span className="t-label">시즌 구분</span>
           <div className="grid grid-cols-2 gap-2">
             {[
               { value: 'annual', label: '연간 (1년)' },
               { value: 'quarterly', label: '분기별 (3개월)' },
             ].map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setSeasonType(opt.value as 'annual' | 'quarterly')}
-                className={`py-2.5 px-3 min-h-11 whitespace-nowrap border text-sm font-bold transition-colors cursor-pointer ${
- seasonType === opt.value
- ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
- : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
- }`}
-              >
+              <button key={opt.value} onClick={() => setSeasonType(opt.value as 'annual' | 'quarterly')} className={segClass(seasonType === opt.value)}>
                 {opt.label}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="t-label">정규일정 당 경기 수</label>
-          <Input
-            type="number" min={1} max={10}
-            value={gamesPerRound}
-            onChange={e => setGamesPerRound(Number(e.target.value))}
-            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
-          />
-        </div>
-
-        <Button
-          onClick={() => save('schedule-settings', { match_day: matchDay, start_date: startDate, season_type: seasonType, games_per_round: gamesPerRound })}
-          disabled={saving === 'schedule-settings'}
-          className="mm-press w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
-          size="sm"
-        >
-          {saving === 'schedule-settings' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}설정 저장
+        <Button onClick={saveScheduleAndVenue} disabled={saving === 'schedule'} className={`${SAVE_BTN} w-full`} size="sm">
+          {saving === 'schedule' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}저장
         </Button>
       </div>
 
-      {/* 고정 대관 — 매주 같은 시간·장소가 정상이고 예외가 가끔이다.
-          여기 한 번 넣어두면 모든 예정 일정이 이 값을 따르고, 다른 날만 일정 화면에서 덮는다.
-          ⚠ 일정 행에 복사해 넣지 않는다 — 복사하면 체육관이 바뀌었을 때 이미 만들어진
-             예정 일정이 옛 장소에 굳는다. */}
-      <div id="settings-venue" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <MapPin size={16} className="text-[color:var(--mm-yellow-strong)]" />
-          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">고정 대관</h3>
-        </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
-          매주 반복되는 기본 시간·장소입니다. 일정에 자동으로 표시됩니다.<br />
-          특정 주만 다르면 <span className="text-[color:var(--mm-ink-soft)]">경기 &gt; 일정</span> 에서 그 날짜만 바꾸고,
-          아예 안 모이는 주는 <span className="text-[color:var(--mm-ink-soft)]">「대관 없음」</span> 으로 지정하세요.
-        </p>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="space-y-1.5">
-            <label className="t-label">시작 시간</label>
-            <Input
-              type="time" value={defTime} onChange={e => setDefTime(e.target.value)}
-              className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
-            />
-          </div>
-          <div className="space-y-1.5 col-span-2 sm:col-span-1">
-            <label className="t-label">장소</label>
-            <Input
-              value={defPlace} onChange={e => setDefPlace(e.target.value)} placeholder="예: 상암 체육관"
-              className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="t-label">정원</label>
-            <Input
-              type="number" min={1} inputMode="numeric" value={defCapacity}
-              onChange={e => setDefCapacity(e.target.value)} placeholder="무제한"
-              className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
-            />
-          </div>
-        </div>
-
-        <Button
-          onClick={() => save('default-venue', {
-            default_start_time: defTime || null,
-            default_place: defPlace.trim() || null,
-            default_capacity: defCapacity ? Number(defCapacity) : null,
-          })}
-          disabled={saving === 'default-venue'}
-          className="mm-press w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none max-sm:min-h-11"
-          size="sm"
-        >
-          {saving === 'default-venue' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}고정 대관 저장
-        </Button>
-      </div>
-
-      {/* 일정 자동 생성은 '경기 > 일정' 페이지로 이동했습니다 */}
-
-      {/* YouTube 채널 설정 */}
-      <div id="settings-video" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <Youtube size={16} className="text-[color:var(--mm-live)]" />
-          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">YouTube 채널 설정</h3>
-        </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
-          경기 기록 탭에서 날짜별 YouTube 자동 연동에 사용됩니다.<br />
-          영상 제목 형식: <span className="font-mono text-[color:var(--mm-ink-soft)]">260905 굿모닝vs빅현욱 1Q</span>
-          {' '}— 대진과 쿼터를 읽어 그 경기의 쿼터별 영상으로 붙습니다.<br />
-          옛 형식(<span className="font-mono text-[color:var(--mm-ink-soft)]">260418 경기 9</span>)도 그대로 인식합니다.
-        </p>
-        <div className="flex gap-2">
-          <Input
-            placeholder="@채널핸들 (예: @우리팀농구단)"
-            value={ytChannel}
-            onChange={e => setYtChannel(e.target.value)}
-            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none flex-1"
-          />
-          <Button
-            onClick={() => save('youtube', { youtube_channel: ytChannel.trim() || null })}
-            disabled={saving === 'youtube'}
-            className="mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
-            size="sm"
-          >
-            {saving === 'youtube' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
-          </Button>
-        </div>
-        {league.youtube_channel && (
-          <p className="text-xs text-[color:var(--mm-muted)]">현재: <span className="text-[color:var(--mm-yellow-strong)] font-mono">{league.youtube_channel}</span></p>
-        )}
-      </div>
-
-      {/* 영상 제목의 팀 별칭 —
-          업로더는 팀명을 줄여 쓴다(`챗지피지기` → `지피티`). 자동 매핑은 **여기 등록된 표기만**
+      {/* 영상 연동 — YouTube 채널 + 영상 제목의 팀 별칭을 한 카드로(2026-11-09).
+          별칭: 업로더는 팀명을 줄여 쓴다(`챗지피지기` → `지피티`). 자동 매핑은 **여기 등록된 표기만**
           인정하고, 모르는 표기가 나오면 붙이지 않고 이유를 남긴다. 유사도로 추측해서 붙이면
           그럴듯하게 틀린 자리에 조용히 들어간다(2026-08-22 사고). */}
-      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+      <div id="settings-video" className={CARD}>
         <div className="flex items-center gap-2">
-          <Youtube size={16} className="text-[color:var(--mm-live)]" />
-          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">영상 제목의 팀 별칭</h3>
+          <Youtube size={16} className="text-[color:var(--mm-live)]" aria-hidden />
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">영상 연동</h3>
         </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
-          영상 제목에 팀명이 줄여 적힐 때 등록합니다. 예: 제목의 <span className="font-mono text-[color:var(--mm-ink-soft)]">지피티</span> = 팀 <span className="font-mono text-[color:var(--mm-ink-soft)]">챗지피지기</span><br />
-          등록되지 않은 표기는 자동 연동이 <strong className="text-[color:var(--mm-ink-soft)]">붙이지 않고 건너뜁니다</strong> — 틀린 경기에 붙는 것보다 낫기 때문입니다.
-        </p>
 
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="set-yt" className="t-label">YouTube 채널</label>
+            <InfoTip text="영상으로 일정을 맞출 때 이 채널의 영상을 읽어요. 제목 형식: 「260905 굿모닝vs빅현욱 1Q」(대진·쿼터) 또는 「260418 경기 9」(경기 번호)." />
+          </div>
+          <div className="flex gap-2">
+            <Input
+              id="set-yt"
+              placeholder="@채널핸들 (예: @우리팀농구단)"
+              value={ytChannel}
+              onChange={e => setYtChannel(e.target.value)}
+              className={`${FIELD} flex-1`}
+            />
+            <Button
+              onClick={() => save('youtube', { youtube_channel: ytChannel.trim() || null })}
+              disabled={saving === 'youtube' || ytChannel.trim() === (league.youtube_channel ?? '')}
+              className={`${SAVE_BTN} shrink-0`}
+              size="sm"
+            >
+              {saving === 'youtube' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2 pt-3 border-t border-[color:var(--mm-rule)]">
+          <div className="flex items-center gap-1.5">
+            <span className="t-label">영상 제목의 팀 별칭</span>
+            <InfoTip text="영상 제목에 팀명이 줄여 적힐 때 등록해요. 예: 제목의 「지피티」 = 팀 「챗지피지기」. 등록되지 않은 표기는 자동 연동이 붙이지 않고 건너뛰어요 — 틀린 경기에 붙는 것보다 나아서예요." />
+          </div>
         <div className="flex gap-2 flex-wrap">
           <label htmlFor="alias-team" className="sr-only">팀</label>
           <select
@@ -650,64 +607,30 @@ export default function LeagueSettingsPage() {
             ))}
           </ul>
         )}
+        </div>
       </div>
 
-      {/* 플러스원(+1) 나이 기준 */}
-      <div id="settings-plusone" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] px-2 py-0.5 tracking-tight">+1</span>
-          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">플러스원 나이 기준</h3>
-        </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
-          해당 만 나이 이상 선수에게 자유투 제외 득점 +1이 가산됩니다.<br />
-          비워두면 플러스원 제도 미사용.
-        </p>
-        <div className="flex items-center gap-2">
-          <Input
-            type="number" min={1} max={99} placeholder="예: 40"
-            value={plusOneAge}
-            onChange={e => setPlusOneAge(e.target.value)}
-            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none w-24"
-          />
-          <span className="text-sm text-[color:var(--mm-muted)]">세 이상</span>
-          <Button
-            onClick={() => save('plus_one_age', { plus_one_age: plusOneAge ? Number(plusOneAge) : null })}
-            disabled={saving === 'plus_one_age'}
-            className="mm-press bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none max-sm:min-h-11"
-            size="sm"
-          >
-            {saving === 'plus_one_age' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
-          </Button>
-        </div>
-        {league.plus_one_age && (
-          <p className="text-xs text-[color:var(--mm-muted)]">현재 기준: <span className="text-[color:var(--mm-yellow-strong)] font-mono">만 {league.plus_one_age}세</span> 이상</p>
-        )}
-      </div>
-
-      {/* 분기별 팀 이름 —
-          미라클은 분기마다 팀을 새로 짜고 이름도 바뀐다(1·2분기 락다운 → 3분기 굿모닝 → 4분기 락다운).
-          이 표에 넣을 화면이 없어서 3분기 행이 통째로 비어 있었고, 그 결과 3분기 내내 순위표가
-          옛 이름으로 나왔으며 영상 제목의 `굿모닝` 도 아는 팀이 없어 연동이 끊겼다(2026-09-17).
-          빈 칸은 에러가 아니라 "기본 이름 사용"으로 조용히 떨어지기 때문에 아무도 몰랐다. */}
-      {quarters.length > 0 && aliasTeams.length > 0 && (
-        <div id="settings-quarter-names" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+      {/* 분기 — 팀 이름 + 날짜를 한 카드로(2026-11-09).
+          분기별 팀 이름: 미라클은 분기마다 팀을 새로 짜고 이름도 바뀐다. 빈 칸은 에러가 아니라
+          "기본 이름 사용"으로 조용히 떨어지므로(2026-09-17 3분기 사고) 여기서 눈에 보이게 둔다.
+          날짜: 올해 1~4분기는 앱이 달력대로 알아서 만든다(2026-11-09 운영진) — 접어 둔다. */}
+      {quarters.length > 0 && (
+        <div id="settings-quarters" className={CARD}>
           <div className="flex items-center gap-2">
-            <Users size={16} className="text-[color:var(--mm-muted)]" />
-            <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 팀 이름</h3>
+            <Calendar size={16} className="text-[color:var(--mm-muted)]" aria-hidden />
+            <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기</h3>
+            <InfoTip text="해마다 1분기(1~3월) · 2분기(4~6월) · 3분기(7~9월) · 4분기(10~12월)가 자동으로 만들어져요. 분기마다 팀 이름이 바뀌면 아래에 적어 두세요 — 비워 두면 기본 이름을 쓰고, 과거 경기는 그때 이름 그대로 남아요. 선수 소속은 명단 화면에서 정해요." />
           </div>
-          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
-            분기마다 팀 이름이 바뀌면 여기에 적어 둡니다. 비워 두면 그 분기는 기본 이름을 씁니다.<br />
-            <strong className="text-[color:var(--mm-ink-soft)]">과거 경기는 그때 이름 그대로 남습니다</strong> — 순위표·박스스코어·하이라이트가 전부 이 표를 봅니다.<br />
-            분기별 <Link href={pathname.replace(/\/settings.*$/, '') + '/teams?edit=1'} className="underline underline-offset-2 hover:text-[color:var(--mm-ink)] cursor-pointer">선수 소속은 명단 화면</Link>에서 정합니다.
-          </p>
-
+          {aliasTeams.length > 0 && (
+            <div className="space-y-2">
+              <span className="t-label">분기별 팀 이름</span>
           <div className="space-y-2">
             {quarters.map(q => {
               const names = qTeamNames[q.id] ?? {}
               const isEditing = editingQTeams === q.id
               return (
-                <div key={q.id} className="bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] p-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                <div key={q.id} className="bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] px-3 pb-2">
+                  <div className="flex items-center justify-between gap-2">
                     <span className={`font-bold text-sm tracking-tight tabular-nums ${q.is_current ? 'text-[color:var(--mm-yellow-strong)]' : 'text-[color:var(--mm-ink)]'}`}>
                       {String(q.year).slice(2)}.{q.quarter}Q {q.is_current ? '● 현재' : ''}
                     </span>
@@ -771,29 +694,16 @@ export default function LeagueSettingsPage() {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {/* 분기 날짜 범위 설정 */}
-      {quarters.length > 0 && (
-        <div id="settings-quarters" className="scroll-mt-24 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <Calendar size={16} className="text-[color:var(--mm-muted)]" />
-            <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기</h3>
-          </div>
-          {/* 2026-11-09 운영진: 분기는 해마다 같다 — 올해 1~4분기는 앱이 달력대로 알아서 만든다(loadQuarters).
-              날짜를 손으로 바꿀 일은 거의 없어 접어 둔다. */}
-          <p className="text-sm text-[color:var(--mm-ink-soft)] leading-relaxed max-w-prose">
-            해마다 1분기(1~3월) · 2분기(4~6월) · 3분기(7~9월) · 4분기(10~12월)가 자동으로 만들어져요. 따로 추가하지 않아도 돼요.
-          </p>
+            </div>
+          )}
           <details className="group">
             <summary className="min-h-11 inline-flex items-center text-sm font-bold underline underline-offset-2 cursor-pointer text-[color:var(--mm-ink-soft)]">
               분기 날짜 바꾸기 (특별한 경우만)
             </summary>
           <div className="space-y-2 mt-2">
             {quarters.map(q => (
-              <div key={q.id} className="bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] p-3">
-                <div className="flex items-center justify-between mb-2">
+              <div key={q.id} className="bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] px-3 pb-2">
+                <div className="flex items-center justify-between">
                   <span className={`font-bold text-sm tracking-tight tabular-nums ${q.is_current ? 'text-[color:var(--mm-yellow-strong)]' : 'text-[color:var(--mm-ink)]'}`}>
                     {String(q.year).slice(2)}.{q.quarter}Q {q.is_current ? '● 현재' : ''}
                   </span>

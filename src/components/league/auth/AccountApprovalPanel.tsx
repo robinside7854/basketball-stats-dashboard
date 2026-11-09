@@ -1,10 +1,14 @@
 'use client'
-// 어드민 · 회원 가입 요청 승인 큐 + 계정 관리
-//   · pending: 승인/반려 · approved: 비번 초기화/비활성화
-//   · 리그 PIN 필요 (leagueHeaders 로 전달)
-import { useCallback, useEffect, useState } from 'react'
+// 어드민 · 회원 가입 요청 승인 + 계정 관리
+//   2026-11-09 운영진 정리(세로 길이 줄이기):
+//   · 가입 신청은 맨 위에 따로 — 승인/반려
+//   · 회원 목록은 늘 「최근 접속 순」. 줄마다 가입일 · 최근 접속 · 비밀번호를 바꿨는지(초기 비밀번호면 표시)
+//   · 아이디 줄은 뺐다 — 아이디가 실명이라 이름과 같은 말이 두 번 나왔다
+//   · 어드민 지정은 줄마다 붙이지 않고 머리의 「어드민 지정」 버튼 하나로(거의 안 쓰는 일)
+//   · 처음엔 10명만, 나머지는 「더 보기」 · PC 는 두 칸
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { UserPlus, Check, X, RotateCcw, Ban, User as UserIcon, RefreshCw, Search, ShieldCheck, ShieldOff } from 'lucide-react'
+import { UserPlus, Check, X, RotateCcw, Ban, User as UserIcon, RefreshCw, Search, ShieldCheck, KeyRound } from 'lucide-react'
 
 type Status = 'pending' | 'approved' | 'rejected' | 'disabled'
 
@@ -13,14 +17,16 @@ interface AccountRow {
   league_player_id: string
   login_id: string
   status: Status
-  // 편집 권한 — admin 이면 로그인만으로 편집 모드가 켜진다 (PIN 과 동일 권한)
+  // 편집 권한 — admin 이면 로그인만으로 편집 모드가 켜진다
   role: 'member' | 'admin'
   requested_at: string
   approved_at: string | null
   last_login_at: string | null
-  /** 마지막으로 앱을 연 시각(2026-10-26 다시 기록 — 6시간 단위) */
+  /** 마지막으로 앱을 연 시각(6시간 단위 기록) */
   last_seen_at?: string | null
   reset_by_admin_at: string | null
+  /** 회원이 직접 비밀번호를 바꾼 시각 — 없으면 가입 때 생년월일 6자리(초기화 후면 123456) 그대로 */
+  password_changed_at?: string | null
   player: {
     id: string
     name: string
@@ -40,11 +46,6 @@ const STATUS_LABEL: Record<Status, string> = {
   rejected: '반려',
   disabled: '비활성',
 }
-
-// 상태 뱃지 색 — bg/fg 쌍으로 정의해 라이트/다크 양쪽에서 대비 확보 (2026-07-26 수정).
-//  · pending: 밝은 옐로(양 테마 밝음) + 검정 텍스트 → 항상 가독. (기존 yellow-strong 은 라이트에서 어두워져 검정과 4:1 marginal)
-//  · disabled: 고정 그레이 + 흰 텍스트. (기존 --mm-muted 배경은 다크에서 밝아져 흰 텍스트가 소실됐음)
-//  · approved/rejected: 고정 채도색 + 흰 텍스트 → 양 테마 안전.
 const STATUS_COLOR: Record<Status, { bg: string; fg: string }> = {
   pending:  { bg: 'var(--mm-yellow)', fg: 'var(--mm-black)' },
   approved: { bg: '#059669', fg: '#fff' },
@@ -52,149 +53,279 @@ const STATUS_COLOR: Record<Status, { bg: string; fg: string }> = {
   disabled: { bg: '#57534E', fg: '#fff' },
 }
 
+const FIRST_SHOWN = 10
+const DAY = 24 * 60 * 60 * 1000
+
+function lastSeenOf(r: AccountRow): number | null {
+  const t = Math.max(r.last_seen_at ? Date.parse(r.last_seen_at) : 0, r.last_login_at ? Date.parse(r.last_login_at) : 0)
+  return t > 0 ? t : null
+}
+
+function shortDate(t: number): string {
+  const d = new Date(t)
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return sameYear ? `${d.getMonth() + 1}.${d.getDate()}` : `${String(d.getFullYear()).slice(2)}.${d.getMonth() + 1}.${d.getDate()}`
+}
+
+// 최근 접속 — 일주일 안은 「오늘 · 어제 · N일 전」, 그 뒤는 날짜
+function seenLabel(t: number | null): string {
+  if (t == null) return '접속 기록 없음'
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
+  const days = Math.floor((startOfToday.getTime() - new Date(t).setHours(0, 0, 0, 0)) / DAY)
+  if (days <= 0) return '오늘 접속'
+  if (days === 1) return '어제 접속'
+  if (days < 7) return `${days}일 전 접속`
+  return `${shortDate(t)} 접속`
+}
+
+function nameOf(r: AccountRow) {
+  return `${r.player?.number != null ? `#${r.player.number} ` : ''}${r.player?.name ?? '(선수 정보 없음)'}`
+}
+
+function Avatar({ r }: { r: AccountRow }) {
+  return (
+    <div
+      className="w-9 h-9 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
+      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+      aria-hidden
+    >
+      {r.player?.photo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={r.player.photo_url} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <UserIcon size={18} style={{ color: 'var(--mm-muted)' }} />
+      )}
+    </div>
+  )
+}
+
+const ICON_BTN = 'inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-colors duration-200 hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--mm-ink)] disabled:opacity-50'
+
 export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props) {
   const [rows, setRows] = useState<AccountRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [busyId, setBusyId] = useState<string | null>(null)
-  // 이름 검색 (2026-10-15) — 「전체」 목록이 회원 수만큼 길어서, 비번 초기화·어드민 지정을 하려면
-  //   한참 스크롤해야 했다. 이름·등번호·아이디로 거른다(서버 재요청 없음 — 받은 목록 안에서만).
   const [query, setQuery] = useState('')
+  const [showAll, setShowAll] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
+  const [adminQuery, setAdminQuery] = useState('')
 
+  // 늘 전체를 받는다 — 가입 신청·회원 목록·어드민 지정이 같은 목록을 나눠 쓴다
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await fetch(`/api/leagues/${leagueId}/auth/admin/accounts?status=${filter}`, {
+      const r = await fetch(`/api/leagues/${leagueId}/auth/admin/accounts?status=all`, {
         headers: leagueHeaders,
         cache: 'no-store',
       })
       const d = await r.json()
-      if (!r.ok) { toast.error(d.error ?? '로드 실패'); return }
+      if (!r.ok) { toast.error(d.error ?? '불러오지 못했어요'); return }
       setRows(d.accounts ?? [])
     } finally { setLoading(false) }
-  }, [leagueId, leagueHeaders, filter])
+  }, [leagueId, leagueHeaders])
 
   useEffect(() => { load() }, [load])
 
   async function act(
-    id: string,
+    r: AccountRow,
     action: 'approve' | 'reject' | 'disable' | 'reset_password' | 'set_role',
     role?: 'member' | 'admin',
   ) {
     if (busyId) return
-    setBusyId(id)
+    const name = r.player?.name ?? '이 회원'
+    if (action === 'reset_password' && !window.confirm(`${name}의 비밀번호를 「123456」으로 되돌릴까요?`)) return
+    if (action === 'disable' && !window.confirm(`${name} 계정을 비활성화할까요? 다시 로그인할 수 없게 돼요.`)) return
+    if (action === 'set_role' && role === 'admin' && !window.confirm(`${name}에게 어드민 권한을 줄까요? 기록·명단·설정을 모두 고칠 수 있게 돼요.`)) return
+    if (action === 'set_role' && role === 'member' && !window.confirm(`${name}의 어드민 권한을 거둘까요?`)) return
+    setBusyId(r.id)
     try {
-      const r = await fetch(`/api/leagues/${leagueId}/auth/admin/accounts/${id}`, {
+      const res = await fetch(`/api/leagues/${leagueId}/auth/admin/accounts/${r.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...leagueHeaders },
         body: JSON.stringify(action === 'set_role' ? { action, role } : { action }),
       })
-      const d = await r.json()
-      if (!r.ok) { toast.error(d.error ?? '실패'); return }
-      if (action === 'reset_password') toast.success(d.reset_password_note ?? '비번 초기화 완료')
-      else if (action === 'approve') toast.success('승인 완료')
-      else if (action === 'reject') toast.info('반려 처리')
-      else if (action === 'set_role') toast.success(role === 'admin' ? '어드민 지정 완료' : '어드민 해제')
-      else toast.info('비활성화 처리')
+      const d = await res.json()
+      if (!res.ok) { toast.error(d.error ?? '실패'); return }
+      if (action === 'reset_password') toast.success(d.reset_password_note ?? '비밀번호를 초기화했어요')
+      else if (action === 'approve') toast.success('승인했어요')
+      else if (action === 'reject') toast.info('반려했어요')
+      else if (action === 'set_role') toast.success(role === 'admin' ? '어드민으로 지정했어요' : '어드민에서 뺐어요')
+      else toast.info('비활성화했어요')
       await load()
     } finally { setBusyId(null) }
   }
 
-  const pendingCount = rows.filter(r => r.status === 'pending').length
-  // 최근 7일 안에 앱을 연 회원 수 (점검 MVP 0 — 「안 본다」를 숫자로 보기 위해)
-  const lastSeenOf = (r: AccountRow) => {
-    const t = Math.max(r.last_seen_at ? Date.parse(r.last_seen_at) : 0, r.last_login_at ? Date.parse(r.last_login_at) : 0)
-    return t > 0 ? t : null
-  }
-  const approvedRows = rows.filter(r => r.status === 'approved')
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const activeWeek = approvedRows.filter(r => (lastSeenOf(r) ?? 0) >= weekAgo).length
-  const q = query.replace(/\s+/g, '').toLowerCase()
-  const shown = !q ? rows : rows.filter(r =>
-    (r.player?.name ?? '').replace(/\s+/g, '').toLowerCase().includes(q)
-    || r.login_id.toLowerCase().includes(q)
-    || (r.player?.number != null && String(r.player.number) === q))
+  const pending = useMemo(
+    () => rows.filter(r => r.status === 'pending').sort((a, b) => Date.parse(b.requested_at) - Date.parse(a.requested_at)),
+    [rows],
+  )
+  // 회원 목록 — 승인 회원 먼저, 그 안에서 최근 접속 순(접속 기록 없는 사람은 뒤, 가입 늦은 순)
+  const members = useMemo(() => {
+    const rank = (s: Status) => (s === 'approved' ? 0 : 1)
+    return rows.filter(r => r.status !== 'pending').sort((a, b) =>
+      rank(a.status) - rank(b.status)
+      || (lastSeenOf(b) ?? 0) - (lastSeenOf(a) ?? 0)
+      || Date.parse(b.requested_at) - Date.parse(a.requested_at))
+  }, [rows])
+  const approved = members.filter(r => r.status === 'approved')
+  const activeWeek = approved.filter(r => (lastSeenOf(r) ?? 0) >= Date.now() - 7 * DAY).length
+  const defaultPw = approved.filter(r => !r.password_changed_at).length
+  const admins = approved.filter(r => r.role === 'admin')
+
+  const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase()
+  const matches = (r: AccountRow, q: string) =>
+    norm(r.player?.name ?? '').includes(q) || norm(r.login_id).includes(q) || (r.player?.number != null && String(r.player.number) === q)
+  const q = norm(query)
+  const filtered = q ? members.filter(r => matches(r, q)) : members
+  const shown = q || showAll ? filtered : filtered.slice(0, FIRST_SHOWN)
+  const aq = norm(adminQuery)
+  const adminCandidates = aq ? approved.filter(r => r.role !== 'admin' && matches(r, aq)).slice(0, 6) : []
 
   return (
     <section
       className="mm-brand"
-      style={{
-        background: 'var(--mm-panel)',
-        border: '1px solid var(--mm-rule)',
-        borderRadius: '6px',
-        overflow: 'hidden',
-      }}
+      style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '6px', overflow: 'hidden' }}
     >
-      {/* 390px 에서 제목이 버튼에 밀려 「회원 가입 · 계정 / 관리」 로 꺾였다.
-          좁으면 버튼 묶음이 제목 아래로 내려가게 두고 제목은 한 줄로 고정. */}
-      <header
-        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3.5"
-        style={{ borderBottom: '1px solid var(--mm-rule)' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <UserPlus size={20} style={{ color: 'var(--mm-yellow-strong)' }} />
-          <h3 className="font-black text-lg whitespace-nowrap" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
-            회원 가입 · 계정 관리
-          </h3>
-          {filter === 'pending' && pendingCount > 0 && (
-            <span
-              className="inline-flex items-center px-1.5 py-0.5 text-xs font-black"
-              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
-            >
-              대기 {pendingCount}건
-            </span>
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <UserPlus size={18} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+            <h3 className="font-black text-lg whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>회원</h3>
+          </div>
+          {approved.length > 0 && (
+            <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+              승인 {approved.length}명 · 최근 7일 접속 <b style={{ color: 'var(--mm-ink)' }}>{activeWeek}명</b>
+              {defaultPw > 0 && <> · 초기 비밀번호 {defaultPw}명</>}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setFilter('pending')}
-            className="px-3 py-1.5 text-xs font-black whitespace-nowrap min-h-11 cursor-pointer transition-colors duration-200"
+            type="button"
+            onClick={() => setAdminOpen(o => !o)}
+            aria-expanded={adminOpen}
+            className="inline-flex items-center gap-1 px-3 min-h-11 text-xs font-black whitespace-nowrap cursor-pointer transition-colors duration-200"
             style={{
-              background: filter === 'pending' ? 'var(--mm-black)' : 'var(--mm-panel-alt)',
-              color: filter === 'pending' ? 'var(--mm-yellow)' : 'var(--mm-ink-soft)',
-              border: `1px solid ${filter === 'pending' ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+              background: adminOpen ? 'var(--mm-black)' : 'var(--mm-panel-alt)',
+              color: adminOpen ? 'var(--mm-yellow)' : 'var(--mm-ink-soft)',
+              border: `1px solid ${adminOpen ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
               borderRadius: '3px',
             }}
-          >대기</button>
-          <button
-            onClick={() => setFilter('all')}
-            className="px-3 py-1.5 text-xs font-black whitespace-nowrap min-h-11 cursor-pointer transition-colors duration-200"
-            style={{
-              background: filter === 'all' ? 'var(--mm-black)' : 'var(--mm-panel-alt)',
-              color: filter === 'all' ? 'var(--mm-yellow)' : 'var(--mm-ink-soft)',
-              border: `1px solid ${filter === 'all' ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
-              borderRadius: '3px',
-            }}
-          >전체</button>
-          <button
-            onClick={load}
-            aria-label="새로고침"
-            className="p-1.5 min-h-11 min-w-11 inline-flex items-center justify-center cursor-pointer rounded"
-            style={{ color: 'var(--mm-muted)' }}
           >
+            <ShieldCheck size={14} aria-hidden />어드민 지정
+          </button>
+          <button type="button" onClick={load} aria-label="새로고침" className={`${ICON_BTN} rounded`} style={{ color: 'var(--mm-muted)' }}>
             <RefreshCw size={14} />
           </button>
         </div>
       </header>
-      {approvedRows.length > 0 && (
-        <p className="px-4 py-2 text-xs font-bold" style={{ color: 'var(--mm-ink-soft)', borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
-          최근 7일 동안 들어온 회원 <b style={{ color: 'var(--mm-ink)' }}>{activeWeek}명</b> / 승인 {approvedRows.length}명
-        </p>
+
+      {/* 어드민 지정 — 펼쳤을 때만. 지금 어드민 + 이름으로 찾아 지정 */}
+      {adminOpen && (
+        <div className="px-4 py-3 space-y-2" style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="t-label mr-1">지금 어드민</span>
+            {admins.length === 0 && <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>없음</span>}
+            {admins.map(r => (
+              <span key={r.id} className="inline-flex items-center gap-1 pl-2 text-xs font-black" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}>
+                {r.player?.name ?? '(이름 없음)'}
+                <button
+                  type="button"
+                  onClick={() => act(r, 'set_role', 'member')}
+                  disabled={busyId === r.id}
+                  aria-label={`${r.player?.name ?? ''} 어드민 해제`}
+                  title="어드민 해제"
+                  className="inline-flex items-center justify-center min-h-9 min-w-9 cursor-pointer disabled:opacity-50"
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <label className="relative block">
+            <span className="sr-only">어드민으로 지정할 회원 찾기</span>
+            <Search size={16} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--mm-muted)' }} />
+            <input
+              type="search"
+              value={adminQuery}
+              onChange={e => setAdminQuery(e.target.value)}
+              placeholder="지정할 회원 이름으로 찾기"
+              className="w-full min-h-11 pl-9 pr-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+              style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
+            />
+          </label>
+          {aq && (adminCandidates.length === 0 ? (
+            <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>맞는 승인 회원이 없어요</p>
+          ) : (
+            <ul className="flex flex-wrap gap-1.5">
+              {adminCandidates.map(r => (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    onClick={() => act(r, 'set_role', 'admin')}
+                    disabled={busyId === r.id}
+                    className="inline-flex items-center gap-1 px-3 min-h-11 text-sm font-bold cursor-pointer disabled:opacity-50"
+                    style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
+                  >
+                    <ShieldCheck size={14} aria-hidden />{nameOf(r)} 지정
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ))}
+        </div>
       )}
 
-      {/* 이름 검색 — 대기 목록에서 찾으면 승인된 회원이 안 나오므로, 입력을 시작하면 「전체」로 넘긴다 */}
-      <div className="px-3 pt-3">
+      {/* 가입 신청 — 있을 때만, 맨 위 */}
+      {pending.length > 0 && (
+        <div style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+          <p className="px-4 pt-3 pb-1 text-xs font-black" style={{ color: 'var(--mm-ink)' }}>
+            가입 신청 <span className="inline-flex items-center px-1.5 py-0.5 ml-1" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}>{pending.length}건</span>
+          </p>
+          <ul className="divide-y divide-[color:var(--mm-rule)]">
+            {pending.map(r => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-2">
+                <Avatar r={r} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{nameOf(r)}</div>
+                  <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{shortDate(Date.parse(r.requested_at))} 신청</div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => act(r, 'approve')}
+                    disabled={busyId === r.id}
+                    className="inline-flex items-center gap-1 text-xs font-black px-3 min-h-11 cursor-pointer disabled:opacity-50"
+                    style={{ background: '#059669', color: '#fff', borderRadius: '3px' }}
+                  >
+                    <Check size={14} aria-hidden />승인
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => act(r, 'reject')}
+                    disabled={busyId === r.id}
+                    className="inline-flex items-center gap-1 text-xs font-black px-3 min-h-11 cursor-pointer disabled:opacity-50"
+                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-negative)', border: '1px solid var(--mm-negative)', borderRadius: '3px' }}
+                  >
+                    <X size={14} aria-hidden />반려
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* 회원 목록 */}
+      <div className="px-3 pt-3 pb-2">
         <label className="relative block">
-          <span className="sr-only">회원 이름·등번호·아이디 검색</span>
+          <span className="sr-only">회원 이름 · 등번호로 찾기</span>
           <Search size={16} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--mm-muted)' }} />
           <input
             type="search"
             value={query}
-            onChange={e => {
-              setQuery(e.target.value)
-              if (e.target.value && filter === 'pending') setFilter('all')
-            }}
-            placeholder="이름 · 등번호 · 아이디로 찾기"
+            onChange={e => setQuery(e.target.value)}
+            placeholder="이름 · 등번호로 찾기"
             className="w-full min-h-11 pl-9 pr-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
           />
@@ -202,130 +333,86 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
       </div>
 
       {loading ? (
-        <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
-          로딩중…
-        </div>
+        <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>불러오는 중</div>
       ) : shown.length === 0 ? (
-        <div className="py-10 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>
-          {q ? '맞는 회원이 없어요' : filter === 'pending' ? '승인 대기 중인 요청이 없습니다' : '계정 없음'}
-        </div>
+        <div className="py-8 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>{q ? '맞는 회원이 없어요' : '아직 회원이 없어요'}</div>
       ) : (
-        <ul className="divide-y divide-[color:var(--mm-rule)]">
-          {shown.map(r => (
-            <li key={r.id} className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2 p-3">
-              {/* 프로필 */}
-              <div
-                className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
-                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                aria-hidden
-              >
-                {r.player?.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.player.photo_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon size={20} style={{ color: 'var(--mm-muted)' }} />
-                )}
-              </div>
-              {/* 이름 · 정보 */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-sm truncate" style={{ color: 'var(--mm-ink)' }}>
-                    {r.player?.number != null ? `#${r.player.number} ` : ''}{r.player?.name ?? '(선수 정보 없음)'}
-                  </span>
-                  <span
-                    className="inline-flex items-center text-xs font-black px-1.5 py-0.5"
-                    style={{
-                      background: STATUS_COLOR[r.status].bg,
-                      color: STATUS_COLOR[r.status].fg,
-                      borderRadius: '2px',
-                    }}
-                  >
-                    {STATUS_LABEL[r.status]}
-                  </span>
-                  {r.role === 'admin' && (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs font-black px-1.5 py-0.5"
-                      style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}
-                      title="편집 권한 보유 — 로그인만으로 편집 모드가 켜집니다"
-                    >
-                      <ShieldCheck size={14} aria-hidden />어드민
-                    </span>
-                  )}
+        <ul className="grid sm:grid-cols-2 gap-px" style={{ background: 'var(--mm-rule)', borderTop: '1px solid var(--mm-rule)' }}>
+          {shown.map(r => {
+            const isApproved = r.status === 'approved'
+            return (
+              <li key={r.id} className="flex items-center gap-2.5 pl-3 pr-1 py-1.5" style={{ background: 'var(--mm-panel)', opacity: isApproved ? 1 : 0.7 }}>
+                <Avatar r={r} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{nameOf(r)}</span>
+                    {r.role === 'admin' && isApproved && (
+                      <span className="inline-flex items-center gap-0.5 text-[11px] font-black px-1 py-px" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}>
+                        <ShieldCheck size={12} aria-hidden />어드민
+                      </span>
+                    )}
+                    {!isApproved && (
+                      <span className="inline-flex items-center text-[11px] font-black px-1 py-px" style={{ background: STATUS_COLOR[r.status].bg, color: STATUS_COLOR[r.status].fg, borderRadius: '2px' }}>
+                        {STATUS_LABEL[r.status]}
+                      </span>
+                    )}
+                    {isApproved && !r.password_changed_at && (
+                      <span
+                        className="inline-flex items-center gap-0.5 text-[11px] font-bold px-1 py-px"
+                        style={{ color: 'var(--mm-ink-soft)', border: '1px dashed var(--mm-ink-soft)', borderRadius: '2px' }}
+                        title="아직 비밀번호를 바꾸지 않았어요 — 가입 때 넣은 생년월일 6자리(초기화했다면 123456) 그대로예요"
+                      >
+                        <KeyRound size={12} aria-hidden />초기 비밀번호
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+                    {shortDate(Date.parse(r.requested_at))} 가입 · {seenLabel(lastSeenOf(r))}
+                  </div>
                 </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
-                  아이디: <b style={{ color: 'var(--mm-ink-soft)' }}>{r.login_id}</b>
-                  {' · 요청: '}
-                  {new Date(r.requested_at).toLocaleDateString('ko-KR')}
-                  {lastSeenOf(r) != null && ` · 최근 접속: ${new Date(lastSeenOf(r)!).toLocaleDateString('ko-KR')}`}
-                </div>
-              </div>
-              {/* 액션 — 폰: 승인 회원은 버튼이 셋(약 250px)이라 한 줄에 두면 이름 칸이 0 으로 눌렸다 → 이름 아래 줄로(아바타 폭만큼 들여서) */}
-              <div className="flex flex-wrap items-center gap-1 shrink-0 w-full pl-[52px] sm:w-auto sm:pl-0">
-                {r.status === 'pending' && (
-                  <>
+                {isApproved && (
+                  <div className="flex items-center shrink-0" style={{ color: 'var(--mm-muted)' }}>
                     <button
-                      onClick={() => act(r.id, 'approve')}
+                      type="button"
+                      onClick={() => act(r, 'reset_password')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
-                      style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
+                      aria-label={`${r.player?.name ?? ''} 비밀번호 초기화`}
+                      title="비밀번호를 123456 으로 초기화"
+                      className={ICON_BTN}
                     >
-                      <Check size={14} />
-                      승인
+                      <RotateCcw size={16} />
                     </button>
                     <button
-                      onClick={() => act(r.id, 'reject')}
+                      type="button"
+                      onClick={() => act(r, 'disable')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
-                      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-negative)', border: '1px solid var(--mm-negative)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
+                      aria-label={`${r.player?.name ?? ''} 비활성화`}
+                      title="비활성화"
+                      className={ICON_BTN}
                     >
-                      <X size={14} />
-                      반려
+                      <Ban size={16} />
                     </button>
-                  </>
+                  </div>
                 )}
-                {r.status === 'approved' && (
-                  <>
-                    <button
-                      onClick={() => act(r.id, 'set_role', r.role === 'admin' ? 'member' : 'admin')}
-                      disabled={busyId === r.id}
-                      title={r.role === 'admin' ? '편집 권한 회수' : '편집 권한 부여 (PIN 과 동일)'}
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
-                      style={{
-                        background: r.role === 'admin' ? 'var(--mm-panel-alt)' : 'var(--mm-yellow)',
-                        color: r.role === 'admin' ? 'var(--mm-muted)' : 'var(--mm-black)',
-                        border: `1px solid ${r.role === 'admin' ? 'var(--mm-rule)' : 'var(--mm-yellow)'}`,
-                        borderRadius: '3px',
-                        opacity: busyId === r.id ? 0.5 : 1,
-                      }}
-                    >
-                      {r.role === 'admin' ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
-                      {r.role === 'admin' ? '어드민 해제' : '어드민 지정'}
-                    </button>
-                    <button
-                      onClick={() => act(r.id, 'reset_password')}
-                      disabled={busyId === r.id}
-                      title="비번을 '123456' 으로 초기화"
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
-                      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
-                    >
-                      <RotateCcw size={14} />
-                      비번 초기화
-                    </button>
-                    <button
-                      onClick={() => act(r.id, 'disable')}
-                      disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] max-sm:min-h-11 cursor-pointer"
-                      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
-                    >
-                      <Ban size={14} />
-                      비활성화
-                    </button>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
+      )}
+      {!q && !loading && filtered.length > FIRST_SHOWN && (
+        <button
+          type="button"
+          onClick={() => setShowAll(v => !v)}
+          className="w-full min-h-11 text-sm font-bold cursor-pointer transition-colors duration-200 hover:bg-[color:var(--mm-panel-alt)]"
+          style={{ color: 'var(--mm-ink-soft)', borderTop: '1px solid var(--mm-rule)' }}
+        >
+          {showAll ? '접기' : `${filtered.length - FIRST_SHOWN}명 더 보기`}
+        </button>
+      )}
+      {!loading && approved.length > 0 && (
+        <p className="px-4 py-2 text-xs" style={{ color: 'var(--mm-muted)', borderTop: '1px solid var(--mm-rule)' }}>
+          <RotateCcw size={12} className="inline -mt-0.5" aria-hidden /> 비밀번호 초기화(123456) · <Ban size={12} className="inline -mt-0.5" aria-hidden /> 비활성화
+        </p>
       )}
     </section>
   )

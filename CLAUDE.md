@@ -102,7 +102,7 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
 - ⚠ **role은 세션 토큰에 넣지 않는다** — 쿠키가 30일 만료라 권한 회수가 지연됨.
   매 요청 DB 재조회 (`guard.ts`가 status를 재확인하는 것과 동일 철학) → 강등 즉시 반영
 - 어드민 지정: 어드민 대시보드 `/admin/leagues/[leagueId]` → "어드민 권한 관리",
-  또는 리그 `/settings` → 회원 승인 패널
+  또는 리그 `/settings` → 회원 패널 머리의 **「어드민 지정」 버튼**(2026-11-09 — 줄마다 붙던 지정 버튼은 없앴다. 거의 안 쓰는 일)
 - 프론트: `useLeagueEditMode()`의 `isEditMode`(= 어드민 role ∥ CEO) / `isAdminSession` / `isCeo` / `openLogin()`
   - CEO 여부는 `GET /api/auth/ceo-session` 으로 안다(화면 표시용 — 인가는 서버가 재확인)
   - `LeagueAuthProvider`가 `LeagueEditModeProvider`보다 **바깥**이어야 함 (role을 읽어야 하므로)
