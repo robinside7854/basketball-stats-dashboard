@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { resolveAuditActor } from '@/lib/audit'
-import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL, closeWeek, reopenWeek, rosterLocked, loadClosure, loadGuestPool, reinviteGuest } from '@/lib/rsvp/weekly'
+import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL, closeWeek, reopenWeek, rosterLocked, loadClosure, loadGuestPool, reinviteGuest, releaseGuestFee } from '@/lib/rsvp/weekly'
 import { logAudit } from '@/lib/audit'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -86,6 +86,9 @@ export async function POST(req: Request, { params }: Ctx) {
     // 게스트는 「게스트 신청」으로만 들어온다 — 대신 참으로 넣지 않는다. 불참으로 바꾸면 그 주 신청을 지운다.
     if (isGuest && body.answer === 'yes') return NextResponse.json({ error: '게스트는 회원이 「게스트 신청」으로 넣어요' }, { status: 409 })
     if (isGuest) {
+      // 포인트로 낸 게스트비가 있으면 부른 회원에게 돌려준 뒤 지운다(127)
+      const rel = await releaseGuestFee(sb, leagueId, date, playerId, actor)
+      if (!rel.ok) return NextResponse.json({ error: rel.error }, { status: 409 })
       const { error } = await sb.from('weekly_rsvp').delete().eq('league_id', leagueId).eq('game_date', date).eq('league_player_id', playerId)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true, removed: true })

@@ -111,7 +111,8 @@ function buildRows(ledger: LedgerItem[], requests: RequestItem[], tickets: Ticke
   for (const l of ledger) {
     rows.push({
       id: `l-${l.id}`, at: l.created_at, group: 'point',
-      title: l.kind === 'purchase' && l.memo?.startsWith('정규권') ? '정규권 구매' : l.kind === 'purchase' && l.memo?.includes('비정규') ? '비정규 티켓 구매' : KIND_LABEL[l.kind], sub: l.memo,
+      title: l.memo?.startsWith('게스트비 돌려받음') ? '게스트비 돌려받음' : l.memo?.startsWith('게스트비') ? '게스트비' :
+        l.kind === 'purchase' && l.memo?.startsWith('정규권') ? '정규권 구매' : l.kind === 'purchase' && l.memo?.includes('비정규') ? '비정규 티켓 구매' : KIND_LABEL[l.kind], sub: l.memo,
       right: fmtSigned(l.amount), rightColor: l.amount > 0 ? GREEN : 'var(--mm-ink)', under: `잔액 ${fmtP(l.balance_after)}`,
       // 티켓을 사고 돌려받은 줄은 종류 그림으로(정규권 = 왕관 · 비정규 = 표) — 2026-11-09 운영진(둘이 같아 헷갈렸다)
       tone: (l.kind === 'purchase' || l.kind === 'refund') && l.memo?.startsWith('정규권') ? 'pass'

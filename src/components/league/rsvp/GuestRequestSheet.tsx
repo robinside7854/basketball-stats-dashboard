@@ -9,12 +9,15 @@ import { guestLine, type RsvpRes } from './rsvpTypes'
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'] as const
 const INPUT = 'mt-1 w-full min-h-11 px-3 border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-base'
 
-export default function GuestRequestSheet({ leagueId, open, onClose, onDone, pool = [] }: { leagueId: string; open: boolean; onClose: () => void; onDone: () => void; pool?: NonNullable<RsvpRes['guest_pool']> }) {
+export default function GuestRequestSheet({ leagueId, open, onClose, onDone, pool = [], guestPrice = null, myBalance = null }: { leagueId: string; open: boolean; onClose: () => void; onDone: () => void; pool?: NonNullable<RsvpRes['guest_pool']>; guestPrice?: number | null; myBalance?: number | null }) {
   const [name, setName] = useState('')
   const [age, setAge] = useState('')
   const [height, setHeight] = useState('')
   const [pos, setPos] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  // 게스트비 — 통장 입금 / 내 포인트(배치될 때 빠짐 · 2026-11-09 운영진)
+  const [pay, setPay] = useState<'bank' | 'points'>('bank')
+  const pointsOk = guestPrice != null && guestPrice > 0
 
   // 지난 게스트 다시 부르기 — 한 번 팀에 배치된 내 게스트(2026-11-09 운영진)
   async function again(id: string, nm: string) {
@@ -22,7 +25,7 @@ export default function GuestRequestSheet({ leagueId, open, onClose, onDone, poo
     try {
       const res = await fetch(`/api/leagues/${leagueId}/rsvp`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'guest_again', guestId: id }),
+        body: JSON.stringify({ action: 'guest_again', guestId: id, pay }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(j.error ?? '신청하지 못했어요'); return }
@@ -39,7 +42,7 @@ export default function GuestRequestSheet({ leagueId, open, onClose, onDone, poo
     try {
       const res = await fetch(`/api/leagues/${leagueId}/rsvp`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'guest', name: name.trim(), age: Number(age), height_cm: height ? Number(height) : null, position: pos }),
+        body: JSON.stringify({ action: 'guest', name: name.trim(), age: Number(age), height_cm: height ? Number(height) : null, position: pos, pay }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(j.error ?? '신청하지 못했어요'); return }
@@ -52,6 +55,24 @@ export default function GuestRequestSheet({ leagueId, open, onClose, onDone, poo
   return (
     <Sheet open={open} onClose={onClose} title="게스트 신청" width="sm">
       <div className="space-y-3">
+        {pointsOk && (
+          <div>
+            <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>게스트비 {guestPrice!.toLocaleString()}원은</div>
+            <div className="mt-1 grid grid-cols-2 gap-2" role="radiogroup" aria-label="게스트비 내는 방법">
+              {([['bank', '통장 입금', '같은 통장으로 보내요'], ['points', '내 포인트', myBalance != null ? `배치될 때 빠져요 · 잔액 ${myBalance.toLocaleString()}P` : '배치될 때 빠져요']] as const).map(([k, t, sub]) => (
+                <button key={k} type="button" role="radio" aria-checked={pay === k} onClick={() => setPay(k)}
+                  className="mm-press p-2.5 text-left border"
+                  style={{ borderColor: pay === k ? 'var(--mm-ink)' : 'var(--mm-rule)', background: pay === k ? 'var(--mm-yellow)' : 'var(--mm-panel)', color: pay === k ? 'var(--mm-black)' : 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                  <span className="block text-sm font-black">{t}</span>
+                  <span className="block text-xs" style={{ opacity: 0.75 }}>{sub}</span>
+                </button>
+              ))}
+            </div>
+            {pay === 'points' && myBalance != null && myBalance < guestPrice! && (
+              <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>지금 포인트가 모자라요 — 배치 전까지 충전해야 팀에 들어갈 수 있어요.</p>
+            )}
+          </div>
+        )}
         {pool.length > 0 && (
           <div>
             <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>지난번 게스트 다시 부르기</div>
@@ -70,7 +91,7 @@ export default function GuestRequestSheet({ leagueId, open, onClose, onDone, poo
             <div className="mt-3 text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>새 게스트</div>
           </div>
         )}
-        <p className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>함께 올 게스트를 적어 주세요. 대기명단에 들어가고 어드민이 팀을 정해요. 게스트비는 같은 통장으로 보내 주세요.</p>
+        <p className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>함께 올 게스트를 적어 주세요. 대기명단에 들어가고 어드민이 팀을 정해요.{pay === 'bank' ? ' 게스트비는 같은 통장으로 보내 주세요.' : ''}</p>
         <label className="block text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>이름
           <input value={name} onChange={e => setName(e.target.value)} maxLength={30} className={INPUT} placeholder="예: 홍길동" />
         </label>

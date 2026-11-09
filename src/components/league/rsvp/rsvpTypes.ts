@@ -14,6 +14,8 @@ export interface RsvpEntryView {
   placed_team_id: string | null
   ticket_used: boolean
   guest_paid: boolean
+  guest_pay?: 'bank' | 'points'
+  guest_fee_charged?: boolean
   answered_by?: string | null
   tickets_left: number
   suggested_team_id: string | null
@@ -33,6 +35,8 @@ export interface RsvpRes {
   me: { answer: 'yes' | 'no' | null; approved: boolean; placed_team_id: string | null; kind: RsvpKind | null; tickets_left: number; month_team_id?: string | null; my_guest_ids?: string[] } | null
   entries?: RsvpEntryView[]
   teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null; leader_id?: string | null; regulars?: Array<{ player_id: string; name: string; position: string | null }> }>
+  guest_price?: number | null
+  my_balance?: number | null
   guest_pool?: Array<{ player_id: string; name: string; age: number | null; position: string | null; height_cm: number | null; inviter_label: string | null; last_date: string }>
   unanswered?: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id?: string | null }>
 }

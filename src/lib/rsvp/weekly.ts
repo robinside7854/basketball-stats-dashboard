@@ -12,6 +12,7 @@ import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
 import { loadMonthUniforms, type Uniform } from '@/lib/league/uniformPhoto'
 import { ensureDateSlots } from '@/lib/league/videoSchedule'
+import { loadWalletConfig } from '@/lib/wallet/wallet'
 
 type SB = ReturnType<typeof createClient>
 
@@ -41,6 +42,10 @@ export interface RsvpEntry {
   placed_team_id: string | null
   ticket_used: boolean
   guest_paid: boolean
+  /** 게스트비를 어떻게 내나 — 통장 입금 / 부른 회원 포인트(127) */
+  guest_pay: 'bank' | 'points'
+  /** 포인트로 이미 빠졌나(배치 때 빠진다) */
+  guest_fee_charged: boolean
   /** 「본인」 · 「OO 초대」(게스트) · 대신 눌러 준 어드민 */
   answered_by: string | null
   tickets_left: number      // 비정규 티켓 남은 장수(배치 가능 여부 안내)
@@ -100,7 +105,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const inQuarter = !!q?.start_date && !!q?.end_date && gameDate >= q.start_date && gameDate <= q.end_date
 
   const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes, uniforms, leadersRes] = await Promise.all([
-    sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, answered_at, answered_by_label')
+    sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, guest_pay, guest_fee_ledger_id, answered_at, answered_by_label')
       .eq('league_id', leagueId).eq('game_date', gameDate),
     // 선수는 팀 소유 — league_id 로 찾지 않는다(CLAUDE.md)
     sb.from('league_players').select('id, name, photo_url, position, birth_date, height_cm, is_guest, is_active').eq('team_id', teamId),
@@ -136,7 +141,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const ageOf = (pid: string) => { const b = players.get(pid)?.birth_date; return b ? thisYear - Number(b.slice(0, 4)) : null }
   const kindOf = (pid: string): RsvpKind => players.get(pid)?.is_guest ? 'guest' : passHolders.has(pid) ? 'regular' : 'non_regular'
 
-  const entries: RsvpEntry[] = ((rowsRes.data ?? []) as Array<{ league_player_id: string; answer: 'yes' | 'no'; approved: boolean; placed_team_id: string | null; ticket_id: string | null; guest_paid: boolean; answered_at: string; answered_by_label: string | null }>)
+  const entries: RsvpEntry[] = ((rowsRes.data ?? []) as Array<{ league_player_id: string; answer: 'yes' | 'no'; approved: boolean; placed_team_id: string | null; ticket_id: string | null; guest_paid: boolean; guest_pay: 'bank' | 'points' | null; guest_fee_ledger_id: string | null; answered_at: string; answered_by_label: string | null }>)
     .map(r => {
       const p = players.get(r.league_player_id)
       const kind = kindOf(r.league_player_id)
@@ -145,7 +150,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
         age: ageOf(r.league_player_id), height_cm: p?.height_cm ?? null,
         kind, answer: r.answer,
         approved: kind === 'regular' ? r.answer === 'yes' : r.approved,
-        placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid, answered_by: r.answered_by_label,
+        placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid, guest_pay: r.guest_pay ?? 'bank', guest_fee_charged: !!r.guest_fee_ledger_id, answered_by: r.answered_by_label,
         tickets_left: ticketsLeft.get(r.league_player_id) ?? 0,
         suggested_team_id: regularTeam.get(r.league_player_id) ?? null,
         answered_at: r.answered_at,
@@ -219,9 +224,9 @@ export async function placeEntry(
   targetTeam: string | null, actor: string, opts: { returnTicket?: boolean; label?: string } = {},
 ): Promise<{ ok: true; ticket: string | null } | { ok: false; error: string; status: number }> {
   const teamId = await resolveTeamId(leagueId)
-  const { data: row } = await sb.from('weekly_rsvp').select('answer, ticket_id')
+  const { data: row } = await sb.from('weekly_rsvp').select('answer, ticket_id, guest_pay, guest_payer_id, guest_fee_ledger_id')
     .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId).maybeSingle()
-  const r = row as { answer: string; ticket_id: string | null } | null
+  const r = row as { answer: string; ticket_id: string | null; guest_pay: string | null; guest_payer_id: string | null; guest_fee_ledger_id: string | null } | null
   if (!r) return { ok: false, error: '신청 기록이 없어요', status: 404 }
   if (targetTeam && r.answer !== 'yes') return { ok: false, error: '「참」인 사람만 배치할 수 있어요', status: 409 }
 
@@ -243,6 +248,20 @@ export async function placeEntry(
       ticket = '비정규 티켓 1장 사용'
     }
   }
+  // 게스트비를 포인트로 — 배치되는 순간 부른 회원 잔액에서 뺀다(모자라면 배치를 막는다, 2026-11-09 운영진)
+  let feeLedger = r.guest_fee_ledger_id
+  if (targetTeam && !feeLedger && r.guest_pay === 'points' && r.guest_payer_id) {
+    const res = await chargeGuestFee(sb, teamId, gameDate, playerId, r.guest_payer_id, actor)
+    if (!res.ok) return { ok: false, error: res.error, status: 409 }
+    feeLedger = res.ledgerId
+    ticket = `게스트비 ${res.price.toLocaleString()}P — ${res.payerName} 님 포인트에서 냈어요`
+  }
+  if (!targetTeam && feeLedger) {
+    const res = await refundGuestFee(sb, teamId, gameDate, playerId, feeLedger, actor)
+    if (!res.ok) return { ok: false, error: res.error, status: 409 }
+    feeLedger = null
+    ticket = '게스트비 포인트 돌려줌'
+  }
   if (!targetTeam && ticketId && opts.returnTicket) {
     const { error } = await sb.rpc('wallet_return_ticket', { p_team_id: teamId, p_ticket_id: ticketId, p_note: `${gameDate} 배치 취소`, p_actor: actor })
     if (error) return { ok: false, error: error.message, status: 409 }
@@ -251,6 +270,7 @@ export async function placeEntry(
   }
   const { error } = await sb.from('weekly_rsvp').update({
     placed_team_id: targetTeam, ticket_id: ticketId, ...(targetTeam ? { approved: true } : {}),
+    ...(r.guest_pay === 'points' ? { guest_fee_ledger_id: feeLedger, guest_paid: !!feeLedger } : {}),
     placed_by_label: opts.label ?? actor, updated_at: new Date().toISOString(),
   }).eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId)
   if (error) return { ok: false, error: error.message, status: 500 }
@@ -373,14 +393,65 @@ export async function loadGuestPool(sb: SB, leagueId: string, gameDate: string):
 }
 
 /** 그 주 「참」으로 다시 넣는다(대기명단). 「불」로 남은 줄이 있으면 살린다. */
-export async function reinviteGuest(sb: SB, leagueId: string, gameDate: string, guestId: string, label: string | null): Promise<{ ok: boolean; error?: string }> {
+export async function reinviteGuest(sb: SB, leagueId: string, gameDate: string, guestId: string, label: string | null, pay: { method: 'bank' | 'points'; payerId: string | null } = { method: 'bank', payerId: null }): Promise<{ ok: boolean; error?: string }> {
   const now = new Date().toISOString()
   const { data: prev } = await sb.from('weekly_rsvp').select('id, answer')
     .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
   const pr = prev as { id: string; answer: string } | null
   if (pr?.answer === 'yes') return { ok: false, error: '이번 주에 이미 신청돼 있어요' }
   const { error } = pr
-    ? await sb.from('weekly_rsvp').update({ answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false, answered_by_label: label, answered_at: now, updated_at: now }).eq('id', pr.id)
-    : await sb.from('weekly_rsvp').insert({ league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes', answered_by_label: label, answered_at: now, updated_at: now })
+    ? await sb.from('weekly_rsvp').update({ answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false, guest_pay: pay.method, guest_payer_id: pay.payerId, guest_fee_ledger_id: null, answered_by_label: label, answered_at: now, updated_at: now }).eq('id', pr.id)
+    : await sb.from('weekly_rsvp').insert({ league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes', guest_pay: pay.method, guest_payer_id: pay.payerId, answered_by_label: label, answered_at: now, updated_at: now })
   return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+// ── 게스트비 포인트 (마이그레이션 127, 2026-11-09 운영진) ────────────────────
+//   부른 회원이 「내 포인트」로 고른 게스트 — 배치 때 빼고, 배치가 풀리거나 취소되면 돌려준다.
+//   장부는 지우지 않는다: 낼 때 purchase(−), 돌려줄 때 refund(+). 잔액은 wallet_apply 로만.
+
+function walletMsg(m: string | undefined): string | null {
+  if (!m) return null
+  const i = m.indexOf('wallet: ')
+  return i >= 0 ? m.slice(i + 8) : null
+}
+
+async function chargeGuestFee(sb: SB, teamId: string, gameDate: string, guestId: string, payerId: string, actor: string):
+  Promise<{ ok: true; ledgerId: string; price: number; payerName: string } | { ok: false; error: string }> {
+  const cfg = await loadWalletConfig(teamId)
+  const price = cfg?.rules.guest_price ?? 0
+  if (!cfg || price <= 0) return { ok: false, error: '게스트비(포인트) 가격이 정해지지 않았어요' }
+  const { data: ps } = await sb.from('league_players').select('id, name').in('id', [guestId, payerId])
+  const nameOf = (id: string) => ((ps ?? []) as Array<{ id: string; name: string }>).find(p => p.id === id)?.name ?? ''
+  const { data, error } = await sb.rpc('wallet_apply', {
+    p_team_id: teamId, p_player_id: payerId, p_kind: 'purchase', p_amount: -price,
+    p_memo: `게스트비 · ${nameOf(guestId)} · ${gameDate}`, p_ref_type: 'guest_fee', p_ref_id: guestId, p_actor: actor,
+  })
+  if (error) {
+    const m = walletMsg(error.message)
+    return { ok: false, error: m ? `${nameOf(payerId)} 님 ${m} — 충전하거나 통장 입금으로 바꾼 뒤 배치해요` : error.message }
+  }
+  return { ok: true, ledgerId: (data as { id: string }).id, price, payerName: nameOf(payerId) }
+}
+
+async function refundGuestFee(sb: SB, teamId: string, gameDate: string, guestId: string, ledgerId: string, actor: string):
+  Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: led } = await sb.from('wallet_ledger').select('league_player_id, amount').eq('id', ledgerId).maybeSingle()
+  const l = led as { league_player_id: string; amount: number } | null
+  if (!l || l.amount >= 0) return { ok: true }
+  const { data: g } = await sb.from('league_players').select('name').eq('id', guestId).maybeSingle()
+  const { error } = await sb.rpc('wallet_apply', {
+    p_team_id: teamId, p_player_id: l.league_player_id, p_kind: 'refund', p_amount: -l.amount,
+    p_memo: `게스트비 돌려받음 · ${(g as { name?: string } | null)?.name ?? ''} · ${gameDate}`, p_ref_type: 'guest_fee', p_ref_id: guestId, p_actor: actor,
+  })
+  return error ? { ok: false, error: walletMsg(error.message) ?? error.message } : { ok: true }
+}
+
+/** 게스트 신청 행을 지우기 전에 — 포인트로 낸 게스트비가 있으면 돌려준다. */
+export async function releaseGuestFee(sb: SB, leagueId: string, gameDate: string, guestId: string, actor: string): Promise<{ ok: boolean; error?: string }> {
+  const { data } = await sb.from('weekly_rsvp').select('guest_fee_ledger_id')
+    .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
+  const ledgerId = (data as { guest_fee_ledger_id?: string | null } | null)?.guest_fee_ledger_id
+  if (!ledgerId) return { ok: true }
+  const res = await refundGuestFee(sb, await resolveTeamId(leagueId), gameDate, guestId, ledgerId, actor)
+  return res.ok ? { ok: true } : { ok: false, error: res.error }
 }

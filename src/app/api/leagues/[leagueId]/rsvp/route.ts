@@ -15,7 +15,8 @@ import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, type RsvpRules } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, type RsvpRules } from '@/lib/rsvp/weekly'
+import { loadWalletConfig, loadBalance } from '@/lib/wallet/wallet'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -59,6 +60,11 @@ export async function GET(req: Request, { params }: Ctx) {
   }
   // 지난 게스트(한 번 배치된 사람) — 어드민은 전부, 회원은 내가 부른 사람만
   const pool = await loadGuestPool(sb, leagueId, gameDate)
+  // 게스트비를 포인트로 낼 때 보여 줄 가격·내 잔액(127)
+  const walletTeam = await resolveTeamId(leagueId)
+  const walletCfg = await loadWalletConfig(walletTeam)
+  const guestPrice = walletCfg?.rules.guest_price ?? null
+  const myBalance = session && walletCfg ? await loadBalance(walletTeam, session.pid) : null
   const guestPool = isAdmin ? pool : pool.filter(g => g.inviter_label === myLabel)
   // 내 구분·티켓은 답하기 전에도 보여야 한다(「비정규 티켓이 없어요」 안내)
   let meKind: string | null = mine?.kind ?? null
@@ -93,6 +99,8 @@ export async function GET(req: Request, { params }: Ctx) {
     teams: board.teams,
     unanswered: isAdmin ? board.unanswered : undefined,
     guest_pool: guestPool,
+    guest_price: guestPrice,
+    my_balance: myBalance,
   }, NO_STORE)
 }
 
@@ -129,7 +137,8 @@ export async function POST(req: Request, { params }: Ctx) {
     const g = (await loadGuestPool(sb, leagueId, win.gameDate)).find(x => x.player_id === guestId)
     if (!g) return NextResponse.json({ error: '다시 부를 수 있는 게스트가 아니에요' }, { status: 404 })
     if (g.inviter_label !== label) return NextResponse.json({ error: '내가 부른 게스트만 다시 부를 수 있어요' }, { status: 403 })
-    const res = await reinviteGuest(sb, leagueId, win.gameDate, guestId, label)
+    const pay = body.pay === 'points' ? 'points' as const : 'bank' as const
+    const res = await reinviteGuest(sb, leagueId, win.gameDate, guestId, label, { method: pay, payerId: pay === 'points' ? session.pid : null })
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: 409 })
     return NextResponse.json({ ok: true }, { status: 201 })
   }
@@ -200,16 +209,19 @@ async function addGuest(sb: ReturnType<typeof createClient>, leagueId: string, g
     .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
   const now = new Date().toISOString()
   const label = inviterLabel((inviter as { name?: string } | null)?.name ?? '회원')
+  // 게스트비 — 통장 입금 / 내 포인트(배치될 때 빠짐, 127)
+  const pay: 'bank' | 'points' = body.pay === 'points' ? 'points' : 'bank'
+  const payer = pay === 'points' ? inviterId : null
   const pr = prev as { id: string; answer: string } | null
   if (pr?.answer === 'yes') return NextResponse.json({ error: '이 게스트는 이번 주에 이미 신청돼 있어요' }, { status: 409 })
   // 이번 주 기록이 「불」로 남아 있으면(취소가 삭제로 바뀌기 전에 취소한 것 등) 그 줄을 다시 「참」으로 살린다 — 2026-11-09 신고
   const { error } = pr
     ? await sb.from('weekly_rsvp').update({
-        answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false,
+        answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false, guest_pay: pay, guest_payer_id: payer, guest_fee_ledger_id: null,
         answered_by_label: label, answered_at: now, updated_at: now,
       }).eq('id', pr.id)
     : await sb.from('weekly_rsvp').insert({
-        league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes',
+        league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes', guest_pay: pay, guest_payer_id: payer,
         answered_by_label: label, answered_at: now, updated_at: now,
       })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -236,6 +248,8 @@ export async function DELETE(req: Request, { params }: Ctx) {
   if (r.answered_by_label !== inviterLabel((me as { name?: string } | null)?.name ?? '')) {
     return NextResponse.json({ error: '내가 부른 게스트만 취소할 수 있어요' }, { status: 403 })
   }
+  const rel = await releaseGuestFee(sb, leagueId, win.gameDate, guestId, '본인 취소')
+  if (!rel.ok) return NextResponse.json({ error: rel.error }, { status: 409 })
   const { error } = await sb.from('weekly_rsvp').delete().eq('id', r.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

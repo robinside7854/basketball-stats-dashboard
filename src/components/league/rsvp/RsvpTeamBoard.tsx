@@ -237,7 +237,15 @@ export default function RsvpTeamBoard({
         </>
       )}
       {showKind && m.kind !== 'guest' && <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>{KIND_LABEL[m.kind]}</span>}
-      {admin && m.kind === 'guest' && (
+      {admin && m.kind === 'guest' && m.guest_pay === 'points' && (
+        // 게스트비를 부른 회원 포인트로 — 배치될 때 자동으로 빠지고 풀리면 돌려준다(127). 어드민이 누를 것 없음.
+        <span className="inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-black whitespace-nowrap border self-center"
+          title={m.guest_fee_charged ? '부른 회원 포인트에서 게스트비를 냈어요' : '팀에 배치하면 부른 회원 포인트에서 빠져요'}
+          style={{ borderColor: m.guest_fee_charged ? '#059669' : 'var(--mm-rule)', background: m.guest_fee_charged ? '#059669' : 'transparent', color: m.guest_fee_charged ? '#fff' : 'var(--mm-muted)', borderRadius: 'var(--mm-radius-chip)' }}>
+          포인트{m.guest_fee_charged ? <Check size={12} strokeWidth={3} aria-hidden /> : ' · 배치 때'}
+        </span>
+      )}
+      {admin && m.kind === 'guest' && m.guest_pay !== 'points' && (
         // 게스트비(통장 입금) 받음 표시 — 누를 때마다 바뀐다(종전 참가 명단 목록의 체크를 여기로 옮겼다)
         <button type="button" disabled={busy} onClick={() => toggleGuestPaid(m)} aria-pressed={m.guest_paid}
           title={m.guest_paid ? '게스트비 입금 확인됨 — 누르면 취소' : '게스트비 입금 확인하면 누르기'}

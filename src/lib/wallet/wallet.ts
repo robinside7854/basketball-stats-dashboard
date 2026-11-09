@@ -13,6 +13,8 @@ export interface WalletRules {
   bonus_pct: number
   regular_pass_price: number | null
   non_regular_price: number | null
+  /** 게스트비(포인트로 낼 때) — 127 */
+  guest_price: number | null
 }
 
 export interface WalletConfig {
@@ -90,6 +92,7 @@ export async function loadWalletConfig(teamId: string): Promise<WalletConfig | n
       bonus_pct: typeof r.bonus_pct === 'number' ? r.bonus_pct : 0,
       regular_pass_price: typeof r.regular_pass_price === 'number' ? r.regular_pass_price : null,
       non_regular_price: typeof r.non_regular_price === 'number' ? r.non_regular_price : null,
+      guest_price: typeof r.guest_price === 'number' ? r.guest_price : null,
     },
   }
 }
