@@ -3,6 +3,7 @@
 //   월~금: 참/불 버튼 + 지금 몇 명(정원 대비) · 마감(어드민이 누르거나 토요일)되면 안 보인다(다음 주는 월요일에 열린다).
 //   열고 닫는 것은 서버 시각 계산(lib/rsvp/weekly.ts) — 이 카드는 받은 window 를 그대로 그린다.
 //   비회원·참가신청을 안 쓰는 리그면 아무것도 그리지 않는다.
+//   팀 카드는 보기 전용 — 어드민이어도 여기서는 못 고친다(관리는 /rsvp, 어드민 전용).
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -114,7 +115,7 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
 
       {showBoard && (data.teams ?? []).length > 0 && (
         <div className="mt-3">
-          <RsvpTeamBoard leagueId={leagueId} gameDate={win.gameDate} teams={data.teams ?? []} yes={yes} entries={data.entries ?? []} admin={!!data.isAdmin} onChanged={load} compact myGuestIds={me?.my_guest_ids ?? []} canCancelGuests={open} />
+          <RsvpTeamBoard leagueId={leagueId} gameDate={win.gameDate} teams={data.teams ?? []} yes={yes} entries={data.entries ?? []} admin={false} onChanged={load} compact myGuestIds={me?.my_guest_ids ?? []} canCancelGuests={open} />
         </div>
       )}
 
@@ -126,9 +127,12 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
           </button>
         )}
         {over && <span className="text-xs font-bold" style={{ color: 'var(--mm-live-bg)' }}>정원을 넘었어요 — 팀장·총무가 정해요</span>}
-        <Link href={`${base}/rsvp`} className="mm-press ml-auto inline-flex items-center gap-1 min-h-11 text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
-          {data.isAdmin ? '명단 · 대기명단 배치' : '참가 명단 보기'} <ChevronRight size={16} aria-hidden />
-        </Link>
+        {/* 홈은 보기 전용(어드민도) — 배치·V/X·유니폼 색은 어드민 전용 관리 화면에서만(2026-11-09 운영진) */}
+        {data.isAdmin && (
+          <Link href={`${base}/rsvp`} className="mm-press ml-auto inline-flex items-center gap-1 min-h-11 text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
+            관리 · 대기명단 배치 <ChevronRight size={16} aria-hidden />
+          </Link>
+        )}
       </div>
       {me && <GuestRequestSheet leagueId={leagueId} open={guestOpen} onClose={() => setGuestOpen(false)} onDone={load} />}
     </SectionCard>

@@ -1,6 +1,6 @@
 'use client'
-// 참가 명단 화면 (/rsvp, 2026-11-09 운영진)
-//   회원: 이번 주 「참」 명단(구분 · 배치 팀) + 내 참/불.
+// 참가신청 관리 화면 (/rsvp, 2026-11-09 운영진) — 어드민 전용(회원은 홈 카드에서 참/불·명단을 본다).
+//   신청 받는 곳이 아니라 관리하는 곳이라 「이번 주 나오나요?」 카드는 두지 않는다.
 //   어드민: 지난 주·다음 주로 옮겨 보기 · 대기명단(비정규·게스트)을 끌어서 팀 배치(비정규면 이때 티켓 1장, 폰은 팀 고르기) ·
 //           정규를 이번 달 팀으로 한 번에 · 게스트비 받음 · 대신 참/불 눌러 주기 · 불참·미응답 명단.
 //   정원은 안내만 — 넘쳐도 막지 않는다(팀장·총무 회의).
@@ -11,7 +11,6 @@ import { ChevronLeft, ChevronRight, Loader2, Wand2, Lock } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import EmptyState from '@/components/league/ui/EmptyState'
 import { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
-import RsvpHomeCard from './RsvpHomeCard'
 import RsvpTeamBoard from './RsvpTeamBoard'
 import { countByKind, dateLabel, type RsvpRes } from './rsvpTypes'
 
@@ -53,8 +52,11 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   if (!data.enabled) return <EmptyState title="이 리그는 참가신청을 쓰지 않아요" framed />
   // 일정 탭 안(embedded): 그날 신청 기록이 하나도 없으면 아무것도 그리지 않는다
   if (embedded && (data.entries ?? []).length === 0 && !data.closure) return <p className="text-sm py-2" style={{ color: 'var(--mm-muted)' }}>이 날짜에는 참가신청 기록이 없어요.</p>
-  if (!data.me && !data.isAdmin) return <LoginTeaser />
-  const admin = !!data.isAdmin
+  // 관리 화면 = 어드민 전용(2026-11-09 운영진). 회원은 홈 카드에서 참/불·명단을 본다.
+  if (!data.isAdmin) return data.me
+    ? <EmptyState title="어드민 전용 화면이에요" description="참가신청과 명단은 홈 화면 맨 위 카드에서 볼 수 있어요." framed />
+    : <LoginTeaser />
+  const admin = true
 
   async function act(body: Record<string, unknown>, tag: string, ok?: string) {
     setBusy(tag)
@@ -94,8 +96,6 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
         <EmptyState title="지금은 열린 참가신청이 없어요" description="매주 월요일 0시에 그 주 토요일 신청이 열려요." framed />
       ) : (
         <>
-          {/* 내 참/불 — 홈 카드와 같은 카드(이번 주일 때만) */}
-          {!date && data.me && <RsvpHomeCard leagueId={leagueId} base={base} showBoard={false} />}
 
           {/* 팀별 현황 — 단톡방 공지 캡처와 같은 모양(색 점 · 팀명 · 인원 · 이름 · 포지션). 어드민은 색 점으로 유니폼 색을 고른다. */}
           <RsvpTeamBoard leagueId={leagueId} gameDate={gameDate} teams={data.teams ?? []} yes={yes} entries={entries} admin={admin && !locked} onChanged={load}
