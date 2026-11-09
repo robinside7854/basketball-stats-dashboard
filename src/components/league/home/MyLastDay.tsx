@@ -60,11 +60,13 @@ export default function MyLastDay({ base }: { base: string }) {
 
       {/* 2026-11-08: 숫자 5개(득점·리바·어시·스틸·블록). 리뉴얼 R1 (2026-10-31): 숫자 3개 + 그날 득점 순위 고리 + 승패 막대. 스틸·블록·3점·야투 글자 줄은 박스스코어로 넘겼다. */}
       <div className="mt-1.5 flex items-center gap-3">
-        <dl className="grid grid-cols-5 gap-1.5 sm:gap-2 flex-1 min-w-0">
+        {/* 숫자 크기는 화면 폭(vw)이 아니라 이 줄의 폭(cqw)으로 — PC 에서 카드가 좁은 왼쪽 칸에 들어가면
+            화면 폭 기준 큰 글자가 다섯 칸에 안 들어가 「35」「7」이 겹쳤다(2026-11-09). */}
+        <dl className="grid grid-cols-5 gap-1.5 sm:gap-2 flex-1 min-w-0" style={{ containerType: 'inline-size' }}>
           {big.map(([label, v]) => (
             <div key={label} className="min-w-0">
               <dt className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
-              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(24px, 6.8vw, 38px)' }}>{v}</dd>
+              <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 12.5cqw, 38px)' }}>{v}</dd>
             </div>
           ))}
         </dl>

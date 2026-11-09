@@ -11,7 +11,7 @@ import type {
   HighlightPlayerOption, HighlightTeamOption, HighlightGameQuarterOption,
 } from '@/lib/highlights/types'
 import { SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
-import { swatchEdge } from '@/lib/util/contrastColor'
+import { swatchEdge, textOnBg } from '@/lib/util/contrastColor'
 
 export type FilterState = {
   teamId: string | null       // null = 전체
@@ -72,8 +72,10 @@ export default function HighlightsFilterBar({
     }
     return {
       background: active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-panel)',
-      color: active ? (hue ? '#fff' : 'var(--mm-black)') : 'var(--mm-ink-soft)',
+      // 팀 색 바탕이면 글자색을 바탕 밝기로 고른다 — 흰색 팀(빅현욱)에 흰 글자가 얹혀 이름이 사라졌다(2026-11-09)
+      color: active ? (hue ? textOnBg(hue) : 'var(--mm-black)') : 'var(--mm-ink-soft)',
       border: `1px solid ${active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-rule)'}`,
+      boxShadow: active && hue ? swatchEdge(hue) : undefined,
       borderRadius: '4px',
     }
   }

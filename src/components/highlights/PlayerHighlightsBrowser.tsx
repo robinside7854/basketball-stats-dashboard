@@ -1,4 +1,5 @@
 'use client'
+import { swatchEdge, textOnBg } from '@/lib/util/contrastColor'
 // PlayerHighlightsBrowser — 선수별 하이라이트 페이지 최상위 client 컨트롤러
 // - URL 쿼리 (?type=X&quarter=Y&clip=N) ↔ 필터 · 재생 인덱스 동기화
 // - HighlightsPlayer 재사용 (자동 연속재생 그대로)
@@ -179,7 +180,9 @@ export default function PlayerHighlightsBrowser({
     }
     return {
       background: active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-panel)',
-      color: active ? (hue ? '#fff' : 'var(--mm-black)') : 'var(--mm-ink-soft)',
+      // 팀 색 바탕이면 글자색을 바탕 밝기로 — 흰색 팀(빅현욱)에 흰 글자가 얹혀 이름이 사라졌다(2026-11-09)
+      color: active ? (hue ? textOnBg(hue) : 'var(--mm-black)') : 'var(--mm-ink-soft)',
+      boxShadow: active && hue ? swatchEdge(hue) : undefined,
       border: `1px solid ${active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-rule)'}`,
       borderRadius: '4px',
     }
