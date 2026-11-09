@@ -250,7 +250,8 @@ export default function RsvpTeamBoard({
       {admin && m.kind === 'non_regular' && !m.placed_team_id && (
         <span className="text-xs whitespace-nowrap" style={{ color: m.tickets_left > 0 ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>티켓 {m.tickets_left}장</span>
       )}
-      {canCancelGuests && m.kind === 'guest' && myGuestIds.includes(m.player_id) && (
+      {/* 부른 회원의 「취소」 — 어드민 화면에는 어드민 「✕ 취소」가 있으니 하나만(2026-11-09 운영진 — 두 개 보이던 오류) */}
+      {!admin && canCancelGuests && m.kind === 'guest' && myGuestIds.includes(m.player_id) && (
         <button type="button" disabled={busy} onClick={() => cancelGuest(m)}
           className="mm-press min-h-8 px-2 text-xs font-bold underline whitespace-nowrap" style={{ color: 'var(--mm-live-bg)' }}>취소</button>
       )}

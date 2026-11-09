@@ -35,16 +35,17 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
   const me = data.me
   const myTeam = me?.placed_team_id ? data.teams?.find(t => t.id === me.placed_team_id) ?? null : null
   const over = yes.length > data.capacity
-  // 정규의 자동 배치는 본인이 참/불로 바꿀 수 있다. 비정규·게스트의 배치(티켓·어드민)는 잠근다.
+  // 배치된 비정규·게스트는 「참」은 그대로(이미 참) · 「불」로 취소는 본인이 할 수 있다(티켓 자동 반환, 2026-11-09 운영진).
   const locked = !!me?.placed_team_id && me.kind !== 'regular'
 
   async function answer(a: 'yes' | 'no') {
+    if (a === 'no' && locked && !confirm(`이번 주 참가를 취소할까요?\n팀 배치가 풀리고${me?.kind === 'non_regular' ? ', 쓴 비정규 티켓 1장은 돌려받아요' : ''}.`)) return
     setBusy(true)
     try {
       const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answer: a }) })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(j.error ?? '저장하지 못했어요'); return }
-      toast.success(a === 'yes' ? '참가로 표시했어요' : '불참으로 표시했어요')
+      toast.success(a === 'yes' ? '참가로 표시했어요' : j.ticket_returned ? '참가를 취소했어요 — 티켓 1장을 돌려받았어요' : '불참으로 표시했어요')
       await load()
     } finally { setBusy(false) }
   }
@@ -83,13 +84,13 @@ export default function RsvpHomeCard({ leagueId, base, showBoard = true }: { lea
               className="mm-press min-h-14 text-lg font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-60" style={btn('yes')}>
               <Check size={20} aria-hidden />참
             </button>
-            <button type="button" disabled={busy || !open || locked} onClick={() => answer('no')}
+            <button type="button" disabled={busy || !open} onClick={() => answer('no')}
               className="mm-press min-h-14 text-lg font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-60" style={btn('no')}>
               <X size={20} aria-hidden />불
             </button>
           </div>
           <p className="text-sm mt-2" style={{ color: 'var(--mm-ink-soft)' }}>
-            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b>팀으로 배치됐어요.{!locked && open ? ' 못 나오게 되면 마감 전에 「불」로 바꿔 주세요.' : ''}</>
+            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b>팀으로 배치됐어요.{open ? (locked && me.kind === 'non_regular' ? ' 못 나오게 되면 마감 전에 「불」 — 티켓은 돌려받아요.' : ' 못 나오게 되면 마감 전에 「불」로 바꿔 주세요.') : ''}</>
               : me.answer === 'yes'
                 ? (me.kind === 'regular' ? '정규권이 있어요 — 팀 배치를 기다려 주세요.'
                   : me.kind === 'guest' ? '게스트 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 정해요. 게스트비는 같은 통장으로.'

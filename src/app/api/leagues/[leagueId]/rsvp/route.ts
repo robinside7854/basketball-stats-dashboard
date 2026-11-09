@@ -3,7 +3,7 @@
 //                    window = 지금 열린 주(월 00:00 ~ 금 23:59 신청, 토 마감 결과) — 일요일은 null.
 //                    어드민은 ?date=YYYY-MM-DD 로 다른 주도 본다.
 //   POST { answer: 'yes'|'no' } → 내 참/불(신청 기간에만). 정규는 「참」이면 이번 달 팀으로 자동 배치, 「불」이면 자동 배치를 푼다.
-//                                 티켓을 쓴 배치(비정규)·어드민이 옮긴 배치 뒤에는 어드민에게.
+//                                 배치된 뒤 「불」 = 배치 해제 + 쓴 비정규 티켓 자동 반환(2026-11-09 운영진).
 //   POST { action:'guest', name, age, position, height_cm } → 게스트 신청(2026-11-09 운영진 — 게스트를 부르는 회원이 직접).
 //                                 게스트 선수(is_guest)를 만들거나(같은 이름 게스트가 있으면 다시 씀) 「참」으로 넣고 대기명단에 둔다.
 //                                 팀 배치는 어드민이 한다. 나이는 「올해 − 나이」년 1월 1일 생년월일로 저장(선수 표에 나이 칸이 없다).
@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, type RsvpRules } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, type RsvpRules } from '@/lib/rsvp/weekly'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -139,9 +139,12 @@ export async function POST(req: Request, { params }: Ctx) {
   const { data: prev } = await sb.from('weekly_rsvp').select('placed_team_id, ticket_id, placed_by_label')
     .eq('league_id', leagueId).eq('game_date', win.gameDate).eq('league_player_id', session.pid).maybeSingle()
   const pr = prev as { placed_team_id: string | null; ticket_id: string | null; placed_by_label: string | null } | null
-  // 자동 배치(정규)는 본인이 바꿀 수 있다. 티켓을 쓴 배치·어드민이 정한 배치는 어드민에게.
-  if (pr?.placed_team_id && (pr.ticket_id || pr.placed_by_label !== AUTO_LABEL)) {
-    return NextResponse.json({ error: '어드민이 팀에 배치했어요 — 바꾸려면 어드민에게 말해 주세요' }, { status: 409 })
+  // 배치된 뒤에도 본인이 「불」로 취소할 수 있다(2026-11-09 운영진) — 배치를 풀고, 쓴 비정규 티켓은 자동으로 돌려준다.
+  let ticketReturned = false
+  if (body.answer === 'no' && pr?.placed_team_id && (pr.ticket_id || pr.placed_by_label !== AUTO_LABEL)) {
+    const un = await placeEntry(sb, leagueId, win.gameDate, session.pid, null, '본인 취소', { returnTicket: true })
+    if (!un.ok) return NextResponse.json({ error: un.error }, { status: un.status })
+    ticketReturned = !!pr.ticket_id
   }
   const { error } = await sb.from('weekly_rsvp').upsert({
     league_id: leagueId, game_date: win.gameDate, league_player_id: session.pid,
@@ -149,7 +152,7 @@ export async function POST(req: Request, { params }: Ctx) {
   }, { onConflict: 'league_id,game_date,league_player_id' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const placed = await autoPlaceRegular(sb, leagueId, win.gameDate, session.pid)
-  return NextResponse.json({ ok: true, placed_team_id: placed })
+  return NextResponse.json({ ok: true, placed_team_id: placed, ticket_returned: ticketReturned })
 }
 
 /** 회원이 참/불·게스트를 바꿀 수 있는 창 — 신청 기간 안이고 어드민이 마감하지 않았을 때만. */
