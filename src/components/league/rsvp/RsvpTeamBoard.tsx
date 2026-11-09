@@ -240,9 +240,10 @@ export default function RsvpTeamBoard({
       {admin && m.kind === 'guest' && m.guest_pay === 'points' && (
         // 게스트비를 부른 회원 포인트로 — 배치될 때 자동으로 빠지고 풀리면 돌려준다(127). 어드민이 누를 것 없음.
         <span className="inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-black whitespace-nowrap border self-center"
-          title={m.guest_fee_charged ? '부른 회원 포인트에서 게스트비를 냈어요' : '팀에 배치하면 부른 회원 포인트에서 빠져요'}
+          title={m.guest_fee_charged ? '부른 회원 포인트로 게스트비 입금 완료(자동)' : '팀에 배치하면 부른 회원 포인트에서 빠지고 입금 완료로 바뀌어요'}
           style={{ borderColor: m.guest_fee_charged ? '#059669' : 'var(--mm-rule)', background: m.guest_fee_charged ? '#059669' : 'transparent', color: m.guest_fee_charged ? '#fff' : 'var(--mm-muted)', borderRadius: 'var(--mm-radius-chip)' }}>
-          포인트{m.guest_fee_charged ? <Check size={12} strokeWidth={3} aria-hidden /> : ' · 배치 때'}
+          {/* 배치되면 자동 「입금✓」(통장 입금 확인과 같은 모양) — 2026-11-09 운영진 */}
+          {m.guest_fee_charged ? <>입금<Check size={12} strokeWidth={3} aria-hidden /><span className="font-bold opacity-80"> 포인트</span></> : '입금 · 배치 때 포인트'}
         </span>
       )}
       {admin && m.kind === 'guest' && m.guest_pay !== 'points' && (

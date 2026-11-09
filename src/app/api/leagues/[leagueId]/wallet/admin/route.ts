@@ -6,6 +6,7 @@
 //   POST { action:'use_ticket', playerId, date, note? }      — 비정규 티켓 한 장 사용 처리(참가신청 전까지는 손으로)
 //   POST { action:'return_ticket', ticketId, note }           — 티켓 돌려주기(포인트 환불 · 기록은 남는다)
 //   POST { action:'adjust', playerId, amount(±), memo }   — 보정. 이유(memo) 필수, 장부에 남는다.
+//   POST { action:'mimo_preview'|'mimo_apply', text }      — 미모바스켓 잔액 옮기기(붙여 넣은 「이름, 잔액, 비정규 티켓」) — CEO·어드민
 //   누가 처리했는지(actor_label)는 감사 로그와 같은 판정(resolveAuditActor)으로 장부·요청에 남긴다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
@@ -15,6 +16,7 @@ import { logAudit, resolveAuditActor } from '@/lib/audit'
 import {
   loadWalletConfig, loadLedger, loadTickets, loadRefundable, walletErrorMessage, REQUEST_COLS, type ChargeRequestRow,
 } from '@/lib/wallet/wallet'
+import { parseMimoText, previewMimo, applyMimo } from '@/lib/wallet/mimoImport'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -156,5 +158,14 @@ export async function POST(req: Request, { params }: Ctx) {
     return NextResponse.json(data)
   }
 
-  return NextResponse.json({ error: 'action 은 review · adjust · use_ticket · return_ticket' }, { status: 400 })
+  if (body.action === 'mimo_preview' || body.action === 'mimo_apply') {
+    const rows = parseMimoText(typeof body.text === 'string' ? body.text.slice(0, 200_000) : '')
+    if (rows.length === 0) return NextResponse.json({ error: '「이름, 잔액, 비정규 티켓」 줄을 붙여 넣어 주세요' }, { status: 400 })
+    if (body.action === 'mimo_preview') return NextResponse.json({ rows: await previewMimo(sb, teamId, rows) })
+    const res = await applyMimo(sb, teamId, rows, actor)
+    await logAudit({ req, action: 'wallet.import', targetTable: 'wallet_ledger', targetId: null, leagueId, teamId, detail: res })
+    return NextResponse.json({ ...res, rows: await previewMimo(sb, teamId, rows) })
+  }
+
+  return NextResponse.json({ error: 'action 은 review · adjust · use_ticket · return_ticket · mimo_preview · mimo_apply' }, { status: 400 })
 }
