@@ -126,6 +126,32 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // seekTo 직후에도 currentTime 반영이 비동기 → 짧은 grace 동안 clip_end 판정 중지 (ms epoch)
   const seekGraceUntilRef = useRef(0)
+  // 재생 창 다시 만들기 (2026-11-09) — PC 에서 클립 몇 개를 넘기면 YouTube 재생 창이 검은 화면으로 굳고
+  //   새로고침해야 풀렸다. 새로고침이 하는 일(재생 창 새로 만들기)을 앱이 스스로 한다.
+  //   · 영상을 바꿔 불러온 뒤 8초 안에 재생이 안 되거나 · 오류가 오면 → 한 번 새로 만든다
+  //   · 같은 클립에서 두 번은 하지 않는다(진짜로 막힌 영상이면 무한 반복이 된다)
+  const [rebuildKey, setRebuildKey] = useState(0)
+  const rebuiltForIdxRef = useRef<number | null>(null)
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rebuildPlayer = useCallback(() => {
+    const idx = currentIdxRef.current
+    if (rebuiltForIdxRef.current === idx) return
+    rebuiltForIdxRef.current = idx
+    autoplayOnCreateRef.current = true
+    setRebuildKey(k => k + 1)
+  }, [])
+  const armWatchdog = useCallback(() => {
+    if (watchdogRef.current) clearTimeout(watchdogRef.current)
+    watchdogRef.current = setTimeout(() => {
+      watchdogRef.current = null
+      const p = playerRef.current
+      let st: number | null = null
+      try { st = p?.getPlayerState() ?? null } catch { st = null }
+      // 재생(1)·멈춤(2)·끝(0)·준비됨(5) 은 살아 있는 상태 — 그 밖(시작 안 함 -1 · 계속 버퍼링 3 · 응답 없음)은 굳은 것
+      if (st === 1 || st === 2 || st === 0 || st === 5) return
+      rebuildPlayer()
+    }, 8000)
+  }, [rebuildPlayer])
 
   // ── 몰입 모드 상태 ──
   const stageRef = useRef<HTMLDivElement>(null)
@@ -196,9 +222,11 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   useEffect(() => {
     if (!activated) return
     if (!containerRef.current) return
-    if (!clip) return
+    // 다시 만들 때는 지금 보고 있는 클립으로 (처음엔 같은 값)
+    const startClip = clipsRef.current[currentIdxRef.current] ?? clip
+    if (!startClip) return
 
-    const firstVideoId = extractYouTubeId(clip.video_url)
+    const firstVideoId = extractYouTubeId(startClip.video_url)
     if (!firstVideoId) return
 
     function initPlayer() {
@@ -206,7 +234,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       playerRef.current = new window.YT.Player(containerRef.current, {
         videoId: firstVideoId as string,
         playerVars: {
-          start: Math.floor(clip!.clip_start),
+          start: Math.floor(startClip!.clip_start),
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
@@ -234,6 +262,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
                 setPendingStart(targetStart)
                 e.target.loadVideoById({ videoId: targetVid, startSeconds: targetStart })
                 currentVideoIdRef.current = targetVid
+                armWatchdog()
               } else {
                 e.target.seekTo(targetStart, true)
                 e.target.playVideo()
@@ -241,6 +270,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
             } catch { /* ignore */ }
           },
           onStateChange: (e) => {
+            if (e.data === 1 || e.data === 2 || e.data === 5) {
+              if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null }
+            }
             if (e.data === 1) setPlaying(true)
             else if (e.data === 2 || e.data === 0) setPlaying(false)
             // 몰입 모드 — 영상 자체가 clip_end 전에 끝나면 다음 클립으로
@@ -271,6 +303,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           },
           onError: () => { /* 광고 · 삭제 · 지역제한 등 — 조용히 건너뛰기 */
             setPendingStart(null)  // 프리즈 방지
+            // 일반 화면 — 재생 창이 꼬였을 수 있다 → 한 번 새로 만든다(같은 클립 두 번째면 그대로 둔다)
+            if (!immersiveRef.current) rebuildPlayer()
             // 몰입 모드는 연속 재생이 목적이라 막힌 영상은 잠깐 뒤 건너뛴다
             if (immersiveRef.current) setTimeout(() => advanceRef.current(), 800)
             // (자동재생 제거 이후) 에러 시에도 자동 다음 이동 없음 · 유저가 SkipForward 로 이동
@@ -287,6 +321,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     }
 
     return () => {
+      if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null }
       readyRef.current = false
       currentVideoIdRef.current = null
       if (pendingTimeoutRef.current) { clearTimeout(pendingTimeoutRef.current); pendingTimeoutRef.current = null }
@@ -296,7 +331,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       if (containerRef.current) containerRef.current.innerHTML = ''
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activated])
+  }, [activated, rebuildKey])
 
   // 클립 변경 → loadVideoById 또는 seekTo
   // ⚠ 플레이어 미준비 상태면 아무 것도 안 함 (검은 화면 원인)
@@ -313,6 +348,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         setPendingStart(start)
         player.loadVideoById({ videoId: clip.video_id, startSeconds: start })
         currentVideoIdRef.current = clip.video_id
+        armWatchdog()
       } else if (pendingStartRef.current !== null) {
         // 같은 영상이지만 아직 loadVideoById 로딩 중 — seekTo 는 무시되고 0초 재생됨
         // 목표만 갱신하면 PLAYING 콜백이 보정해준다
@@ -323,7 +359,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         seekGraceUntilRef.current = Date.now() + 1200
       }
     } catch { /* ignore */ }
-  }, [clip, setPendingStart])
+  }, [clip, setPendingStart, armWatchdog])
 
   // clip_end 감시 로직 완전 제거 (2026-07-16 버그 수정)
   //   이전에는 clip_end 도달 시 pauseVideo() 를 매 500ms 호출 → 사용자가 play 눌러도 즉시 다시 pause 되던 버그
