@@ -62,6 +62,7 @@
 | M37 | (이 커밋) | **로고 · 박스스코어 정리 · 홈 내 기록 5개(2026-11-08 운영진)** — 홈 `page.tsx` 로고 줄 + `lib/league/leagueLogo.ts` · `BoxscoreContent.tsx` 주인공 삭제·리더 칩 제거·속공 칸·접기 · `MyLastDay.tsx` 스틸·블록 | 로고: `leagueLogoOf` 가 null 이면 종전 화면. 박스스코어·MyLastDay 는 이 커밋 이전으로 |
 | M38 | (이 커밋) | **홈 리그 리더 → 「이번 달 우리 팀」(2026-11-08 운영진)** — `home/HomeMonthTeams.tsx` · `api/leagues/[leagueId]/month-teams` · 홈 `page.tsx`(NbaLeaders 빼고 묶음 캐시 v2) | 홈 `page.tsx` 에 NbaLeaders 블록과 묶음 캐시의 `getCachedLeaderStats`·`getCachedPhotoMap`(함수는 남아 있음)을 되살리면 원래대로 |
 | M39 | (이 커밋) | **표 값 꺾임 전역 수정 · 공유 그림 로고(2026-11-08)** — `globals.css` mm-fit 칸·머리 keep-all · `StatHeader` · `BoxscoreContent` `<wbr>` · 팀 탭 표 lg↑ · `opengraph-image.tsx` 로고(공개 리그만) | globals.css 두 줄을 `overflow-wrap: anywhere` 로 되돌리면 종전 줄바꿈 |
+| M40 | (이 커밋) | **비공개 리그 공유 그림에 로고만(2026-11-09)** — 공용 카드를 `lib/og/onballCard.tsx` 로 옮김 · 리그 `opengraph-image.tsx` 비공개 폴백이 로고를 넘김 | 리그 파일의 `renderOnballCard(await loadLogoDataUri(leagueId))` 를 `renderOnballCard()` 로 바꾸면 로고 없는 종전 카드 |
 
 ## R5 (걷어내기)는 미뤘다
 

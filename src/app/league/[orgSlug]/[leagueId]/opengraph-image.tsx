@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og'
 import { createClient } from '@/lib/supabase/admin'
 import { isLeaguePublic } from '@/lib/auth/guard'
 import { glyphSet, loadKoreanFont } from '@/lib/og/font'
-import RootOnballCard from '@/app/opengraph-image'
+import { renderOnballCard } from '@/lib/og/onballCard'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { leagueLogoOf } from '@/lib/league/leagueLogo'
@@ -158,7 +158,8 @@ export default async function Image({
 }) {
   const { leagueId } = await params
   const teamName = await loadPublicTeamName(leagueId)
-  if (!teamName) return RootOnballCard()
+  // 비공개·조회 실패 → 온볼 공용 카드. 동호회 로고가 있으면 로고만 얹는다(이름은 넣지 않음 — 2026-11-08 운영진 「로고만」)
+  if (!teamName) return renderOnballCard(await loadLogoDataUri(leagueId))
 
   const logo = await loadLogoDataUri(leagueId)
   // 로고가 있으면 오른쪽 340px 를 비워 둔다
