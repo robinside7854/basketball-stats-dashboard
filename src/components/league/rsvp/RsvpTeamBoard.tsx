@@ -210,8 +210,9 @@ export default function RsvpTeamBoard({
     <li
       draggable={admin}
       onDragStart={admin ? (ev => { ev.dataTransfer.setData('text/plain', m.player_id); ev.dataTransfer.effectAllowed = 'move' }) : undefined}
-      className={`flex items-baseline gap-x-2 gap-y-0.5 flex-wrap sm:flex-nowrap ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+      className={`flex items-baseline gap-x-2 gap-y-1 flex-wrap ${m.kind === 'guest' ? '' : 'sm:flex-nowrap'} ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
       title={admin ? '끌어서 다른 팀이나 대기명단에 놓기' : undefined}
+      // 게스트 줄은 PC 에서도 넘기게 둔다 — 「입금 · 배치 때 포인트」·「취소」가 카드 밖으로 삐져나왔다(2026-11-09 운영진)
     >
       {admin && <GripVertical size={14} aria-hidden className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />}
       <Mark kind="yes" />
