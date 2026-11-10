@@ -34,7 +34,8 @@
 //     재생으로 자연스럽게 지날 때 클립당 한 번뿐 — 중간에 ▶ 를 눌러도 다시 멈추거나 튕기지 않는다(7/15 문제 없음).
 import { whenYouTubeReady, preloadYouTubeIframeApi } from '@/lib/youtube/iframeApi'
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
-import { Play, SkipBack, SkipForward, HeartCrack, RotateCcw } from 'lucide-react'
+import { track } from '@vercel/analytics'
+import { Play, Pause, SkipBack, SkipForward, HeartCrack, RotateCcw } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
 import PlayerName from '@/components/league/ui/PlayerName'
 import { extractYouTubeId, formatTimestamp, seekBy } from '@/lib/youtube/utils'
@@ -120,6 +121,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // seekTo 직후에도 currentTime 반영이 비동기 → 짧은 grace 동안 clip_end 판정 중지 (ms epoch)
   const seekGraceUntilRef = useRef(0)
+  const trackedClipRef = useRef<string | null>(null)
   // 재생 창 다시 만들기 (2026-11-09) — PC 에서 클립 몇 개를 넘기면 YouTube 재생 창이 검은 화면으로 굳고
   //   새로고침해야 풀렸다. 새로고침이 하는 일(재생 창 새로 만들기)을 앱이 스스로 한다.
   //   · 영상을 바꿔 불러온 뒤 8초 안에 재생이 안 되거나 · 오류가 오면 → 한 번 새로 만든다
@@ -271,7 +273,15 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
             if (e.data === 1 || e.data === 2 || e.data === 5) {
               if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null }
             }
-            if (e.data === 1) setPlaying(true)
+            if (e.data === 1) {
+              setPlaying(true)
+              // 재생 측정 — 한 클립을 처음 틀 때 한 번만 센다(멈췄다 다시 틀면 안 셈)
+              const ev = clipsRef.current[currentIdxRef.current]?.event_id
+              if (ev && trackedClipRef.current !== ev) {
+                trackedClipRef.current = ev
+                try { track('highlight_clip_play', { fullscreen: immersiveRef.current ? 1 : 0 }) } catch { /* ignore */ }
+              }
+            }
             else if (e.data === 2 || e.data === 0) setPlaying(false)
             // 몰입 모드 — 영상 자체가 clip_end 전에 끝나면 다음 클립으로
             if (e.data === 0 && immersiveRef.current) advanceRef.current()
@@ -456,6 +466,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     const cur = clipsRef.current[currentIdxRef.current]
     if (!el || !cur) return
     immersiveRef.current = true
+    // 재생 측정(2026-11-10 운영진) — 「전체화면 시작」 몇 번인지. 이름·선수 같은 개인 정보는 싣지 않는다
+    try { track('highlight_fullscreen', { clips: clipsRef.current.length }) } catch { /* ignore */ }
     setImmersive(true)
     setFinished(false)
     setControlsVisible(true)
@@ -865,35 +877,19 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         >
           <SkipBack size={20} />
         </button>
-        {/* ±5초 — 기록 화면 트랜스포트와 같이 아이콘 없이 숫자 라벨 */}
-        <button
-          type="button"
-          onClick={(e) => { seek(-5); e.currentTarget.blur() }}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
-          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-          aria-label="5초 뒤로"
-        >
-          −5초
-        </button>
+        {/* ±5초 버튼은 2026-11-10 뺐다(운영진 「버튼이 많다」 — YouTube 탐색 막대로 된다) */}
+        
         {/* 주 재생/정지 CTA — 브랜드 노랑 · 채워진 삼각형 · hover 밝기 · active 눌림 · focus 링 */}
         <button
           type="button"
           onClick={togglePlay}
           className="inline-flex items-center justify-center min-h-[44px] min-w-[52px] px-3 cursor-pointer transition-[transform,filter] duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px', boxShadow: 'var(--mm-shadow-sm)' }}
-          aria-label="재생/정지"
+          aria-label={playing ? '일시정지' : '재생'}
         >
-          <Play size={20} fill="currentColor" />
+          {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
         </button>
-        <button
-          type="button"
-          onClick={(e) => { seek(5); e.currentTarget.blur() }}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
-          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-          aria-label="5초 앞으로"
-        >
-          +5초
-        </button>
+        
         <button
           type="button"
           onClick={goNext}

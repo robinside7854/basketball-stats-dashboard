@@ -161,7 +161,7 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
           title="짧은 공유 링크 복사"
         >
           <Link2 size={14} />
-          공유 링크
+          <span className="hidden lg:inline">공유 링크</span>
         </button>
       </div>
 

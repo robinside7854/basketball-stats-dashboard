@@ -6,7 +6,8 @@
 //   부모가 축별 `counts` 를 내려준다. 각 축의 개수는 "자기 축을 뺀 나머지 필터"만 적용해 센 값이라,
 //   다른 필터를 바꾸면 이 축의 선택지 개수가 실시간으로 갱신된다.
 //   개수 0 인 선택지는 제거하지 않고 회색 + 비활성으로 남긴다 (레이아웃 유지 · 무엇이 빠졌는지 보이게).
-import { HeartCrack } from 'lucide-react'
+import { useState } from 'react'
+import { HeartCrack, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
 import type {
   HighlightPlayerOption, HighlightTeamOption, HighlightGameQuarterOption,
 } from '@/lib/highlights/types'
@@ -87,29 +88,36 @@ export default function HighlightsFilterBar({
   const activeCount =
     (filter.teamId ? 1 : 0) + (filter.playerId ? 1 : 0)
     + (filter.category ? 1 : 0) + (filter.quarter != null ? 1 : 0)
+  // 2026-11-10 운영진 「버튼이 너무 많다」 — 칩 묶음은 「거르기」 안에 접어 둔다(켠 거르기가 있으면 펼친 채로 시작)
+  const [open, setOpen] = useState(activeCount > 0)
 
   return (
     <div
-      className="p-3 lg:p-4 space-y-3"
-      style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+      className={open ? "p-3 lg:p-4 space-y-3" : ""}
+      style={open ? { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' } : undefined}
       aria-label="하이라이트 필터"
     >
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <span
-            className="font-bold text-sm"
-            style={{ color: 'var(--mm-ink)' }}
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            aria-expanded={open}
+            className="mm-press inline-flex items-center gap-1.5 min-h-11 px-3 text-sm font-bold cursor-pointer"
+            style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
-            필터
-          </span>
+            <SlidersHorizontal size={15} aria-hidden />
+            거르기{activeCount > 0 ? ` ${activeCount}` : ''}
+            {open ? <ChevronUp size={15} aria-hidden /> : <ChevronDown size={15} aria-hidden />}
+          </button>
           {activeCount > 0 && (
             <button
               type="button"
               onClick={() => onChange(EMPTY_FILTER)}
-              className="text-xs font-bold px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
-              style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+              className="text-xs font-bold px-2 min-h-11 cursor-pointer underline-offset-4 hover:underline"
+              style={{ color: 'var(--mm-muted)' }}
             >
-              초기화 ({activeCount})
+              모두 풀기
             </button>
           )}
         </div>
@@ -118,6 +126,7 @@ export default function HighlightsFilterBar({
         </span>
       </div>
 
+      {open && (<>
       {/* 팀(또는 상대) 필터 */}
       {teams.length > 0 && (
         <div className="space-y-1.5">
@@ -291,6 +300,7 @@ export default function HighlightsFilterBar({
           </div>
         </div>
       )}
+      </>)}
     </div>
   )
 }

@@ -31,6 +31,7 @@ import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBro
 import HighlightsFeedChips, { type FeedKind, type FeedPlayerLabel } from '@/components/league/highlights/HighlightsFeedChips'
 import { formatFeedDate } from '@/components/league/highlights/feedFormat'
 import FeedKeyed from '@/components/league/highlights/FeedKeyed'
+import WeekReel from '@/components/league/highlights/WeekReel'
 import MyClipsCard, { MarkMyClipsSeen } from '@/components/league/highlights/MyClipsCard'
 import ClassicGameCard from '@/components/league/highlights/ClassicGameCard'
 import { loadRecentRounds, loadRoundDetail, loadPlayerHighlights, loadLeagueBestShots } from '@/lib/highlights/loader'
@@ -368,7 +369,14 @@ export default async function HighlightsFeedPage({
         thumbVideoId={mine.thumbVideoId}
       />
     ) : null
-    body = <DayCards hl={hl} rounds={landing?.rounds ?? []} records={landing?.records ?? {}} lead={lead} />
+    // 맨 위 「지난 경기 하이라이트」 — 누르면 바로 전체화면 연속 재생(2026-11-10 운영진)
+    const latest = (landing?.rounds ?? []).find(r => r.status === 'ready') ?? null
+    body = (
+      <>
+        {latest && <WeekReel leagueId={leagueId} date={latest.date} href={`${hl}?date=${latest.date}`} thumbVideoId={latest.thumb_video_id ?? null} />}
+        <DayCards hl={hl} rounds={landing?.rounds ?? []} records={landing?.records ?? {}} lead={lead} />
+      </>
+    )
   }
 
   return (
