@@ -2,13 +2,16 @@
 //   GET  → { enabled, name, bank, rules, months, me: { balance, refundable, ledger, requests, tickets } | null }
 //   POST { action:'charge', amount, depositor_name }          → 충전 요청(5만원↑ 보너스는 승인 때 DB 가 붙인다)
 //   POST { action:'refund', holder, account }                  → 환불 요청(금액은 서버가 계산 — 입금액 − 사용액)
-//   POST { action:'buy', kind:'regular_pass'|'non_regular', month?, qty? } → 티켓 사기(가격은 DB 가 팀 규칙에서 읽는다)
+//   POST { action:'buy', kind:'regular_pass'|'non_regular', month?, qty?, useTickets? } → 티켓 사기(가격은 DB 가 팀 규칙에서 읽는다)
+//     정규권은 운영진이 연 판매 기간 · 정원 안에서만(130) · 남은 비정규 티켓으로 할인(useTickets) ·
+//     전 달 정규였으면 같은 팀으로 그 달 정규 자동 배정(passSales.ts)
 //   DELETE ?requestId=  → 내 대기 중 요청 취소
 //   본인 것만 본다. 캐시 없음(돈이라 늘 최신 · ISR Reads 0).
 import { NextResponse } from 'next/server'
 import { matchLateRequest, alreadyChargedByDeposit } from '@/lib/wallet/bankAuto'
 import { hasReservedDepositor } from '@/lib/wallet/depositorName'
 import { createClient } from '@/lib/supabase/admin'
+import { loadPassSales, autoAssignAfterPass, teamNameInMonth } from '@/lib/wallet/passSales'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import {
@@ -28,7 +31,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!session) return NextResponse.json({ enabled: true, name: config.name, bank: null, me: null })
 
   const sb = createClient()
-  const [balance, ledger, tickets, refundable, reqRes, hookRes] = await Promise.all([
+  const [balance, ledger, tickets, refundable, reqRes, hookRes, passSales] = await Promise.all([
     loadBalance(teamId, session.pid),
     loadLedger(teamId, session.pid),
     loadTickets(teamId, session.pid),
@@ -38,11 +41,13 @@ export async function GET(_req: Request, { params }: Ctx) {
       .order('created_at', { ascending: false }).limit(50),
     // 카카오뱅크 입금 알림이 연결돼 있으면 「입금만 하면 자동 충전」 화면(2026-11-10 운영진)
     sb.from('wallet_bank_hooks').select('team_id').eq('team_id', teamId).maybeSingle(),
+    loadPassSales(sb, teamId),
   ])
   if (reqRes.error) return NextResponse.json({ error: reqRes.error.message }, { status: 500 })
   return NextResponse.json({
     enabled: true, name: config.name, bank: config.bank, rules: config.rules, months: buyableMonths(),
     auto_charge: !!hookRes.data,
+    pass_sales: passSales,
     me: { balance, refundable, ledger, tickets, requests: (reqRes.data ?? []) as ChargeRequestRow[] },
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
@@ -66,11 +71,23 @@ export async function POST(req: Request, { params }: Ctx) {
     let qty = 1
     if (kind === 'regular_pass') {
       month = typeof body.month === 'string' ? body.month : ''
-      if (!buyableMonths().includes(month)) return NextResponse.json({ error: '이번 달·다음 달 정규권만 살 수 있어요' }, { status: 400 })
-    } else {
-      qty = Number(body.qty)
-      if (!Number.isInteger(qty) || qty < 1 || qty > 10) return NextResponse.json({ error: '비정규 티켓은 한 번에 1~10장이에요' }, { status: 400 })
+      if (!/^\d{4}-\d{2}-01$/.test(month)) return NextResponse.json({ error: '정규권 달을 골라 주세요' }, { status: 400 })
+      const useTickets = Math.max(0, Math.min(10, Math.floor(Number(body.useTickets) || 0)))
+      const { data, error } = await sb.rpc('wallet_buy_regular_pass', {
+        p_team_id: teamId, p_player_id: session.pid, p_month: month, p_use_tickets: useTickets,
+        p_actor: `본인 ${session.loginId}`,
+      })
+      if (error) {
+        const msg = walletErrorMessage(error.message)
+        return NextResponse.json({ error: msg ?? error.message }, { status: msg ? 409 : 500 })
+      }
+      // 전 달 정규였으면 같은 팀으로 그 달 정규 자동 배정(2026-11-10 운영진)
+      const assign = await autoAssignAfterPass(sb, leagueId, session.pid, month)
+      const team_name = assign.team_id ? await teamNameInMonth(sb, leagueId, assign.team_id, month) : null
+      return NextResponse.json({ ok: true, qty: 1, discount_tickets: data ?? 0, team_name, assigned: assign.how }, { status: 201 })
     }
+    qty = Number(body.qty)
+    if (!Number.isInteger(qty) || qty < 1 || qty > 10) return NextResponse.json({ error: '비정규 티켓은 한 번에 1~10장이에요' }, { status: 400 })
     const { data, error } = await sb.rpc('wallet_buy_ticket', {
       p_team_id: teamId, p_player_id: session.pid, p_kind: kind, p_month: month, p_qty: qty,
       p_actor: `본인 ${session.loginId}`,

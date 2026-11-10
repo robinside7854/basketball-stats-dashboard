@@ -6,6 +6,11 @@
 //   GET ?bank=1             → { connected, created_at, last_used_at, events } — 카카오뱅크 자동 승인 연결 상태 · 최근 알림 20건(128)
 //   POST { action:'bank_token' | 'bank_disconnect' }       — 연결 비밀번호 새로 만들기(원문은 이때 한 번만) · 끊기
 //   GET ?passes=1           → { months: PassMonth[] } — 어드민 홈 「정규권 안 산 사람」 알림(이번 달 · 20일부터 다음 달)
+//   GET ?home=1             → { months, sales, unmatched, stale } — 어드민 홈 알림 한 번에(정규권 · 판매 · 입금 매칭 불가 · 입금 알림 끊김)
+//   GET ?sales=1            → { sales: [...판매, buyers] } — 정규권 판매(130) 칸
+//   POST { action:'pass_sale', month, opens_at, closes_at, capacity }  — 정규권 판매 열기·고치기
+//   POST { action:'pass_sale_close', month }                         — 지금 마감
+//   POST { action:'bank_resolve', eventId, playerId? }  — 「짝 없음」 입금: playerId 면 그 사람에게 충전 · 없으면 「확인했어요」(알림에서 뺌)
 //   POST { action:'review', requestId, decision:'approve'|'reject', note? }  — 충전이면 승인(+보너스), 환불이면 「송금했어요」
 //   POST { action:'use_ticket', playerId, date, note? }      — 비정규 티켓 한 장 사용 처리(참가신청 전까지는 손으로)
 //   POST { action:'return_ticket', ticketId, note }           — 티켓 돌려주기(포인트 환불 · 기록은 남는다)
@@ -22,7 +27,11 @@ import {
 } from '@/lib/wallet/wallet'
 import { parseMimoText, previewMimo, applyMimo } from '@/lib/wallet/mimoImport'
 import { loadPassStatus } from '@/lib/wallet/passStatus'
-import { hashToken, newToken, type BankEvent } from '@/lib/wallet/bankAuto'
+import { hashToken, newToken, parseSenderName, type BankEvent } from '@/lib/wallet/bankAuto'
+import { loadPassSales, loadPassBuyers } from '@/lib/wallet/passSales'
+
+/** 충전 요청이 이만큼 기다리는데 그 뒤로 입금 알림이 하나도 없으면 「폰을 확인해 주세요」 */
+const STALE_HOURS = 2
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -62,7 +71,7 @@ export async function GET(req: Request, { params }: Ctx) {
   if (sp.get('bank')) {
     const [hookRes, evRes] = await Promise.all([
       sb.from('wallet_bank_hooks').select('created_at, created_by, last_used_at').eq('team_id', teamId).maybeSingle(),
-      sb.from('wallet_bank_events').select('id, raw_text, amount, status, request_id, note, created_at').eq('team_id', teamId)
+      sb.from('wallet_bank_events').select('id, raw_text, amount, status, request_id, note, created_at, resolved_at').eq('team_id', teamId)
         .order('created_at', { ascending: false }).limit(20),
     ])
     if (hookRes.error && /does not exist|schema cache/i.test(hookRes.error.message)) return NextResponse.json({ ready: false }, NO_STORE)
@@ -82,6 +91,37 @@ export async function GET(req: Request, { params }: Ctx) {
       last_used_at: hook?.last_used_at ?? null,
       events: events.map(e => ({ ...e, name: e.request_id ? names.get(e.request_id) ?? null : null })),
     }, NO_STORE)
+  }
+
+  if (sp.get('home')) {
+    const since = new Date(Date.now() - 60 * 86400_000).toISOString()
+    const [months, sales, unRes, hookRes, oldestRes, lastEvRes] = await Promise.all([
+      loadPassStatus(sb, leagueId, teamId),
+      loadPassSales(sb, teamId),
+      sb.from('wallet_bank_events').select('id', { count: 'exact', head: true }).eq('team_id', teamId)
+        .in('status', ['unmatched', 'ambiguous']).not('amount', 'is', null).is('resolved_at', null).gte('created_at', since),
+      sb.from('wallet_bank_hooks').select('team_id').eq('team_id', teamId).maybeSingle(),
+      sb.from('wallet_charge_requests').select('created_at').eq('team_id', teamId).eq('kind', 'charge').eq('status', 'pending')
+        .order('created_at').limit(1).maybeSingle(),
+      sb.from('wallet_bank_events').select('created_at').eq('team_id', teamId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    ])
+    // 입금 알림 끊김: 연결돼 있고 · 충전 요청이 2시간 넘게 기다리는데 · 그 요청 뒤로 받은 알림이 없다
+    let stale: { hours: number } | null = null
+    const oldest = (oldestRes.data as { created_at: string } | null)?.created_at
+    const lastEv = (lastEvRes.data as { created_at: string } | null)?.created_at
+    if (hookRes.data && oldest) {
+      const waited = (Date.now() - Date.parse(oldest)) / 3600_000
+      if (waited >= STALE_HOURS && (!lastEv || Date.parse(lastEv) < Date.parse(oldest))) {
+        stale = { hours: Math.floor(lastEv ? (Date.now() - Date.parse(lastEv)) / 3600_000 : waited) }
+      }
+    }
+    return NextResponse.json({ months, sales, unmatched: unRes.error ? 0 : unRes.count ?? 0, stale }, NO_STORE)
+  }
+
+  if (sp.get('sales')) {
+    const sales = await loadPassSales(sb, teamId)
+    const withBuyers = await Promise.all(sales.map(async x => ({ ...x, buyers: await loadPassBuyers(sb, leagueId, teamId, x.month) })))
+    return NextResponse.json({ sales: withBuyers }, NO_STORE)
   }
 
   if (sp.get('passes')) {
@@ -155,6 +195,64 @@ export async function POST(req: Request, { params }: Ctx) {
     const { error } = await sb.from('wallet_bank_hooks').delete().eq('team_id', teamId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await logAudit({ req, action: 'wallet.bank.disconnect', targetTable: 'wallet_bank_hooks', leagueId, teamId })
+    return NextResponse.json({ ok: true })
+  }
+
+  if (body.action === 'pass_sale') {
+    const month = typeof body.month === 'string' && /^\d{4}-\d{2}-01$/.test(body.month) ? body.month : null
+    const opens = typeof body.opens_at === 'string' ? Date.parse(body.opens_at) : NaN
+    const closes = typeof body.closes_at === 'string' ? Date.parse(body.closes_at) : NaN
+    const capacity = Number(body.capacity)
+    if (!month || !Number.isFinite(opens) || !Number.isFinite(closes)) return NextResponse.json({ error: '달 · 여는 때 · 닫는 때를 확인해 주세요' }, { status: 400 })
+    if (closes <= opens) return NextResponse.json({ error: '닫는 때가 여는 때보다 뒤여야 해요' }, { status: 400 })
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 200) return NextResponse.json({ error: '정원은 1~200명' }, { status: 400 })
+    const { error } = await sb.from('wallet_pass_sales').upsert({
+      team_id: teamId, month, opens_at: new Date(opens).toISOString(), closes_at: new Date(closes).toISOString(),
+      capacity, closed_early_at: null, opened_by_label: actor, updated_at: new Date().toISOString(),
+    }, { onConflict: 'team_id,month' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await logAudit({ req, action: 'wallet.pass_sale.open', targetTable: 'wallet_pass_sales', leagueId, teamId, detail: { month, capacity } })
+    return NextResponse.json({ ok: true })
+  }
+  if (body.action === 'pass_sale_close') {
+    const month = typeof body.month === 'string' && /^\d{4}-\d{2}-01$/.test(body.month) ? body.month : null
+    if (!month) return NextResponse.json({ error: 'month 필수' }, { status: 400 })
+    const { error } = await sb.from('wallet_pass_sales').update({ closed_early_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('team_id', teamId).eq('month', month)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await logAudit({ req, action: 'wallet.pass_sale.close', targetTable: 'wallet_pass_sales', leagueId, teamId, detail: { month } })
+    return NextResponse.json({ ok: true })
+  }
+
+  if (body.action === 'bank_resolve') {
+    if (typeof body.eventId !== 'string') return NextResponse.json({ error: 'eventId 필수' }, { status: 400 })
+    const { data: ev } = await sb.from('wallet_bank_events').select('id, raw_text, amount, status, resolved_at')
+      .eq('id', body.eventId).eq('team_id', teamId).maybeSingle()
+    const e = ev as { id: string; raw_text: string; amount: number | null; status: string; resolved_at: string | null } | null
+    if (!e) return NextResponse.json({ error: '알림을 찾을 수 없어요' }, { status: 404 })
+    if (e.resolved_at || !['unmatched', 'ambiguous'].includes(e.status)) return NextResponse.json({ error: '이미 처리된 입금이에요' }, { status: 409 })
+    if (typeof body.playerId === 'string') {
+      if (!e.amount) return NextResponse.json({ error: '금액을 읽지 못한 알림이에요' }, { status: 400 })
+      const { data: p } = await sb.from('league_players').select('id, name').eq('id', body.playerId).eq('team_id', teamId).maybeSingle()
+      if (!p) return NextResponse.json({ error: '이 팀 회원이 아니에요' }, { status: 404 })
+      const name = (p as { name: string }).name
+      const { data: rq, error: e1 } = await sb.from('wallet_charge_requests').insert({
+        team_id: teamId, league_player_id: body.playerId, kind: 'charge', amount: e.amount,
+        depositor_name: parseSenderName(e.raw_text) ?? name,
+      }).select('id').single()
+      if (e1) return NextResponse.json({ error: e1.code === '23505' ? `${name} 님 앞으로 기다리는 요청이 있어요 — 그 요청을 먼저 처리해 주세요` : e1.message }, { status: e1.code === '23505' ? 409 : 500 })
+      const reqId = (rq as { id: string }).id
+      const { error: e2 } = await sb.rpc('wallet_review_charge', {
+        p_team_id: teamId, p_request_id: reqId, p_action: 'approve', p_note: '입금 알림 손으로 짝지음', p_actor: actor,
+      })
+      if (e2) { await sb.from('wallet_charge_requests').delete().eq('id', reqId).eq('status', 'pending'); return fail(e2) }
+      await sb.from('wallet_bank_events').update({
+        status: 'charged', request_id: reqId, note: `${name} 님 충전 (${actor})`, resolved_at: new Date().toISOString(), resolved_by_label: actor,
+      }).eq('id', e.id)
+      await logAudit({ req, action: 'wallet.bank.resolve', targetTable: 'wallet_bank_events', targetId: e.id, leagueId, teamId, detail: { player: body.playerId, amount: e.amount } })
+      return NextResponse.json({ ok: true, name })
+    }
+    await sb.from('wallet_bank_events').update({ resolved_at: new Date().toISOString(), resolved_by_label: actor, note: `확인함 (${actor})` }).eq('id', e.id)
     return NextResponse.json({ ok: true })
   }
 

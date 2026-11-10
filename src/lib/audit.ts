@@ -121,6 +121,9 @@ export type AuditAction =
   | 'wallet.import'
   | 'wallet.bank.connect'
   | 'wallet.bank.disconnect'
+  | 'wallet.bank.resolve'
+  | 'wallet.pass_sale.open'
+  | 'wallet.pass_sale.close'
   // 주간 참가신청 — 126
   | 'rsvp.close'
   | 'rsvp.reopen'

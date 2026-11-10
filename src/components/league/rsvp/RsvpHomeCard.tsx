@@ -105,17 +105,38 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
                 : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
                   : open ? '아직 답하지 않았어요.' : '이번 주는 답하지 않았어요.'}
           </p>
-          {me.kind === 'non_regular' && me.month_team_id && (
-            <p className="text-sm font-bold mt-1 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
-              이번 달 {data.teams?.find(t => t.id === me.month_team_id)?.name ?? ''}팀 정규인데 정규권이 없어요 — 정규권이 있으면 「참」만 눌러도 팀이 바로 정해져요.{' '}
-              <Link href={`${base}/wallet`} className="underline underline-offset-2">정규권 사기</Link>
-            </p>
-          )}
-          {me.answer === 'yes' && me.kind === 'non_regular' && !me.month_team_id && me.tickets_left === 0 && !canPayByPoints && !myTeam && (
-            <p className="text-sm font-bold mt-1 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
-              포인트가 모자라요 — 팀에 배치되려면 {(data.ticket_price ?? 0).toLocaleString()}P가 필요해요.{' '}
-              <Link href={`${base}/wallet`} className="underline underline-offset-2">충전하기</Link>
-            </p>
+          {me.kind === 'non_regular' && me.month_team_id && (() => {
+            // 정규권은 운영진이 판매를 열 때만(130, 2026-11-10 운영진)
+            const ps = data.pass_sale
+            const selling = ps?.state === 'open' && ps.sold < ps.capacity
+            return (
+              <p className="text-sm font-bold mt-1 px-3 py-2 break-keep" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
+                이번 달 {data.teams?.find(t => t.id === me.month_team_id)?.name ?? ''}팀 정규인데 정규권이 없어요.{' '}
+                {selling ? <>정규권 판매 중이에요(남은 자리 {ps!.capacity - ps!.sold}). <Link href={`${base}/wallet`} className="underline underline-offset-2">정규권 사기</Link></>
+                  : '정규권은 운영진이 판매를 열 때 살 수 있어요.'}
+              </p>
+            )
+          })()}
+          {/* 포인트 부족은 「참」을 누르기 전에 미리 — 입금만 하면 자동 충전(2026-11-10 운영진) */}
+          {me.kind === 'non_regular' && !me.month_team_id && me.tickets_left === 0 && !canPayByPoints && !myTeam && me.answer !== 'no' && (
+            <div className="text-sm mt-1 px-3 py-2 break-keep space-y-1" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
+              <div className="font-bold">포인트가 모자라요.</div>
+              <div>비정규로 나오려면 {(data.ticket_price ?? 0).toLocaleString()}P가 필요해요.</div>
+              {data.auto_charge ? (
+                <>
+                  <div>모임통장으로 입금만 하면 1분 안에 충전돼요.</div>
+                  {data.wallet_bank && (
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="font-bold">{data.wallet_bank}</span>
+                      <button type="button" onClick={() => {
+                        const digits = data.wallet_bank!.match(/[\d-]{8,}/)?.[0] ?? data.wallet_bank!
+                        navigator.clipboard?.writeText(digits).then(() => toast.success('계좌번호를 복사했어요'), () => {})
+                      }} className="mm-press inline-flex items-center gap-1 min-h-9 px-2 text-sm font-bold underline underline-offset-2">계좌번호 복사</button>
+                    </div>
+                  )}
+                </>
+              ) : <Link href={`${base}/wallet`} className="font-bold underline underline-offset-2">충전하기</Link>}
+            </div>
           )}
         </>
       )}

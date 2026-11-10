@@ -11,6 +11,7 @@
 //   회원도 참·불 명단을 본다(팀 카드의 ✓ / ? / ✕). 미응답 전체 목록(대신 넣기용)은 어드민만.
 //   캐시 없음(ISR Reads 0) — 홈 카드가 매번 최신을 본다.
 import { NextResponse } from 'next/server'
+import { loadPassSales } from '@/lib/wallet/passSales'
 import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
@@ -69,6 +70,12 @@ export async function GET(req: Request, { params }: Ctx) {
   const walletCfg = await loadWalletConfig(walletTeam)
   const guestPrice = walletCfg?.rules.guest_price ?? null
   const myBalance = session && walletCfg ? await loadBalance(walletTeam, session.pid) : null
+  // 포인트 부족 미리 안내(「입금만 하면 자동 충전」 + 계좌) · 경기 달 정규권 판매 상태(130) — 2026-11-10 운영진
+  const [hookRes, passSales] = session && walletCfg
+    ? await Promise.all([sb.from('wallet_bank_hooks').select('team_id').eq('team_id', walletTeam).maybeSingle(), loadPassSales(sb, walletTeam)])
+    : [null, []]
+  const gameMonth = `${gameDate.slice(0, 7)}-01`
+  const sale = passSales.find(x => x.month === gameMonth) ?? null
   const guestPool = isAdmin ? pool : session ? pool.filter(g => isMyGuest({ invited_by: g.inviter_id, label: g.inviter_label }, { pid: session.pid, name: myNameForGuests })) : []
   // 내 구분·티켓은 답하기 전에도 보여야 한다(「비정규 티켓이 없어요」 안내)
   let meKind: string | null = mine?.kind ?? null
@@ -106,6 +113,9 @@ export async function GET(req: Request, { params }: Ctx) {
     guest_price: guestPrice,
     my_balance: myBalance,
     ticket_price: walletCfg?.rules.non_regular_price ?? null,
+    wallet_bank: session ? walletCfg?.bank ?? null : null,
+    auto_charge: !!hookRes?.data,
+    pass_sale: sale ? { month: sale.month, state: sale.state, sold: sale.sold, capacity: sale.capacity, opens_at: sale.opens_at, closes_at: sale.closes_at } : null,
   }, NO_STORE)
 }
 

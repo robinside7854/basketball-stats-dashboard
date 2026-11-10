@@ -11,6 +11,7 @@ import { refreshPendingCharges } from '@/lib/hooks/usePendingCharges'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
 import BankAutoBox from './BankAutoBox'
+import PassSaleBox from './PassSaleBox'
 import { LedgerList, RequestList, TicketList, MonthSelect, monthKey, fmtP, fmtWhen, ticketTitle, type LedgerItem, type RequestItem, type TicketItem } from './walletParts'
 
 /** 월렛이 생긴 달(2026-11)부터 이번 달까지, 최근이 앞 */
@@ -219,6 +220,11 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
         )}
       </SectionCard>
 
+      {/* 정규권 판매(2026-11-10 운영진 — 운영진이 기간·정원을 열고 선착순) */}
+      <SectionCard variant="standalone">
+        <PassSaleBox leagueId={leagueId} />
+      </SectionCard>
+
       {/* 처리 내역 — 달별(2026-11-10 운영진). 처리한 날(KST) 기준 · 그 달 합계를 위에 */}
       <SectionCard variant="standalone">
         <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>처리 내역</h3>
@@ -313,7 +319,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
 
       {/* 미모바스켓 잔액 옮기기는 2026-11-10 이관을 마쳐 화면에서 뺐다(운영진) — MimoImportBox·API 파일은 남김 */}
       <SectionCard variant="standalone">
-        <BankAutoBox leagueId={leagueId} />
+        <BankAutoBox leagueId={leagueId} members={data.members} onCharged={() => { void load(); onChanged() }} />
       </SectionCard>
 
       <Sheet open={!!openPlayer} onClose={() => setOpenPlayer(null)} title={openPlayer ? `${openPlayer.name} · ${fmtP(openPlayer.balance)}` : ''}>

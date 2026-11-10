@@ -30,9 +30,28 @@ interface WalletRes {
   bank?: string | null
   rules?: Rules
   months?: [string, string]
+  /** 정규권 판매(130) — 운영진이 연 기간 · 정원 안에서만 산다 */
+  pass_sales?: PassSaleLite[]
   /** 카카오뱅크 입금 알림 연결 — 입금만 하면 자동 충전(129) */
   auto_charge?: boolean
   me?: { balance: number; refundable: number; ledger: LedgerItem[]; requests: RequestItem[]; tickets: TicketItem[] } | null
+}
+
+type PassSaleLite = { month: string; opens_at: string; closes_at: string; capacity: number; sold: number; state: 'upcoming' | 'open' | 'closed' }
+/** 11/25(화) 10:00 */
+function whenKst(iso: string): string {
+  const d = new Date(iso)
+  const md = d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' }).replace(/\.\s*/g, '/').replace(/\/$/, '')
+  const wd = d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' })
+  const hm = d.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${md}(${wd}) ${hm}`
+}
+/** 정규권 판매 상태 한 줄 */
+function saleLine(s: PassSaleLite | undefined): string {
+  if (!s) return '판매 전'
+  if (s.state === 'upcoming') return `${whenKst(s.opens_at)} 판매 시작`
+  if (s.state === 'closed' || s.sold >= s.capacity) return '판매 마감'
+  return `판매 중 · 남은 자리 ${s.capacity - s.sold}`
 }
 
 const QUICK = [10_000, 30_000, 50_000, 100_000]
@@ -52,14 +71,16 @@ const mon = (m: string) => `${Number(m.slice(5, 7))}월`
 
 // ── 티켓 그림 ────────────────────────────────────────────────
 /** 정규권 — 검정 바탕 + 금색 테두리·왕관(비정규보다 고급스럽게, 2026-11-09 운영진) */
-function RegularPassCard({ month, owned, onBuy }: { month: string; owned: boolean; onBuy?: () => void }) {
+function RegularPassCard({ month, owned, onBuy, sale }: { month: string; owned: boolean; onBuy?: () => void; sale?: PassSaleLite }) {
   if (!owned) {
+    // 정규권은 운영진이 판매를 열 때만(2026-11-10) — 판매 중일 때만 누를 수 있다
+    const open = sale?.state === 'open' && sale.sold < sale.capacity
     return (
-      <button type="button" onClick={onBuy}
-        className="mm-press flex flex-col items-start justify-between p-3 min-h-[84px] text-left"
-        style={{ border: '1.5px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', color: 'var(--mm-muted)' }}>
+      <button type="button" onClick={open ? onBuy : undefined} disabled={!open}
+        className="mm-press flex flex-col items-start justify-between p-3 min-h-[84px] text-left disabled:cursor-default"
+        style={{ border: `1.5px dashed ${open ? GOLD : 'var(--mm-rule)'}`, borderRadius: 'var(--mm-radius-card)', color: 'var(--mm-muted)' }}>
         <span className="inline-flex items-center gap-1 text-xs font-bold"><Crown size={14} aria-hidden />{mon(month)} 정규권</span>
-        <span className="text-sm font-black" style={{ color: 'var(--mm-ink-soft)' }}>없음 · 사기</span>
+        <span className="text-sm font-black break-keep" style={{ color: open ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>{open ? `${saleLine(sale)} · 사기` : saleLine(sale)}</span>
       </button>
     )
   }
@@ -240,6 +261,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   const [refundAccount, setRefundAccount] = useState('')
   const [busy, setBusy] = useState(false)
   const [otherName, setOtherName] = useState(false)
+  const [useDiscount, setUseDiscount] = useState(true)
 
   const api = `/api/leagues/${leagueId}/wallet`
   const load = useCallback(async () => {
@@ -267,6 +289,13 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   const name = data.name ?? '월렛'
   const rules = data.rules
   const months = data.months ?? []
+  const sales = data.pass_sales ?? []
+  const saleOf = (m: string) => sales.find(x => x.month === m)
+  const ownedMonthsPre = new Set((me?.tickets ?? []).filter(t => t.kind === 'regular_pass' && (t.status === 'active' || t.status === 'used')).map(t => t.month))
+  /** 지금 살 수 있는 달 — 판매 중 · 자리 있음 · 아직 없음 */
+  const openMonths = sales.filter(x => x.state === 'open' && x.sold < x.capacity && !ownedMonthsPre.has(x.month)).map(x => x.month)
+  // 판매 중인 달이 이번 달·다음 달 밖이면(드묾) 카드 칸에 더한다
+  const cardMonths = [...new Set([...months, ...openMonths])].sort()
   const pending = me?.requests.find(r => r.status === 'pending') ?? null
   const activeTickets = me?.tickets.filter(t => t.status === 'active') ?? []
   const nonRegularLeft = activeTickets.filter(t => t.kind === 'non_regular').length
@@ -275,9 +304,11 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   const previewBonus = bonusOf(typedAmount, rules)
   const regPrice = rules?.regular_pass_price ?? 0
   const nrPrice = rules?.non_regular_price ?? 0
-  const buyPrice = buyKind === 'regular_pass' ? regPrice : nrPrice * qty
+  // 남은 비정규 티켓으로 정규권 할인(2026-11-10 운영진) — 장당 비정규 값, 정규권 값을 넘지 않게
+  const discountN = buyKind === 'regular_pass' && useDiscount && nrPrice > 0 ? Math.min(nonRegularLeft, Math.floor(regPrice / nrPrice)) : 0
+  const buyPrice = buyKind === 'regular_pass' ? regPrice - discountN * nrPrice : nrPrice * qty
   const afterBuy = (me?.balance ?? 0) - buyPrice
-  const buyable = buyKind === 'regular_pass' ? !!buyMonth && !ownedMonths.has(buyMonth) : qty >= 1
+  const buyable = buyKind === 'regular_pass' ? !!buyMonth && openMonths.includes(buyMonth) : qty >= 1
 
   async function post(body: Record<string, unknown>, ok: string): Promise<boolean> {
     setBusy(true)
@@ -301,9 +332,21 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   }
 
   async function submitBuy() {
-    const ok = buyKind === 'regular_pass'
-      ? await post({ action: 'buy', kind: 'regular_pass', month: buyMonth }, `${monthLabel(buyMonth!)} 정규권을 샀어요`)
-      : await post({ action: 'buy', kind: 'non_regular', qty }, `비정규 티켓 ${qty}장을 샀어요`)
+    if (buyKind === 'regular_pass') {
+      setBusy(true)
+      try {
+        const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'buy', kind: 'regular_pass', month: buyMonth, useTickets: discountN }) })
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok) { toast.error(j.error ?? '사지 못했어요'); await load(); return }
+        // 전 달 정규였으면 같은 팀으로 자동 배정(서버) — 결과를 그대로 알린다
+        const team = j.team_name ? (j.assigned === 'auto' ? `지난달처럼 ${j.team_name}팀이에요` : `${j.team_name}팀이에요`) : '팀은 운영진이 정해요'
+        toast.success(`${monthLabel(buyMonth!)} 정규권을 샀어요 — ${team}`)
+        await load()
+        setSheet(null)
+      } finally { setBusy(false) }
+      return
+    }
+    const ok = await post({ action: 'buy', kind: 'non_regular', qty }, `비정규 티켓 ${qty}장을 샀어요`)
     if (ok) { setQty(1); setSheet(null) }
   }
 
@@ -337,7 +380,8 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
 
   function openBuy(kind: 'regular_pass' | 'non_regular', month?: string) {
     setBuyKind(kind)
-    setBuyMonth(month ?? months.find(m => !ownedMonths.has(m)) ?? null)
+    setBuyMonth(month ?? openMonths[0] ?? null)
+    setUseDiscount(true)
     setSheet('buy')
   }
 
@@ -396,13 +440,13 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
             <SectionCard variant="standalone">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>내 티켓</h3>
-                <button type="button" onClick={() => openBuy(months.some(m => !ownedMonths.has(m)) ? 'regular_pass' : 'non_regular')}
+                <button type="button" onClick={() => openBuy(openMonths.length > 0 ? 'regular_pass' : 'non_regular')}
                   className="mm-press min-h-9 px-3 text-sm font-black inline-flex items-center gap-1" style={BTN_PRIMARY}>
                   <Plus size={15} aria-hidden />티켓 사기
                 </button>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                {months.map(m => <RegularPassCard key={m} month={m} owned={ownedMonths.has(m)} onBuy={() => openBuy('regular_pass', m)} />)}
+                {cardMonths.map(m => <RegularPassCard key={m} month={m} owned={ownedMonths.has(m)} sale={saleOf(m)} onBuy={() => openBuy('regular_pass', m)} />)}
               </div>
               <button type="button" onClick={() => openBuy('non_regular')}
                 className="mm-press mt-2 w-full flex items-center justify-between gap-2 p-3 text-left"
@@ -435,7 +479,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
       <Sheet open={sheet === 'buy'} onClose={() => setSheet(null)} title="티켓 사기" width="md">
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="티켓 종류">
-            <button type="button" role="radio" aria-checked={buyKind === 'regular_pass'} onClick={() => { setBuyKind('regular_pass'); if (!buyMonth) setBuyMonth(months.find(m => !ownedMonths.has(m)) ?? null) }}
+            <button type="button" role="radio" aria-checked={buyKind === 'regular_pass'} onClick={() => { setBuyKind('regular_pass'); if (!buyMonth || !openMonths.includes(buyMonth)) setBuyMonth(openMonths[0] ?? null) }}
               className="mm-press p-3 text-left"
               style={buyKind === 'regular_pass'
                 ? { background: 'linear-gradient(135deg, #141414, #3b3115)', border: `2px solid ${GOLD}`, color: '#fff', borderRadius: 'var(--mm-radius-card)' }
@@ -456,20 +500,36 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
           </div>
 
           {buyKind === 'regular_pass' ? (
-            <div>
-              <div className="text-sm font-bold mb-1" style={{ color: 'var(--mm-ink)' }}>어느 달?</div>
+            openMonths.length === 0 ? (
+              <div className="p-3 text-sm break-keep space-y-0.5" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}>
+                <div className="font-bold" style={{ color: 'var(--mm-ink)' }}>지금은 정규권을 팔지 않아요</div>
+                <div>운영진이 판매를 열면 살 수 있어요.</div>
+                {sales.filter(x => x.state === 'upcoming').map(x => <div key={x.month}>{mon(x.month)} 정규권 · {whenKst(x.opens_at)} 판매 시작</div>)}
+              </div>
+            ) : (
+            <div className="space-y-2">
+              <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>어느 달?</div>
               <div className="grid grid-cols-2 gap-2">
-                {months.map(m => {
-                  const owned = ownedMonths.has(m)
+                {openMonths.map(m => {
+                  const sl = saleOf(m)!
                   return (
-                    <button key={m} type="button" disabled={owned} onClick={() => setBuyMonth(m)} aria-pressed={buyMonth === m}
-                      className="mm-press min-h-11 px-3 text-sm font-bold border disabled:opacity-50" style={chip(buyMonth === m && !owned)}>
-                      {monthLabel(m)}{owned ? ' · 있음' : ''}
+                    <button key={m} type="button" onClick={() => setBuyMonth(m)} aria-pressed={buyMonth === m}
+                      className="mm-press min-h-11 px-3 py-1.5 text-sm font-bold border text-left" style={chip(buyMonth === m)}>
+                      <span className="block">{monthLabel(m)}</span>
+                      <span className="block text-xs font-bold break-keep" style={{ opacity: 0.8 }}>남은 자리 {sl.capacity - sl.sold}/{sl.capacity}</span>
                     </button>
                   )
                 })}
               </div>
+              {buyMonth && saleOf(buyMonth) && <p className="text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>{whenKst(saleOf(buyMonth)!.closes_at)} 마감 · 선착순</p>}
+              {nonRegularLeft > 0 && nrPrice > 0 && (
+                <label className="flex items-center gap-2 min-h-11 px-3 text-sm font-bold cursor-pointer" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
+                  <input type="checkbox" checked={useDiscount} onChange={e => setUseDiscount(e.target.checked)} className="w-4 h-4" />
+                  <span className="break-keep">남은 비정규 티켓 {Math.min(nonRegularLeft, Math.floor(regPrice / nrPrice))}장으로 할인</span>
+                </label>
+              )}
             </div>
+            )
           ) : (
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>몇 장?</span>
@@ -483,13 +543,14 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
 
           <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-sm p-3" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-ctl)' }}>
             <dt style={{ color: 'var(--mm-ink-soft)' }}>내 포인트</dt><dd className="text-right tabular-nums" style={{ color: 'var(--mm-ink)' }}>{fmtP(me?.balance ?? 0)}</dd>
+            {discountN > 0 && <><dt style={{ color: 'var(--mm-ink-soft)' }}>티켓 할인 ({discountN}장)</dt><dd className="text-right tabular-nums" style={{ color: GREEN }}>−{fmtP(discountN * nrPrice)}</dd></>}
             <dt style={{ color: 'var(--mm-ink-soft)' }}>쓸 포인트</dt><dd className="text-right tabular-nums font-bold" style={{ color: 'var(--mm-ink)' }}>−{fmtP(buyPrice)}</dd>
             <dt className="font-bold" style={{ color: 'var(--mm-ink)' }}>남는 포인트</dt>
             <dd className="text-right tabular-nums font-black" style={{ color: afterBuy < 0 ? 'var(--mm-live-bg)' : 'var(--mm-ink)' }}>{fmtP(afterBuy)}</dd>
           </dl>
           {buyKind === 'non_regular' && <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>한 달에 2번 이상 나온다면 정규권을 추천해요.</p>}
 
-          {afterBuy < 0 ? (
+          {buyKind === 'regular_pass' && openMonths.length === 0 ? null : afterBuy < 0 ? (
             <button type="button" onClick={() => setSheet('charge')} className="mm-press w-full min-h-12 font-black" style={BTN_PRIMARY}>
               포인트가 {fmtP(-afterBuy)} 모자라요 · 충전하기
             </button>

@@ -9,15 +9,15 @@ import { toast } from 'sonner'
 import { Copy } from 'lucide-react'
 import { fmtWhen } from './walletParts'
 
-type Ev = { id: string; raw_text: string; amount: number | null; status: 'matched' | 'unmatched' | 'ambiguous' | 'ignored' | 'charged' | 'guest_fee'; created_at: string; note?: string | null; name: string | null }
+type Ev = { id: string; raw_text: string; amount: number | null; status: 'matched' | 'unmatched' | 'ambiguous' | 'ignored' | 'charged' | 'guest_fee'; created_at: string; note?: string | null; name: string | null; resolved_at?: string | null }
 type State = { ready: boolean; connected?: boolean; created_at?: string | null; last_used_at?: string | null; events?: Ev[] }
 
 const STATUS: Record<Ev['status'], { t: string; c: string }> = {
   matched: { t: '요청 자동 승인', c: '#059669' },
   charged: { t: '입금 자동 충전', c: '#059669' },
   guest_fee: { t: '게스트비 확인', c: '#059669' },
-  unmatched: { t: '짝 없음', c: 'var(--mm-live-bg)' },
-  ambiguous: { t: '여러 명 — 손으로', c: 'var(--mm-live-bg)' },
+  unmatched: { t: '매칭 불가', c: 'var(--mm-live-bg)' },
+  ambiguous: { t: '매칭 불가(여러 명)', c: 'var(--mm-live-bg)' },
   ignored: { t: '입금 아님·중복', c: 'var(--mm-muted)' },
 }
 
@@ -26,11 +26,15 @@ async function copy(text: string, what: string) {
   catch { toast.error('복사하지 못했어요') }
 }
 
-export default function BankAutoBox({ leagueId }: { leagueId: string }) {
+type Member = { player_id: string; name: string }
+
+export default function BankAutoBox({ leagueId, members = [], onCharged }: { leagueId: string; members?: Member[]; onCharged?: () => void }) {
   const api = `/api/leagues/${leagueId}/wallet/admin`
   const [st, setSt] = useState<State | null>(null)
   const [issued, setIssued] = useState<{ token: string; url: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [pick, setPick] = useState<Record<string, string>>({})
+  const [open, setOpen] = useState(false)
 
   const load = useCallback(async () => {
     const r = await fetch(`${api}?bank=1`, { cache: 'no-store' }).catch(() => null)
@@ -52,23 +56,48 @@ export default function BankAutoBox({ leagueId }: { leagueId: string }) {
     } finally { setBusy(false) }
   }
 
+  // 「입금 매칭 불가」 — 누구 돈인지 골라 충전하거나, 확인만 하고 알림에서 뺀다(2026-11-10 운영진)
+  async function resolve(e: Ev, playerId?: string) {
+    if (playerId) {
+      const who = members.find(m => m.player_id === playerId)?.name ?? ''
+      if (!confirm(`${(e.amount ?? 0).toLocaleString()}원을 ${who} 님 포인트로 충전할까요? (5만원 이상이면 보너스도)`)) return
+    } else if (!confirm('충전하지 않고 「확인했어요」로 넘길까요? 어드민 홈 알림에서 빠져요.')) return
+    setBusy(true)
+    try {
+      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'bank_resolve', eventId: e.id, playerId }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { toast.error(j.error ?? '처리하지 못했어요'); return }
+      toast.success(playerId ? `${j.name} 님에게 충전했어요` : '확인했어요')
+      await load()
+      if (playerId) onCharged?.()
+    } finally { setBusy(false) }
+  }
+
+  // 어드민 홈 「입금 매칭 불가」를 누르고 들어오면(#bank) 펼쳐 둔다
+  useEffect(() => { if (typeof window !== 'undefined' && window.location.hash === '#bank') setOpen(true) }, [])
+  useEffect(() => {
+    if (st?.ready && typeof window !== 'undefined' && window.location.hash === '#bank') document.getElementById('bank')?.scrollIntoView({ block: 'start' })
+  }, [st?.ready])
+
   if (!st?.ready) return null
+  const unresolved = (st.events ?? []).filter(e => (e.status === 'unmatched' || e.status === 'ambiguous') && e.amount && !e.resolved_at)
   const btn = 'mm-press inline-flex items-center gap-1 min-h-10 px-3 text-sm font-bold'
 
   return (
-    <details className="mt-1">
-      <summary className="cursor-pointer font-black text-lg min-h-11 flex items-center gap-2" style={{ color: 'var(--mm-ink)' }}>
+    <details id="bank" className="mt-1 scroll-mt-20 break-keep" open={open} onToggle={e => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary className="cursor-pointer font-black text-lg min-h-11 flex flex-wrap items-center gap-2" style={{ color: 'var(--mm-ink)' }}>
         카카오뱅크 입금 자동 승인
-        <span className="text-xs font-bold px-1.5" style={{ color: st.connected ? '#059669' : 'var(--mm-muted)', border: '1px solid currentColor', borderRadius: 'var(--mm-radius-chip)' }}>
+        <span className="text-xs font-bold px-1.5 whitespace-nowrap" style={{ color: st.connected ? '#059669' : 'var(--mm-muted)', border: '1px solid currentColor', borderRadius: 'var(--mm-radius-chip)' }}>
           {st.connected ? '켜짐' : '꺼짐'}
         </span>
+        {unresolved.length > 0 && <span className="text-xs font-black px-1.5 whitespace-nowrap" style={{ background: 'var(--mm-live-bg)', color: '#fff', borderRadius: 'var(--mm-radius-chip)' }}>매칭 불가 {unresolved.length}</span>}
       </summary>
       <div className="mt-2 space-y-3 text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
         <p>
           모임통장 입금 알림을 온볼이 받아 저절로 처리해요(보너스 포함). 순서: ① 이름·금액이 딱 맞는 충전 요청 승인 →
           ② 통장으로 낼 게스트비를 기다리는 게스트(게스트 본인 이름이나 부른 회원 이름으로 보낸 돈)면 「게스트비 입금 확인」 →
           ③ <b style={{ color: 'var(--mm-ink)' }}>보낸 사람 이름이 명단의 한 사람과 같으면 요청 없이 그 사람 포인트로 충전</b>.
-          이름이 명단에 없거나 겹치면 「짝 없음」으로 남아 손으로 처리해요.
+          이름이 명단에 없거나 겹치면 「입금 매칭 불가」로 남아요 — 아래에서 회원을 골라 충전해요.
         </p>
         {st.connected && (
           <p>
@@ -108,6 +137,31 @@ export default function BankAutoBox({ leagueId }: { leagueId: string }) {
             </button>
           )}
         </div>
+
+        {unresolved.length > 0 && (
+          <div className="p-3 space-y-2" style={{ border: '2px solid var(--mm-live-bg)', borderRadius: 'var(--mm-radius-card)' }}>
+            <b className="block" style={{ color: 'var(--mm-ink)' }}>입금 매칭 불가 {unresolved.length}건 — 누구 돈인지 골라 주세요</b>
+            <ul className="space-y-2">
+              {unresolved.map(e => (
+                <li key={e.id} className="pt-2 first:pt-0 break-keep" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                  <div style={{ color: 'var(--mm-ink)' }}><b className="tabular-nums">{(e.amount ?? 0).toLocaleString()}원</b> · <span className="[overflow-wrap:anywhere]">{e.raw_text}</span></div>
+                  <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{fmtWhen(e.created_at)}</div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <select value={pick[e.id] ?? ''} onChange={x => setPick(p => ({ ...p, [e.id]: x.target.value }))}
+                      className="min-h-10 px-2 border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-sm" aria-label="충전할 회원">
+                      <option value="">회원 고르기</option>
+                      {[...members].sort((a, b) => a.name.localeCompare(b.name, 'ko')).map(m => <option key={m.player_id} value={m.player_id}>{m.name}</option>)}
+                    </select>
+                    <button type="button" disabled={busy || !pick[e.id]} onClick={() => resolve(e, pick[e.id])} className={`${btn} disabled:opacity-50`}
+                      style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}>이 회원에게 충전</button>
+                    <button type="button" disabled={busy} onClick={() => resolve(e)} className={`${btn} border disabled:opacity-50`}
+                      style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>확인했어요(충전 안 함)</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {(st.events?.length ?? 0) > 0 && (
           <div>
