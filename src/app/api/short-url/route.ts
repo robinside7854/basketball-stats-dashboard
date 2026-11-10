@@ -85,7 +85,9 @@ export async function POST(req: Request) {
     // 외부 주소인지 형식 오류인지 구분해서 알려주지 않는다 — 공격자에게 탐색 힌트가 된다.
     return NextResponse.json({ error: '유효하지 않은 target' }, { status: 400 })
   }
-  const meta = (b.meta && typeof b.meta === 'object') ? b.meta : null
+  // 무인증 주소라 meta 크기를 2KB 로 묶는다(2026-11-10 리뷰 — 아무 크기나 저장할 수 있었다). 넘으면 meta 없이 저장.
+  const rawMeta = (b.meta && typeof b.meta === 'object') ? b.meta : null
+  const meta = rawMeta && JSON.stringify(rawMeta).length <= 2048 ? rawMeta : null
 
   const supabase = createClient()
 

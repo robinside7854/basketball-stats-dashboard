@@ -17,8 +17,12 @@ export async function POST(
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'file is required' }, { status: 400 })
 
+  // 사진 파일만 · 10MB 이하(2026-11-10 리뷰 — 형식·크기를 보지 않았다). 확장자는 파일 이름이 아니라 형식으로 정한다.
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) || file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: '사진 파일(jpg·png·webp·heic)만, 10MB 이하로 올려 주세요' }, { status: 400 })
+  }
   const supabase = createClient()
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : file.type.startsWith('image/hei') ? 'heic' : 'jpg'
   const path = `league_${leagueId}_${playerId}.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()

@@ -33,6 +33,7 @@
 //   - unassigned_players : unassignedQuarterId 기간 /stats 행 중 어느 정체성에도 없는 선수(「비정규 선수」 칸)
 //   - games : 위 승패를 센 경기 집합(마감 정규전) — 승패 흐름 · 팀 평균의 분모
 
+import { makeIdentityResolver } from '@/lib/stats/teamIdentity'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewLeague } from '@/lib/auth/guard'
@@ -118,22 +119,10 @@ export async function GET(
   const overrides = (overridesRaw ?? []) as OverrideRow[]
   const quarters = (quartersRaw ?? []) as QuarterRow[]
 
-  const baseTeam = new Map(teams.map(t => [t.id, t]))
-  const overrideMap = new Map<string, Map<string, { name?: string; color?: string }>>()
-  for (const o of overrides) {
-    if (!overrideMap.has(o.quarter_id)) overrideMap.set(o.quarter_id, new Map())
-    overrideMap.get(o.quarter_id)!.set(o.team_id, { name: o.name ?? undefined, color: o.color ?? undefined })
-  }
+  // 팀 이름·색 판정은 정본 makeIdentityResolver(lib/stats/teamIdentity.ts) 한 벌 — 여기서 다시 만들지 않는다(2026-11-10 리뷰)
+  const resolveRaw = makeIdentityResolver(teams, overrides)
+  const resolveIdentity = (team_id: string, quarterIdArg: string | null | undefined) => resolveRaw(team_id, quarterIdArg ?? null)
   const quarterMap = new Map(quarters.map(q => [q.id, q]))
-
-  const resolveIdentity = (team_id: string, quarterIdArg: string | null | undefined): { key: string; team_id: string; display_name: string; color: string } | null => {
-    const base = baseTeam.get(team_id)
-    if (!base) return null
-    const ov = quarterIdArg ? overrideMap.get(quarterIdArg)?.get(team_id) : undefined
-    const name = ov?.name ?? base.name
-    const color = ov?.color ?? base.color ?? '#9ca3af'
-    return { key: `${team_id}::${name}`, team_id, display_name: name, color }
-  }
 
   // 1) 활성 정체성 그룹 계산 — (team_id × quarter) 조합 → 정체성 key
   const identityGroups = new Map<string, TeamIdentity>()

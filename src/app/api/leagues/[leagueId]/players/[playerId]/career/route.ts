@@ -47,8 +47,10 @@ export async function GET(
   // 이 팀의 묶음 목록(리그 시즌·대회). ⚠ 스탯을 묶음끼리 더하는 데 쓰지 말 것 — 리그끼리만 더한다(아래).
   const competitions = await fetchTeamCompetitions(leagueId)
 
+  // (2026-11-10 리뷰) 선수 카드는 「대회 기록」만 그린다(리그 통산 블록은 R6 에서 뺐다) — 리그 묶음은 읽지 않는다.
+  //   묶음마다 캐시를 한 번씩 읽어 카드를 열 때마다 ISR Reads 가 늘었다. 리그 줄이 다시 필요해지면 이 거르기를 푼다.
   const lines = await Promise.all(
-    competitions.map(async (c): Promise<CompetitionLine | null> => {
+    competitions.filter(c => c.mode === 'tournament').map(async (c): Promise<CompetitionLine | null> => {
       const { line } = await playerPeriodLine(c.id, playerId, 'all')
       if (!line || line.gp === 0) return null // 이 묶음엔 기록이 없다
       return {

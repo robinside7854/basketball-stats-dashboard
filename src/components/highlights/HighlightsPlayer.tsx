@@ -32,6 +32,7 @@
 //   (2026-11-05) `autoAdvance` — 게임 로그 플레이 뷰어의 「자동 넘김」 스위치 전용(기본 false = 위 동작 그대로).
 //     켜져 있으면 위 「한 번 멈춤」 자리에서 멈추는 대신 다음 클립으로 넘어간다. 같은 감시라 끝 지점을
 //     재생으로 자연스럽게 지날 때 클립당 한 번뿐 — 중간에 ▶ 를 눌러도 다시 멈추거나 튕기지 않는다(7/15 문제 없음).
+import { whenYouTubeReady, preloadYouTubeIframeApi } from '@/lib/youtube/iframeApi'
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
 import { Play, SkipBack, SkipForward, HeartCrack, RotateCcw } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
@@ -95,14 +96,7 @@ const ROTATE_HINT_KEY = 'highlights:immersiveRotateHint'
 const YT_API_SRC = 'https://www.youtube.com/iframe_api'
 
 /** iframe_api 스크립트를 한 번만 붙인다 — 포스터에 손이 닿을 때 미리 부르고, 재생기를 만들 때 다시 불러도 안전 */
-function preloadYouTubeApi() {
-  if (typeof document === 'undefined') return
-  if (window.YT && window.YT.Player) return
-  if (document.querySelector(`script[src="${YT_API_SRC}"]`)) return
-  const tag = document.createElement('script')
-  tag.src = YT_API_SRC
-  document.head.appendChild(tag)
-}
+const preloadYouTubeApi = preloadYouTubeIframeApi
 
 export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange, immersiveOnly = false, autoAdvance = false }: Props) {
   // 플레이어 콜백은 1회 생성이라 ref 로 읽는다 (마운트 동안 바뀌지 않는 값이지만 규칙을 맞춘다)
@@ -131,12 +125,14 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   //   · 영상을 바꿔 불러온 뒤 8초 안에 재생이 안 되거나 · 오류가 오면 → 한 번 새로 만든다
   //   · 같은 클립에서 두 번은 하지 않는다(진짜로 막힌 영상이면 무한 반복이 된다)
   const [rebuildKey, setRebuildKey] = useState(0)
-  const rebuiltForIdxRef = useRef<number | null>(null)
+  // 클립 번호가 아니라 기록 번호로 기억한다(2026-11-10 리뷰 — 필터를 바꾸면 같은 번호가 다른 클립이라 다시 만들기를 못 받았다)
+  const rebuiltForIdxRef = useRef<string | null>(null)
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rebuildPlayer = useCallback(() => {
-    const idx = currentIdxRef.current
-    if (rebuiltForIdxRef.current === idx) return
-    rebuiltForIdxRef.current = idx
+    const c = clipsRef.current[currentIdxRef.current]
+    const key = c ? String(c.event_id) : `idx:${currentIdxRef.current}`
+    if (rebuiltForIdxRef.current === key) return
+    rebuiltForIdxRef.current = key
     autoplayOnCreateRef.current = true
     setRebuildKey(k => k + 1)
   }, [])
@@ -315,14 +311,11 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       })
     }
 
-    if (window.YT && window.YT.Player) initPlayer()
-    else {
-      // 콜백을 먼저 걸고 스크립트를 붙인다(미리 받아 둔 스크립트가 이미 돌고 있어도 준비 완료 때 불린다)
-      window.onYouTubeIframeAPIReady = initPlayer
-      preloadYouTubeApi()
-    }
+    // 준비 기다리기는 공용(lib/youtube/iframeApi.ts) — 다른 재생기의 기다림을 덮어쓰지 않는다
+    const cancelWait = whenYouTubeReady(initPlayer)
 
     return () => {
+      cancelWait()
       if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null }
       readyRef.current = false
       currentVideoIdRef.current = null

@@ -187,10 +187,6 @@ export async function PATCH(
 
   const supabase = createClient()
 
-  if (is_current) {
-    await supabase.from('league_quarters').update({ is_current: false }).eq('league_id', leagueId)
-  }
-
   const update: Record<string, unknown> = {}
   if (start_date !== undefined) update.start_date = start_date || null
   if (end_date !== undefined)   update.end_date   = end_date   || null
@@ -242,6 +238,11 @@ export async function PATCH(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // 「현재」 깃발은 이 분기를 저장한 **뒤에** 다른 분기에서 내린다(2026-11-10 리뷰 — 종전엔 먼저 다 내리고 시작해,
+  //   입력이 틀려 400 으로 끝나면 「현재 분기」가 하나도 없는 채로 남았다).
+  if (is_current) {
+    await supabase.from('league_quarters').update({ is_current: false }).eq('league_id', leagueId).neq('id', quarterId)
+  }
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')

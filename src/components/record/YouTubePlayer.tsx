@@ -1,4 +1,5 @@
 'use client'
+import { whenYouTubeReady } from '@/lib/youtube/iframeApi'
 import { useEffect, useRef } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { extractYouTubeId } from '@/lib/youtube/utils'
@@ -44,16 +45,10 @@ export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Pro
       })
     }
 
-    if (window.YT && window.YT.Player) {
-      initPlayer()
-    } else {
-      const tag = document.createElement('script')
-      tag.src = 'https://www.youtube.com/iframe_api'
-      document.head.appendChild(tag)
-      window.onYouTubeIframeAPIReady = initPlayer
-    }
+    const cancelWait = whenYouTubeReady(initPlayer)   // 공용 기다리기(다른 재생기와 덮어쓰지 않게)
 
     return () => {
+      cancelWait()
       if (ytPlayerRef.current) {
         try { ytPlayerRef.current.destroy() } catch { /* ignore */ }
         ytPlayerRef.current = null
