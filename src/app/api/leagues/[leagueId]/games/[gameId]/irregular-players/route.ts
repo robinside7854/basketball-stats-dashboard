@@ -1,3 +1,4 @@
+import { scopeProblem } from '@/lib/league/scopeCheck'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
@@ -23,7 +24,7 @@ export async function POST(req: Request, { params }: Ctx) {
   // 게임 존재 확인 (날짜/홈·어웨이 팀은 더 이상 쓰지 않는다 — 같은 날짜 전파 로직 제거로 불필요해짐)
   const { data: game, error: gErr } = await supabase
     .from('league_games')
-    .select('id')
+    .select('id, home_team_id, away_team_id')
     .eq('id', gameId)
     .eq('league_id', leagueId)
     // maybeSingle: single() 은 "행 없음" 도 에러로 돌려줘서, 없는 경기와 DB 장애가
@@ -38,6 +39,14 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!game) {
     return NextResponse.json({ error: '게임을 찾을 수 없습니다' }, { status: 404 })
   }
+  // 팀은 이 경기의 두 팀 중 하나, 선수는 이 리그 명단이어야 한다(2026-11-10 리뷰 — 엉뚱한 팀·다른 리그 선수가 배정돼
+  //   박스스코어 팀 판정이 틀어질 수 있었다)
+  const g = game as { home_team_id: string | null; away_team_id: string | null }
+  if (team_id !== g.home_team_id && team_id !== g.away_team_id) {
+    return NextResponse.json({ error: '이 경기에 나오는 팀이 아니에요' }, { status: 400 })
+  }
+  const scopeErr = await scopeProblem(supabase, leagueId, { playerIds: [league_player_id] })
+  if (scopeErr) return NextResponse.json({ error: scopeErr }, { status: 400 })
 
   // 이 경기에만 배정.
   //   (2026-08-08 사고: 여기서 "같은 날짜·같은 팀의 다른 경기에도 자동 배정"하는 로직이

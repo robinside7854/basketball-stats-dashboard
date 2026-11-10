@@ -731,12 +731,23 @@ export async function PATCH(
   if ('home_team_id' in patch || 'away_team_id' in patch || 'is_exhibition' in patch) {
     const { data: game, error: gErr } = await supabase
       .from('league_games')
-      .select('date, is_exhibition, home_team_id, away_team_id')
+      .select('date, is_exhibition, home_team_id, away_team_id, is_started, is_complete')
       .eq('id', gameId)
       .eq('league_id', leagueId)
       .maybeSingle()
     if (gErr) return NextResponse.json({ error: '경기를 확인하지 못했습니다' }, { status: 500 })
     if (!game) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    // 기록이 시작·마감된 경기의 팀은 여기서 바꾸지 않는다(2026-11-10 리뷰) — 팀만 바뀌면 기록의 team_id 가
+    //   무관한 팀을 가리켜 그 선수들이 박스스코어에서 사라진다. 기록까지 함께 옮기는 reassign-teams 로.
+    const teamChanged = ('home_team_id' in patch && patch.home_team_id !== game.home_team_id)
+      || ('away_team_id' in patch && patch.away_team_id !== game.away_team_id)
+    if (teamChanged) {
+      const { count: evCount } = await supabase.from('league_game_events').select('id', { count: 'exact', head: true }).eq('league_game_id', gameId)
+      if (game.is_started || game.is_complete || (evCount ?? 0) > 0) {
+        return NextResponse.json({ error: '기록이 시작된 경기예요 — 기록 화면에서 팀을 다시 저장해 주세요(기록도 함께 옮겨요)' }, { status: 409 })
+      }
+    }
 
     const nextHome = ('home_team_id' in patch ? patch.home_team_id : game.home_team_id) as string | null
     const nextAway = ('away_team_id' in patch ? patch.away_team_id : game.away_team_id) as string | null

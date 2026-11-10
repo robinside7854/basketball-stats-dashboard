@@ -176,6 +176,19 @@ export default function LeagueEventInputPad({
   const [blockCtx, setBlockCtx] = useState<{ shooterId: string; ts: number } | null>(null)
   const [blockedById, setBlockedById] = useState<string | null>(null)   // 이 피커에서 고른 블로커(표시용)
   const [lastBlockId, setLastBlockId] = useState<string | null>(null)   // 슛 취소 때 같이 지운다
+  // 스틸과 짝지은 턴오버 — 스틸을 「↩ 취소」하면 같이 지운다(2026-11-10 리뷰: 턴오버만 남았다)
+  const [lastTovId, setLastTovId] = useState<string | null>(null)
+  // 스틸 저장이 끝나면 실제 번호를 주는 약속 — 저장 전에 턴오버를 골라도 짝지을 수 있게
+  const stlSaveRef = useRef<Promise<string | null> | null>(null)
+  // 같은 버튼 연타(폰에서 손가락이 두 번 닿음)로 같은 기록이 두 번 저장되지 않게
+  const lastTapRef = useRef<{ key: string; at: number } | null>(null)
+  const busyRef = useRef(false)
+  function isDoubleTap(key: string): boolean {
+    const now = Date.now()
+    const prev = lastTapRef.current
+    lastTapRef.current = { key, at: now }
+    return !!prev && prev.key === key && now - prev.at < 700
+  }
   const [blockKeyMode, setBlockKeyMode] = useState(false)               // PC: B 누른 뒤 숫자 = 블로커
   // 영상 시각은 **첫 터치** 순간에 잡는다(2026-11-03). 어시스트·턴오버 짝을 고르는 동안 영상이 흘러
   //   저장 시각이 장면보다 몇 초 뒤로 밀리던 것을 막는다. 리바운드는 제 장면이 따로 있어 제 순간을 쓴다.
@@ -324,6 +337,7 @@ export default function LeagueEventInputPad({
   function saveShot(result: 'made' | 'missed', assistId?: string, shotArg?: EventBtn, tsArg?: number | null) {
     const shot = shotArg ?? pendingShot
     if (!selectedPlayer || !shot) return
+    if (isDoubleTap(`shot:${selectedPlayer}:${shot.type}:${result}:${assistId ?? ''}`)) return
     const ts = tsArg ?? pendingTs ?? getCurrentTimestamp()
     setPendingTs(null)
     const body = {
@@ -343,6 +357,7 @@ export default function LeagueEventInputPad({
     setLastEvent({ id: tempId, type: shotType, result, playerId: selectedPlayer, label: lbl })
     setLastReboundId(null)
     setLastBlockId(null)
+    setLastTovId(null)
     setLastEventPending(true)
     toast.success(`기록: ${lbl}`)
     setAwaitingAssist(false)
@@ -394,19 +409,25 @@ export default function LeagueEventInputPad({
         team_id: p?.team_id ?? null, result: null, related_player_id: null,
       })
       if (id) {
+        setLastTovId(id)
         toast.success(`기록: ${p?.name ?? ''} — 턴오버 (스틸 연결)`)
         onEventSaved('turnover')
       }
       // STL 이벤트에 TOV 선수 ID 연결 (스틸-턴오버 관계 분석용)
-      if (lastStlEventId) {
-        fetch(`/api/leagues/${leagueId}/events/${lastStlEventId}`, {
+      //   스틸이 아직 저장 중(임시 번호)이면 저장이 끝나 실제 번호가 나올 때까지 기다린다(2026-11-10 — 종전엔 조용히 404)
+      let stlId = lastStlEventId
+      if (stlId?.startsWith('opt-')) stlId = stlSaveRef.current ? await stlSaveRef.current : null
+      if (stlId && !stlId.startsWith('opt-')) {
+        const pr = await fetch(`/api/leagues/${leagueId}/events/${stlId}`, {
           method: 'PATCH',
           headers: leagueHeaders,
           body: JSON.stringify({ related_player_id: tovPlayerId }),
-        }).catch(() => {})
+        }).catch(() => null)
+        if (!pr?.ok) toast.error('스틸과 턴오버를 잇지 못했어요 — 기록 내역에서 확인해 주세요')
       }
     }
     setLastStlEventId(null)
+    stlSaveRef.current = null
     setAwaitingTovPair(false)
     setStealerTeamId(null)
     setStealTs(null)
@@ -422,6 +443,7 @@ export default function LeagueEventInputPad({
       return
     }
     setRebChooser(false)
+    if (isDoubleTap(`instant:${selectedPlayer}:${btn.type}`)) return
     const isAndOne = btn.type === 'and_one'
     const body = {
       league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
@@ -435,6 +457,7 @@ export default function LeagueEventInputPad({
     setLastEvent({ id: tempId, type: btn.type, result: isAndOne ? 'made' : 'missed', playerId: selectedPlayer, label: lbl })
     setLastReboundId(null)
     setLastBlockId(null)
+    setLastTovId(null)
     setLastEventPending(true)
     toast.success(`기록: ${lbl}`)
     const POSSESSION_TYPES = new Set(['oreb', 'dreb', 'steal'])
@@ -448,8 +471,10 @@ export default function LeagueEventInputPad({
       setAwaitingTovPair(true)
     }
     // ── 백그라운드 저장 ──
-    fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify(body) })
+    const saving = fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify(body) })
       .then(r => r.ok ? r.json() : null)
+    if (btn.type === 'steal') stlSaveRef.current = saving.then(sv => (sv?.id as string | undefined) ?? null).catch(() => null)
+    saving
       .then(saved => {
         if (saved?.id) {
           setLastEvent(prev => prev?.id === tempId ? { ...prev, id: saved.id } : prev)
@@ -513,6 +538,11 @@ export default function LeagueEventInputPad({
 
   // 통합 리바운드 저장 함수 (슛 실패/블록/FT 미스 공통)
   async function doRebound(rebounderId: string | null) {
+    if (busyRef.current) return   // 리바운드 연타로 두 개 저장되던 것(2026-11-10)
+    busyRef.current = true
+    try { await doReboundInner(rebounderId) } finally { busyRef.current = false }
+  }
+  async function doReboundInner(rebounderId: string | null) {
     if (rebounderId) {
       const rebounder = allPlayers.find(p => p.id === rebounderId)
       const rebType = rebounder?.team_id === reboundShooterTeamId ? 'oreb' : 'dreb'
@@ -542,7 +572,7 @@ export default function LeagueEventInputPad({
 
   // 리바운드 피커 안 「블록」 칩 — 블록을 저장하고 피커는 그대로 둔다(이어서 리바운드를 고른다)
   async function doBlock(blockerId: string) {
-    if (!blockCtx || blockedById) return
+    if (!blockCtx || blockedById || busyRef.current) return
     const blocker = allPlayers.find(p => p.id === blockerId)
     if (!blocker) return
     setBlockedById(blockerId)
@@ -568,20 +598,20 @@ export default function LeagueEventInputPad({
       toast('저장 중 - 잠시 후 다시 시도', { icon: '⏳' })
       return
     }
-    // 슛 취소 시 연계된 리바운드·블록도 함께 삭제
-    const rebId = lastReboundId
-    if (rebId) {
-      await fetch(`/api/leagues/${leagueId}/events/${rebId}`, { method: 'DELETE', headers: leagueHeaders })
-      setLastReboundId(null)
+    // 본 기록을 먼저 지우고, 성공했을 때만 딸린 리바운드·블록·턴오버를 지운다(2026-11-10 —
+    //   종전엔 딸린 것부터 지워 본 기록 삭제가 실패하면 리바운드만 사라진 채 남았다)
+    const r = await fetch(`/api/leagues/${leagueId}/events/${lastEvent.id}`, { method: 'DELETE', headers: leagueHeaders }).catch(() => null)
+    if (!r?.ok) { toast.error('취소 실패'); return }
+    const linked: Array<[string | null, string]> = [[lastReboundId, '리바운드'], [lastBlockId, '블록'], [lastTovId, '턴오버']]
+    const done: string[] = [], failed: string[] = []
+    for (const [id, name] of linked) {
+      if (!id) continue
+      const d = await fetch(`/api/leagues/${leagueId}/events/${id}`, { method: 'DELETE', headers: leagueHeaders }).catch(() => null)
+      if (d?.ok) done.push(name); else failed.push(name)
     }
-    const blkId = lastBlockId
-    if (blkId) {
-      await fetch(`/api/leagues/${leagueId}/events/${blkId}`, { method: 'DELETE', headers: leagueHeaders })
-      setLastBlockId(null)
-    }
-    const r = await fetch(`/api/leagues/${leagueId}/events/${lastEvent.id}`, { method: 'DELETE', headers: leagueHeaders })
-    if (!r.ok) { toast.error('취소 실패'); return }
-    toast(`↩ 취소: ${lastEvent.label}${rebId ? ' + 리바운드' : ''}${blkId ? ' + 블록' : ''}`)
+    setLastReboundId(null); setLastBlockId(null); setLastTovId(null)
+    toast(`↩ 취소: ${lastEvent.label}${done.map(n => ` + ${n}`).join('')}`)
+    if (failed.length) toast.error(`${failed.join('·')}는 지우지 못했어요 — 기록 내역에서 지워 주세요`)
     const undoneType = lastEvent.type
     setLastEvent(null)
     setShowLastMenu(false)

@@ -167,10 +167,9 @@ export function useGameSession(ctx: UseGameSessionCtx) {
         headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-      if (recomputeRes.ok) {
-        const scores = await recomputeRes.json()
-        setLiveScore(scores)
-      }
+      // 점수 다시 계산이 실패하면 마감하지 않는다(2026-11-10 — 옛 점수로 마감돼 순위·승패가 틀렸다)
+      if (!recomputeRes.ok) throw new Error('점수를 다시 계산하지 못해 마감하지 않았어요. 잠시 뒤 다시 눌러 주세요.')
+      setLiveScore(await recomputeRes.json())
       const patchRes = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
         method: 'PATCH',
         headers: leagueHeaders,

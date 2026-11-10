@@ -3,6 +3,7 @@ import { loadRsvpRules, currentWindow, autoPlaceAtClose } from '@/lib/rsvp/weekl
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canViewLeague } from '@/lib/auth/guard'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
@@ -71,7 +72,8 @@ export async function GET(
     }
 
     // 3) 성공하면 game 에 자동 백필 (write-through, 이후 요청은 바로 이 값 사용)
-    if (resolvedQuarterId) {
+    //   ⚠ 보기만 하는 회원의 요청에서는 쓰지 않는다(2026-11-10 — 조회가 데이터를 바꾸지 않게). 어드민(기록원)이 열 때만.
+    if (resolvedQuarterId && await canEditLeague(req, leagueId)) {
       const { error: bfErr } = await supabase
         .from('league_games')
         .update({ quarter_id: resolvedQuarterId })
@@ -199,7 +201,8 @@ export async function GET(
         .eq('league_id', leagueId).eq('game_date', game.date).eq('answer', 'yes').is('placed_team_id', null)
       const win = currentWindow(rules)
       const closed = !win || win.gameDate !== game.date || win.phase === 'closed'
-      if ((unplacedYes.count ?? 0) > 0 && closed) await autoPlaceAtClose(supabase, leagueId, game.date)
+      // 마감 자동 배치는 어드민(기록원)이 열 때만 — 회원·방문자의 조회가 신청 데이터를 바꾸지 않게(2026-11-10)
+      if ((unplacedYes.count ?? 0) > 0 && closed && await canEditLeague(req, leagueId)) await autoPlaceAtClose(supabase, leagueId, game.date)
       const { data: rsvp } = await supabase.from('weekly_rsvp')
         .select('league_player_id, answer, placed_team_id, league_players!inner(id, name, number, position, birth_date, plus_one, is_active)')
         .eq('league_id', leagueId).eq('game_date', game.date)
@@ -279,7 +282,8 @@ export async function GET(
   //    같은 날 다른 경기로 계속 번졌다. 실제 배정은 여전히 explicit POST
   //    (irregular-players / opponent-players) 로만 확정된다 — 이 블록은 화면 편의를
   //    위해 후보를 보여줄 뿐, league_game_players 행을 만들지 않는다.)
-  if (game.date) {
+  // 친선전은 이 경기에서 직접 배정한 사람만 명단이다 — 같은 날짜 상속도 끈다(CLAUDE.md 친선전 규칙, 2026-11-10 리뷰)
+  if (game.date && !isExhibition) {
     const { data: sameDateGames, error: sdErr } = await supabase
       .from('league_games')
       .select('id, home_team_id, away_team_id')
