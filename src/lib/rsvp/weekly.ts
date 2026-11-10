@@ -204,8 +204,9 @@ export function rsvpKindLabel(k: RsvpKind): string {
  * 티켓을 쓴 배치(비정규)나 어드민이 다른 팀으로 옮긴 배치는 건드리지 않는다 — 자동 배치(placed_by_label '자동')만 푼다.
  * 돌려준 값: 배치된 팀 id(없으면 null).
  */
-export async function autoPlaceRegular(sb: SB, leagueId: string, gameDate: string, playerId: string): Promise<string | null> {
-  const board = await loadRsvpBoard(sb, leagueId, gameDate)
+export async function autoPlaceRegular(sb: SB, leagueId: string, gameDate: string, playerId: string, given?: RsvpBoard): Promise<string | null> {
+  // 이미 읽은 현황이 있으면 그걸 쓴다(같은 요청에서 다시 읽지 않게, 2026-11-10)
+  const board = given ?? await loadRsvpBoard(sb, leagueId, gameDate)
   const e = board.entries.find(x => x.player_id === playerId)
   if (!e) return null
   const now = new Date().toISOString()
@@ -234,7 +235,7 @@ export const AUTO_LABEL = '자동(이번 달 팀)'
  */
 export async function placeEntry(
   sb: SB, leagueId: string, gameDate: string, playerId: string,
-  targetTeam: string | null, actor: string, opts: { returnTicket?: boolean; label?: string; charge?: boolean; keepLabel?: boolean } = {},
+  targetTeam: string | null, actor: string, opts: { returnTicket?: boolean; label?: string; charge?: boolean; keepLabel?: boolean; kind?: RsvpKind; name?: string } = {},
 ): Promise<{ ok: true; ticket: string | null } | { ok: false; error: string; status: number }> {
   const teamId = await resolveTeamId(leagueId)
   const { data: row } = await sb.from('weekly_rsvp').select('answer, ticket_id, guest_pay, guest_payer_id, guest_fee_ledger_id')
@@ -249,8 +250,10 @@ export async function placeEntry(
   let ticketId = r.ticket_id
   let ticket: string | null = null
   if (targetTeam && charge && !ticketId) {
-    const board = await loadRsvpBoard(sb, leagueId, gameDate)
-    const e = board.entries.find(x => x.player_id === playerId)
+    // 구분을 부르는 쪽이 알면 현황을 다시 읽지 않는다(마감 정산이 사람마다 전체를 다시 읽던 것, 2026-11-10)
+    const e = opts.kind
+      ? { kind: opts.kind, name: opts.name ?? '' }
+      : (await loadRsvpBoard(sb, leagueId, gameDate)).entries.find(x => x.player_id === playerId)
     if (e?.kind === 'non_regular') {
       const use = () => sb.rpc('wallet_use_ticket', {
         p_team_id: teamId, p_player_id: playerId, p_date: gameDate, p_note: '참가 배치', p_actor: actor,
@@ -349,7 +352,7 @@ export async function autoPlaceAtClose(sb: SB, leagueId: string, gameDate: strin
   let placed = 0
   for (const e of board.entries) {
     if (e.answer !== 'yes' || e.placed_team_id || e.kind !== 'regular' || !e.suggested_team_id) continue
-    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, e.suggested_team_id, CLOSE_AUTO_LABEL)
+    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, e.suggested_team_id, CLOSE_AUTO_LABEL, { kind: e.kind, name: e.name })
     if (res.ok) placed++
   }
   return placed
@@ -422,7 +425,7 @@ export async function settleAtClose(sb: SB, leagueId: string, gameDate: string, 
     const needTicket = e.kind === 'non_regular' && !e.ticket_used
     const needFee = e.kind === 'guest' && e.guest_pay === 'points' && !e.guest_fee_charged
     if (!needTicket && !needFee) continue
-    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, e.placed_team_id, actor, { charge: true, keepLabel: true })
+    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, e.placed_team_id, actor, { charge: true, keepLabel: true, kind: e.kind, name: e.name })
     if (!res.ok) unpaid.push(e.name)
   }
   return unpaid

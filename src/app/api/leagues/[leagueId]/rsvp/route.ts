@@ -47,8 +47,9 @@ export async function GET(req: Request, { params }: Ctx) {
   // 이 기능 전에 「참」을 눌러 둔 정규 — 열어 볼 때 이번 달 팀으로 맞춘다(본인 줄만).
   const pending = session && board.entries.find(e => e.player_id === session.pid && e.answer === 'yes' && e.kind === 'regular' && !e.placed_team_id && e.suggested_team_id)
   if (pending && win?.gameDate === gameDate) {
-    await autoPlaceRegular(sb, leagueId, gameDate, session!.pid)
-    board = await loadRsvpBoard(sb, leagueId, gameDate)
+    const tid = await autoPlaceRegular(sb, leagueId, gameDate, session!.pid, board)
+    // 바뀐 건 내 줄 하나뿐 — 다시 읽지 않고 그 줄만 고친다(2026-11-10)
+    if (tid) board = { ...board, entries: board.entries.map(e => e.player_id === session!.pid ? { ...e, placed_team_id: tid, approved: true } : e) }
   }
   const mine = session ? board.entries.find(e => e.player_id === session.pid) ?? null : null
   let myGuestIds: string[] = []
