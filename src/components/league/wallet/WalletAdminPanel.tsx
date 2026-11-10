@@ -64,9 +64,12 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
   const [onlyWithBalance, setOnlyWithBalance] = useState(true)
 
   const api = `/api/leagues/${leagueId}/wallet/admin`
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<AdminRes | null> => {
     const res = await fetch(api, { cache: 'no-store' })
-    if (res.ok) setData(await res.json())
+    if (!res.ok) return null
+    const j = await res.json() as AdminRes
+    setData(j)
+    return j
   }, [api])
   useEffect(() => { void load() }, [load])
   const loadHistory = useCallback(async () => {
@@ -160,8 +163,10 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
     try {
       if (await post({ action: 'adjust', playerId: openPlayer.player_id, amount: signed, memo: adjMemo.trim() })) {
         toast.success('보정했어요')
-        await load(); onChanged()
-        await openMember({ ...openPlayer, balance: openPlayer.balance + signed })
+        const fresh = await load(); onChanged()
+        // 다시 받은 잔액으로 연다(2026-11-10 리뷰 — 「열 때 본 잔액 + 보정액」으로 계산하면 그사이 다른 처리가 빠졌다)
+        const m = fresh?.members.find(x => x.player_id === openPlayer.player_id)
+        await openMember(m ?? { ...openPlayer, balance: openPlayer.balance + signed })
       }
     } finally { setBusyId(null) }
   }

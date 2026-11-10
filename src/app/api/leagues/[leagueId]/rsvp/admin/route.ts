@@ -134,6 +134,11 @@ export async function POST(req: Request, { params }: Ctx) {
 
   if (body.action === 'place') {
     const target = typeof body.teamId === 'string' && body.teamId ? body.teamId : null
+    // 이 리그의 상시 팀만 받는다(2026-11-10 리뷰 — 아무 팀 번호나 배치할 수 있었다)
+    if (target) {
+      const { data: t } = await sb.from('league_teams').select('id').eq('id', target).eq('league_id', leagueId).is('exhibition_date', null).maybeSingle()
+      if (!t) return NextResponse.json({ error: '이 리그의 팀이 아니에요' }, { status: 400 })
+    }
     const res = await placeEntry(sb, leagueId, date, playerId, target, actor, { returnTicket: body.returnTicket === true })
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status })
     return NextResponse.json({ ok: true, ticket: res.ticket })

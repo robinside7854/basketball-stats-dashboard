@@ -14,7 +14,7 @@
 import { NextResponse, after } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
-import { AUTH_COOKIE, verifySession, signSession, buildAuthCookieHeader } from '@/lib/auth/session'
+import { AUTH_COOKIE, verifySession, signSession, buildAuthCookieHeader , sessionPasswordOk, passwordVersion } from '@/lib/auth/session'
 import { sessionMatchesLeague } from '@/lib/auth/teamMatch'
 import { requireCeoSession } from '@/lib/auth/ceo'
 
@@ -44,10 +44,10 @@ export async function GET(
   const sb = createClient()
   const { data: acc } = await sb
     .from('league_user_accounts')
-    .select('id, league_player_id, login_id, status, password_changed_at, last_seen_at')
+    .select('id, league_player_id, login_id, status, password_changed_at, last_seen_at, password_hash')
     .eq('id', session.uid)
     .maybeSingle()
-  if (!acc || acc.status !== 'approved') return NextResponse.json({ authenticated: false, ceo: await ceoPromise }, { headers: NO_STORE })
+  if (!acc || acc.status !== 'approved' || !sessionPasswordOk(session, acc.password_hash as string)) return NextResponse.json({ authenticated: false, ceo: await ceoPromise }, { headers: NO_STORE })
 
   // 마지막 열람 시각 — SEEN_EVERY 에 한 번만 쓴다(best-effort, 실패해도 응답은 그대로)
   //   2026-10-27 속도: 응답을 기다리게 하지 않고 응답 뒤에 쓴다(after — Vercel 이 끝날 때까지 기다려 준다).
@@ -93,7 +93,7 @@ export async function GET(
   }, { headers: NO_STORE })
   // 로그인 유지 연장 — 같은 내용(uid·lid·tid·pid)으로 다시 서명
   if (session.exp - Date.now() < REFRESH_BELOW) {
-    const { token: fresh, maxAge } = signSession({ uid: session.uid, lid: session.lid, tid: session.tid, pid: session.pid, loginId: session.loginId })
+    const { token: fresh, maxAge } = signSession({ uid: session.uid, lid: session.lid, tid: session.tid, pid: session.pid, loginId: session.loginId, pv: passwordVersion(acc.password_hash as string) })
     res.headers.append('Set-Cookie', buildAuthCookieHeader(fresh, maxAge))
   }
   return res

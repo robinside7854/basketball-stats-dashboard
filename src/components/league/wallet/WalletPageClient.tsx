@@ -285,7 +285,8 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
       const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(j.error ?? '처리하지 못했어요'); return false }
-      toast.success(ok)
+      // 입금이 먼저 와 있어 바로 승인됐으면 그렇게 알린다(2026-11-10 리뷰 — 늘 「어드민이 확인하면」이라고 떴다)
+      toast.success(j.auto_approved ? '입금이 확인돼 바로 충전됐어요' : ok)
       await load()
       return true
     } finally { setBusy(false) }

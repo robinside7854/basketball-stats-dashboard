@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, isMyGuest, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, prebuyTicketOnYes, type RsvpRules } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, isMyGuest, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, prebuyTicketOnYes, settleAtClose, type RsvpRules } from '@/lib/rsvp/weekly'
 import { loadWalletConfig, loadBalance } from '@/lib/wallet/wallet'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -167,6 +167,8 @@ export async function POST(req: Request, { params }: Ctx) {
   }, { onConflict: 'league_id,game_date,league_player_id' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const placed = await autoPlaceRegular(sb, leagueId, win.gameDate, session.pid)
+  // 그사이 어드민이 마감했으면(마감과 참/불이 같은 순간) 마감 정산을 한 번 더 돌린다 — 여러 번 돌려도 한 번만 빠진다(2026-11-10 리뷰)
+  if (await loadClosure(sb, leagueId, win.gameDate)) await settleAtClose(sb, leagueId, win.gameDate, SATURDAY_CLOSE_LABEL)
   // 비정규 「참」 = 포인트가 있으면 티켓을 미리 한 장 사 둔다(배치 때 그 티켓이 쓰인다)
   const ticketBought = body.answer === 'yes' ? await prebuyTicketOnYes(sb, leagueId, win.gameDate, session.pid) : false
   return NextResponse.json({ ok: true, placed_team_id: placed, ticket_returned: ticketReturned, ticket_bought: ticketBought })
@@ -203,6 +205,12 @@ async function addGuest(sb: ReturnType<typeof createClient>, leagueId: string, g
   const existing = (same ?? [])[0] as { id: string; is_guest: boolean } | undefined
   if (existing && !existing.is_guest) return NextResponse.json({ error: '같은 이름의 회원이 있어요 — 이름 뒤에 표시를 붙여 주세요(예: 홍길동G)' }, { status: 409 })
 
+  // 이번 주에 이미 신청된 게스트면 정보를 고치기 전에 거절한다(2026-11-10 리뷰 — 종전엔 나이·키를 덮어쓴 뒤 409 를 냈다)
+  if (existing) {
+    const { data: already } = await sb.from('weekly_rsvp').select('answer')
+      .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', existing.id).maybeSingle()
+    if ((already as { answer?: string } | null)?.answer === 'yes') return NextResponse.json({ error: '이 게스트는 이번 주에 이미 신청돼 있어요' }, { status: 409 })
+  }
   let guestId = existing?.id
   if (guestId) {
     const { error } = await sb.from('league_players').update({ ...fields, is_active: true }).eq('id', guestId)

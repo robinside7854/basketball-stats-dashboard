@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
-import { AUTH_COOKIE, verifySession } from '@/lib/auth/session'
+import { AUTH_COOKIE, verifySession, signSession, buildAuthCookieHeader, passwordVersion } from '@/lib/auth/session'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { sessionMatchesLeague } from '@/lib/auth/teamMatch'
 
@@ -38,14 +38,19 @@ export async function PATCH(
     return NextResponse.json({ error: '현재 비밀번호가 올바르지 않습니다' }, { status: 401 })
   }
 
+  const newHash = hashPassword(nw)
   const { error } = await sb
     .from('league_user_accounts')
     .update({
-      password_hash: hashPassword(nw),
+      password_hash: newHash,
       password_changed_at: new Date().toISOString(),
     })
     .eq('id', session.uid)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ ok: true })
+  // 이 기기는 새 비밀번호 판으로 다시 발급 — 다른 기기의 로그인은 풀린다(2026-11-10 리뷰)
+  const res = NextResponse.json({ ok: true })
+  const { token, maxAge } = signSession({ uid: session.uid, lid: session.lid, tid: session.tid, pid: session.pid, loginId: session.loginId, pv: passwordVersion(newHash) })
+  res.headers.append('Set-Cookie', buildAuthCookieHeader(token, maxAge))
+  return res
 }

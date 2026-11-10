@@ -1,6 +1,6 @@
 // 세션 · HMAC 서명된 base64url 토큰 (JWT-style · 외부 lib 없음)
 // 쿠키명 `mm_auth` · httpOnly · sameSite=lax · 최대 30일
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac, createHash, timingSafeEqual } from 'node:crypto'
 
 const SECRET = process.env.AUTH_SESSION_SECRET
   ?? process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -17,6 +17,9 @@ export interface SessionPayload {
                        //   verifySession 의 필수 필드 검사에 넣지 않는다 — 넣으면 그 쿠키들이 전부 거부된다.
   pid: string         // league_player_id
   loginId: string     // 표시용
+  /** 비밀번호 판(2026-11-10) — 비밀번호가 바뀌면 이 값이 달라져 다른 기기의 로그인이 풀린다.
+   *  옵셔널: 이 값이 생기기 전 쿠키에는 없다(그 쿠키는 만료까지 그대로 통과). */
+  pv?: string
   exp: number         // unix ms
 }
 
@@ -28,6 +31,16 @@ function base64url(input: Buffer | string): string {
 function b64urlDecode(s: string): Buffer {
   const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4))
   return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/') + pad, 'base64')
+}
+
+/** 비밀번호 해시 → 쿠키에 넣는 짧은 판 표시(해시 자체는 쿠키에 넣지 않는다) */
+export function passwordVersion(passwordHash: string | null | undefined): string {
+  return createHash('sha256').update(String(passwordHash ?? '')).digest('base64url').slice(0, 12)
+}
+
+/** 쿠키의 판이 지금 비밀번호와 맞는가 — 판이 없는 옛 쿠키는 맞는 것으로 친다 */
+export function sessionPasswordOk(session: { pv?: string }, passwordHash: string | null | undefined): boolean {
+  return !session.pv || session.pv === passwordVersion(passwordHash)
 }
 
 export function signSession(payload: Omit<SessionPayload, 'exp'>): { token: string; maxAge: number } {

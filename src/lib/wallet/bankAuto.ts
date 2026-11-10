@@ -7,7 +7,7 @@
 //     ② 기다리는 충전 요청 중 금액이 같고 입금자명이 글 안에 들어 있는 요청을 찾는다.
 //   **딱 하나일 때만** 승인한다(동명이인·같은 금액이면 어드민 손으로). 승인은 지금처럼 wallet_review_charge — 보너스도 같이.
 //   회원이 입금부터 하고 요청을 나중에 보내면 알림이 먼저 온다 → 못 짝지은 알림으로 남겨 두고, 요청을 만들 때 다시 짝짓는다.
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { inviterLabel } from '@/lib/rsvp/weekly'
 import { loadWalletConfig } from '@/lib/wallet/wallet'
@@ -151,6 +151,8 @@ export async function handleBankNotification(sb: SupabaseClient, teamId: string,
 
   if ((dup ?? []).length > 0 || amount == null) {
     status = 'ignored'
+    // 2분 안에 글자까지 똑같은 알림 = 폰이 같은 알림을 두 번 보낸 것으로 본다. 정말 두 번 입금했다면 어드민이 손으로(2026-11-10 리뷰 — 안내를 남긴다)
+    if (amount != null) note = '2분 안에 같은 알림이 또 와서 건너뛰었어요 — 실제로 두 번 입금했다면 손으로 처리해 주세요'
   } else {
     const { data } = await sb.from('wallet_charge_requests').select('id, amount, depositor_name, league_player_id')
       .eq('team_id', teamId).eq('status', 'pending').eq('kind', 'charge')
@@ -214,7 +216,10 @@ export async function matchLateRequest(sb: SupabaseClient, teamId: string, req: 
 export async function teamForToken(sb: SupabaseClient, teamId: string, token: string | null): Promise<boolean> {
   if (!token) return false
   const { data } = await sb.from('wallet_bank_hooks').select('token_hash').eq('team_id', teamId).maybeSingle()
-  const ok = !!data && (data as { token_hash: string }).token_hash === hashToken(token)
+  // 해시끼리도 상수시간 비교(2026-11-10 리뷰)
+  const stored = Buffer.from(String((data as { token_hash?: string } | null)?.token_hash ?? ''))
+  const given = Buffer.from(hashToken(token))
+  const ok = !!data && stored.length === given.length && timingSafeEqual(stored, given)
   if (ok) await sb.from('wallet_bank_hooks').update({ last_used_at: new Date().toISOString() }).eq('team_id', teamId)
   return ok
 }

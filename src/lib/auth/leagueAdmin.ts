@@ -10,7 +10,7 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { requireCeoSession } from './ceo'
-import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
+import { AUTH_COOKIE, verifySession, sessionPasswordOk, type SessionPayload } from './session'
 import { sessionMatchesLeague } from './teamMatch'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
@@ -31,11 +31,12 @@ export async function getLeagueAdminSession(leagueId: string): Promise<SessionPa
   const sb = createClient()
   const { data: acc } = await sb
     .from('league_user_accounts')
-    .select('id, status, role')
+    .select('id, status, role, password_hash')
     .eq('id', session.uid)
     .eq('team_id', teamId)
     .maybeSingle()
   if (!acc || acc.status !== 'approved' || acc.role !== 'admin') return null
+  if (!sessionPasswordOk(session, (acc as { password_hash?: string }).password_hash)) return null
   return session
 }
 

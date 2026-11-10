@@ -8,7 +8,7 @@
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
-import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
+import { AUTH_COOKIE, verifySession, type SessionPayload , sessionPasswordOk } from './session'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { sessionMatchesLeague } from './teamMatch'
 import { requireCeoSession } from './ceo'
@@ -25,10 +25,12 @@ export const getApprovedSession = cache(async function getApprovedSession(league
   const sb = createClient()
   const { data: acc } = await sb
     .from('league_user_accounts')
-    .select('id, status')
+    .select('id, status, password_hash')
     .eq('id', session.uid)
     .maybeSingle()
   if (!acc || acc.status !== 'approved') return null
+  // 비밀번호가 바뀌었으면 이 기기의 로그인은 끝(2026-11-10)
+  if (!sessionPasswordOk(session, (acc as { password_hash?: string }).password_hash)) return null
   return session
 })
 

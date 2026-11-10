@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { verifyPassword } from '@/lib/auth/password'
-import { signSession, buildAuthCookieHeader } from '@/lib/auth/session'
+import { signSession, buildAuthCookieHeader, passwordVersion } from '@/lib/auth/session'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
 export async function POST(
@@ -70,6 +70,7 @@ export async function POST(
     tid: teamId,
     pid: account.league_player_id,
     loginId: account.login_id,
+    pv: passwordVersion(account.password_hash),
   })
 
   // last_login_at 갱신 (best-effort)
