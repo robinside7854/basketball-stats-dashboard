@@ -147,6 +147,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 방법: `docs/text-wrap-audit.example.js` — 시험 화면을 360·390·768·1024·1280·1440 폭으로 열어 ① 어절 가운데 꺾임 ② 두 줄로 넘친 문장을 센다. 둘 다 0 이어야 배포.
 
 ### 회원 이용 가이드는 기능과 같이 고친다 (2026-11-10 사용자 지시) ⚠
+- 회원 이용 가이드 `/guide` = **도식화**(2026-11-10 운영진 — 어드민 가이드와 같은 모양: 문장마다 아이콘 타일, 자동 = 초록 타일+⚡, 팁 = 노란 상자, PC 는 글↔그림 지그재그, 그리기 `GuideContent.tsx` · 공용 `guideKit.tsx`). 그림을 바꾸거나 더하면 `GuideContent.tsx` 의 `IMG_SIZE`(가로·세로)도 고친다.
 - 회원 이용 가이드 `/guide` = 본문 `src/lib/guide/memberGuide.ts` · 그림 `public/guide/*.png`(원본 `docs/guide-raw/`, 빨간 표시 `scripts/guide-annotate.py`) · 릴스 안내 `docs/member-guide-reels.md`.
 - **회원에게 보이는 기능을 바꿀 때마다(가입·참가신청·월렛·내 기록·경기·기록·영상 화면) 마지막에 가이드가 아직 맞는지 확인하고, 틀린 곳이 있을 때만 같은 작업에서 고친다.** 맞으면 건드리지 않는다.
   - 고칠 것: 문장(값·버튼 이름·절차·가격) → `memberGuide.ts`. 화면 모양이 크게 바뀌어 그림이 틀리면 → 시험 데이터로 다시 찍고(`docs/table-wrap-audit.example.js` 방식, 실제 회원 이름 금지) 원본을 `docs/guide-raw/` 에 넣은 뒤 표시를 다시 그린다(버튼 위치가 바뀌었으면 스크립트 안 MARKS 좌표도).

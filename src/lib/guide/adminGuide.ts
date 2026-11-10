@@ -3,16 +3,8 @@
 //   흐름도(flow) · 갈래 흐름(lanes) · 카드(cards) · 상태표(status) 블록으로 쓴다. 캡처 그림은 쓰지 않는다.
 //   그리기는 components/league/guide/AdminGuideView.tsx. 문구는 짧게(카드 제목 ≤ 12자, 설명 ≤ 2줄).
 //   ⚠ 동호회 이름·실명·계좌번호를 넣지 않는다. 기능이 바뀌면 회원 가이드(memberGuide.ts)와 같이 고친다.
-import type { GuideFaq } from './memberGuide'
-
-/** 누가 하나 — 자동(초록 번개) · 어드민(노랑 손) · 회원(회색 사람) */
-export type Who = 'auto' | 'admin' | 'member'
-
-/** 화면에서 쓰는 아이콘 이름 — AdminGuideView 의 ICONS 와 같은 목록 */
-export type IconKey =
-  | 'calendar' | 'check' | 'x' | 'users' | 'userPlus' | 'lock' | 'pen' | 'video' | 'ticket' | 'wallet'
-  | 'bank' | 'phone' | 'bell' | 'drag' | 'tap' | 'undo' | 'crown' | 'shirt' | 'alert' | 'ok' | 'key'
-  | 'shield' | 'receipt' | 'copy' | 'battery' | 'list' | 'swap' | 'zap' | 'coins' | 'refresh' | 'home' | 'gear'
+import type { GuideFaq, IconKey, Who } from './memberGuide'
+export type { IconKey, Who } from './memberGuide'
 
 export interface FlowStep { icon: IconKey; who: Who; title: string; desc?: string; when?: string }
 export interface GuideCard { icon: IconKey; title: string; desc: string; who?: Who; path?: string[] }
