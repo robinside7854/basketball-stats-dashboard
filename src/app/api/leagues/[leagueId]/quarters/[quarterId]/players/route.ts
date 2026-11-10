@@ -1,3 +1,4 @@
+import { scopeProblem } from '@/lib/league/scopeCheck'
 import { fetchAllPaged } from '@/lib/supabase/paged'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
@@ -156,6 +157,8 @@ export async function PUT(
   if (!Array.isArray(players)) return NextResponse.json({ error: 'players 배열 필수' }, { status: 400 })
 
   const supabase = createClient()
+  const scopeErr = await scopeProblem(supabase, leagueId, { quarterId, teamIds: players.map(p => p.team_id), playerIds: players.map(p => p.league_player_id) })
+  if (scopeErr) return NextResponse.json({ error: scopeErr }, { status: 404 })
   const rows = players.map(p => ({
     league_id: leagueId,
     quarter_id: quarterId,
@@ -190,6 +193,8 @@ export async function PATCH(
   if (!league_player_id) return NextResponse.json({ error: 'league_player_id 필수' }, { status: 400 })
 
   const supabase = createClient()
+  const scopeErr = await scopeProblem(supabase, leagueId, { quarterId, teamIds: [team_id], playerIds: [league_player_id] })
+  if (scopeErr) return NextResponse.json({ error: scopeErr }, { status: 404 })
 
   // month 가 있으면 「이 달만」 정규 소속을 바꾼다 — 분기 멤버십은 건드리지 않는다.
   if (body.month !== undefined) {

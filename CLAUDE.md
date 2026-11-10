@@ -99,6 +99,7 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
   - **CEO 세션 ∥ `league_user_accounts.role='admin'` 회원 세션(쿠키 `mm_auth`)** — 이 둘뿐이다.
   - ⚠ **리그 편집 PIN 은 2026-10-11 폐지했다(운영진 결정).** `leaguePinAuth.ts`·`/api/auth/league-pin`·
     `/edit-pin` 라우트·PIN 모달이 모두 없다. 되살리지 말 것 — 어드민이 없는 리그는 CEO 가 `/admin` 에서 지정한다.
+- ⚠ **주소 리그 밖 id 막기(2026-11-10)**: `canEditLeague` 는 주소의 리그만 본다 — 몸통으로 받은 분기·팀·선수 id 로 쓰는 라우트는 `lib/league/scopeCheck.ts` 의 `scopeProblem()` 으로 그 리그 것인지 확인한다(분기 소속·팀장·팀 명단에 적용).
 - ⚠ **role은 세션 토큰에 넣지 않는다** — 쿠키가 30일 만료라 권한 회수가 지연됨.
   매 요청 DB 재조회 (`guard.ts`가 status를 재확인하는 것과 동일 철학) → 강등 즉시 반영
 - 어드민 지정: 어드민 대시보드 `/admin/leagues/[leagueId]` → "어드민 권한 관리",

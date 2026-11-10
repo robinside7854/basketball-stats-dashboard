@@ -136,7 +136,7 @@ export async function GET(
     teamIdP.then(tid => supabase.from('league_players').select('id, name, number, position, photo_url, plus_one, pinned_event_ids, birth_date').eq('team_id', tid)),
     supabase
       .from('league_games')
-      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, is_exhibition')
+      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, is_exhibition, is_complete')
       .eq('league_id', leagueId)
       .eq('is_started', true)   // 마감 여부와 무관하게 기록 시작된 게임 전체 포함
       // 친선전(비공식)은 제외 — 이 라우트는 순위·통산최고·월별·승패·스트릭을 만드는 스탯 페이지다.
@@ -298,10 +298,16 @@ export async function GET(
 
   // 헬퍼: 게임 g 에서 이 선수가 실제로 뛴 팀 ID
   // 우선순위: ① 이벤트 team_id 다수결 (진실) → ② league_game_players → ③ league_player_quarters
-  function teamForGame(g: { id: string; quarter_id?: string | null } | null | undefined): string | undefined {
+  //   후보(이벤트 팀 → 경기 한정 배정 → 분기 소속) 가운데 **그 경기의 두 팀 중 하나**를 고른다(박스스코어 판정과 같은 규칙, 2026-11-10).
+  //   분기 소속이 그 경기 팀이 아니면(임대·친선 상속) 원정 점수를 내 점수로 잘못 읽었다.
+  function teamForGame(g: { id: string; quarter_id?: string | null; home_team_id?: string | null; away_team_id?: string | null } | null | undefined): string | undefined {
     if (!g) return undefined
-    return eventTeamMap[g.id] ?? gpTeamMap[g.id] ?? (g.quarter_id ? qTeamMap[g.quarter_id] : undefined)
+    const cands = [eventTeamMap[g.id], gpTeamMap[g.id], g.quarter_id ? qTeamMap[g.quarter_id] : undefined]
+    if (g.home_team_id || g.away_team_id) return cands.find(t => !!t && (t === g.home_team_id || t === g.away_team_id))
+    return cands.find(t => !!t)
   }
+  /** 승패에 셀 경기 — 마감된 경기만(기록 중인 0:0 이 「무」로 세어지던 것, 2026-11-10). 스탯 합계는 진행 중 경기도 그대로 센다. */
+  const countsForRecord = (g: { is_complete?: boolean | null } | undefined) => !!g?.is_complete
 
   // ── Per-game stats ───────────────────────────────────────────
   type GS = {
@@ -380,11 +386,11 @@ export async function GET(
   function computeUnitRecord(unitKey: string): { wins: number; losses: number; draws: number; games: number; result: 'W' | 'L' | 'D' } {
     let wins = 0, losses = 0, draws = 0
     for (const gId of playedGames) {
-      const g = gameMap[gId] as { date?: string; home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number } | undefined
-      if (!g) continue
+      const g = gameMap[gId] as { date?: string; home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number; is_complete?: boolean } | undefined
+      if (!g || !countsForRecord(g)) continue
       const thisUnitKey = unit === 'round' ? (g.date ?? gId) : gId
       if (thisUnitKey !== unitKey) continue
-      const tid = teamForGame(gameMap[gId] as { id: string; quarter_id?: string | null })
+      const tid = teamForGame(gameMap[gId] as { id: string; quarter_id?: string | null; home_team_id?: string; away_team_id?: string })
       if (!tid) continue
       const isHome = g.home_team_id === tid
       const my = isHome ? (g.home_score ?? 0) : (g.away_score ?? 0)
@@ -569,9 +575,9 @@ export async function GET(
     let wins = 0, losses = 0
     for (const [gId, evTid] of eventIndex.playedBy(p.player_id)) {
       const g = gameMap[gId]
-      if (!g) continue
+      if (!g || !countsForRecord(g as { is_complete?: boolean })) continue
       const tid = evTid ?? (p.player_id === playerId ? teamForGame(g) : undefined)
-      if (!tid) continue
+      if (!tid || (tid !== g.home_team_id && tid !== g.away_team_id)) continue
       const isHome = g.home_team_id === tid
       const myPts = isHome ? (g.home_score as number) : (g.away_score as number)
       const oppPts = isHome ? (g.away_score as number) : (g.home_score as number)
@@ -648,7 +654,7 @@ export async function GET(
   for (const gId of playedGames) {
     const s = perGame[gId]
     const g = gameMap[gId]
-    if (!g) continue
+    if (!g || !countsForRecord(g as { is_complete?: boolean })) continue
     const tid = teamForGame(g)
     if (!tid) continue
     const isHome = g.home_team_id === tid

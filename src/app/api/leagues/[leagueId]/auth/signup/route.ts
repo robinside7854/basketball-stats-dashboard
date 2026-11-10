@@ -68,7 +68,17 @@ export async function POST(
   const wanted = norm(name)
   const sameName = (candidates ?? []).filter(p => typeof p.name === 'string' && norm(p.name) === wanted)
   const nonGuestList = sameName.filter(p => !p.is_guest)
-  let matched: { id: string; name: string } | null = nonGuestList[0] ?? null
+  // 동명이인 — 계정이 아직 없는 쪽을 먼저 고른다(2026-11-10). 종전엔 늘 첫 사람을 골라, 그 사람에 계정이 있으면
+  //   다른 같은 이름은 운영진이 명단에 넣어 줘도 「이미 계정이 있어요」로 막혀 가입 요청조차 못 남겼다.
+  let free = nonGuestList
+  if (nonGuestList.length > 1) {
+    const { data: taken } = await sb.from('league_user_accounts').select('league_player_id')
+      .eq('team_id', teamId).in('league_player_id', nonGuestList.map(p => p.id))
+    const takenSet = new Set((taken ?? []).map(t => t.league_player_id as string))
+    free = nonGuestList.filter(p => !takenSet.has(p.id))
+    if (free.length === 0) free = nonGuestList
+  }
+  let matched: { id: string; name: string } | null = free[0] ?? null
   // 바로 승인은 「활동 중인 회원 한 명」과 맞을 때만 — 동명이인이면 누구인지 운영진이 정한다
   const autoApprove = nonGuestList.length === 1 && nonGuestList[0].is_active !== false
 
@@ -98,7 +108,7 @@ export async function POST(
       message: existing.status === 'pending'
         ? '이미 신청된 회원입니다. 운영진 승인을 기다리는 중이에요.'
         : existing.status === 'approved'
-          ? '이미 승인된 계정이 있어요. 로그인 화면에서 이름 · 비번으로 로그인하세요.'
+          ? '이미 승인된 계정이 있어요. 로그인 화면에서 아이디 · 비밀번호로 로그인하세요. 같은 이름의 다른 분이라면 운영진에게 알려 주세요.'
           : existing.status === 'rejected'
             ? '이전 가입 요청이 반려되었습니다. 운영진에게 문의하세요.'
             : '비활성화된 계정입니다. 운영진에게 문의하세요.',

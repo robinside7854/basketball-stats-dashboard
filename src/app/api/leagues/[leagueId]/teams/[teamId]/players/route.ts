@@ -1,3 +1,4 @@
+import { scopeProblem } from '@/lib/league/scopeCheck'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
@@ -14,6 +15,8 @@ export async function POST(
   const { league_player_id } = body
   if (!league_player_id) return NextResponse.json({ error: 'league_player_id is required' }, { status: 400 })
   const supabase = createClient()
+  const scopeErr = await scopeProblem(supabase, leagueId, { teamIds: [teamId], playerIds: [league_player_id] })
+  if (scopeErr) return NextResponse.json({ error: scopeErr }, { status: 404 })
   const { data, error } = await supabase
     .from('league_team_players')
     .insert({ league_team_id: teamId, league_player_id })
@@ -37,6 +40,8 @@ export async function DELETE(
   const league_player_id = searchParams.get('league_player_id')
   if (!league_player_id) return NextResponse.json({ error: 'league_player_id is required' }, { status: 400 })
   const supabase = createClient()
+  const scopeErr = await scopeProblem(supabase, leagueId, { teamIds: [teamId] })
+  if (scopeErr) return NextResponse.json({ error: scopeErr }, { status: 404 })
   const { error } = await supabase
     .from('league_team_players')
     .delete()

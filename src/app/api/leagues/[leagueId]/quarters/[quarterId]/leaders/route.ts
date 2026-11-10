@@ -1,3 +1,4 @@
+import { scopeProblem } from '@/lib/league/scopeCheck'
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
@@ -40,6 +41,8 @@ export async function PUT(
   if (!team_id) return NextResponse.json({ error: 'team_id 필수' }, { status: 400 })
 
   const supabase = createClient()
+  const scopeErr = await scopeProblem(supabase, leagueId, { quarterId, teamIds: [team_id], playerIds: [leader_player_id] })
+  if (scopeErr) return NextResponse.json({ error: scopeErr }, { status: 404 })
   const { error } = await supabase
     .from('league_team_quarter_leaders')
     .upsert({ quarter_id: quarterId, team_id, leader_player_id: leader_player_id ?? null })
