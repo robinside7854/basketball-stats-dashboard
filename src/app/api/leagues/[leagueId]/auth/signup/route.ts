@@ -5,10 +5,15 @@
 //   · 동명이인 다수 케이스: 첫 매치 (non-guest 우선 · 이후 id 순)
 //   · 이미 그 선수 계정이 있으면 상태별 알림 반환
 //   · 생년월일은 초기 비밀번호로만 사용 (매칭 검증에는 사용 안 함)
+//   2026-11-10 운영진 — 승인 규칙:
+//   · 명단(활동 중 · 게스트 아님)에 이름이 **딱 한 명** 맞으면 → 바로 승인 + 그 자리에서 로그인
+//   · 동명이인 · 활동 안 함 · 게스트만 있음 · 명단에 없음 → 운영진 승인 대기
+//     (명단에 없는 사람은 비활성 선수로 먼저 만들어 두고, 승인 때 활동 중으로 바꾼다)
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { hashPassword } from '@/lib/auth/password'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { signSession, buildAuthCookieHeader } from '@/lib/auth/session'
 
 export async function POST(
   req: Request,
@@ -35,7 +40,7 @@ export async function POST(
   //   리그에서 만든 자기 자신을 못 찾아 "등록된 선수를 찾지 못했다"는 오안내를 받는다.
   const { data: candidates } = await sb
     .from('league_players')
-    .select('id, name, is_guest, created_at')
+    .select('id, name, is_guest, is_active, created_at')
     .eq('team_id', teamId)
     .order('created_at', { ascending: true })
 
@@ -45,16 +50,17 @@ export async function POST(
   const wanted = norm(name)
   const sameName = (candidates ?? []).filter(p => typeof p.name === 'string' && norm(p.name) === wanted)
   const nonGuestList = sameName.filter(p => !p.is_guest)
-  const matched = nonGuestList[0] ?? null
+  let matched: { id: string; name: string } | null = nonGuestList[0] ?? null
+  // 바로 승인은 「활동 중인 회원 한 명」과 맞을 때만 — 동명이인이면 누구인지 운영진이 정한다
+  const autoApprove = nonGuestList.length === 1 && nonGuestList[0].is_active !== false
 
   if (!matched) {
-    // 이름 자체가 등록 안 됨 or 게스트만 있음
-    const anyGuest = sameName.some(p => p.is_guest)
-    return NextResponse.json({
-      error: anyGuest
-        ? '해당 이름은 게스트로 등록되어 있어 계정 생성 대상이 아닙니다.'
-        : '입력한 이름으로 등록된 선수를 찾지 못했어요. 관리자에게 등록 확인을 요청해주세요.',
-    }, { status: 404 })
+    // 명단에 없음(또는 게스트로만 있음) → 비활성 선수로 만들어 두고 운영진 승인 대기
+    const { data: created, error: pErr } = await sb.from('league_players')
+      .insert({ league_id: leagueId, team_id: teamId, name: name.normalize('NFC').trim(), is_active: false })
+      .select('id, name').single()
+    if (pErr || !created) return NextResponse.json({ error: pErr?.message ?? '가입 요청을 만들지 못했어요' }, { status: 500 })
+    matched = created as { id: string; name: string }
   }
 
   // 기존 계정 확인 (동명이인 방지 · 그 선수에 이미 계정 있으면 재신청 불가)
@@ -72,12 +78,12 @@ export async function POST(
     return NextResponse.json({
       status: existing.status,
       message: existing.status === 'pending'
-        ? '이미 신청된 회원입니다. 관리자 승인 대기 중이에요.'
+        ? '이미 신청된 회원입니다. 운영진 승인을 기다리는 중이에요.'
         : existing.status === 'approved'
           ? '이미 승인된 계정이 있어요. 로그인 화면에서 이름 · 비번으로 로그인하세요.'
           : existing.status === 'rejected'
-            ? '이전 가입 요청이 반려되었습니다. 관리자에게 문의하세요.'
-            : '비활성화된 계정입니다. 관리자에게 문의하세요.',
+            ? '이전 가입 요청이 반려되었습니다. 운영진에게 문의하세요.'
+            : '비활성화된 계정입니다. 운영진에게 문의하세요.',
     }, { status: 409 })
   }
 
@@ -85,18 +91,28 @@ export async function POST(
   // team_id 는 위에서 이미 구했다 — 로그인 라우트가 이제 team_id 로 계정을 찾으므로
   //   여기서 비우면 이 계정으로는 어느 경기묶음에서도 로그인이 안 되는 계정이 생긴다.
   const password_hash = hashPassword(pw6)
-  const { error } = await sb.from('league_user_accounts').insert({
+  const now = new Date().toISOString()
+  const { data: acc, error } = await sb.from('league_user_accounts').insert({
     league_id: leagueId,
     team_id: teamId,
     league_player_id: matched.id,
     login_id: matched.name,
     password_hash,
-    status: 'pending',
-  })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    status: autoApprove ? 'approved' : 'pending',
+    ...(autoApprove ? { approved_at: now, approved_by: '자동(명단 이름 일치)', last_login_at: now } : {}),
+  }).select('id').single()
+  if (error || !acc) return NextResponse.json({ error: error?.message ?? '가입 요청을 만들지 못했어요' }, { status: 500 })
 
-  return NextResponse.json({
-    status: 'pending',
-    message: '가입 요청이 접수되었습니다. 관리자 승인 후 로그인 가능해요.',
-  }, { status: 201 })
+  if (!autoApprove) {
+    return NextResponse.json({
+      status: 'pending',
+      message: '가입 요청이 접수되었어요. 운영진이 승인하면 로그인할 수 있어요.',
+    }, { status: 201 })
+  }
+
+  // 바로 승인 — 로그인 라우트와 같은 세션을 그 자리에서 발급한다
+  const { token, maxAge } = signSession({ uid: acc.id, lid: leagueId, tid: teamId, pid: matched.id, loginId: matched.name })
+  const res = NextResponse.json({ status: 'approved', message: '명단에서 확인됐어요. 바로 시작할게요!' }, { status: 201 })
+  res.headers.append('Set-Cookie', buildAuthCookieHeader(token, maxAge))
+  return res
 }

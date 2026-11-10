@@ -52,7 +52,7 @@ export async function POST(
   }
   if (account.status !== 'approved') {
     const msg = account.status === 'pending'
-      ? '아직 승인되지 않았어요. 관리자에게 문의하세요.'
+      ? '아직 승인되지 않았어요. 운영진이 승인하면 로그인할 수 있어요.'
       : account.status === 'rejected'
         ? '가입이 반려되었어요.'
         : '비활성화된 계정이에요.'

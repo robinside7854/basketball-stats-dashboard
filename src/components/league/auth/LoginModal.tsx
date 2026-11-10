@@ -181,7 +181,7 @@ function LoginForm({ leagueId, onSuccess, onSwitchSignup }: { leagueId: string; 
         </button>
       </div>
       <p className="text-xs text-center pt-2" style={{ color: 'var(--mm-muted)' }}>
-        비밀번호를 잊었다면 관리자에게 초기화 요청하세요 (초기화 시 <b>123456</b>)
+        비밀번호를 잊었다면 운영진에게 초기화를 요청하세요 (초기화 시 <b>123456</b>)
       </p>
     </form>
   )
@@ -236,6 +236,13 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         toast.error(d.error ?? d.message ?? '가입 실패')
         return
       }
+      if (d.status === 'approved') {
+        // 명단 이름 일치 → 바로 승인 + 로그인 쿠키까지 받았다. 화면을 새로 받아 회원 화면으로 연다
+        toast.success(d.message ?? '가입됐어요')
+        try { localStorage.setItem(`mm_member:${leagueId}`, '1') } catch { /* 무시 */ }
+        window.location.reload()
+        return
+      }
       setDone(true)
     } finally { setBusy(false) }
   }
@@ -246,7 +253,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         <div className="text-4xl">✅</div>
         <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>가입 요청이 접수되었습니다</p>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-          관리자 승인 후 로그인 가능해요.<br />
+          운영진이 승인하면 로그인할 수 있어요.<br />
           승인되면 <b>이름</b> / <b>생년월일 6자리</b> 로 로그인하세요.
         </p>
         <button
@@ -269,7 +276,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         onChange={e => setName(e.target.value)}
         className="input"
         style={inputStyle}
-        placeholder="선수 등록된 이름과 동일하게"
+        placeholder="실명 (예: 김도윤)"
         list="mm-roster-names"
         autoComplete="off"
       />
@@ -289,9 +296,9 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         placeholder="예: 900101 (YYMMDD)"
       />
       <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-        · 이름은 선수 명단에 등록된 이름과 동일해야 해요<br />
+        · 회원 명단에 있는 이름이면 <b>바로 시작</b>할 수 있어요<br />
         · 생년월일 6자리는 <b>초기 로그인 비밀번호</b>로 사용됩니다 (로그인 후 변경 가능)<br />
-        · 접수 후 관리자가 승인하면 로그인 가능
+        · 명단에 없으면 운영진이 승인하면 로그인할 수 있어요
       </p>
       <button
         type="submit"

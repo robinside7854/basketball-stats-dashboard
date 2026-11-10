@@ -131,6 +131,14 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: '계정을 찾지 못했습니다' }, { status: 404 })
 
+  // 명단에 없던 사람의 가입 요청은 비활성 선수로 만들어져 있다(signup 2026-11-10) — 승인하면 명단에 올린다
+  if (action === 'approve') {
+    const { data: accRow } = await sb.from('league_user_accounts').select('league_player_id').eq('id', accountId).maybeSingle()
+    if (accRow?.league_player_id) {
+      await sb.from('league_players').update({ is_active: true }).eq('id', accRow.league_player_id).eq('is_active', false)
+    }
+  }
+
   // 비밀번호 초기화는 "그 계정으로 로그인할 수 있게 된다" 는 뜻이라 권한 변경과 같은 무게다.
   // ⚠ 초기 비밀번호 값은 남기지 않는다 — 사실만 남긴다.
   await logAudit({
