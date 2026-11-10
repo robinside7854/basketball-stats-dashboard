@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getClubName } from '@/lib/league/clubName'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
@@ -30,14 +31,16 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   // 비공개 리그는 탭 제목에도 클럽명을 노출하지 않는다 — layout.tsx generateMetadata 와 동일 원칙.
   // openGraph/twitter 를 지정하지 않고 그대로 반환하면 루트의 온볼 브랜드 값을 상속해
   // 공유 카드에서도 "로그인이 필요합니다" 조차 드러나지 않는다.
+  // 2026-11-10 운영진: 탭 제목에 동호회 이름(잠금 화면과 같은 선). 링크 미리보기(openGraph)는 종전대로 중립.
+  const club = await getClubName(leagueId)
   if (await isLeaguePrivateGated(leagueId)) {
-    return { title: '로그인이 필요합니다', description: '비공개로 운영되는 페이지입니다.' }
+    return { title: club ? `${club} — 회원 전용` : '로그인이 필요합니다', description: '회원 전용 페이지입니다.' }
   }
 
-  // 탭 제목엔 클럽명 대신 날짜로 다른 박스스코어 탭과 구분한다 — 리그명 조회가 필요 없어졌다.
-  const title = `온볼 — ${formatKorean(date)} 박스스코어`
+  const ogTitle = `온볼 — ${formatKorean(date)} 박스스코어`
+  const title = club ? `${club} — ${formatKorean(date)} 박스스코어` : ogTitle
   const description = `${formatKorean(date)} 경기 박스스코어 · 팀별 · 개인 스탯 · 팀 비교`
-  return { title, description, openGraph: { title, description }, twitter: { title, description } }
+  return { title, description, openGraph: { title: ogTitle, description }, twitter: { title: ogTitle, description } }
 }
 
 export default async function BoxscorePage({

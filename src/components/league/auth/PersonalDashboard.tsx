@@ -17,7 +17,7 @@ import type { LucideIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import {
-  Film, User as UserIcon, ChevronRight, IdCard, Flame, X, KeyRound,
+  Film, User as UserIcon, ChevronRight, IdCard, Flame, X, KeyRound, AtSign,
   CalendarCheck, Pin, Play, AlertCircle, LogOut,
 } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
@@ -39,6 +39,7 @@ import type { HighlightClip } from '@/lib/highlights/types'
 
 // 비밀번호 변경 모달 · 클릭 시에만 로드
 const PasswordChangeModal = dynamic(() => import('./PasswordChangeModal'), { ssr: false })
+const LoginIdChangeModal = dynamic(() => import('./LoginIdChangeModal'), { ssr: false })
 // 베스트샷 재생기 · 클릭 시에만 로드
 const HighlightsClipModal = dynamic(() => import('@/components/highlights/HighlightsClipModal'), { ssr: false })
 
@@ -274,6 +275,7 @@ const NEUTRAL_BTN =
 export function AccountCard({ leagueId, className = '' }: { leagueId: string; className?: string }) {
   const { user, refresh, logout } = useCurrentUser()
   const [pwOpen, setPwOpen] = useState(false)
+  const [idOpen, setIdOpen] = useState(false)
   return (
     <SectionCard variant="standalone" pad="none" className={className}>
       {user && (
@@ -309,6 +311,17 @@ export function AccountCard({ leagueId, className = '' }: { leagueId: string; cl
             비밀번호 변경
           </button>
         )}
+        {user && (
+          <button
+            type="button"
+            onClick={() => setIdOpen(true)}
+            className={NEUTRAL_BTN}
+            style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', background: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}
+          >
+            <AtSign size={16} aria-hidden />
+            아이디 변경
+          </button>
+        )}
         {/* 앱 설치 — 설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다 */}
         <InstallAppButton />
         {user && (
@@ -324,6 +337,9 @@ export function AccountCard({ leagueId, className = '' }: { leagueId: string; cl
         )}
       </div>
 
+      {idOpen && user && (
+        <LoginIdChangeModal leagueId={leagueId} current={user.login_id} onClose={() => setIdOpen(false)} onDone={() => { refresh() }} />
+      )}
       {pwOpen && user && (
         <PasswordChangeModal
           leagueId={leagueId}

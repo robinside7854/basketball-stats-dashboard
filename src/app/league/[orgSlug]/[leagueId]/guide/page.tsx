@@ -2,10 +2,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { isLeaguePrivateGated } from '@/lib/auth/guard'
 import GuideContent from '@/components/league/guide/GuideContent'
+import { getClubName } from '@/lib/league/clubName'
 
 // 회원용 이용 가이드 (2026-11-10 운영진) — 본문 정본은 lib/guide/memberGuide.ts, 그리기는 GuideContent.
 //   그림은 public/guide/*.png 가 있을 때만 그린다(아직 안 찍은 장은 글만).
-export const metadata = { title: '온볼 — 이용 가이드' }
+export async function generateMetadata({ params }: { params: Promise<{ leagueId: string }> }) {
+  const { leagueId } = await params
+  const club = await getClubName(leagueId)
+  return { title: club ? `${club} — 이용 가이드` : '온볼 — 이용 가이드' }
+}
 
 function guideImages(): string[] {
   try {

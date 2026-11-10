@@ -1,5 +1,6 @@
 // POST /api/leagues/[leagueId]/auth/signup
-//   body: { name: string, birthdate: string (YYMMDD · 초기 비번용) }
+//   body: { loginId: string, name: string, birthdate: string (YYMMDD · 초기 비번 · 선수 생년월일로도 저장) }
+//   2026-11-10 운영진: 아이디는 자유롭게(실명과 따로). loginId 를 안 보내는 옛 화면이면 실명을 아이디로 쓴다.
 //   가입 요청 · 이름만 매칭 (기존 선수 정보에 생년월일 대부분 비어있어 이름 기준 · 2026-07-21 완화)
 //   · 매칭되는 league_player 있어야 함 (name · 게스트 제외)
 //   · 동명이인 다수 케이스: 첫 매치 (non-guest 우선 · 이후 id 순)
@@ -14,13 +15,14 @@ import { createClient } from '@/lib/supabase/admin'
 import { hashPassword } from '@/lib/auth/password'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { signSession, buildAuthCookieHeader } from '@/lib/auth/session'
+import { loginIdProblem, normLoginId, birthFromYymmdd } from '@/lib/auth/loginId'
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
-  let body: { name?: unknown; birthdate?: unknown }
+  let body: { name?: unknown; birthdate?: unknown; loginId?: unknown }
   try { body = await req.json() } catch { return NextResponse.json({ error: '잘못된 요청' }, { status: 400 }) }
 
   const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -30,10 +32,26 @@ export async function POST(
     return NextResponse.json({ error: '초기 비밀번호로 사용할 생년월일 6자리 (YYMMDD) 를 입력하세요' }, { status: 400 })
   }
   const pw6 = bdRaw
+  const birthDate = birthFromYymmdd(bdRaw)
+  if (!birthDate) return NextResponse.json({ error: '생년월일 6자리가 날짜가 아니에요 (예: 900101)' }, { status: 400 })
+  const loginIdRaw = typeof body.loginId === 'string' && body.loginId.trim() ? body.loginId.normalize('NFC').trim() : null
+  if (loginIdRaw) {
+    const prob = loginIdProblem(loginIdRaw)
+    if (prob) return NextResponse.json({ error: prob }, { status: 400 })
+  }
 
   const sb = createClient()
   // team_id 를 먼저 구한다 — 명단 매칭도 계정 조회도 이제 팀 기준이다(아래 두 쿼리 모두).
   const teamId = await resolveTeamId(leagueId)
+
+  // 아이디 중복 — 같은 팀 계정 안에서(로그인과 같은 비교 규칙)
+  if (loginIdRaw) {
+    const { data: accs } = await sb.from('league_user_accounts').select('login_id').eq('team_id', teamId)
+    const want = normLoginId(loginIdRaw)
+    if ((accs ?? []).some(a => normLoginId(String(a.login_id)) === want)) {
+      return NextResponse.json({ error: '이미 쓰고 있는 아이디예요. 다른 아이디를 정해 주세요' }, { status: 409 })
+    }
+  }
 
   // 이름 매칭 · 게스트는 계정 대상 아님 · 다수 매치 시 첫 non-guest
   //   팀 명단 전체에서 찾는다 — league_id 로 좁히면 대회 화면에서 가입을 시도한 회원이
@@ -57,7 +75,7 @@ export async function POST(
   if (!matched) {
     // 명단에 없음(또는 게스트로만 있음) → 비활성 선수로 만들어 두고 운영진 승인 대기
     const { data: created, error: pErr } = await sb.from('league_players')
-      .insert({ league_id: leagueId, team_id: teamId, name: name.normalize('NFC').trim(), is_active: false })
+      .insert({ league_id: leagueId, team_id: teamId, name: name.normalize('NFC').trim(), is_active: false, birth_date: birthDate })
       .select('id, name').single()
     if (pErr || !created) return NextResponse.json({ error: pErr?.message ?? '가입 요청을 만들지 못했어요' }, { status: 500 })
     matched = created as { id: string; name: string }
@@ -96,12 +114,15 @@ export async function POST(
     league_id: leagueId,
     team_id: teamId,
     league_player_id: matched.id,
-    login_id: matched.name,
+    login_id: loginIdRaw ?? matched.name,
     password_hash,
     status: autoApprove ? 'approved' : 'pending',
     ...(autoApprove ? { approved_at: now, approved_by: '자동(명단 이름 일치)', last_login_at: now } : {}),
   }).select('id').single()
   if (error || !acc) return NextResponse.json({ error: error?.message ?? '가입 요청을 만들지 못했어요' }, { status: 500 })
+
+  // 선수 생년월일이 비어 있으면 채운다(나이 표시 · 2026-11-10 — 종전엔 비밀번호로만 쓰고 저장하지 않았다)
+  await sb.from('league_players').update({ birth_date: birthDate }).eq('id', matched.id).is('birth_date', null)
 
   if (!autoApprove) {
     return NextResponse.json({
@@ -111,7 +132,7 @@ export async function POST(
   }
 
   // 바로 승인 — 로그인 라우트와 같은 세션을 그 자리에서 발급한다
-  const { token, maxAge } = signSession({ uid: acc.id, lid: leagueId, tid: teamId, pid: matched.id, loginId: matched.name })
+  const { token, maxAge } = signSession({ uid: acc.id, lid: leagueId, tid: teamId, pid: matched.id, loginId: loginIdRaw ?? matched.name })
   const res = NextResponse.json({ status: 'approved', message: '명단에서 확인됐어요. 바로 시작할게요!' }, { status: 201 })
   res.headers.append('Set-Cookie', buildAuthCookieHeader(token, maxAge))
   return res

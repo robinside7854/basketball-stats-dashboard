@@ -7,6 +7,7 @@ import { resolveLeagueAppIdentity } from '@/lib/pwa/leagueApp'
 import { appleWebAppMetadata } from '@/lib/pwa/appShell'
 import { getLeagueQuarters } from '@/lib/league/loadQuarters'
 import { leagueLogoOf } from '@/lib/league/leagueLogo'
+import { getClubName } from '@/lib/league/clubName'
 
 export async function generateMetadata({
   params,
@@ -41,15 +42,20 @@ export async function generateMetadata({
     : {}
 
   // 비공개 리그는 탭 제목에도 클럽/리그 이름을 노출하지 않는다.
+  // 2026-11-10 운영진: 탭 제목에 동호회 이름을 넣는다(잠금 화면에도 이름을 보이기로 한 결정과 같은 선).
+  //   링크 미리보기 그림·설명(openGraph)은 종전대로 중립 — 바꾸려면 운영진에게 먼저 묻는다.
+  const clubName = await getClubName(leagueId)
+
   if (!visible) {
-    return { title: '로그인이 필요합니다', description: '비공개로 운영되는 페이지입니다.', ...pwa }
+    return { title: clubName ? `${clubName} — 회원 전용` : '로그인이 필요합니다', description: '회원 전용 페이지입니다.', ...pwa }
   }
 
   // 온볼은 서비스 정체성, 클럽/리그 이름은 화면 안에서만 보여준다 — 탭 제목엔 클럽명 대신
   // 페이지 종류(게임로그)로 탭을 구분한다. 그래서 리그명 조회 자체가 더 이상 필요 없다.
-  const title = '온볼 — 게임로그'
+  const ogTitle = '온볼 — 게임로그'
   const description = '동호회 경기 기록 · 게임로그'
-  return { title, description, openGraph: { title, description }, twitter: { title, description }, ...pwa }
+  const title = clubName ? `${clubName} — 온볼` : ogTitle
+  return { title, description, openGraph: { title: ogTitle, description }, twitter: { title: ogTitle, description }, ...pwa }
 }
 
 export default async function LeagueLayout({
@@ -78,8 +84,7 @@ export default async function LeagueLayout({
   if (await isLeaguePrivateGated(leagueId)) {
     // 2026-11-10 운영진: 잠금 화면에는 동호회 이름·로고를 보여도 된다(비공개 = 안의 데이터를 못 보는 것).
     //   이름 칸 하나만 읽는다 — 기록·명단 같은 안쪽 데이터는 여전히 아무것도 보내지 않는다.
-    const { data: gateRow } = await createClient().from('leagues').select('name').eq('id', leagueId).maybeSingle()
-    return <PrivateLeagueGate leagueId={leagueId} leagueName={(gateRow?.name as string | undefined) ?? null} logo={leagueLogoOf(leagueId)} />
+    return <PrivateLeagueGate leagueId={leagueId} leagueName={await getClubName(leagueId)} logo={leagueLogoOf(leagueId)} />
   }
 
   // 좌측 상단 브랜드 라벨용 리그 이름 — 예전엔 클라이언트가 GET /api/leagues/{leagueId} 를
