@@ -37,6 +37,10 @@ interface Props {
   days: FeedDay[]
   /** 서버가 이미 아는 선수(현재 player 파라미터) — 칩 이름을 바로 그린다 */
   knownPlayer: FeedPlayerLabel | null
+  /** 날짜를 골랐을 때 — 그날 장면이 있는 선수 id(선수 고르기를 이것으로 줄인다). null = 거르지 않음 */
+  datePlayerIds?: string[] | null
+  /** 선수를 골랐을 때 — 그 선수 장면이 있는 날짜(날짜 고르기를 이것으로 줄인다). null = 거르지 않음 */
+  playerDates?: string[] | null
 }
 
 type ApiPlayer = { id: string; name: string; number?: number | string | null; photo_url?: string | null; is_active?: boolean; is_guest?: boolean }
@@ -48,7 +52,7 @@ function toNum(v: number | string | null | undefined): number | null {
 }
 const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase()
 
-export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Props) {
+export default function HighlightsFeedChips({ leagueId, days: allDays, knownPlayer, datePlayerIds = null, playerDates = null }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
@@ -56,6 +60,9 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   const kind: FeedKind = fRaw === 'best' || fRaw === 'classics' ? fRaw : 'all'
   const date = sp.get('date')
   const playerId = sp.get('player')
+  const dateLimited = !!playerId && !!playerDates && kind === 'all'
+  const days = dateLimited ? allDays.filter(d => playerDates!.includes(d.date) || d.date === date) : allDays
+  const playerLimited = !!date && !!datePlayerIds && kind === 'all'
 
   const [dateOpen, setDateOpen] = useState(false)
   const [playerOpen, setPlayerOpen] = useState(false)
@@ -109,9 +116,10 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
   const filteredPlayers = useMemo(() => {
     const q = norm(query)
     if (!players) return []
-    if (!q) return players
-    return players.filter(p => norm(p.name).includes(q) || (p.number != null && String(p.number).startsWith(q)))
-  }, [players, query])
+    const base = playerLimited ? players.filter(p => datePlayerIds!.includes(p.id) || p.id === playerId) : players
+    if (!q) return base
+    return base.filter(p => norm(p.name).includes(q) || (p.number != null && String(p.number).startsWith(q)))
+  }, [players, query, playerLimited, datePlayerIds, playerId])
 
   function go(next: { f?: FeedKind; date?: string | null; player?: string | null }) {
     const p = new URLSearchParams()
@@ -203,6 +211,11 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
           <p className="text-sm pb-4" style={{ color: 'var(--mm-muted)' }}>아직 클립이 있는 날이 없어요.</p>
         ) : (
           <ul className="pb-2 -mx-1">
+            {dateLimited && (
+              <li className="px-2 pb-2 text-xs font-semibold break-keep" style={{ color: 'var(--mm-muted)' }}>
+                {currentPlayer?.name ?? '고른 선수'} 장면이 있는 날만 보여요.
+              </li>
+            )}
             {date && (
               <li>
                 <button
@@ -251,6 +264,11 @@ export default function HighlightsFeedChips({ leagueId, days, knownPlayer }: Pro
               style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
             />
           </label>
+          {playerLimited && (
+            <p className="px-2 text-xs font-semibold break-keep" style={{ color: 'var(--mm-muted)' }}>
+              {formatFeedDate(date!)}에 장면이 있는 선수만 보여요.
+            </p>
+          )}
           {playerId && (
             <button
               type="button"

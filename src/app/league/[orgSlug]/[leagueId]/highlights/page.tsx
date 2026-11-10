@@ -196,7 +196,12 @@ export default async function HighlightsFeedPage({
   const days = (landing?.rounds ?? []).filter(r => r.status === 'ready').map(r => ({ date: r.date, clips: r.clips_count }))
 
   // 선수 모드는 로더가 이름을 주므로 따로 묻지 않는다
-  const playerData = approved && kind === 'all' && !date && playerId ? await getPlayerCached(leagueId, playerId)() : null
+  // 날짜·선수 고르기가 서로를 거른다(2026-11-10 운영진) — 날짜를 골랐으면 그날 장면이 있는 선수만,
+  //   선수를 골랐으면 그 선수 장면이 있는 날만. 재료는 본문이 어차피 읽는 캐시 그대로(한 번씩만 읽는다).
+  const playerData = approved && kind === 'all' && playerId ? await getPlayerCached(leagueId, playerId)() : null
+  const roundDetail = approved && date ? await getRoundCached(leagueId, date)() : null
+  const datePlayerIds = roundDetail ? roundDetail.players.map(p => p.id) : null
+  const playerDates = playerData ? [...new Set(playerData.clips.map(c => c.game_date).filter((d): d is string => !!d))] : null
   const knownPlayer: FeedPlayerLabel | null = playerData
     ? { id: playerData.player.id, name: playerData.player.name, number: playerData.player.number, photo_url: playerData.player.photo_url }
     : playerId ? await loadPlayerLabel(leagueId, playerId) : null
@@ -210,7 +215,7 @@ export default async function HighlightsFeedPage({
           하이라이트
         </h1>
       </div>
-      <HighlightsFeedChips leagueId={leagueId} days={days} knownPlayer={knownPlayer} />
+      <HighlightsFeedChips leagueId={leagueId} days={days} knownPlayer={knownPlayer} datePlayerIds={datePlayerIds} playerDates={playerDates} />
     </div>
   )
 
@@ -282,7 +287,7 @@ export default async function HighlightsFeedPage({
       </>
     )
   } else if (date) {
-    const detail = await getRoundCached(leagueId, date)()
+    const detail = roundDetail ?? await getRoundCached(leagueId, date)()
     const playerMissing = !!playerId && !detail.clips.some(c => c.player_id === playerId)
     body = (
       <>

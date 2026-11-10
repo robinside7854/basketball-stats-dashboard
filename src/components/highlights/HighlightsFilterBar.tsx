@@ -88,7 +88,7 @@ export default function HighlightsFilterBar({
   const activeCount =
     (filter.teamId ? 1 : 0) + (filter.playerId ? 1 : 0)
     + (filter.category ? 1 : 0) + (filter.quarter != null ? 1 : 0)
-  // 2026-11-10 운영진 「버튼이 너무 많다」 — 칩 묶음은 「거르기」 안에 접어 둔다(켠 거르기가 있으면 펼친 채로 시작)
+  // 2026-11-10 운영진 「버튼이 너무 많다」 — 칩 묶음은 「필터」 안에 접어 둔다(켠 필터가 있으면 펼친 채로 시작)
   const [open, setOpen] = useState(activeCount > 0)
 
   return (
@@ -107,7 +107,7 @@ export default function HighlightsFilterBar({
             style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             <SlidersHorizontal size={15} aria-hidden />
-            거르기{activeCount > 0 ? ` ${activeCount}` : ''}
+            필터{activeCount > 0 ? ` ${activeCount}` : ''}
             {open ? <ChevronUp size={15} aria-hidden /> : <ChevronDown size={15} aria-hidden />}
           </button>
           {activeCount > 0 && (

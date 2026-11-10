@@ -27,6 +27,8 @@ interface Props {
   onTogglePlay: () => void
   onRestart: () => void
   onDismissHint: () => void
+  rate?: number
+  onRate?: () => void
 }
 
 function buzz() {
@@ -60,12 +62,12 @@ const ROUND = 'rounded-full'
 
 export default function ImmersiveControls({
   playing, finished, title, subtitle, index, total, showRotateHint,
-  onClose, onPrev, onNext, onTogglePlay, onRestart, onDismissHint,
+  onClose, onPrev, onNext, onTogglePlay, onRestart, onDismissHint, rate = 1, onRate,
 }: Props) {
   return (
     <div
       className="relative z-30 w-full shrink-0 flex flex-col gap-3 px-4 pt-3
-        landscape:w-[148px] landscape:h-full landscape:justify-center landscape:px-2 landscape:pt-0 landscape:gap-4"
+        landscape:w-[148px] landscape:h-full landscape:justify-center landscape:px-2 landscape:pt-0 landscape:gap-2"
       style={{
         color: '#fff',
         paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
@@ -76,19 +78,19 @@ export default function ImmersiveControls({
       <div className="flex items-start gap-2 landscape:flex-col landscape:items-center landscape:text-center">
         <div className="min-w-0 flex-1 landscape:order-2">
           <div className="text-sm sm:text-base font-bold break-keep">{title}</div>
-          {subtitle && <div className="text-xs break-keep" style={{ color: 'rgba(255,255,255,0.7)' }}>{subtitle}</div>}
+          {subtitle && <div className="text-xs break-keep landscape:hidden" style={{ color: 'rgba(255,255,255,0.7)' }}>{subtitle}</div>}
           <div className="mt-1 text-xs font-bold tabular-nums" style={{ color: 'rgba(255,255,255,0.7)' }} aria-label={`${total}개 중 ${index + 1}번째 클립`}>
             {index + 1} / {total}
           </div>
         </div>
-        <TapButton onClick={onClose} label="전체화면 닫기" className={`${ROUND} w-11 h-11 landscape:order-1`} style={{ background: 'rgba(255,255,255,0.12)' }}>
+        <TapButton onClick={onClose} label="전체화면 닫기" className={`${ROUND} w-11 h-11 landscape:w-9 landscape:h-9 landscape:order-1`} style={{ background: 'rgba(255,255,255,0.12)' }}>
           <X size={22} aria-hidden />
         </TapButton>
       </div>
 
       {/* 이전 · 재생/정지 · 다음 */}
-      <div className="flex items-center justify-center gap-6 landscape:flex-col landscape:gap-3">
-        <TapButton onClick={onPrev} disabled={index === 0} label="이전 클립" className={`${ROUND} w-14 h-14`} style={{ background: 'rgba(255,255,255,0.14)' }}>
+      <div className="flex items-center justify-center gap-6 landscape:flex-col landscape:gap-2">
+        <TapButton onClick={onPrev} disabled={index === 0} label="이전 클립" className={`${ROUND} w-14 h-14 landscape:w-11 landscape:h-11`} style={{ background: 'rgba(255,255,255,0.14)' }}>
           <SkipBack size={24} fill="currentColor" aria-hidden />
         </TapButton>
         {finished ? (
@@ -97,14 +99,23 @@ export default function ImmersiveControls({
             처음부터
           </TapButton>
         ) : (
-          <TapButton onClick={onTogglePlay} label={playing ? '일시정지' : '재생'} className={`${ROUND} w-16 h-16`} style={{ background: '#fff', color: '#111' }}>
+          <TapButton onClick={onTogglePlay} label={playing ? '일시정지' : '재생'} className={`${ROUND} w-16 h-16 landscape:w-14 landscape:h-14`} style={{ background: '#fff', color: '#111' }}>
             {playing ? <Pause size={28} fill="currentColor" aria-hidden /> : <Play size={28} fill="currentColor" className="ml-0.5" aria-hidden />}
           </TapButton>
         )}
-        <TapButton onClick={onNext} disabled={index + 1 >= total} label="다음 클립" className={`${ROUND} w-14 h-14`} style={{ background: 'rgba(255,255,255,0.14)' }}>
+        <TapButton onClick={onNext} disabled={index + 1 >= total} label="다음 클립" className={`${ROUND} w-14 h-14 landscape:w-11 landscape:h-11`} style={{ background: 'rgba(255,255,255,0.14)' }}>
           <SkipForward size={24} fill="currentColor" aria-hidden />
         </TapButton>
       </div>
+
+      {onRate && (
+        <div className="flex justify-center">
+          <TapButton onClick={onRate} label={`재생 속도 ${rate}배 — 누르면 바뀌어요`} className={`${ROUND} h-10 landscape:h-9 px-4 text-sm font-black tabular-nums`}
+            style={{ background: rate === 1 ? 'rgba(255,255,255,0.14)' : '#fff', color: rate === 1 ? '#fff' : '#111' }}>
+            {rate}×
+          </TapButton>
+        </div>
+      )}
 
       {finished && (
         <p className="text-center text-xs font-bold break-keep" role="status" style={{ color: 'rgba(255,255,255,0.8)' }}>마지막 클립까지 봤어요</p>

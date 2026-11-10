@@ -35,6 +35,7 @@
 import { whenYouTubeReady, preloadYouTubeIframeApi } from '@/lib/youtube/iframeApi'
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
 import { track } from '@vercel/analytics'
+import { preconnect } from 'react-dom'
 import { Play, Pause, SkipBack, SkipForward, HeartCrack, RotateCcw } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
 import PlayerName from '@/components/league/ui/PlayerName'
@@ -93,6 +94,8 @@ function canElementFullscreen(el: HTMLElement): boolean {
   const enabled = d.fullscreenEnabled || d.webkitFullscreenEnabled
   return !!enabled && (typeof el.requestFullscreen === 'function' || typeof (el as FsEl).webkitRequestFullscreen === 'function')
 }
+// 재생 속도 차례 — 보통 → 느리게(슬로모션) → 아주 느리게 → 빠르게
+const RATES = [1, 0.5, 0.25, 1.5]
 const ROTATE_HINT_KEY = 'highlights:immersiveRotateHint'
 const YT_API_SRC = 'https://www.youtube.com/iframe_api'
 
@@ -100,6 +103,10 @@ const YT_API_SRC = 'https://www.youtube.com/iframe_api'
 const preloadYouTubeApi = preloadYouTubeIframeApi
 
 export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard, ref, onImmersiveChange, immersiveOnly = false, autoAdvance = false }: Props) {
+  // 재생기가 있는 화면에서만 유튜브 서버에 미리 연결해 둔다(첫 ▶ 가 덜 기다리게) — 같은 주소는 React 가 한 번만 넣는다
+  preconnect('https://www.youtube.com')
+  preconnect('https://i.ytimg.com')
+  preconnect('https://www.google.com')
   // 플레이어 콜백은 1회 생성이라 ref 로 읽는다 (마운트 동안 바뀌지 않는 값이지만 규칙을 맞춘다)
   const immersiveOnlyRef = useRef(immersiveOnly)
   useEffect(() => { immersiveOnlyRef.current = immersiveOnly }, [immersiveOnly])
@@ -157,6 +164,15 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const immersiveRef = useRef(false)
   const enteredFullscreenRef = useRef(false)   // 우리가 Fullscreen API 로 들어갔는가 (나갈 때 되돌림)
   const [playing, setPlaying] = useState(false)
+  // 재생 속도(2026-11-10 운영진 「재생 환경 개선」) — 느리게 보면 슛 폼·패스가 보인다. 클립이 바뀌어도 유지한다
+  const [rate, setRate] = useState(1)
+  const rateRef = useRef(1)
+  const cycleRate = useCallback(() => {
+    const next = RATES[(RATES.indexOf(rateRef.current) + 1) % RATES.length]
+    rateRef.current = next
+    setRate(next)
+    try { playerRef.current?.setPlaybackRate(next) } catch { /* ignore */ }
+  }, [])
   const [controlsVisible, setControlsVisible] = useState(true)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [finished, setFinished] = useState(false)  // 마지막 클립 끝까지 봄
@@ -275,6 +291,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
             }
             if (e.data === 1) {
               setPlaying(true)
+              // 영상이 바뀌면 YouTube 가 속도를 1로 되돌린다 — 고른 속도를 다시 건다
+              try { if (rateRef.current !== 1 && e.target.getPlaybackRate() !== rateRef.current) e.target.setPlaybackRate(rateRef.current) } catch { /* ignore */ }
               // 재생 측정 — 한 클립을 처음 틀 때 한 번만 센다(멈췄다 다시 틀면 안 셈)
               const ev = clipsRef.current[currentIdxRef.current]?.event_id
               if (ev && trackedClipRef.current !== ev) {
@@ -672,7 +690,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       <div
         className={immersive
           // 조작부 띠(세로 아래 ~200px · 가로 오른쪽 148px)를 뺀 자리에 영상을 맞춘다 — 버튼이 영상 위에 겹치지 않게
-          ? 'relative shrink-0 aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full w-[min(100dvw,calc((100dvh-210px)*16/9))] landscape:w-[min(calc(100dvw-156px),calc(100dvh*16/9))]'
+          ? 'relative shrink-0 aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full w-[min(100dvw,calc((100dvh-264px)*16/9))] landscape:w-[min(calc(100dvw-156px),calc(100dvh*16/9))]'
           : 'relative rounded-xl overflow-hidden aspect-video bg-black'}
         aria-live="polite"
         aria-label={captionOverride
@@ -856,6 +874,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           onTogglePlay={() => { togglePlay(); revealControls() }}
           onRestart={() => { setFinished(false); if (currentIdx === 0) { try { playerRef.current?.seekTo(Math.floor(clip.clip_start), true); playerRef.current?.playVideo() } catch { /* ignore */ } } else onIndexChange(0) }}
           onDismissHint={() => setRotateHint(false)}
+          rate={rate}
+          onRate={cycleRate}
         />
       )}
       </div>
@@ -899,6 +919,15 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           aria-label="다음 클립"
         >
           <SkipForward size={20} />
+        </button>
+        <button
+          type="button"
+          onClick={cycleRate}
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[52px] px-2 text-sm font-black tabular-nums cursor-pointer transition-[transform,filter] duration-150 hover:brightness-95 active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+          style={{ background: rate === 1 ? 'var(--mm-panel-alt)' : 'var(--mm-ink)', color: rate === 1 ? 'var(--mm-ink)' : 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+          aria-label={`재생 속도 ${rate}배 — 누르면 바뀌어요`}
+        >
+          {rate}×
         </button>
 
         {/* 진행 표시 */}
