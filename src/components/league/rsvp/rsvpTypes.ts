@@ -1,4 +1,5 @@
 // 주간 참가신청 화면 공용 타입·작은 함수 (API: /api/leagues/[leagueId]/rsvp)
+import { positionShortOf } from '@/lib/league/positionGroup'
 export type RsvpKind = 'regular' | 'non_regular' | 'guest'
 
 export interface RsvpEntryView {
@@ -71,5 +72,5 @@ export const UNIFORM_NAME = { yellow: '노랑', white: '흰색', black: '검정'
 
 /** 게스트 한 줄 — 「이름(나이) / 포지션 / 신장」(2026-11-09 운영진 포맷). 빈 칸은 뺀다. */
 export function guestLine(e: { name: string; age?: number | null; position: string | null; height_cm?: number | null }): string {
-  return [`${e.name}${e.age ? `(${e.age})` : ''}`, e.position, e.height_cm ? `${e.height_cm}cm` : null].filter(Boolean).join(' / ')
+  return [`${e.name}${e.age ? `(${e.age})` : ''}`, positionShortOf(e.position) || null, e.height_cm ? `${e.height_cm}cm` : null].filter(Boolean).join(' / ')
 }

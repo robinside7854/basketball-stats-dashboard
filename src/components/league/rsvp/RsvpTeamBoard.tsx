@@ -10,6 +10,7 @@
 import { useState, type DragEvent } from 'react'
 import { toast } from 'sonner'
 import { GripVertical, Check, X, HelpCircle, Crown } from 'lucide-react'
+import { positionShortOf } from '@/lib/league/positionGroup'
 import { UNIFORM_FILL, UNIFORM_NAME, KIND_LABEL, guestLine, type RsvpEntryView, type RsvpRes } from './rsvpTypes'
 
 type Team = NonNullable<RsvpRes['teams']>[number]
@@ -202,7 +203,7 @@ export default function RsvpTeamBoard({
       className="lg:hidden ml-auto min-h-9 px-1.5 text-sm font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] self-center"
       style={{ color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
       <option value="">대기명단</option>
-      {teams.map(t => <option key={t.id} value={t.id}>TEAM {t.name}</option>)}
+      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
     </select>
   )
 
@@ -221,7 +222,7 @@ export default function RsvpTeamBoard({
         // 나이·키는 대기명단에서 실력 가늠용이라 배치된 뒤엔 뺀다)
         <>
           <span className="text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
-          {m.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{m.position}</span>}
+          {positionShortOf(m.position) && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{positionShortOf(m.position)}</span>}
           <span className="inline-flex items-center self-center px-1.5 text-xs font-black whitespace-nowrap"
             style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>게스트</span>
         </>
@@ -234,7 +235,7 @@ export default function RsvpTeamBoard({
         <>
           <span className="text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontWeight: leader ? 800 : undefined }}>{m.name}</span>
           {leader && <CrownMark />}
-          {m.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{m.position}</span>}
+          {positionShortOf(m.position) && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{positionShortOf(m.position)}</span>}
         </>
       )}
       {showKind && m.kind !== 'guest' && <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>{KIND_LABEL[m.kind]}</span>}
@@ -270,7 +271,19 @@ export default function RsvpTeamBoard({
       )}
       {m.kind === 'regular' && <Vote pid={m.player_id} name={m.name} />}
       <MobilePlace m={m} />
-      {admin && m.kind !== 'regular' && (
+      {admin && m.kind !== 'regular' && m.placed_team_id && (
+        // 팀에 배치된 뒤에는 정규와 같은 ✓ / ✕ 모양(2026-11-10 운영진 「배치된 이후에는 통일」) — ✓ 는 지금 상태, ✕ = 참가 취소
+        <span className="ml-auto inline-flex gap-1 self-center">
+          <span aria-label={`${m.name} 참`} className="inline-flex items-center justify-center w-7 h-7 border"
+            style={{ borderColor: '#059669', background: '#059669', color: '#fff', borderRadius: 'var(--mm-radius-chip)' }}><Check size={14} aria-hidden /></span>
+          <button type="button" disabled={busy} onClick={() => adminCancel(m)} aria-label={`${m.name} 참가 취소`}
+            className="mm-press inline-flex items-center justify-center w-7 h-7 border disabled:opacity-50"
+            style={{ borderColor: 'color-mix(in srgb, var(--mm-live-bg) 40%, transparent)', background: 'var(--mm-panel)', color: 'var(--mm-live-bg)', borderRadius: 'var(--mm-radius-chip)' }}>
+            <X size={14} aria-hidden />
+          </button>
+        </span>
+      )}
+      {admin && m.kind !== 'regular' && !m.placed_team_id && (
         <button type="button" disabled={busy} onClick={() => adminCancel(m)} aria-label={`${m.name} 참가 취소`}
           className="mm-press inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-bold whitespace-nowrap border disabled:opacity-50 self-center"
           style={{ borderColor: 'color-mix(in srgb, var(--mm-live-bg) 40%, transparent)', color: 'var(--mm-live-bg)', borderRadius: 'var(--mm-radius-chip)' }}>
@@ -339,7 +352,7 @@ export default function RsvpTeamBoard({
                     <Mark kind={r.mark} />
                     <span className="text-base" style={{ color: 'var(--mm-ink)', fontWeight: r.player_id === leaderId ? 800 : undefined, textDecoration: r.mark === 'no' ? 'line-through' : undefined }}>{r.name}</span>
                     {r.player_id === leaderId && <CrownMark />}
-                    {r.position && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{r.position}</span>}
+                    {positionShortOf(r.position) && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{positionShortOf(r.position)}</span>}
                     <Vote pid={r.player_id} name={r.name} />
                   </li>
                 )
@@ -347,9 +360,9 @@ export default function RsvpTeamBoard({
                 const leaderRest = rest.find(r => r.player_id === leaderId)
                 return (
                   <ul className="mt-2 space-y-1.5">
-                    {leaderMember && <Person key={leaderMember.player_id} m={leaderMember} showKind={leaderMember.kind !== 'regular'} leader />}
+                    {leaderMember && <Person key={leaderMember.player_id} m={leaderMember} showKind={false} leader />}
                     {leaderRest && restRow(leaderRest)}
-                    {members.filter(m => m.player_id !== leaderId).map(m => <Person key={m.player_id} m={m} showKind={m.kind !== 'regular'} />)}
+                    {members.filter(m => m.player_id !== leaderId).map(m => <Person key={m.player_id} m={m} showKind={false} />)}
                     {rest.filter(r => r.player_id !== leaderId).map(restRow)}
                   </ul>
                 )

@@ -12,6 +12,7 @@
 //   캐시 없음(ISR Reads 0) — 홈 카드가 매번 최신을 본다.
 import { NextResponse } from 'next/server'
 import { loadPassSales } from '@/lib/wallet/passSales'
+import { positionGroupOf } from '@/lib/league/positionGroup'
 import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
@@ -192,14 +193,13 @@ async function openWindow(sb: ReturnType<typeof createClient>, leagueId: string,
   return win
 }
 
-const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
 
 async function addGuest(sb: ReturnType<typeof createClient>, leagueId: string, gameDate: string, inviterId: string, body: Record<string, unknown>) {
   const name = typeof body.name === 'string' ? body.name.trim().replace(/\s+/g, ' ').slice(0, 30) : ''
   const age = Number(body.age)
   const height = body.height_cm == null || body.height_cm === '' ? null : Number(body.height_cm)
   const pos = (Array.isArray(body.position) ? body.position : String(body.position ?? '').split(','))
-    .map(p => String(p).trim().toUpperCase()).filter(p => POSITIONS.includes(p))
+    .map(p => positionGroupOf(String(p))).filter((p): p is NonNullable<typeof p> => !!p)   // 가드·포워드·센터 → G·F·C(옛 5코드도 묶어 받는다)
   if (!name) return NextResponse.json({ error: '게스트 이름을 적어 주세요' }, { status: 400 })
   if (!Number.isInteger(age) || age < 10 || age > 80) return NextResponse.json({ error: '나이를 숫자로 적어 주세요 (10~80)' }, { status: 400 })
   if (height != null && (!Number.isInteger(height) || height < 140 || height > 230)) return NextResponse.json({ error: '키는 cm 숫자로 적어 주세요 (140~230)' }, { status: 400 })

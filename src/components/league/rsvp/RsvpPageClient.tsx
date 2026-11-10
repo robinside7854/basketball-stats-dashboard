@@ -115,6 +115,10 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                 <span className="text-base font-bold" style={{ color: 'var(--mm-muted)' }}>/ 정원 {data.capacity}명</span>
               </div>
               <div className="mt-1.5 text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>정규 {counts.regular} · 비정규 {counts.non_regular} · 게스트 {counts.guest} · 불참 {no.length}</div>
+              {/* 불참한 사람 — 비정규 불참은 팀 카드에 안 보여 「누가?」를 알 수 없었다(2026-11-10 운영진). 어드민만 */}
+              {admin && no.length > 0 && (
+                <div className="mt-0.5 text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>불참: {no.map(e => e.name).join(' · ')}</div>
+              )}
               {over && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>정원을 넘었어요 — 팀장·총무가 협의해 정해요(7명 팀 등).</p>}
               {locked && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-ink-soft)' }}>그날 기록이 시작돼 명단은 더 고칠 수 없어요.</p>}
               {admin && !locked && (

@@ -38,3 +38,14 @@ export function positionGroupLabel(code: PositionGroupCode | null | undefined): 
 export function positionLabelOf(raw: string | null | undefined): string {
   return positionGroupLabel(positionGroupOf(raw))
 }
+
+/** 화면에 짧게 — 적힌 포지션을 세 그룹으로 묶어 겹치지 않게 「G」·「G/F」(참가신청 화면, 2026-11-10 운영진 「무조건 가드/포워드/센터」).
+ *  여러 포지션이면 전부 보인다(게스트 실력 가늠용) — 비교·정렬은 positionGroupOf(첫 번째)를 쓴다. 모르는 값이면 '' */
+export function positionShortOf(raw: string | null | undefined): string {
+  const out: PositionGroupCode[] = []
+  for (const part of (raw ?? '').split(',')) {
+    const g = positionGroupOf(part)
+    if (g && !out.includes(g)) out.push(g)
+  }
+  return out.join('/')
+}

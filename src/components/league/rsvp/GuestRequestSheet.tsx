@@ -5,8 +5,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import Sheet from '@/components/league/ui/Sheet'
 import { guestLine, type RsvpRes } from './rsvpTypes'
+import { POSITION_GROUPS } from '@/lib/league/positionGroup'
 
-const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'] as const
+// 리그 포지션은 가드·포워드·센터 세 가지(positionGroup.ts) — 저장값 G·F·C
+const POSITIONS = POSITION_GROUPS
 const INPUT = 'mt-1 w-full min-h-11 px-3 border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-base'
 
 export default function GuestRequestSheet({ leagueId, open, onClose, onDone, pool = [], guestPrice = null, myBalance = null }: { leagueId: string; open: boolean; onClose: () => void; onDone: () => void; pool?: NonNullable<RsvpRes['guest_pool']>; guestPrice?: number | null; myBalance?: number | null }) {
@@ -106,13 +108,13 @@ export default function GuestRequestSheet({ leagueId, open, onClose, onDone, poo
         <div>
           <div className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>포지션 (여러 개 가능)</div>
           <div className="mt-1 flex flex-wrap gap-2">
-            {POSITIONS.map(p => {
+            {POSITIONS.map(({ code: p, label }) => {
               const on = pos.includes(p)
               return (
                 <button key={p} type="button" aria-pressed={on} onClick={() => setPos(v => on ? v.filter(x => x !== p) : [...v, p])}
                   className="mm-press min-h-11 min-w-12 px-3 text-sm font-black border"
                   style={{ borderColor: on ? 'var(--mm-ink)' : 'var(--mm-rule)', background: on ? 'var(--mm-yellow)' : 'var(--mm-panel)', color: on ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
-                  {p}
+                  {label}
                 </button>
               )
             })}
