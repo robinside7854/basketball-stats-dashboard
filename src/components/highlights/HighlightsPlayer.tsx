@@ -695,13 +695,12 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const bug = () => (
     <ScoreBug
       key={clip.event_id}
-      home={clip.home_team_name || '홈'}
-      away={clip.away_team_name || '원정'}
-      homeScore={scoreHome}
-      awayScore={scoreAway}
-      homeColor={clip.home_team_color ?? (homeScored ? clip.team_color : null)}
-      awayColor={clip.away_team_color ?? (awayScored ? clip.team_color : null)}
-      scored={homeScored ? 'home' : awayScored ? 'away' : null}
+      {...(() => {
+        const home = { name: clip.home_team_name || '홈', score: scoreHome, color: clip.home_team_color ?? (homeScored ? clip.team_color : null), scored: homeScored }
+        const away = { name: clip.away_team_name || '원정', score: scoreAway, color: clip.away_team_color ?? (awayScored ? clip.team_color : null), scored: awayScored }
+        // 기록 화면과 같은 좌우 — 홈 = 왼쪽, 그 쿼터에 좌우를 바꿔 기록했으면 반대
+        return clip.sides_flipped ? { left: away, right: home } : { left: home, right: away }
+      })()}
       points={clip.points}
       label={SHOT_TYPE_LABEL[clip.shot_type] ?? null}
       scorer={`${clip.player_number != null ? `#${clip.player_number} ` : ''}${clip.player_name}`}
@@ -816,7 +815,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         <div
           className={immersive
             ? 'shrink-0 w-[min(100dvw,calc((100dvh-340px)*16/9))] landscape:w-[min(calc(100dvw-180px),calc((100dvh-104px)*16/9))] landscape:col-start-1 landscape:row-start-2'
-            : 'w-full lg:max-w-[880px] lg:mx-auto overflow-hidden rounded-lg'}
+            : 'w-full'}
         >
           {bug()}
         </div>

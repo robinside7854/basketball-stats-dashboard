@@ -220,7 +220,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     supabase
       .from('league_games')
       .select(`
-        id, date, slot_num, quarter_id, youtube_url, youtube_start_offset,
+        id, date, slot_num, sides_swapped_quarters, quarter_id, youtube_url, youtube_start_offset,
         home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters,
         home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
         away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
@@ -239,7 +239,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   if (gErr) throw new Error(`loadRoundDetail: leagueId=${leagueId} date=${date} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as unknown as Array<{
     id: string
-    date?: string; slot_num?: number | null
+    date?: string; slot_num?: number | null; sides_swapped_quarters?: number[] | null
     quarter_id: string | null
     youtube_url: string
     youtube_start_offset: number | null
@@ -426,6 +426,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       home_team_color: uniformOf(game.home_team_id, game.date ?? null) ?? homeIdentity?.color ?? game.home_team?.color ?? null,
       away_team_color: uniformOf(game.away_team_id, game.date ?? null) ?? awayIdentity?.color ?? game.away_team?.color ?? null,
       game_slot: game.slot_num ?? null,
+      // 기록 화면과 같은 좌우 — 홈 = 왼쪽, 그 쿼터에 좌우를 바꿔 기록했으면 반대(2026-11-10 운영진)
+      sides_flipped: ev.quarter != null && (game.sides_swapped_quarters ?? []).includes(ev.quarter),
       game_day: game.date ?? null,
       away_team_name: awayName,
       assist_player_id: assistPlayer?.id ?? null,
@@ -520,7 +522,7 @@ export async function loadPlayerHighlights(
     supabase
       .from('league_games')
       .select(`
-        id, date, slot_num, quarter_id, youtube_url, youtube_start_offset,
+        id, date, slot_num, sides_swapped_quarters, quarter_id, youtube_url, youtube_start_offset,
         home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters,
         home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
         away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
@@ -550,7 +552,7 @@ export async function loadPlayerHighlights(
   const gameRows = (gamesRaw ?? []) as unknown as Array<{
     id: string
     date: string
-    slot_num?: number | null
+    slot_num?: number | null; sides_swapped_quarters?: number[] | null
     quarter_id: string | null
     youtube_url: string
     youtube_start_offset: number | null
@@ -754,6 +756,8 @@ export async function loadPlayerHighlights(
       home_team_color: uniformOf(game.home_team_id, game.date ?? null) ?? homeIdentity?.color ?? game.home_team?.color ?? null,
       away_team_color: uniformOf(game.away_team_id, game.date ?? null) ?? awayIdentity?.color ?? game.away_team?.color ?? null,
       game_slot: game.slot_num ?? null,
+      // 기록 화면과 같은 좌우 — 홈 = 왼쪽, 그 쿼터에 좌우를 바꿔 기록했으면 반대(2026-11-10 운영진)
+      sides_flipped: ev.quarter != null && (game.sides_swapped_quarters ?? []).includes(ev.quarter),
       game_day: game.date ?? null,
       away_team_name: awayName,
       game_date: game.date,
@@ -858,7 +862,7 @@ export async function loadClipsByEventIds(
   const { data: games, error: gErr } = await supabase
     .from('league_games')
     .select(`
-      id, date, slot_num, quarter_id, youtube_url, home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters,
+      id, date, slot_num, sides_swapped_quarters, quarter_id, youtube_url, home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters,
       home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
       away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
     `)
@@ -870,7 +874,7 @@ export async function loadClipsByEventIds(
   if (gErr) throw new Error(`loadClipsByEventIds: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as unknown as Array<{
     id: string
-    date?: string; slot_num?: number | null
+    date?: string; slot_num?: number | null; sides_swapped_quarters?: number[] | null
     quarter_id: string | null
     youtube_url: string
     home_team_id: string | null
@@ -1012,6 +1016,8 @@ export async function loadClipsByEventIds(
       home_team_color: uniformOf(game.home_team_id, game.date ?? null) ?? homeIdentity?.color ?? game.home_team?.color ?? null,
       away_team_color: uniformOf(game.away_team_id, game.date ?? null) ?? awayIdentity?.color ?? game.away_team?.color ?? null,
       game_slot: game.slot_num ?? null,
+      // 기록 화면과 같은 좌우 — 홈 = 왼쪽, 그 쿼터에 좌우를 바꿔 기록했으면 반대(2026-11-10 운영진)
+      sides_flipped: ev.quarter != null && (game.sides_swapped_quarters ?? []).includes(ev.quarter),
       game_day: game.date ?? null,
       away_team_name: awayName,
       assist_player_id: assistPlayer?.id ?? null,

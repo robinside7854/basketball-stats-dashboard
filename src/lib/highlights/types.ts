@@ -40,6 +40,8 @@ export type HighlightClip = {
   away_team_color?: string | null
   game_day?: string | null
   game_slot?: number | null
+  /** 이 장면 쿼터에 기록 화면에서 좌우를 바꿨다 — 스코어보드 왼쪽 = 원정 */
+  sides_flipped?: boolean
   away_team_name: string
   // 선수별 페이지에서 채움 (라운드 상세 로더는 optional 미설정)
   game_date?: string
