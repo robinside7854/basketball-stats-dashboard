@@ -58,6 +58,18 @@ function classifyClutchKind(
 
 // 게임별 "마지막 이벤트" timestamp — 이벤트 종류 무관 (득점/리바/파울/서브 등)
 //   클러치 시간 창의 기준점 · 득점 공백 구간을 정확히 커버하기 위해 별도 조회
+const UNIFORM_HEX: Record<string, string> = { yellow: '#f5c400', white: '#ffffff', black: '#151515' }
+/** (팀, 경기 날짜) → 그 달 유니폼 색. 표가 없거나 지정 안 한 달은 null(팀 색으로 폴백) */
+async function loadUniformColors(supabase: SupabaseClient, leagueId: string): Promise<(teamId: string | null, date: string | null) => string | null> {
+  const { data } = await supabase.from('league_team_month_uniforms').select('team_id, month, uniform').eq('league_id', leagueId)
+  const m = new Map<string, string>()
+  for (const r of (data ?? []) as Array<{ team_id: string; month: string; uniform: string }>) {
+    const hex = UNIFORM_HEX[r.uniform]
+    if (hex) m.set(`${r.team_id}|${String(r.month).slice(0, 7)}`, hex)
+  }
+  return (teamId, date) => (teamId && date ? m.get(`${teamId}|${date.slice(0, 7)}`) ?? null : null)
+}
+
 async function fetchGameMaxTs(
   supabase: SupabaseClient,
   gameIds: string[],
@@ -221,6 +233,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     // 채점 룰 — 이벤트 루프 밖에서 한 번만 읽는다 (동호회마다 다른 plus_one/자유투 배점).
     fetchScoringRules(supabase, leagueId),
   ])
+  // 스코어보드 팀 색 = 그 달 유니폼 색(2026-11-10 운영진 — 팀 색은 정해 둔 상징색이라 실제 입은 색과 달랐다)
+  const uniformOf = await loadUniformColors(supabase, leagueId)
   // 쿼리 실패를 empty 로 넘기면 "그 날 영상 없음"과 구분이 안 돼 라운드 상세가 조용히 텅 빈다.
   if (gErr) throw new Error(`loadRoundDetail: leagueId=${leagueId} date=${date} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as unknown as Array<{
@@ -409,8 +423,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       points: ev.points ?? 0,
       game_id: game.id,
       home_team_name: homeName,
-      home_team_color: homeIdentity?.color ?? game.home_team?.color ?? null,
-      away_team_color: awayIdentity?.color ?? game.away_team?.color ?? null,
+      home_team_color: uniformOf(game.home_team_id, game.date ?? null) ?? homeIdentity?.color ?? game.home_team?.color ?? null,
+      away_team_color: uniformOf(game.away_team_id, game.date ?? null) ?? awayIdentity?.color ?? game.away_team?.color ?? null,
       game_slot: game.slot_num ?? null,
       game_day: game.date ?? null,
       away_team_name: awayName,
@@ -518,6 +532,8 @@ export async function loadPlayerHighlights(
     fetchScoringRules(supabase, leagueId),
     supabase.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId)),
   ])
+  // 스코어보드 팀 색 = 그 달 유니폼 색(2026-11-10 운영진 — 팀 색은 정해 둔 상징색이라 실제 입은 색과 달랐다)
+  const uniformOf = await loadUniformColors(supabase, leagueId)
   // 쿼리 실패를 빈 결과로 넘기면 "영상 있는 경기 없음"과 구분이 안 돼 이 선수의 하이라이트가 조용히 텅 빈다.
   if (gErr) throw new Error(`loadPlayerHighlights: leagueId=${leagueId} playerId=${playerId} league_games 조회 실패 — ${gErr.message}`)
   // 쿼리 실패를 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점되고,
@@ -735,8 +751,8 @@ export async function loadPlayerHighlights(
       points: ev.points ?? 0,
       game_id: game.id,
       home_team_name: homeName,
-      home_team_color: homeIdentity?.color ?? game.home_team?.color ?? null,
-      away_team_color: awayIdentity?.color ?? game.away_team?.color ?? null,
+      home_team_color: uniformOf(game.home_team_id, game.date ?? null) ?? homeIdentity?.color ?? game.home_team?.color ?? null,
+      away_team_color: uniformOf(game.away_team_id, game.date ?? null) ?? awayIdentity?.color ?? game.away_team?.color ?? null,
       game_slot: game.slot_num ?? null,
       game_day: game.date ?? null,
       away_team_name: awayName,
@@ -806,6 +822,8 @@ export async function loadClipsByEventIds(
     fetchScoringRules(supabase, leagueId),
     supabase.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId)),
   ])
+  // 스코어보드 팀 색 = 그 달 유니폼 색(2026-11-10 운영진 — 팀 색은 정해 둔 상징색이라 실제 입은 색과 달랐다)
+  const uniformOf = await loadUniformColors(supabase, leagueId)
   // 쿼리 실패와 "요청한 이벤트가 실제로 없음"을 구분한다 — 실패를 빈 배열로 넘기면
   // 핀한 베스트샷/특정 클립 요청이 조용히 "아무것도 없음"으로 보인다.
   if (eErr) throw new Error(`loadClipsByEventIds: leagueId=${leagueId} league_game_events 조회 실패 — ${eErr.message}`)
@@ -991,8 +1009,8 @@ export async function loadClipsByEventIds(
       points: ev.points ?? 0,
       game_id: game.id,
       home_team_name: homeName,
-      home_team_color: homeIdentity?.color ?? game.home_team?.color ?? null,
-      away_team_color: awayIdentity?.color ?? game.away_team?.color ?? null,
+      home_team_color: uniformOf(game.home_team_id, game.date ?? null) ?? homeIdentity?.color ?? game.home_team?.color ?? null,
+      away_team_color: uniformOf(game.away_team_id, game.date ?? null) ?? awayIdentity?.color ?? game.away_team?.color ?? null,
       game_slot: game.slot_num ?? null,
       game_day: game.date ?? null,
       away_team_name: awayName,

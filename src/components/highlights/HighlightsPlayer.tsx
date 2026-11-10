@@ -816,7 +816,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         <div
           className={immersive
             ? 'shrink-0 w-[min(100dvw,calc((100dvh-340px)*16/9))] landscape:w-[min(calc(100dvw-180px),calc((100dvh-104px)*16/9))] landscape:col-start-1 landscape:row-start-2'
-            : 'overflow-hidden rounded-lg'}
+            : 'w-full lg:max-w-[880px] lg:mx-auto overflow-hidden rounded-lg'}
         >
           {bug()}
         </div>

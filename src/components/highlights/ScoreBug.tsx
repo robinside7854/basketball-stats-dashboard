@@ -65,7 +65,7 @@ export default function ScoreBug(p: ScoreBugProps) {
   const hc = p.homeColor || FALLBACK
   const ac = p.awayColor || FALLBACK
   return (
-    <div className="w-full" style={{ background: INK, color: '#fff' }}
+    <div className="w-full lg:max-w-[880px] lg:mx-auto" style={{ background: INK, color: '#fff' }}
       role="img"
       aria-label={`스코어보드: ${p.home} ${p.homeScore} 대 ${p.awayScore} ${p.away}${p.slot ? `, ${p.slot}경기` : ''}`}>
       <div className="flex items-stretch h-12 sm:h-14">
