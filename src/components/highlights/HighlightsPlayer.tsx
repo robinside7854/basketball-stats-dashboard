@@ -692,19 +692,23 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const homeScored = clip.team_name === clip.home_team_name
   const awayScored = clip.team_name === clip.away_team_name
   const showBug = !hideScoreboard && hasScore && !!(clip.home_team_name || clip.away_team_name)
-  const bug = (compact: boolean) => (
+  const bug = () => (
     <ScoreBug
       key={clip.event_id}
-      compact={compact}
       home={clip.home_team_name || '홈'}
       away={clip.away_team_name || '원정'}
       homeScore={scoreHome}
       awayScore={scoreAway}
+      homeColor={clip.home_team_color ?? (homeScored ? clip.team_color : null)}
+      awayColor={clip.away_team_color ?? (awayScored ? clip.team_color : null)}
       scored={homeScored ? 'home' : awayScored ? 'away' : null}
-      scoredColor={clip.team_color}
       points={clip.points}
       label={SHOT_TYPE_LABEL[clip.shot_type] ?? null}
+      scorer={`${clip.player_number != null ? `#${clip.player_number} ` : ''}${clip.player_name}`}
+      assist={clip.assist_player_name ?? null}
       clutch={!!clip.is_clutch}
+      day={clip.game_day ?? clip.game_date ?? null}
+      slot={clip.game_slot ?? null}
     />
   )
 
@@ -722,7 +726,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           iframe 이 다시 마운트되면 재생이 끊긴다(클래스만 바꾼다). */}
       <div
         ref={stageRef}
-        className={immersive ? 'fixed inset-0 z-[1000] flex flex-col landscape:flex-row items-center justify-center overflow-hidden' : undefined}
+        className={immersive ? 'fixed inset-0 z-[1000] flex flex-col items-center justify-center overflow-hidden landscape:grid landscape:grid-cols-[1fr_164px] landscape:content-center landscape:justify-items-center' : undefined}
         style={immersive ? { background: '#000', width: '100dvw', height: '100dvh' } : undefined}
         role={immersive ? 'dialog' : undefined}
         aria-modal={immersive ? true : undefined}
@@ -732,7 +736,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       <div
         className={immersive
           // 조작부 띠(세로 아래 ~200px · 가로 오른쪽 148px)를 뺀 자리에 영상을 맞춘다 — 버튼이 영상 위에 겹치지 않게
-          ? 'relative shrink-0 aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full w-[min(100dvw,calc((100dvh-312px)*16/9))] landscape:w-[min(calc(100dvw-172px),calc(100dvh*16/9))]'
+          ? 'relative shrink-0 aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full w-[min(100dvw,calc((100dvh-340px)*16/9))] landscape:w-[min(calc(100dvw-180px),calc((100dvh-104px)*16/9))] landscape:col-start-1 landscape:row-start-1'
           : 'relative rounded-xl overflow-hidden aspect-video bg-black'}
         aria-live="polite"
         aria-label={captionOverride
@@ -809,8 +813,12 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       </div>
       {/* 스코어보드 — 영상 밖 띠(2026-11-10). 전체화면 가로에서는 조작부 안 세로형으로 옮긴다 */}
       {showBug && (
-        <div className={immersive ? 'shrink-0 w-[min(100dvw,calc((100dvh-312px)*16/9))] landscape:hidden' : 'overflow-hidden rounded-lg'}>
-          {bug(false)}
+        <div
+          className={immersive
+            ? 'shrink-0 w-[min(100dvw,calc((100dvh-340px)*16/9))] landscape:w-[min(calc(100dvw-180px),calc((100dvh-104px)*16/9))] landscape:col-start-1 landscape:row-start-2'
+            : 'overflow-hidden rounded-lg'}
+        >
+          {bug()}
         </div>
       )}
       {immersive && (
@@ -837,7 +845,6 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           rate={rate}
           onRate={cycleRate}
           onReplay={replay}
-          scoreBug={showBug ? bug(true) : null}
         />
       )}
       </div>

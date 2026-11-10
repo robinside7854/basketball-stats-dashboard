@@ -70,19 +70,18 @@ export default function ImmersiveControls({
   return (
     <div
       className="relative z-30 w-full shrink-0 flex flex-col gap-3 px-4 pt-3
-        landscape:w-[164px] landscape:h-full landscape:justify-center landscape:px-2 landscape:pt-0 landscape:gap-2"
+        landscape:w-[164px] landscape:col-start-2 landscape:row-start-1 landscape:row-span-2 landscape:self-center landscape:justify-center landscape:px-2 landscape:pt-0 landscape:gap-2"
       style={{
         color: '#fff',
         paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
         paddingRight: 'max(8px, env(safe-area-inset-right, 0px))',
       }}
     >
-      {scoreBug && <div className="hidden landscape:block landscape:order-first">{scoreBug}</div>}
       {/* 제목 · 순번 · 닫기 */}
       <div className="flex items-start gap-2 landscape:flex-col landscape:items-center landscape:text-center">
         <div className="min-w-0 flex-1 landscape:order-2">
           <div className="text-sm sm:text-base font-bold break-keep">{title}</div>
-          {subtitle && <div className="text-xs break-keep landscape:hidden" style={{ color: 'rgba(255,255,255,0.7)' }}>{subtitle}</div>}
+          {subtitle && <div className="text-xs break-keep" style={{ color: 'rgba(255,255,255,0.7)' }}>{subtitle}</div>}
           <div className="mt-1 text-xs font-bold tabular-nums landscape:mt-0" style={{ color: 'rgba(255,255,255,0.7)' }} aria-label={`${total}개 중 ${index + 1}번째 클립`}>
             {index + 1} / {total}
           </div>

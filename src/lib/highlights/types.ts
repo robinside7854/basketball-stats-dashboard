@@ -35,6 +35,11 @@ export type HighlightClip = {
   has_and_one?: boolean
   game_id: string
   home_team_name: string
+  /** 스코어보드용(2026-11-10) — 양 팀 색 · 경기 날짜 · 그날 경기 번호 */
+  home_team_color?: string | null
+  away_team_color?: string | null
+  game_day?: string | null
+  game_slot?: number | null
   away_team_name: string
   // 선수별 페이지에서 채움 (라운드 상세 로더는 optional 미설정)
   game_date?: string
