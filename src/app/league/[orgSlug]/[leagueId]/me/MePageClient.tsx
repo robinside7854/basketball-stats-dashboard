@@ -12,7 +12,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { ChevronRight, ClipboardList, Wallet } from 'lucide-react'
+import { BookOpen, ChevronRight, ClipboardList, Wallet } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
@@ -53,19 +53,20 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   }, [leagueId, user])
 
   // 월렛 · 드래프트 바로가기 — PC·폰 모두 제목 바로 아래. 계정 카드는 PC 왼쪽 칸 아래 · 폰 맨 아래.
-  const shortcuts = (wallet && user) || showDraft ? (
+  // 이용 가이드(2026-11-10 운영진)는 늘 마지막 줄
+  const shortcuts = (
     <SectionCard variant="standalone" pad="none">
       {user && wallet && (
         <ShortcutRow
           href={`${base}/wallet`} Icon={Wallet} label={wallet.name}
           sub="충전 · 티켓 · 내역" accent
           right={wallet.balance != null && <span className="shrink-0 font-black text-xl tabular-nums" style={{ color: 'var(--mm-ink)' }}>{wallet.balance.toLocaleString()}P</span>}
-          last={!showDraft}
         />
       )}
-      {showDraft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" last />}
+      {showDraft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" />}
+      <ShortcutRow href={`${base}/guide`} Icon={BookOpen} label="이용 가이드" sub="가입 · 참가신청 · 월렛 · 기록 보는 법" last />
     </SectionCard>
-  ) : null
+  )
   // PC 왼쪽 칸 아래에는 계정만 — 월렛·드래프트는 PC·폰 모두 제목 바로 아래(2026-11-09 운영진 — PC 에서도 안 보였다)
   const side = <AccountCard leagueId={leagueId} />
 
@@ -78,13 +79,14 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       ) : user ? (
         <>
           {/* 월렛·드래프트 바로가기는 PC·폰 모두 맨 위(2026-11-09 운영진 — PC 는 프로필 카드 아래라 화면 밖이었다), 계정은 맨 아래 */}
-          {shortcuts && <div className="lg:max-w-[720px]">{shortcuts}</div>}
+          <div className="lg:max-w-[720px]">{shortcuts}</div>
           <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} side={side} />
           <div className="lg:hidden"><AccountCard leagueId={leagueId} /></div>
         </>
       ) : (
         <>
           <LoginTeaser />
+          <div className="lg:max-w-[720px]">{shortcuts}</div>
           {/* 비로그인: 앱 설치만 남는 계정 카드 */}
           <div className="lg:max-w-[360px]"><AccountCard leagueId={leagueId} /></div>
         </>
