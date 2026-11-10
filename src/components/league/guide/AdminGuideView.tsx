@@ -39,13 +39,15 @@ function WhoBadge({ who, small = false }: { who: Who; small?: boolean }) {
   )
 }
 
+// 내용 아이콘 = 각진 네모 + 테두리(채우지 않음) — 「자동·어드민·회원」 표시(동그란 알약, 색 채움)와 겹쳐 보이지 않게(2026-11-10 운영진).
+//   누가 하나는 테두리 색으로만 살짝 보이고, 이름표는 WhoBadge 가 맡는다.
 function IconDot({ icon, who, size = 40 }: { icon: IconKey; who?: Who; size?: number }) {
   const I = ICONS[icon]
   const w = who ? WHO[who] : null
   return (
     <span className="shrink-0 inline-flex items-center justify-center" aria-hidden
-      style={{ width: size, height: size, borderRadius: 12, background: w ? w.dot : 'var(--mm-panel-alt)', color: w ? w.dotFg : 'var(--mm-ink-soft)' }}>
-      <I size={Math.round(size * 0.5)} strokeWidth={2.4} />
+      style={{ width: size, height: size, borderRadius: 6, background: 'var(--mm-panel)', border: `2px solid ${w ? w.edge : 'var(--mm-rule)'}`, color: who === 'auto' ? GREEN : 'var(--mm-ink)' }}>
+      <I size={Math.round(size * 0.5)} strokeWidth={2.2} />
     </span>
   )
 }
@@ -81,7 +83,7 @@ function Flow({ steps }: { steps: FlowStep[] }) {
               </span>
             )}
             <div className="lg:flex-1 min-w-0 flex lg:flex-col items-center lg:items-start gap-3 lg:gap-2 p-3"
-              style={{ background: w.bg, border: `1.5px solid ${w.edge}`, borderRadius: 12 }}>
+              style={{ background: w.bg, border: `1.5px solid ${w.edge}`, borderRadius: 8 }}>
               <IconDot icon={s.icon} who={s.who} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -117,7 +119,7 @@ function Lanes({ lanes }: { lanes: { label: string; icon: IconKey; steps: FlowSt
               return (
                 <li key={i} className="inline-flex items-center gap-1.5">
                   {i > 0 && <ArrowRight size={16} aria-hidden style={{ color: 'var(--mm-muted)' }} />}
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5" style={{ background: w.bg, border: `1.5px solid ${w.edge}`, borderRadius: 999 }}>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5" style={{ background: w.bg, border: `1.5px solid ${w.edge}`, borderRadius: 6 }}>
                     <I size={15} strokeWidth={2.4} aria-hidden style={{ color: s.who === 'auto' ? GREEN : 'var(--mm-ink)' }} />
                     <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>{s.title}</span>
                     {s.desc && <span className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>· {s.desc}</span>}
@@ -136,7 +138,7 @@ function Cards({ items }: { items: Extract<GuideBlock, { kind: 'cards' }>['items
   return (
     <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {items.map(c => (
-        <li key={c.title} className="flex gap-3 p-3" style={{ border: '1px solid var(--mm-rule)', borderRadius: 12, background: 'var(--mm-panel)' }}>
+        <li key={c.title} className="flex gap-3 p-3" style={{ border: '1px solid var(--mm-rule)', borderRadius: 8, background: 'var(--mm-panel)' }}>
           <IconDot icon={c.icon} who={c.who} size={36} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -158,24 +160,23 @@ const TONE = {
   bad: { Icon: XCircle, color: 'var(--mm-live-bg)' },
 } as const
 
+// 상태표 — 「제목 / 설명 → 할 일」을 한 덩어리로 왼쪽에 붙인다(2026-11-10 운영진 — PC 에서 할 일이 오른쪽 끝으로 벌어져 읽기 어려웠다).
 function Status({ items }: { items: Extract<GuideBlock, { kind: 'status' }>['items'] }) {
   return (
-    <ul className="space-y-1.5">
+    <ul className="grid gap-1.5 lg:grid-cols-2">
       {items.map(r => {
         const t = TONE[r.tone]
         return (
-          <li key={r.title} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] sm:items-center p-3"
-            style={{ border: '1px solid var(--mm-rule)', borderLeft: `4px solid ${t.color}`, borderRadius: 10 }}>
-            <div className="flex gap-2.5 min-w-0">
-              <t.Icon size={20} aria-hidden className="shrink-0 mt-0.5" style={{ color: t.color }} />
-              <div className="min-w-0">
-                <div className="font-black text-[15px]" style={{ color: 'var(--mm-ink)' }}>{r.title}</div>
-                <div className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>{r.desc}</div>
+          <li key={r.title} className="flex gap-2.5 p-3"
+            style={{ border: '1px solid var(--mm-rule)', borderLeft: `4px solid ${t.color}`, borderRadius: 6 }}>
+            <t.Icon size={20} aria-hidden className="shrink-0 mt-0.5" style={{ color: t.color }} />
+            <div className="min-w-0">
+              <div className="font-black text-[15px]" style={{ color: 'var(--mm-ink)' }}>{r.title}</div>
+              <div className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>{r.desc}</div>
+              <div className="mt-1 inline-flex items-start gap-1 text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
+                <ArrowRight size={15} aria-hidden className="shrink-0 mt-[3px]" style={{ color: t.color }} />
+                <span>{r.action}</span>
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm font-bold sm:justify-end" style={{ color: 'var(--mm-ink)' }}>
-              <ArrowRight size={16} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} />
-              <span>{r.action}</span>
             </div>
           </li>
         )
@@ -203,7 +204,7 @@ function Section({ s, n }: { s: AdminSection; n: number }) {
     <section id={s.id} className="scroll-mt-20 p-4 md:p-5 lg:p-7" style={CARD}>
       <header className="flex items-start gap-3">
         <span className="shrink-0 inline-flex items-center justify-center w-11 h-11 lg:w-12 lg:h-12" aria-hidden
-          style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 14 }}>
+          style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 8 }}>
           <I size={22} strokeWidth={2.4} />
         </span>
         <div className="min-w-0 flex-1">
