@@ -24,7 +24,7 @@ function writeSeen(leagueId: string, date: string) {
 }
 
 export default function MyClipsCard({
-  leagueId, href, date, count, thumbVideoId,
+  leagueId, href, date, count, thumbVideoId, wide = false,
 }: {
   leagueId: string
   href: string
@@ -33,6 +33,8 @@ export default function MyClipsCard({
   /** 그날 내 클립 수 */
   count: number
   thumbVideoId: string | null
+  /** 2026-11-10 운영진 — 날짜 격자 첫 칸이 아니라 맨 위 큰 가로 카드로 */
+  wide?: boolean
 }) {
   const [isNew, setIsNew] = useState(false)
   useEffect(() => {
@@ -48,12 +50,12 @@ export default function MyClipsCard({
       href={href}
       scroll
       onClick={() => writeSeen(leagueId, date)}
-      className="group flex sm:block overflow-hidden mm-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+      className={`group flex ${wide ? 'items-stretch' : 'sm:block'} overflow-hidden mm-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]`}
       style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-card)' }}
       aria-label={`내 클립 보기 — 지난 경기일 ${label} ${count}개${isNew ? ', 새 클립' : ''}`}
     >
       {/* 폰은 왼쪽 작은 썸네일 + 오른쪽 글 — 영상 탭 날짜 카드와 같은 모양(2026-11-04) */}
-      <div className="relative aspect-video overflow-hidden w-28 shrink-0 self-start m-2 mr-0 sm:m-0 sm:w-full" style={{ background: 'var(--mm-panel-alt)' }}>
+      <div className={wide ? "relative aspect-video overflow-hidden w-36 sm:w-56 shrink-0 self-center m-2 mr-0" : "relative aspect-video overflow-hidden w-28 shrink-0 self-start m-2 mr-0 sm:m-0 sm:w-full"} style={{ background: 'var(--mm-panel-alt)' }}>
         {thumbVideoId && (
           // eslint-disable-next-line @next/next/no-img-element -- YouTube 썸네일(외부 호스트)
           <img
@@ -88,8 +90,10 @@ export default function MyClipsCard({
           {count}클립
         </span>
       </div>
-      <div className="p-3 space-y-1 flex-1 min-w-0">
-        <div className="font-black text-base sm:text-lg" style={{ color: 'var(--mm-ink)' }}>내 클립</div>
+      <div className={`p-3 space-y-1 flex-1 min-w-0 ${wide ? 'self-center' : ''}`}>
+        <div className={`font-black ${wide ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'}`} style={{ color: 'var(--mm-ink)' }}>
+          {wide && isNew ? `내 새 클립 ${count}개` : '내 클립'}
+        </div>
         <p className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>
           지난 경기일 <span style={{ color: 'var(--mm-ink)' }}>{label}</span> · <b className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>{count}개</b>
         </p>

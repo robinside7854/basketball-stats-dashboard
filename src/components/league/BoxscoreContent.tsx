@@ -23,7 +23,7 @@ import SortSelect from '@/components/league/ui/SortSelect'
 import DayHighlightsLauncher, { type HighlightScope } from '@/components/league/boxscore/DayHighlightsLauncher'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { PenLine } from 'lucide-react'
+import { PenLine, Play } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { tallyDayRecord, identityKeyOf } from '@/lib/stats/dayRecord'
 
@@ -177,6 +177,24 @@ function PlayerName({ row, onPlayerPick, className = 'whitespace-nowrap' }: { ro
       className={`${base} text-left cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]`}
       style={{ color: 'var(--mm-ink)' }}
     >{row.name}</button>
+  )
+}
+
+// 「▶ 장면」 — 그날 이 선수 하이라이트로 바로 간다(2026-11-10 운영진 — 사람들이 가장 많이 보는 화면이 박스스코어라
+//   하이라이트 탭을 따로 찾아오지 않아도 영상으로 넘어가게). 클립은 득점·어시스트 장면이라 둘 다 0 이면 그리지 않는다.
+function ClipLink({ row }: { row: PlayerRow | DailyStat }) {
+  const { orgSlug, leagueId, date } = useParams<{ orgSlug: string; leagueId: string; date: string }>()
+  const r = row as PlayerRow
+  if (!row.player_id || !date || ((r.pts ?? 0) === 0 && (r.ast ?? 0) === 0)) return null
+  return (
+    <Link
+      href={`/league/${orgSlug}/${leagueId}/highlights?date=${date}&player=${encodeURIComponent(row.player_id)}`}
+      className="mm-press shrink-0 inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-bold active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
+      aria-label={`${row.name} 그날 장면 보기`}
+    >
+      <Play size={11} fill="currentColor" aria-hidden />장면
+    </Link>
   )
 }
 
@@ -347,6 +365,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                       <span className="flex items-center gap-1.5 min-w-0">
                         <PlayerName row={rr} onPlayerPick={onPlayerPick} />
                         {isMe && <MeTag />}
+                        <ClipLink row={rr} />
                       </span>
                       {rr.team_name && <p className="text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
                       {/* 칩은 이름 아래 — 이름 칸이 좁아 「트리플더블」을 옆에 두면 이름이 잘린다 */}
@@ -480,6 +499,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
                   <span className="flex items-center gap-1.5 min-w-0">
                     <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
                     {isMe && <MeTag />}
+                    <ClipLink row={rr} />
                   </span>
                   {(rr.team_name || showGP) && (
                     <span className="flex items-center gap-1.5 min-w-0 text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>

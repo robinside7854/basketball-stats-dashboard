@@ -367,14 +367,16 @@ export default async function HighlightsFeedPage({
         date={mine.date}
         count={mine.count}
         thumbVideoId={mine.thumbVideoId}
+        wide
       />
     ) : null
     // 맨 위 「지난 경기 하이라이트」 — 누르면 바로 전체화면 연속 재생(2026-11-10 운영진)
     const latest = (landing?.rounds ?? []).find(r => r.status === 'ready') ?? null
     body = (
       <>
+        {lead}
         {latest && <WeekReel leagueId={leagueId} date={latest.date} href={`${hl}?date=${latest.date}`} thumbVideoId={latest.thumb_video_id ?? null} />}
-        <DayCards hl={hl} rounds={landing?.rounds ?? []} records={landing?.records ?? {}} lead={lead} />
+        <DayCards hl={hl} rounds={landing?.rounds ?? []} records={landing?.records ?? {}} />
       </>
     )
   }
