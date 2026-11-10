@@ -35,6 +35,8 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   const [busy, setBusy] = useState<string | null>(null)
   const [addPid, setAddPid] = useState('')
   const [guestPid, setGuestPid] = useState('')
+  // 훅은 아래 조기 반환(불러오는 중·로그인 안내)보다 위에 둔다 — 아래에 있으면 화면이 바뀔 때 훅 개수가 달라져 React 가 깨진다
+  const actInFlight = useRef(false)
   const api = `/api/leagues/${leagueId}/rsvp`
 
   const load = useCallback(async () => {
@@ -57,7 +59,6 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   if (!data.me && !data.isAdmin) return <LoginTeaser />
   const admin = !!data.isAdmin
 
-  const actInFlight = useRef(false)
   async function act(body: Record<string, unknown>, tag: string, ok?: string) {
     if (actInFlight.current) { toast('앞의 변경을 저장하는 중이에요. 잠시 뒤 다시 해 주세요.'); return }   // 끌어 놓기·버튼을 빠르게 연달아 해도 요청이 겹치지 않게(2026-11-10)
     actInFlight.current = true
