@@ -22,7 +22,10 @@ function Lines({ lines }: { lines: string[] }) {
   )
 }
 
-export default function GuideContent({ images }: { images: string[] }) {
+// images 를 안 넘기면 본문에 적힌 그림 전부(잠금 화면처럼 파일 목록을 못 읽는 곳)
+const ALL_IMAGES = MEMBER_GUIDE.flatMap(s => s.groups.map(g => g.image).filter((x): x is string => !!x))
+
+export default function GuideContent({ images = ALL_IMAGES, top }: { images?: string[]; top?: React.ReactNode }) {
   const has = new Set(images)
   return (
     <div className="mx-auto w-full max-w-[1080px] space-y-4 lg:space-y-6 break-keep">
@@ -34,6 +37,7 @@ export default function GuideContent({ images }: { images: string[] }) {
         {/* 팀원에게 이 가이드 링크 보내기(2026-11-10 운영진) — 폰은 공유 창, 안 되면 링크 복사 */}
         <ShareLeagueButton leagueName="이용 가이드" label="가이드 공유" />
       </div>
+      {top}
 
       <nav aria-label="가이드 목차" className="flex flex-wrap gap-2">
         {MEMBER_GUIDE.map((s, i) => (

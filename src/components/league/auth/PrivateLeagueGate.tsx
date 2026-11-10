@@ -12,7 +12,10 @@
 //   이 컴포넌트가 직접 들고 있어야 한다 — 그래야 이벤트를 던져도 실제로 모달이 열린다.
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Lock, LogIn, ChevronRight, UserPlus, Mail } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Lock, LogIn, ChevronRight, UserPlus, Mail, BookOpen } from 'lucide-react'
+import GuideContent from '@/components/league/guide/GuideContent'
 import { Basketball } from '@/components/league/BasketballIcons'
 
 const LoginModal = dynamic(() => import('./LoginModal'), { ssr: false })
@@ -45,8 +48,42 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
     if (m === 'new') return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저 저장값은 그린 뒤에만 읽을 수 있다
     setMode(m)
-    if (m === 'returning') { setStartStep('login'); setLoginOpen(true) }
+    if (m === 'returning' && !/\/guide\/?$/.test(window.location.pathname)) { setStartStep('login'); setLoginOpen(true) }
   }, [leagueId])
+
+  // 이용 가이드는 가입 전에도 본다(2026-11-10 운영진) — `/guide` 주소면 잠금 대신 가이드를 그린다.
+  //   가이드 글·그림에는 동호회 이름이 없다(memberGuide.ts 규칙) — 위 「이름 비노출」 원칙은 그대로다.
+  const pathname = usePathname() ?? ''
+  const base = pathname.split('/').slice(0, 4).join('/')   // /league/<org>/<league>
+  const isGuide = /\/guide\/?$/.test(pathname)
+
+  if (isGuide) {
+    return (
+      <main className="min-h-screen px-4 py-6 md:px-6 lg:py-10" style={{ background: 'var(--mm-ground)' }}>
+        <div className="mx-auto w-full max-w-[1080px] mb-4 flex items-center gap-2">
+          <Basketball size={22} />
+          <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: 20 }}>OnBall</span>
+        </div>
+        <GuideContent top={
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setStartStep('signup'); setLoginOpen(true) }}
+              className="mm-press inline-flex items-center gap-1.5 px-4 min-h-[44px] rounded-md font-bold text-sm lg:text-base cursor-pointer"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}>
+              <UserPlus size={16} aria-hidden />가입 요청하기
+            </button>
+            <button type="button" onClick={() => { setStartStep('login'); setLoginOpen(true) }}
+              className="mm-press inline-flex items-center gap-1.5 px-4 min-h-[44px] rounded-md font-bold text-sm lg:text-base cursor-pointer"
+              style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}>
+              <LogIn size={16} aria-hidden />로그인
+            </button>
+          </div>
+        } />
+        {loginOpen && (
+          <LoginModal leagueId={leagueId} initialStep={startStep} onClose={() => setLoginOpen(false)} />
+        )}
+      </main>
+    )
+  }
 
   return (
     <main
@@ -89,7 +126,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
             {mode === 'returning' ? (
               <>로그인이 풀렸어요. 로그인하면 보던 화면이 그대로 열려요.</>
             ) : mode === 'pending' ? (
-              <>운영자가 승인하면 <b>이름</b>과 <b>생년월일 6자리</b>로 로그인할 수 있어요.<br />승인이 늦으면 운영진에게 알려 주세요.</>
+              <>운영진이 승인하면 <b>이름</b>과 <b>생년월일 6자리</b>로 로그인할 수 있어요.<br />승인이 늦으면 운영진에게 알려 주세요.</>
             ) : (
               <>가입 승인된 회원만 볼 수 있어요.<br />로그인하거나 가입을 요청해 주세요.</>
             )}
@@ -131,9 +168,14 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
           </button>
           </>)}
 
-          <p className="text-xs mt-4" style={{ color: 'var(--mm-muted)' }}>
-            소속 동호회의 회원이라면 이름으로 가입 요청 → 운영자 승인 후 바로 열려요
+          <p className="text-xs mt-4 break-keep" style={{ color: 'var(--mm-muted)' }}>
+            명단에 있는 회원은 가입 요청하면 바로 열려요.
           </p>
+          <Link href={`${base}/guide`}
+            className="mt-3 inline-flex items-center gap-1.5 min-h-[44px] font-bold text-sm underline underline-offset-4"
+            style={{ color: 'var(--mm-ink)' }}>
+            <BookOpen size={16} aria-hidden />이용 가이드 먼저 보기
+          </Link>
         </div>
 
         {/* 온볼 도입 문의(2026-11-04 CEO 요청) — 잠금 화면을 본 다른 동호회 사람이 연락할 곳 */}
