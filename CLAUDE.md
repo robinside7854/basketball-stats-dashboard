@@ -791,6 +791,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - **기능 스위치 적용(3단계, 2026-11-10)**: 서버 입구 `featureOnForLeague(leagueId, key)` — 월렛(`loadWalletConfig` 가 null) · 참가신청(`loadRsvpRules`) · 영상(`syncYoutubeForLeague`·`reconcileScheduleWithVideos`) · 유니폼 사진(`applyMonthlyPhotos`) · 달별 정규(`loadMonthRoster` 빈 값) · 입금 알림(`bank-notify` 404) · 드래프트 새 세션(409).
   화면은 `contexts/ClubContext` 의 `useClub()`(리그 layout 이 `loadClub` 결과를 넘김 — 프로바이더 밖이면 전부 켬) — 영상 탭 · 드래프트 탭·바로가기 · 대회 전환 · 달별 정규 패널 · 입금 알림 칸 · 설정의 월렛 버튼 · 대진 자동 배정(`settings.rotation`) · 가이드 장/질문(`lib/guide/featureFilter.ts`).
   ⚠ 새 기능을 만들면 스위치를 하나 더하고, 서버 입구와 화면 둘 다에 건다(화면만 숨기면 주소로 들어온다).
+- **새 동호회 만들기(4단계, 2026-11-10)**: CEO 콘솔 「+ 새 동호회」 → `/admin/clubs/new`(`components/admin/club/ClubWizard.tsx`) → `POST /api/admin/clubs` 가 한 번에 동호회(teams, sub_slug 'main', 편집 PIN 은 아무도 모르는 값) · 첫 시즌(올해, slug = 연도) · 경기 팀 2~6개 · 명단 · 어드민 계정(아이디 = 이름, 비밀번호 = 생년월일 6자리, 바로 승인)을 만든다. 중간 실패면 만든 것을 거꾸로 지운다. 견본 = `CLUB_TEMPLATES`(`lib/club/features.ts` — 전부 쓰기 / 기록만), 명단 붙여 넣기 규칙 정본 `lib/club/rosterPaste.ts`(이름 · 포지션 · 생년월일 6자리, 탭·쉼표·띄어쓰기). 감사 로그 `club.create`. 옛 `/admin/teams/new`(PIN 폼)는 목록에서 뺐다.
 
 ### 드래프트 결과는 운영진 확인 뒤 반영 (2026-11-10 운영진, 마이그레이션 131)
 - 픽(`pick`·`auto-pick`)은 `league_draft_picks` 에만 쓴다 — **분기 소속(`league_player_quarters`)은 쓰지 않는다.**

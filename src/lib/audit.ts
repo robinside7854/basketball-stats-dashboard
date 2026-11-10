@@ -49,6 +49,7 @@ export type AuditActorKind =
  * 새 파괴적 라우트를 배선할 때 여기에 한 줄 추가한다.
  */
 export type AuditAction =
+  | 'club.create'
   // 리그 · 팀
   | 'league.delete'
   | 'league.update'

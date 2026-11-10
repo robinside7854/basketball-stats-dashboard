@@ -46,3 +46,20 @@ export const DEFAULT_SETTINGS: ClubSettings = {
 
 /** 동호회를 모를 때(화면 기본값) — 종전처럼 전부 켬 */
 export const ALL_FEATURES_ON: ClubFeatures = { wallet: true, rsvp: true, draft: true, youtube: true, tournament: true, uniform_photos: true, bank_auto: true, monthly_roster: true }
+
+/** 새 동호회 견본(2026-11-10 4단계 마법사) — 고른 뒤 상세 화면에서 하나씩 바꿀 수 있다 */
+export type ClubTemplateKey = 'miracle' | 'record_only'
+export const CLUB_TEMPLATES: Record<ClubTemplateKey, { label: string; desc: string; features: ClubFeatures; settings: Partial<ClubSettings> }> = {
+  miracle: {
+    label: '전부 쓰기',
+    desc: '기록에 더해 월렛·참가신청·드래프트까지 다 켜요.',
+    features: { ...ALL_FEATURES_ON },
+    settings: {},
+  },
+  record_only: {
+    label: '기록만',
+    desc: '경기 기록·스탯·영상만 써요. 돈과 신청은 꺼 둬요.',
+    features: { wallet: false, rsvp: false, draft: false, youtube: true, tournament: true, uniform_photos: false, bank_auto: false, monthly_roster: false },
+    settings: { capacity: null, roster_mode: ['fixed'], bank_reserved_words: [] },
+  },
+}

@@ -38,7 +38,7 @@ export default function ClubList() {
         ))}
       </div>
       <div className="flex justify-end">
-        <Link href="/admin/teams/new" className="inline-flex items-center gap-1 text-sm px-3 min-h-11 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] font-semibold">
+        <Link href="/admin/clubs/new" className="inline-flex items-center gap-1 text-sm px-3 min-h-11 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] font-semibold">
           <Plus size={16} aria-hidden /> 새 동호회
         </Link>
       </div>
