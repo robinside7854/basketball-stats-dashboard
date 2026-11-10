@@ -24,7 +24,8 @@ function dayEyebrow(date: string): string {
   if (date === today) return '오늘'
   const d = new Date(date + 'T00:00:00')
   const ageDays = (Date.parse(today) - Date.parse(date)) / 86_400_000
-  return d.getDay() === 6 && ageDays <= 7 ? '지난 토요일' : '최근 경기일'
+  // 요일은 그날 날짜에서 — 동호회마다 경기 요일이 다르다(2026-11-10 플랫폼화)
+  return ageDays <= 7 ? `지난 ${'일월화수목금토'[d.getDay()]}요일` : '최근 경기일'
 }
 
 function videoHref(g: RoundGame): string | null {

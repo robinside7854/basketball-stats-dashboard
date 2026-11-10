@@ -70,7 +70,7 @@ export default function AdminShell({ pending, signOutAction, children }: Props) 
       <nav className="flex-1 p-3 overflow-y-auto">
         <Link href="/admin" onClick={closeOnNavigate} className={linkClass}>
           <LayoutDashboard size={16} />
-          대시보드
+          동호회
         </Link>
 
         {/* 조직(org)과 팀은 더 이상 구분되지 않는다 — 팀이 최상위 단위이고 그 아래

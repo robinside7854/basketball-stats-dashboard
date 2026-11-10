@@ -97,7 +97,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
       </div>}
 
       {!gameDate ? (
-        <EmptyState title="지금은 열린 참가신청이 없어요" description="매주 월요일 0시에 그 주 토요일 신청이 열려요." framed />
+        <EmptyState title="지금은 열린 참가신청이 없어요" description="매주 월요일 0시에 그 주 경기 신청이 열려요." framed />
       ) : (
         <>
 

@@ -7,8 +7,9 @@ export function stripReservedDepositor(s: string): string {
   for (const w of RESERVED_WORDS) out = out.split(w).join('')
   return out
 }
-export function hasReservedDepositor(s: string): boolean {
+/** words = 동호회 운영 설정의 금지어(lib/club/settings.ts bank_reserved_words) — 없으면 기본값 */
+export function hasReservedDepositor(s: string, words: readonly string[] = RESERVED_WORDS): boolean {
   const q = s.normalize('NFC').replace(/\s+/g, '')
-  return RESERVED_WORDS.some(w => q.includes(w))
+  return words.some(w => w && q.includes(w.normalize('NFC').replace(/\s+/g, '')))
 }
 

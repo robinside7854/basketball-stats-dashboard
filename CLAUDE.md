@@ -782,6 +782,13 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   ⚠ **기록·스탯은 `league_id` 로 완전히 갈린다** — 집계가 전부 경기를 league_id 로 먼저 거르므로
   대회 기록이 리그 순위·배지에 섞이지 않는다. 공유되는 건 이름·사진뿐이다.
 
+### 온볼 플랫폼화 — 동호회 설정 (2026-11-10, 설계 `docs/onball-platform-design.md`)
+- 동호회 = `teams` 한 줄. 운영 설정·기능 스위치 정본은 `lib/club/settings.ts` 의 `loadClub(teamId)` 하나(`settings`·`features` jsonb, 마이그레이션 134). **비어 있으면 지금 미라클 동작이 기본값**이다 — 화면·라우트에서 기본값을 다시 적지 말 것.
+- 기능 스위치를 저장하지 않은 동호회는 종전 판정(월렛 이름 있으면 월렛 등)을 그대로 쓴다(`inferFeatures`). 목록은 `lib/club/features.ts`(클라이언트도 씀).
+- 이미 설정을 읽는 곳: 참가신청 요일·정원·켜기(`loadRsvpRules`) · 로고(`clubLogoOf` — `teams.logo_url` 먼저) · 입금자명 금지어(월렛 충전 요청).
+- CEO 콘솔 첫 화면 = **동호회 목록**(`components/admin/club/ClubList`), 상세 `/admin/clubs/[teamId]`(기본 정보 · 운영 설정 · 기능 · 시즌 · 사람). API `/api/admin/clubs`.
+- 새 화면 문구에 「토요일」·「모임통장」·「미라클」을 박지 말 것 — 설정값이나 동호회 이름(`getClubName`)으로.
+
 ### 드래프트 결과는 운영진 확인 뒤 반영 (2026-11-10 운영진, 마이그레이션 131)
 - 픽(`pick`·`auto-pick`)은 `league_draft_picks` 에만 쓴다 — **분기 소속(`league_player_quarters`)은 쓰지 않는다.**
 - 끝난 실전 세션에서 운영진(어드민 ∥ CEO, 감독관 코드 불가)이 「리그에 반영하기」 → `POST /api/admin/leagues/[id]/drafts/[draftId]/apply` 가 픽을 한 번에 정규 소속으로 쓰고 `league_drafts.applied_at·applied_by_label` 을 남긴다(한 번만 · 리허설 불가 · 감사 로그 `draft.apply`).

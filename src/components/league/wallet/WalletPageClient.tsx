@@ -486,7 +486,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
                 : { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-card)' }}>
               <span className="inline-flex items-center gap-1 text-sm font-black" style={{ color: buyKind === 'regular_pass' ? GOLD : 'var(--mm-ink)' }}><Crown size={15} aria-hidden />정규권</span>
               <span className="block mt-1 font-black tabular-nums">{fmtP(regPrice)}<span className="text-xs font-bold"> / 한 달</span></span>
-              <span className="block text-xs mt-0.5" style={{ opacity: 0.75 }}>그 달 토요일 모두</span>
+              <span className="block text-xs mt-0.5" style={{ opacity: 0.75 }}>그 달 경기 모두</span>
             </button>
             <button type="button" role="radio" aria-checked={buyKind === 'non_regular'} onClick={() => setBuyKind('non_regular')}
               className="mm-press p-3 text-left"

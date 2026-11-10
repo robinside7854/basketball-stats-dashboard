@@ -1,5 +1,5 @@
 ﻿import Image from 'next/image'
-import { leagueLogoOf } from '@/lib/league/leagueLogo'
+import { clubLogoOf } from '@/lib/league/leagueLogo'
 import RsvpHomeCard from '@/components/league/rsvp/RsvpHomeCard'
 import AdminPassAlert from '@/components/league/wallet/AdminPassAlert'
 import { createClient } from '@/lib/supabase/admin'
@@ -395,7 +395,7 @@ export default async function LeagueDetailPage({
   if (!league) notFound()
 
   const l = league as League
-  const logo = leagueLogoOf(leagueId)
+  const logo = await clubLogoOf(leagueId)
   // 스탯 게이팅 — 승인 회원만 리더보드·마일스톤·하이라이트 열람 (순위표·라운드는 공개)
   const isMember = !!approvedSession
   // 「지난 토요일」 = 기록이 있는 최근 경기일(최근 라운드 첫 카드와 같은 날)

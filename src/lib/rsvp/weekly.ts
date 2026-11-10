@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
+import { loadClub } from '@/lib/club/settings'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
 import { loadMonthUniforms, type Uniform } from '@/lib/league/uniformPhoto'
@@ -85,11 +86,21 @@ export function currentWindow(rules: RsvpRules, now = new Date()): RsvpWindow | 
 }
 
 export async function loadRsvpRules(sb: SB, leagueId: string): Promise<RsvpRules | null> {
-  const { data, error } = await sb.from('leagues').select('rsvp_rules').eq('id', leagueId).maybeSingle()
+  const { data, error } = await sb.from('leagues').select('rsvp_rules, team_id, mode').eq('id', leagueId).maybeSingle()
   if (error || !data) return null
-  const r = (data as { rsvp_rules: Partial<RsvpRules> | null }).rsvp_rules
-  if (!r) return null
-  return { game_weekday: typeof r.game_weekday === 'number' ? r.game_weekday : 6, capacity: typeof r.capacity === 'number' ? r.capacity : 18 }
+  const row = data as { rsvp_rules: Partial<RsvpRules> | null; team_id: string | null; mode: string | null }
+  if (row.mode === 'tournament') return null   // 대회 묶음에는 주간 참가신청이 없다
+  // 요일·정원은 동호회 운영 설정이 정본(2026-11-10 플랫폼화 2단계 — lib/club/settings.ts). 비어 있으면 시즌 값 → 미라클 기본값.
+  //   켜고 끄기도 동호회 기능 스위치(rsvp)로. 스위치를 적지 않은 동호회는 종전처럼 「시즌에 rsvp_rules 가 있으면 켬」.
+  const club = row.team_id ? await loadClub(row.team_id) : null
+  // 꺼져 있으면 없음. 켜져 있어도 이 시즌에 신청 규칙도, 동호회에 저장된 「켬」도 없으면 종전처럼 없음.
+  if (club && !club.features.rsvp) return null
+  if (!row.rsvp_rules && !club?.row.features?.rsvp) return null
+  const r = row.rsvp_rules ?? {}
+  return {
+    game_weekday: club?.settings.game_weekday ?? (typeof r.game_weekday === 'number' ? r.game_weekday : 6),
+    capacity: club?.settings.capacity ?? (typeof r.capacity === 'number' ? r.capacity : 18),
+  }
 }
 
 export interface RsvpBoard {

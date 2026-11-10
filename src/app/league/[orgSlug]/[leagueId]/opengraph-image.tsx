@@ -5,12 +5,12 @@ import { glyphSet, loadKoreanFont } from '@/lib/og/font'
 import { renderOnballCard } from '@/lib/og/onballCard'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { leagueLogoOf } from '@/lib/league/leagueLogo'
+import { clubLogoOf } from '@/lib/league/leagueLogo'
 
 // 동호회 로고(2026-11-08) — 있으면 카드 오른쪽에 크게. public/ 파일을 data URI 로 넣는다(satori 는 상대 경로를 못 읽는다).
 //   ⚠ 공개 리그 카드에만 그린다 — 비공개 리그는 위 프라이버시 규칙대로 온볼 공용 카드(로고·이름 없음).
 async function loadLogoDataUri(leagueId: string): Promise<string | null> {
-  const rel = leagueLogoOf(leagueId)
+  const rel = await clubLogoOf(leagueId)
   if (!rel) return null
   try {
     const buf = await readFile(path.join(process.cwd(), 'public', rel.replace(/^\//, '')))

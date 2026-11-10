@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server'
 import { matchLateRequest, alreadyChargedByDeposit } from '@/lib/wallet/bankAuto'
 import { hasReservedDepositor } from '@/lib/wallet/depositorName'
+import { loadClub } from '@/lib/club/settings'
 import { createClient } from '@/lib/supabase/admin'
 import { loadPassSales, autoAssignAfterPass, teamNameInMonth } from '@/lib/wallet/passSales'
 import { getApprovedSession } from '@/lib/auth/guard'
@@ -121,7 +122,8 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!amount) return NextResponse.json({ error: `금액은 1 ~ ${MAX_CHARGE.toLocaleString()}원 사이로 적어 주세요` }, { status: 400 })
   const depositor = str(body.depositor_name, 40)
   if (!depositor) return NextResponse.json({ error: '입금자명을 적어 주세요' }, { status: 400 })
-  if (hasReservedDepositor(depositor)) return NextResponse.json({ error: '입금자명에 「모임통장」은 쓸 수 없어요' }, { status: 400 })
+  const reserved = (await loadClub(teamId))?.settings.bank_reserved_words
+  if (hasReservedDepositor(depositor, reserved)) return NextResponse.json({ error: `입금자명에 「${(reserved ?? ['모임통장']).join('·')}」은 쓸 수 없어요` }, { status: 400 })
 
   // 입금만으로 이미 자동 충전된 돈이면 요청을 받지 않는다 — 어드민이 또 승인하면 두 번 충전된다(2026-11-10)
   if (await alreadyChargedByDeposit(sb, teamId, session.pid, amount)) {
