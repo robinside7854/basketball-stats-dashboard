@@ -505,9 +505,11 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
         {data.auto_charge && !otherName ? (
           <div className="space-y-3">
             <div className="px-4 py-4 text-center" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-card)' }}>
-              <div className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>모임통장으로 입금만 하면<br />1분 안에 자동 충전돼요</div>
-              <div className="mt-1 text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
-                꼭 <b style={{ color: 'var(--mm-ink)' }}>본인 이름{user?.name ? `(${user.name})` : ''}</b>으로 보내 주세요 · 요청은 안 보내도 돼요
+              <div className="text-lg font-black break-keep" style={{ color: 'var(--mm-ink)' }}>모임통장으로 입금만 하면<br />1분 안에 자동 충전돼요</div>
+              {/* 한 줄 한 문장 — 「보내/도 돼요」처럼 어절 한가운데서 꺾이지 않게(2026-11-10 운영진) */}
+              <div className="mt-1.5 text-sm break-keep space-y-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+                <div>꼭 <b style={{ color: 'var(--mm-ink)' }}>본인 이름{user?.name ? `(${user.name})` : ''}</b>으로 보내 주세요</div>
+                <div>충전 요청은 안 보내도 돼요</div>
               </div>
             </div>
             {data.bank && (
@@ -519,11 +521,11 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
               </div>
             )}
             {rules?.bonus_min != null && rules.bonus_pct > 0 && (
-              <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
+              <p className="text-sm font-bold break-keep" style={{ color: 'var(--mm-ink)' }}>
                 {(rules.bonus_min / 10000).toLocaleString()}만원 이상 {rules.bonus_pct}% 보너스 · <span className="whitespace-nowrap">5만원 → {fmtP(50000 + bonusOf(50000, rules))}</span>
               </p>
             )}
-            <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>들어오면 이 화면 잔액이 바로 늘어나요. 1~2분이 지나도 안 늘면 어드민에게 알려 주세요.</p>
+            <p className="text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>들어오면 잔액이 바로 늘어나요.<br />1~2분이 지나도 그대로면 어드민에게 알려 주세요.</p>
             <button type="button" onClick={() => setOtherName(true)} className="mm-press w-full min-h-11 text-sm font-bold underline underline-offset-2" style={{ color: 'var(--mm-ink-soft)' }}>
               다른 이름으로 입금했어요
             </button>
