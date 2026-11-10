@@ -20,9 +20,15 @@ const { route } = require('./mocks')
           if (tops.size > 1) out.push(m[0])
         }
       }
-      return out
+      const multi = []
+      for (const el of root.querySelectorAll('li > span:last-child, li > p > span:last-child, li div > p')) {
+        const r = document.createRange(); r.selectNodeContents(el)
+        const tops = new Set([...r.getClientRects()].filter(x => x.width > 0).map(x => Math.round(x.top)))
+        if (tops.size > 1) multi.push(el.textContent.trim())
+      }
+      return { out, multi }
     })
-    console.log(w, bad.length ? '꺾임: ' + bad.join(' | ') : '꺾임 0')
+    console.log(w, bad.out.length ? '단어꺾임: ' + bad.out.join(' | ') : '단어꺾임 0', '· 두 줄 문장 ' + bad.multi.length + (bad.multi.length ? ': ' + bad.multi.join(' / ') : ''))
     if (w === 1280) await p.screenshot({ path: `${__dirname}/guide-${w}.png`, fullPage: true })
     await p.close()
   }
