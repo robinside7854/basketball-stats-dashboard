@@ -4,7 +4,7 @@
 //   열고 닫는 것은 서버 시각 계산(lib/rsvp/weekly.ts) — 이 카드는 받은 window 를 그대로 그린다.
 //   비회원·참가신청을 안 쓰는 리그면 아무것도 그리지 않는다.
 //   홈은 내 참/불·게스트 신청만. 팀별 현황은 /rsvp(회원 보기 전용 · 어드민만 배치·수정).
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Check, X, ChevronRight, CalendarCheck, UserPlus } from 'lucide-react'
@@ -16,6 +16,8 @@ import GuestRequestSheet from './GuestRequestSheet'
 export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; base: string }) {
   const [data, setData] = useState<RsvpRes | null>(null)
   const [busy, setBusy] = useState(false)
+  // 화면이 다시 그려지기 전의 빠른 두 번 누르기도 막는다(버튼 disabled 는 다음 그리기부터 먹는다)
+  const inFlight = useRef(false)
   const [guestOpen, setGuestOpen] = useState(false)
   const api = `/api/leagues/${leagueId}/rsvp`
 
@@ -41,6 +43,8 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
 
   async function answer(a: 'yes' | 'no') {
     if (a === 'no' && locked && !confirm(`이번 주 참가를 취소할까요?\n팀 배치가 풀리고${me?.kind === 'non_regular' ? ', 쓴 비정규 티켓 1장은 내 월렛에 그대로 남아요(다음에 쓸 수 있어요)' : ''}.`)) return
+    if (inFlight.current) return
+    inFlight.current = true
     setBusy(true)
     try {
       const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answer: a }) })
@@ -48,7 +52,7 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
       if (!res.ok) { toast.error(j.error ?? '저장하지 못했어요'); return }
       toast.success(a === 'yes' ? (j.ticket_bought ? '참가로 표시했어요 — 포인트로 비정규 티켓 1장을 샀어요' : '참가로 표시했어요') : j.ticket_returned ? '참가를 취소했어요 — 티켓 1장은 내 월렛에 남아요' : '불참으로 표시했어요')
       await load()
-    } finally { setBusy(false) }
+    } finally { setBusy(false); inFlight.current = false }
   }
 
   const btn = (a: 'yes' | 'no') => {

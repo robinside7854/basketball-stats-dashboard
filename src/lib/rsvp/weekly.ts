@@ -286,10 +286,10 @@ export async function placeEntry(
     ticket = `게스트비 ${res.price.toLocaleString()}P — ${res.payerName} 님 포인트에서 냈어요`
   }
   if (!targetTeam && feeLedger) {
-    const res = await refundGuestFee(sb, teamId, gameDate, playerId, feeLedger, actor)
+    const res = await claimAndRefundGuestFee(sb, leagueId, teamId, gameDate, playerId, feeLedger, actor)
     if (!res.ok) return { ok: false, error: res.error, status: 409 }
     feeLedger = null
-    ticket = '게스트비 포인트 돌려줌'
+    if (res.refunded) ticket = '게스트비 포인트 돌려줌'
   }
   // 배치를 풀 때 쓴 티켓은 **포인트로 돌려주지 않고 회원에게 티켓으로 되돌려 둔다**(2026-11-10 운영진 —
   //   「티켓이 남아 있어야 그걸 쓰러 운동을 나온다」). 장부는 건드리지 않는다(티켓 상태만 used → active).
@@ -528,6 +528,27 @@ export async function releaseGuestFee(sb: SB, leagueId: string, gameDate: string
     .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
   const ledgerId = (data as { guest_fee_ledger_id?: string | null } | null)?.guest_fee_ledger_id
   if (!ledgerId) return { ok: true }
-  const res = await refundGuestFee(sb, await resolveTeamId(leagueId), gameDate, guestId, ledgerId, actor)
+  const res = await claimAndRefundGuestFee(sb, leagueId, await resolveTeamId(leagueId), gameDate, guestId, ledgerId, actor)
   return res.ok ? { ok: true } : { ok: false, error: res.error }
+}
+
+/**
+ * 게스트비 돌려주기를 **한 번만** — 신청 행의 guest_fee_ledger_id 를 먼저 비운다(그 값일 때만).
+ * 실제로 비운 요청만 돌려주고, 동시에 온 두 번째 요청은 비울 게 없어 아무것도 안 한다(2026-11-10 리뷰).
+ * 돌려주기가 실패하면 비운 칸을 되돌린다.
+ */
+async function claimAndRefundGuestFee(sb: SB, leagueId: string, teamId: string, gameDate: string, guestId: string, ledgerId: string, actor: string):
+  Promise<{ ok: true; refunded: boolean } | { ok: false; error: string }> {
+  const { data: claimed, error: cErr } = await sb.from('weekly_rsvp').update({ guest_fee_ledger_id: null, guest_paid: false })
+    .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).eq('guest_fee_ledger_id', ledgerId)
+    .select('league_player_id')
+  if (cErr) return { ok: false, error: cErr.message }
+  if (!claimed || claimed.length === 0) return { ok: true, refunded: false }   // 이미 다른 요청이 돌려줬다
+  const res = await refundGuestFee(sb, teamId, gameDate, guestId, ledgerId, actor)
+  if (!res.ok) {
+    await sb.from('weekly_rsvp').update({ guest_fee_ledger_id: ledgerId, guest_paid: true })
+      .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).is('guest_fee_ledger_id', null)
+    return { ok: false, error: res.error }
+  }
+  return { ok: true, refunded: true }
 }

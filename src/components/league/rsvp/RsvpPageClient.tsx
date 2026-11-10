@@ -4,7 +4,7 @@
 //   어드민: 지난 주·다음 주로 옮겨 보기 · 대기명단(비정규·게스트)을 끌어서 팀 배치(비정규면 이때 티켓 1장, 폰은 팀 고르기) ·
 //           정규를 이번 달 팀으로 한 번에 · 게스트비 받음 · 대신 참/불 눌러 주기 · 불참·미응답 명단.
 //   정원은 안내만 — 넘쳐도 막지 않는다(팀장·총무 회의).
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Loader2, Wand2, Lock } from 'lucide-react'
@@ -57,7 +57,10 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   if (!data.me && !data.isAdmin) return <LoginTeaser />
   const admin = !!data.isAdmin
 
+  const actInFlight = useRef(false)
   async function act(body: Record<string, unknown>, tag: string, ok?: string) {
+    if (actInFlight.current) { toast('앞의 변경을 저장하는 중이에요. 잠시 뒤 다시 해 주세요.'); return }   // 끌어 놓기·버튼을 빠르게 연달아 해도 요청이 겹치지 않게(2026-11-10)
+    actInFlight.current = true
     setBusy(tag)
     try {
       const res = await fetch(`${api}/admin`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: gameDate, ...body }) })
@@ -67,7 +70,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
       else if (ok) toast.success(ok)
       if (Array.isArray(j.unpaid) && j.unpaid.length > 0) toast.error(`포인트가 모자라 티켓·게스트비를 못 뺀 사람: ${j.unpaid.join(', ')}. 충전한 뒤 일정 탭에서 다시 배치해 주세요.`, { duration: 10000 })
       await load()
-    } finally { setBusy(null) }
+    } finally { setBusy(null); actInFlight.current = false }
   }
 
 
