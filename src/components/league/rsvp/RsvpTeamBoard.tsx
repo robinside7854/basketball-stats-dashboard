@@ -9,7 +9,7 @@
 //     ✓ 참(맨 위) · ? 아직 답 안 함 · ✕ 불참. 게스트는 「이름(나이) / 포지션 / 신장」.
 import { useState, type DragEvent } from 'react'
 import { toast } from 'sonner'
-import { GripVertical, Check, X, HelpCircle, Crown } from 'lucide-react'
+import { GripVertical, Check, X, HelpCircle, Crown, Ticket } from 'lucide-react'
 import { positionShortOf } from '@/lib/league/positionGroup'
 import { UNIFORM_FILL, UNIFORM_NAME, KIND_LABEL, guestLine, type RsvpEntryView, type RsvpRes } from './rsvpTypes'
 
@@ -188,6 +188,14 @@ export default function RsvpTeamBoard({
       ? <X size={14} aria-label="불참" className="self-center shrink-0" style={{ color: 'var(--mm-live-bg)' }} />
       : <HelpCircle size={14} aria-label="아직 답 안 함" className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />
 
+  // 비정규 표시 — 월렛의 비정규 티켓과 같은 노란 표(2026-11-10 운영진 「아이콘으로 표시」)
+  const NonRegularMark = () => (
+    <span className="inline-flex items-center justify-center w-6 h-[18px] self-center shrink-0" title="비정규" aria-label="비정규"
+      style={{ background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', borderRadius: 4, color: 'var(--mm-black)' }}>
+      <Ticket size={12} strokeWidth={2.5} aria-hidden />
+    </span>
+  )
+
   // 팀장 왕관 — 홈 「이번 달 우리 팀」과 같은 모양(노란 동그라미)
   const CrownMark = () => (
     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full self-center shrink-0" title="팀장"
@@ -235,6 +243,7 @@ export default function RsvpTeamBoard({
         <>
           <span className="text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontWeight: leader ? 800 : undefined }}>{m.name}</span>
           {leader && <CrownMark />}
+          {m.kind === 'non_regular' && <NonRegularMark />}
           {positionShortOf(m.position) && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{positionShortOf(m.position)}</span>}
         </>
       )}

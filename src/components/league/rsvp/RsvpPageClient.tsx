@@ -49,7 +49,6 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   const gameDate = data?.window?.gameDate ?? date
   const entries = useMemo(() => data?.entries ?? [], [data])
   const yes = entries.filter(e => e.answer === 'yes')
-  const no = entries.filter(e => e.answer === 'no')
 
   if (!data) return <div className="flex justify-center py-12"><Loader2 className="animate-spin text-[color:var(--mm-muted)]" aria-label="불러오는 중" /></div>
   if (!data.enabled) return <EmptyState title="이 리그는 참가신청을 쓰지 않아요" framed />
@@ -114,11 +113,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                 <span className="font-black text-3xl leading-none" style={{ color: over ? 'var(--mm-live-bg)' : 'var(--mm-ink)' }}>{yes.length}</span>
                 <span className="text-base font-bold" style={{ color: 'var(--mm-muted)' }}>/ 정원 {data.capacity}명</span>
               </div>
-              <div className="mt-1.5 text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>정규 {counts.regular} · 비정규 {counts.non_regular} · 게스트 {counts.guest} · 불참 {no.length}</div>
-              {/* 불참한 사람 — 비정규 불참은 팀 카드에 안 보여 「누가?」를 알 수 없었다(2026-11-10 운영진). 어드민만 */}
-              {admin && no.length > 0 && (
-                <div className="mt-0.5 text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>불참: {no.map(e => e.name).join(' · ')}</div>
-              )}
+              <div className="mt-1.5 text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>정규 {counts.regular} · 비정규 {counts.non_regular} · 게스트 {counts.guest}</div>
               {over && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>정원을 넘었어요 — 팀장·총무가 협의해 정해요(7명 팀 등).</p>}
               {locked && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-ink-soft)' }}>그날 기록이 시작돼 명단은 더 고칠 수 없어요.</p>}
               {admin && !locked && (
@@ -132,7 +127,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                   )}
                   {!closed ? (
                     <button type="button" disabled={busy === 'close'}
-                      onClick={() => { const waiting = yes.filter(e => !e.placed_team_id).length; if (waiting > 0 && !confirm(`아직 팀에 배치되지 않은 사람이 ${waiting}명 있어요(대기명단).\n그대로 마감해도 일정 탭에서 기록 전까지 배치할 수 있어요. 계속할까요?`)) return; if (confirm(`${dateLabel(gameDate)} 참가신청을 마감할까요?\n· 홈 화면 카드가 사라지고 회원은 참/불을 못 바꿔요\n· 배치된 사람의 티켓·게스트비가 이때 빠져요\n· 그날 일정과 빈 경기 칸이 만들어져요\n· 명단은 일정 탭에서 기록 전까지 고칠 수 있어요`)) void act({ action: 'close' }, 'close', '마감했어요 — 일정 탭에 그날 일정이 생겼어요') }}
+                      onClick={() => { const short = (data.teams ?? []).map(t => ({ name: t.name, n: yes.filter(e => e.placed_team_id === t.id).length })).filter(t => t.n < 5); if (short.length > 0 && !confirm(`5명이 안 되는 팀이 있어요.\n${short.map(t => `· ${t.name} ${t.n}명`).join('\n')}\n그래도 마감할까요? 마감 뒤에도 일정 탭에서 기록 전까지 배치할 수 있어요.`)) return; const waiting = yes.filter(e => !e.placed_team_id).length; if (waiting > 0 && !confirm(`아직 팀에 배치되지 않은 사람이 ${waiting}명 있어요(대기명단).\n그대로 마감해도 일정 탭에서 기록 전까지 배치할 수 있어요. 계속할까요?`)) return; if (confirm(`${dateLabel(gameDate)} 참가신청을 마감할까요?\n· 홈 화면 카드가 사라지고 회원은 참/불을 못 바꿔요\n· 배치된 사람의 티켓·게스트비가 이때 빠져요\n· 그날 일정과 빈 경기 칸이 만들어져요\n· 명단은 일정 탭에서 기록 전까지 고칠 수 있어요`)) void act({ action: 'close' }, 'close', '마감했어요 — 일정 탭에 그날 일정이 생겼어요') }}
                       className="mm-press w-full min-h-11 text-sm font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                       style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <Lock size={15} aria-hidden />참가신청 마감하기
