@@ -9,7 +9,7 @@ import PlayerName from '@/components/league/ui/PlayerName'
 // 배치 (모바일 한 줄 · PC ≥lg 두 칸)
 //   왼쪽: 프로필 머리 · 마지막 출전(친선일 포함) · 「내 선수 카드 열기」
 //   계정(아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃)은 페이지 아래 AccountCard 하나로 모았다(2026-10-17).
-//   오른쪽: 출석률(이번 분기 + 전체 · 분모는 내 첫 기록일부터) · 내 베스트샷(+ 최근 하이라이트) · 마일스톤 체이서
+//   오른쪽: 내 베스트샷(+ 최근 하이라이트) — 출석률 카드는 2026-11-10 운영진 결정으로 뺐다(AttendanceCard 는 남김)
 //   숫자는 전부 auth/dashboard 하나가 준다(친선 제외 — 화면에서 다시 계산하지 않는다).
 //   ⚠ 평균·연속 단위는 「하루」다 — 「경기당」·「라운드」라 쓰지 말 것.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
@@ -87,9 +87,11 @@ interface Props {
   base?: string
   /** PC(lg↑)에서 왼쪽 칸 프로필 아래에 붙일 카드(월렛·바로가기·계정). 폰에서는 그리지 않는다. */
   side?: ReactNode
+  /** 왼쪽 칸 맨 위(폰은 맨 위) — 월렛·드래프트 바로가기. 칸 폭에 맞춰 다른 박스와 끝선이 같다(2026-11-10 운영진) */
+  top?: ReactNode
 }
 
-export default function PersonalDashboard({ leagueId, orgSlug, base, side }: Props) {
+export default function PersonalDashboard({ leagueId, orgSlug, base, side, top }: Props) {
   const { user, loading: authLoading } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -162,7 +164,8 @@ export default function PersonalDashboard({ leagueId, orgSlug, base, side }: Pro
             2026-11-09 운영진: PC 에서 월렛·계정이 맨 아래라 스크롤해야 보였다 → 왼쪽 칸 프로필 아래로 올렸다(side).
             폰은 그대로 맨 아래(MePageClient 가 lg:hidden 으로 한 번 더 그린다).
             칸이 길어져 화면보다 커질 수 있어 따라오기(sticky)는 뺐다 — 아래쪽이 영영 안 보일 수 있다. */}
-        <div className="min-w-0 space-y-3">
+        <div className="min-w-0 space-y-3 lg:space-y-4">
+          {top}
           <SectionCard variant="standalone" emphasized pad="none">
             {/* 헤더 · 유저 프로필 */}
             <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -218,7 +221,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base, side }: Pro
             </div>
 
           </SectionCard>
-          {side && <div className="hidden lg:block space-y-3">{side}</div>}
+          {side && <div className="hidden lg:block space-y-3 lg:space-y-4">{side}</div>}
         </div>
 
         {/* ── 오른쪽: 나에게만 있는 것 ── */}
@@ -245,7 +248,7 @@ export default function PersonalDashboard({ leagueId, orgSlug, base, side }: Pro
           <DashboardCardsSkeleton />
         ) : (
           <div className="min-w-0 space-y-3 lg:space-y-4">
-            <AttendanceCard attendance={data.attendance} quarterLabel={data.quarter_label ?? null} />
+            {/* 출석률 카드는 2026-11-10 운영진 결정으로 뺐다 — 베스트샷이 오른쪽 칸 맨 위 */}
             <BestShotsCard
               clips={data.pinned_clips ?? []}
               playerName={myName}
@@ -570,7 +573,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
           <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
           {/* 폰에서 「출석/률」처럼 단어 중간에서 꺾였고, 두 문장이 「확인하세요.아직」으로 붙었다(2026-11-08) */}
           <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)', wordBreak: 'keep-all' }}>
-            우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>내 선수 카드·출석률</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>베스트샷</b>을 확인하세요.
+            우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>내 선수 카드</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>베스트샷</b>을 확인하세요.
             {' '}<br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
           </p>
           <button

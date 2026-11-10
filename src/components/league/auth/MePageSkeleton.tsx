@@ -30,20 +30,10 @@ function Block({ className = '', round = 'ctl' }: { className?: string; round?: 
   )
 }
 
-/** 오른쪽 칼럼 카드 2장(출석률 · 베스트샷) — 마일스톤 카드는 2026-11-02 뺐다 */
+/** 오른쪽 칼럼 카드(베스트샷) — 마일스톤 2026-11-02 · 출석률 2026-11-10 뺐다 */
 export function DashboardCardsSkeleton() {
   return (
     <div className="min-w-0 space-y-4 lg:space-y-5" role="status" aria-label="불러오는 중…">
-      <Card className="p-4 lg:px-6 lg:py-5">
-        <Block className="h-5 w-24 mb-4" />
-        <div className="flex items-center gap-4">
-          <Block className="w-[76px] h-[76px] shrink-0" round="chip" />
-          <div className="flex-1 space-y-2">
-            <Block className="h-4 w-3/4" />
-            <Block className="h-3 w-1/2" />
-          </div>
-        </div>
-      </Card>
       <Card className="p-4 lg:px-6 lg:py-5">
         <Block className="h-5 w-28 mb-4" />
         <div className="grid grid-cols-3 gap-2 sm:gap-3">

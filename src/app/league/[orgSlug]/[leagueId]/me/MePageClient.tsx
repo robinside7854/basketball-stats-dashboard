@@ -78,9 +78,9 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         <MePageSkeleton />
       ) : user ? (
         <>
-          {/* 월렛·드래프트 바로가기는 PC·폰 모두 맨 위(2026-11-09 운영진 — PC 는 프로필 카드 아래라 화면 밖이었다), 계정은 맨 아래 */}
-          <div className="lg:max-w-[720px]">{shortcuts}</div>
-          <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} side={side} />
+          {/* 월렛·드래프트 바로가기는 왼쪽 칸 맨 위(폰은 맨 위) — 칸 폭에 맞춰 아래 프로필·계정 박스와 끝선이 같다.
+              종전엔 720px 따로 된 줄이라 아래 두 칸과 끝선이 어긋났다(2026-11-10 운영진 「박스 간 통일감」). */}
+          <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} base={base} side={side} top={shortcuts} />
           <div className="lg:hidden"><AccountCard leagueId={leagueId} /></div>
         </>
       ) : (
