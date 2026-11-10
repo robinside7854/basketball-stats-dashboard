@@ -1,11 +1,11 @@
 'use client'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-import GuideContent from '@/components/league/guide/GuideContent'
+import AdminGuideView from '@/components/league/guide/AdminGuideView'
 import EmptyState from '@/components/league/ui/EmptyState'
-import { ADMIN_GUIDE } from '@/lib/guide/adminGuide'
 
-export default function AdminGuideClient({ images }: { images: string[] }) {
+// 어드민에게만 본문(운영 방법 안내 — 비밀은 없지만 회원에게는 쓸모가 없다). 도식화 화면은 AdminGuideView.
+export default function AdminGuideClient() {
   const { isEditMode } = useLeagueEditMode()
   if (!isEditMode) return <EmptyState title="어드민만 볼 수 있어요" description="회원용 안내는 「이용 가이드」를 봐 주세요." framed />
-  return <GuideContent images={images} sections={ADMIN_GUIDE} title="어드민 가이드" subtitle="운영진이 하는 일만 모았어요. 대부분은 자동이에요." share={false} />
+  return <AdminGuideView />
 }
