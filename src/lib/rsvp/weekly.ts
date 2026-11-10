@@ -48,6 +48,8 @@ export interface RsvpEntry {
   guest_fee_charged: boolean
   /** 「본인」 · 「OO 초대」(게스트) · 대신 눌러 준 어드민 */
   answered_by: string | null
+  /** 게스트를 부른 회원 선수 번호(130) — 비어 있으면 옛 줄(이름표로 판정) */
+  invited_by?: string | null
   tickets_left: number      // 비정규 티켓 남은 장수(배치 가능 여부 안내)
   /** 배치될 수 있나 — 티켓이 있거나, 없으면 포인트가 티켓값 이상(배치 때 자동 발행, 2026-11-10) */
   can_pay: boolean
@@ -107,7 +109,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const inQuarter = !!q?.start_date && !!q?.end_date && gameDate >= q.start_date && gameDate <= q.end_date
 
   const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes, uniforms, leadersRes] = await Promise.all([
-    sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, guest_pay, guest_fee_ledger_id, answered_at, answered_by_label')
+    sb.from('weekly_rsvp').select('league_player_id, answer, approved, placed_team_id, ticket_id, guest_paid, guest_pay, guest_fee_ledger_id, answered_at, answered_by_label, invited_by_player_id')
       .eq('league_id', leagueId).eq('game_date', gameDate),
     // 선수는 팀 소유 — league_id 로 찾지 않는다(CLAUDE.md)
     sb.from('league_players').select('id, name, photo_url, position, birth_date, height_cm, is_guest, is_active').eq('team_id', teamId),
@@ -150,7 +152,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
   const ageOf = (pid: string) => { const b = players.get(pid)?.birth_date; return b ? thisYear - Number(b.slice(0, 4)) : null }
   const kindOf = (pid: string): RsvpKind => players.get(pid)?.is_guest ? 'guest' : passHolders.has(pid) ? 'regular' : 'non_regular'
 
-  const entries: RsvpEntry[] = ((rowsRes.data ?? []) as Array<{ league_player_id: string; answer: 'yes' | 'no'; approved: boolean; placed_team_id: string | null; ticket_id: string | null; guest_paid: boolean; guest_pay: 'bank' | 'points' | null; guest_fee_ledger_id: string | null; answered_at: string; answered_by_label: string | null }>)
+  const entries: RsvpEntry[] = ((rowsRes.data ?? []) as Array<{ league_player_id: string; answer: 'yes' | 'no'; approved: boolean; placed_team_id: string | null; ticket_id: string | null; guest_paid: boolean; guest_pay: 'bank' | 'points' | null; guest_fee_ledger_id: string | null; answered_at: string; answered_by_label: string | null; invited_by_player_id?: string | null }>)
     .map(r => {
       const p = players.get(r.league_player_id)
       const kind = kindOf(r.league_player_id)
@@ -159,7 +161,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
         age: ageOf(r.league_player_id), height_cm: p?.height_cm ?? null,
         kind, answer: r.answer,
         approved: kind === 'regular' ? r.answer === 'yes' : r.approved,
-        placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid, guest_pay: r.guest_pay ?? 'bank', guest_fee_charged: !!r.guest_fee_ledger_id, answered_by: r.answered_by_label,
+        placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid, guest_pay: r.guest_pay ?? 'bank', guest_fee_charged: !!r.guest_fee_ledger_id, answered_by: r.answered_by_label, invited_by: r.invited_by_player_id ?? null,
         tickets_left: ticketsLeft.get(r.league_player_id) ?? 0,
         can_pay: (ticketsLeft.get(r.league_player_id) ?? 0) > 0 || (ticketPrice != null && (balanceOf.get(r.league_player_id) ?? 0) >= ticketPrice),
         suggested_team_id: regularTeam.get(r.league_player_id) ?? null,
@@ -354,6 +356,12 @@ export async function autoPlaceAtClose(sb: SB, leagueId: string, gameDate: strin
 }
 
 /** 게스트를 부른 회원 표시 — 신청 기록의 answered_by_label. 본인 취소 판정에도 쓴다. */
+/** 이 게스트를 내가 불렀나 — 번호가 있으면 번호로, 없으면(130 전 줄) 이름표로. */
+export function isMyGuest(row: { invited_by?: string | null; label: string | null }, me: { pid: string; name: string }): boolean {
+  if (row.invited_by) return row.invited_by === me.pid
+  return row.label === inviterLabel(me.name)
+}
+
 export function inviterLabel(name: string): string {
   return `${name} 초대`
 }
@@ -438,6 +446,7 @@ export interface GuestPoolItem {
   height_cm: number | null
   /** 처음 부른 회원 이름표 — 「김로빈 초대」 */
   inviter_label: string | null
+  inviter_id: string | null
   last_date: string
 }
 
@@ -445,17 +454,17 @@ export async function loadGuestPool(sb: SB, leagueId: string, gameDate: string):
   const teamId = await resolveTeamId(leagueId)
   const [{ data: guests }, { data: rows }] = await Promise.all([
     sb.from('league_players').select('id, name, position, birth_date, height_cm').eq('team_id', teamId).eq('is_guest', true),
-    sb.from('weekly_rsvp').select('league_player_id, game_date, placed_team_id, answered_by_label, answer')
+    sb.from('weekly_rsvp').select('league_player_id, game_date, placed_team_id, answered_by_label, answer, invited_by_player_id')
       .eq('league_id', leagueId).lte('game_date', gameDate).order('game_date', { ascending: false }).limit(2000),
   ])
   const g = new Map(((guests ?? []) as Array<{ id: string; name: string; position: string | null; birth_date: string | null; height_cm: number | null }>).map(x => [x.id, x]))
   const thisWeek = new Set<string>()
-  const last = new Map<string, { date: string; label: string | null }>()
-  for (const r of (rows ?? []) as Array<{ league_player_id: string; game_date: string; placed_team_id: string | null; answered_by_label: string | null; answer: string }>) {
+  const last = new Map<string, { date: string; label: string | null; by: string | null }>()
+  for (const r of (rows ?? []) as Array<{ league_player_id: string; game_date: string; placed_team_id: string | null; answered_by_label: string | null; answer: string; invited_by_player_id?: string | null }>) {
     if (!g.has(r.league_player_id)) continue
     if (r.game_date === gameDate) { thisWeek.add(r.league_player_id); continue }
     if (!r.placed_team_id || last.has(r.league_player_id)) continue
-    last.set(r.league_player_id, { date: r.game_date, label: r.answered_by_label })
+    last.set(r.league_player_id, { date: r.game_date, label: r.answered_by_label, by: r.invited_by_player_id ?? null })
   }
   const year = Number(gameDate.slice(0, 4))
   return [...last.entries()].filter(([pid]) => !thisWeek.has(pid)).map(([pid, v]) => {
@@ -463,21 +472,21 @@ export async function loadGuestPool(sb: SB, leagueId: string, gameDate: string):
     return {
       player_id: pid, name: p.name, position: p.position, height_cm: p.height_cm,
       age: p.birth_date ? year - Number(p.birth_date.slice(0, 4)) : null,
-      inviter_label: v.label, last_date: v.date,
+      inviter_label: v.label, inviter_id: v.by, last_date: v.date,
     }
   }).sort((a, b) => b.last_date.localeCompare(a.last_date) || a.name.localeCompare(b.name, 'ko'))
 }
 
 /** 그 주 「참」으로 다시 넣는다(대기명단). 「불」로 남은 줄이 있으면 살린다. */
-export async function reinviteGuest(sb: SB, leagueId: string, gameDate: string, guestId: string, label: string | null, pay: { method: 'bank' | 'points'; payerId: string | null } = { method: 'bank', payerId: null }): Promise<{ ok: boolean; error?: string }> {
+export async function reinviteGuest(sb: SB, leagueId: string, gameDate: string, guestId: string, label: string | null, pay: { method: 'bank' | 'points'; payerId: string | null } = { method: 'bank', payerId: null }, inviterId: string | null = null): Promise<{ ok: boolean; error?: string }> {
   const now = new Date().toISOString()
   const { data: prev } = await sb.from('weekly_rsvp').select('id, answer')
     .eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', guestId).maybeSingle()
   const pr = prev as { id: string; answer: string } | null
   if (pr?.answer === 'yes') return { ok: false, error: '이번 주에 이미 신청돼 있어요' }
   const { error } = pr
-    ? await sb.from('weekly_rsvp').update({ answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false, guest_pay: pay.method, guest_payer_id: pay.payerId, guest_fee_ledger_id: null, answered_by_label: label, answered_at: now, updated_at: now }).eq('id', pr.id)
-    : await sb.from('weekly_rsvp').insert({ league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes', guest_pay: pay.method, guest_payer_id: pay.payerId, answered_by_label: label, answered_at: now, updated_at: now })
+    ? await sb.from('weekly_rsvp').update({ answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false, guest_pay: pay.method, guest_payer_id: pay.payerId, guest_fee_ledger_id: null, answered_by_label: label, invited_by_player_id: inviterId, answered_at: now, updated_at: now }).eq('id', pr.id)
+    : await sb.from('weekly_rsvp').insert({ league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes', guest_pay: pay.method, guest_payer_id: pay.payerId, answered_by_label: label, invited_by_player_id: inviterId, answered_at: now, updated_at: now })
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 

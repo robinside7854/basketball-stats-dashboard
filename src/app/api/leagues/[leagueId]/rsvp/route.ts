@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, prebuyTicketOnYes, type RsvpRules } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, isMyGuest, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, prebuyTicketOnYes, type RsvpRules } from '@/lib/rsvp/weekly'
 import { loadWalletConfig, loadBalance } from '@/lib/wallet/wallet'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -53,10 +53,13 @@ export async function GET(req: Request, { params }: Ctx) {
   const mine = session ? board.entries.find(e => e.player_id === session.pid) ?? null : null
   let myGuestIds: string[] = []
   let myLabel: string | null = null
+  let myNameForGuests = ''
   if (session) {
     const { data: meRow } = await sb.from('league_players').select('name').eq('id', session.pid).maybeSingle()
-    myLabel = inviterLabel((meRow as { name?: string } | null)?.name ?? '')
-    myGuestIds = board.entries.filter(e => e.kind === 'guest' && e.answered_by === myLabel).map(e => e.player_id)
+    const myName = (meRow as { name?: string } | null)?.name ?? ''
+    myLabel = inviterLabel(myName)
+    myNameForGuests = myName
+    myGuestIds = board.entries.filter(e => e.kind === 'guest' && isMyGuest({ invited_by: e.invited_by, label: e.answered_by }, { pid: session.pid, name: myName })).map(e => e.player_id)
   }
   // 지난 게스트(한 번 배치된 사람) — 어드민은 전부, 회원은 내가 부른 사람만
   const pool = await loadGuestPool(sb, leagueId, gameDate)
@@ -65,7 +68,7 @@ export async function GET(req: Request, { params }: Ctx) {
   const walletCfg = await loadWalletConfig(walletTeam)
   const guestPrice = walletCfg?.rules.guest_price ?? null
   const myBalance = session && walletCfg ? await loadBalance(walletTeam, session.pid) : null
-  const guestPool = isAdmin ? pool : pool.filter(g => g.inviter_label === myLabel)
+  const guestPool = isAdmin ? pool : session ? pool.filter(g => isMyGuest({ invited_by: g.inviter_id, label: g.inviter_label }, { pid: session.pid, name: myNameForGuests })) : []
   // 내 구분·티켓은 답하기 전에도 보여야 한다(「비정규 티켓이 없어요」 안내)
   let meKind: string | null = mine?.kind ?? null
   let meTickets = mine?.tickets_left ?? 0
@@ -134,12 +137,13 @@ export async function POST(req: Request, { params }: Ctx) {
     // 지난 게스트 다시 부르기 — 내가 처음 부른 게스트만(2026-11-09 운영진)
     const guestId = typeof body.guestId === 'string' ? body.guestId : ''
     const { data: meRow } = await sb.from('league_players').select('name').eq('id', session.pid).maybeSingle()
-    const label = inviterLabel((meRow as { name?: string } | null)?.name ?? '')
+    const myName = (meRow as { name?: string } | null)?.name ?? ''
+    const label = inviterLabel(myName)
     const g = (await loadGuestPool(sb, leagueId, win.gameDate)).find(x => x.player_id === guestId)
     if (!g) return NextResponse.json({ error: '다시 부를 수 있는 게스트가 아니에요' }, { status: 404 })
-    if (g.inviter_label !== label) return NextResponse.json({ error: '내가 부른 게스트만 다시 부를 수 있어요' }, { status: 403 })
+    if (!isMyGuest({ invited_by: g.inviter_id, label: g.inviter_label }, { pid: session.pid, name: myName })) return NextResponse.json({ error: '내가 부른 게스트만 다시 부를 수 있어요' }, { status: 403 })
     const pay = body.pay === 'points' ? 'points' as const : 'bank' as const
-    const res = await reinviteGuest(sb, leagueId, win.gameDate, guestId, label, { method: pay, payerId: pay === 'points' ? session.pid : null })
+    const res = await reinviteGuest(sb, leagueId, win.gameDate, guestId, label, { method: pay, payerId: pay === 'points' ? session.pid : null }, session.pid)
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: 409 })
     return NextResponse.json({ ok: true }, { status: 201 })
   }
@@ -221,11 +225,11 @@ async function addGuest(sb: ReturnType<typeof createClient>, leagueId: string, g
   const { error } = pr
     ? await sb.from('weekly_rsvp').update({
         answer: 'yes', placed_team_id: null, ticket_id: null, guest_paid: false, guest_pay: pay, guest_payer_id: payer, guest_fee_ledger_id: null,
-        answered_by_label: label, answered_at: now, updated_at: now,
+        answered_by_label: label, invited_by_player_id: inviterId, answered_at: now, updated_at: now,
       }).eq('id', pr.id)
     : await sb.from('weekly_rsvp').insert({
         league_id: leagueId, game_date: gameDate, league_player_id: guestId, answer: 'yes', guest_pay: pay, guest_payer_id: payer,
-        answered_by_label: label, answered_at: now, updated_at: now,
+        answered_by_label: label, invited_by_player_id: inviterId, answered_at: now, updated_at: now,
       })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, guest_id: guestId }, { status: 201 })
@@ -243,12 +247,12 @@ export async function DELETE(req: Request, { params }: Ctx) {
   if (!win) return NextResponse.json({ error: '신청이 마감돼 어드민에게 말해 주세요' }, { status: 409 })
   const [{ data: me }, { data: row }] = await Promise.all([
     sb.from('league_players').select('name').eq('id', session.pid).maybeSingle(),
-    sb.from('weekly_rsvp').select('id, answered_by_label, ticket_id, league_players!inner(is_guest)')
+    sb.from('weekly_rsvp').select('id, answered_by_label, invited_by_player_id, ticket_id, league_players!inner(is_guest)')
       .eq('league_id', leagueId).eq('game_date', win.gameDate).eq('league_player_id', guestId).maybeSingle(),
   ])
-  const r = row as unknown as { id: string; answered_by_label: string | null; ticket_id: string | null; league_players: { is_guest: boolean } } | null
+  const r = row as unknown as { id: string; answered_by_label: string | null; invited_by_player_id?: string | null; ticket_id: string | null; league_players: { is_guest: boolean } } | null
   if (!r || !r.league_players?.is_guest) return NextResponse.json({ error: '게스트 신청을 찾을 수 없어요' }, { status: 404 })
-  if (r.answered_by_label !== inviterLabel((me as { name?: string } | null)?.name ?? '')) {
+  if (!isMyGuest({ invited_by: r.invited_by_player_id, label: r.answered_by_label }, { pid: session.pid, name: (me as { name?: string } | null)?.name ?? '' })) {
     return NextResponse.json({ error: '내가 부른 게스트만 취소할 수 있어요' }, { status: 403 })
   }
   const rel = await releaseGuestFee(sb, leagueId, win.gameDate, guestId, '본인 취소')

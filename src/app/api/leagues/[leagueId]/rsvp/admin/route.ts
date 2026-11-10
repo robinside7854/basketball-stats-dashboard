@@ -74,7 +74,7 @@ export async function POST(req: Request, { params }: Ctx) {
   if (body.action === 'guest_again') {
     const g = (await loadGuestPool(sb, leagueId, date)).find(x => x.player_id === playerId)
     if (!g) return NextResponse.json({ error: '다시 부를 수 있는 게스트가 아니에요(한 번 팀에 배치된 게스트만)' }, { status: 404 })
-    const res = await reinviteGuest(sb, leagueId, date, playerId, g.inviter_label ?? `${actor} 초대`)
+    const res = await reinviteGuest(sb, leagueId, date, playerId, g.inviter_label ?? `${actor} 초대`, undefined, g.inviter_id)
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: 409 })
     return NextResponse.json({ ok: true })
   }
