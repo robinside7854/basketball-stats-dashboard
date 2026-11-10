@@ -29,6 +29,9 @@ interface Props {
   onDismissHint: () => void
   rate?: number
   onRate?: () => void
+  onReplay?: () => void
+  /** 가로 화면에서만 — 스코어보드 세로형(세로 화면은 영상 아래 띠로 따로 그린다) */
+  scoreBug?: ReactNode
 }
 
 function buzz() {
@@ -62,24 +65,25 @@ const ROUND = 'rounded-full'
 
 export default function ImmersiveControls({
   playing, finished, title, subtitle, index, total, showRotateHint,
-  onClose, onPrev, onNext, onTogglePlay, onRestart, onDismissHint, rate = 1, onRate,
+  onClose, onPrev, onNext, onTogglePlay, onRestart, onDismissHint, rate = 1, onRate, onReplay, scoreBug,
 }: Props) {
   return (
     <div
       className="relative z-30 w-full shrink-0 flex flex-col gap-3 px-4 pt-3
-        landscape:w-[148px] landscape:h-full landscape:justify-center landscape:px-2 landscape:pt-0 landscape:gap-2"
+        landscape:w-[164px] landscape:h-full landscape:justify-center landscape:px-2 landscape:pt-0 landscape:gap-2"
       style={{
         color: '#fff',
         paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
         paddingRight: 'max(8px, env(safe-area-inset-right, 0px))',
       }}
     >
+      {scoreBug && <div className="hidden landscape:block landscape:order-first">{scoreBug}</div>}
       {/* 제목 · 순번 · 닫기 */}
       <div className="flex items-start gap-2 landscape:flex-col landscape:items-center landscape:text-center">
         <div className="min-w-0 flex-1 landscape:order-2">
           <div className="text-sm sm:text-base font-bold break-keep">{title}</div>
           {subtitle && <div className="text-xs break-keep landscape:hidden" style={{ color: 'rgba(255,255,255,0.7)' }}>{subtitle}</div>}
-          <div className="mt-1 text-xs font-bold tabular-nums" style={{ color: 'rgba(255,255,255,0.7)' }} aria-label={`${total}개 중 ${index + 1}번째 클립`}>
+          <div className="mt-1 text-xs font-bold tabular-nums landscape:mt-0" style={{ color: 'rgba(255,255,255,0.7)' }} aria-label={`${total}개 중 ${index + 1}번째 클립`}>
             {index + 1} / {total}
           </div>
         </div>
@@ -89,8 +93,8 @@ export default function ImmersiveControls({
       </div>
 
       {/* 이전 · 재생/정지 · 다음 */}
-      <div className="flex items-center justify-center gap-6 landscape:flex-col landscape:gap-2">
-        <TapButton onClick={onPrev} disabled={index === 0} label="이전 클립" className={`${ROUND} w-14 h-14 landscape:w-11 landscape:h-11`} style={{ background: 'rgba(255,255,255,0.14)' }}>
+      <div className="flex items-center justify-center gap-6 landscape:gap-1">
+        <TapButton onClick={onPrev} disabled={index === 0} label="이전 클립" className={`${ROUND} w-14 h-14 landscape:w-10 landscape:h-10`} style={{ background: 'rgba(255,255,255,0.14)' }}>
           <SkipBack size={24} fill="currentColor" aria-hidden />
         </TapButton>
         {finished ? (
@@ -99,21 +103,27 @@ export default function ImmersiveControls({
             처음부터
           </TapButton>
         ) : (
-          <TapButton onClick={onTogglePlay} label={playing ? '일시정지' : '재생'} className={`${ROUND} w-16 h-16 landscape:w-14 landscape:h-14`} style={{ background: '#fff', color: '#111' }}>
+          <TapButton onClick={onTogglePlay} label={playing ? '일시정지' : '재생'} className={`${ROUND} w-16 h-16 landscape:w-12 landscape:h-12`} style={{ background: '#fff', color: '#111' }}>
             {playing ? <Pause size={28} fill="currentColor" aria-hidden /> : <Play size={28} fill="currentColor" className="ml-0.5" aria-hidden />}
           </TapButton>
         )}
-        <TapButton onClick={onNext} disabled={index + 1 >= total} label="다음 클립" className={`${ROUND} w-14 h-14 landscape:w-11 landscape:h-11`} style={{ background: 'rgba(255,255,255,0.14)' }}>
+        <TapButton onClick={onNext} disabled={index + 1 >= total} label="다음 클립" className={`${ROUND} w-14 h-14 landscape:w-10 landscape:h-10`} style={{ background: 'rgba(255,255,255,0.14)' }}>
           <SkipForward size={24} fill="currentColor" aria-hidden />
         </TapButton>
       </div>
 
-      {onRate && (
-        <div className="flex justify-center">
-          <TapButton onClick={onRate} label={`재생 속도 ${rate}배 — 누르면 바뀌어요`} className={`${ROUND} h-10 landscape:h-9 px-4 text-sm font-black tabular-nums`}
+      {(onRate || onReplay) && (
+        <div className="flex justify-center gap-2">
+          {onReplay && (
+            <TapButton onClick={onReplay} label="이 장면 한 번 더" className={`${ROUND} h-10 landscape:h-9 px-3 gap-1 text-sm font-bold`} style={{ background: 'rgba(255,255,255,0.14)' }}>
+              <RotateCcw size={15} aria-hidden />
+              <span className="landscape:hidden">한 번 더</span>
+            </TapButton>
+          )}
+          {onRate && <TapButton onClick={onRate} label={`재생 속도 ${rate}배 — 누르면 바뀌어요`} className={`${ROUND} h-10 landscape:h-9 px-4 text-sm font-black tabular-nums`}
             style={{ background: rate === 1 ? 'rgba(255,255,255,0.14)' : '#fff', color: rate === 1 ? '#fff' : '#111' }}>
             {rate}×
-          </TapButton>
+          </TapButton>}
         </div>
       )}
 

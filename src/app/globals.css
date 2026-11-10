@@ -1017,3 +1017,8 @@
 @keyframes mm-tap-ring { from { box-shadow: 0 0 0 0 rgba(255,255,255,0.55); } to { box-shadow: 0 0 0 16px rgba(255,255,255,0); } }
 .mm-tap-ring { animation: mm-tap-ring 380ms ease-out forwards; }
 @media (prefers-reduced-motion: reduce) { .mm-tap-ring { animation: none; } }
+
+/* 스코어 버그 「+N」 — 장면이 바뀔 때 한 번 튀어 오른다(2026-11-10) */
+@keyframes mm-score-pop { 0% { transform: translateY(4px) scale(0.6); opacity: 0; } 60% { transform: translateY(-2px) scale(1.1); opacity: 1; } 100% { transform: none; } }
+.mm-score-pop { animation: mm-score-pop 420ms cubic-bezier(.2,.8,.2,1.2) both; }
+@media (prefers-reduced-motion: reduce) { .mm-score-pop { animation: none; } }

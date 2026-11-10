@@ -36,8 +36,9 @@ import { whenYouTubeReady, preloadYouTubeIframeApi } from '@/lib/youtube/iframeA
 import { useEffect, useRef, useCallback, useImperativeHandle, useState, type Ref } from 'react'
 import { track } from '@vercel/analytics'
 import { preconnect } from 'react-dom'
-import { Play, Pause, SkipBack, SkipForward, HeartCrack, RotateCcw } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, RotateCcw } from 'lucide-react'
 import ImmersiveControls from './ImmersiveControls'
+import ScoreBug from './ScoreBug'
 import PlayerName from '@/components/league/ui/PlayerName'
 import { extractYouTubeId, formatTimestamp, seekBy } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
@@ -129,6 +130,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   // seekTo 직후에도 currentTime 반영이 비동기 → 짧은 grace 동안 clip_end 판정 중지 (ms epoch)
   const seekGraceUntilRef = useRef(0)
   const trackedClipRef = useRef<string | null>(null)
+  // 다른 경기 영상으로 넘어가는 동안(loadVideoById ~ PLAYING) 검은 화면 대신 그 장면 썸네일을 덮어 둔다
+  const [switching, setSwitching] = useState(false)
   // 재생 창 다시 만들기 (2026-11-09) — PC 에서 클립 몇 개를 넘기면 YouTube 재생 창이 검은 화면으로 굳고
   //   새로고침해야 풀렸다. 새로고침이 하는 일(재생 창 새로 만들기)을 앱이 스스로 한다.
   //   · 영상을 바꿔 불러온 뒤 8초 안에 재생이 안 되거나 · 오류가 오면 → 한 번 새로 만든다
@@ -291,6 +294,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
             }
             if (e.data === 1) {
               setPlaying(true)
+              setSwitching(false)
               // 영상이 바뀌면 YouTube 가 속도를 1로 되돌린다 — 고른 속도를 다시 건다
               try { if (rateRef.current !== 1 && e.target.getPlaybackRate() !== rateRef.current) e.target.setPlaybackRate(rateRef.current) } catch { /* ignore */ }
               // 재생 측정 — 한 클립을 처음 틀 때 한 번만 센다(멈췄다 다시 틀면 안 셈)
@@ -369,6 +373,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     try {
       if (currentVideoIdRef.current !== clip.video_id) {
         setPendingStart(start)
+        setSwitching(true)
         player.loadVideoById({ videoId: clip.video_id, startSeconds: start })
         currentVideoIdRef.current = clip.video_id
         armWatchdog()
@@ -432,6 +437,15 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     }, 400)
     return () => clearInterval(tick)
   }, [activated, immersiveOnly, immersive])
+
+  // 다음 클립 미리 준비(2026-11-10 운영진) — 다음 장면이 다른 경기 영상이면 그 썸네일을 미리 받아 두고
+  //   (넘어가는 동안 덮개로 바로 뜬다) 유튜브 서버 연결을 데워 둔다. 같은 영상이면 시각만 옮기므로 할 일이 없다.
+  useEffect(() => {
+    const next = clips[currentIdx + 1]
+    if (!next?.video_id || next.video_id === clip?.video_id) return
+    try { const img = new Image(); img.src = `https://i.ytimg.com/vi/${next.video_id}/hqdefault.jpg` } catch { /* ignore */ }
+  }, [clips, currentIdx, clip?.video_id])
+  useEffect(() => { if (!switching) return; const t = setTimeout(() => setSwitching(false), 6000); return () => clearTimeout(t) }, [switching])
 
   // 다시 재생되면 「다음 클립」 안내를 걷는다
   useEffect(() => { if (playing) setEndedAtClip(false) }, [playing])
@@ -580,6 +594,18 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
     if (immersiveRef.current) closeImmersive()
   }, [closeImmersive])
 
+  // 「한 번 더」(2026-11-10 운영진) — 지금 클립을 처음부터. 클립 끝 자동 멈춤도 다시 켠다
+  const replay = () => {
+    const p = playerRef.current
+    if (!activatedRef.current) { activate(); return }
+    if (!p) return
+    endHandledRef.current = false
+    lastTimeRef.current = null
+    setEndedAtClip(false)
+    setFinished(false)
+    seekGraceUntilRef.current = Date.now() + 1200
+    try { p.seekTo(Math.floor(clip.clip_start), true); p.playVideo() } catch { /* ignore */ }
+  }
   const goPrev = () => { if (currentIdx > 0) onIndexChange(currentIdx - 1) }
   const goNext = () => { if (currentIdx + 1 < clips.length) onIndexChange(currentIdx + 1) }
   const togglePlay = () => {
@@ -665,6 +691,22 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const hasScore = (clip.score_home_after != null) || (clip.score_away_after != null)
   const homeScored = clip.team_name === clip.home_team_name
   const awayScored = clip.team_name === clip.away_team_name
+  const showBug = !hideScoreboard && hasScore && !!(clip.home_team_name || clip.away_team_name)
+  const bug = (compact: boolean) => (
+    <ScoreBug
+      key={clip.event_id}
+      compact={compact}
+      home={clip.home_team_name || '홈'}
+      away={clip.away_team_name || '원정'}
+      homeScore={scoreHome}
+      awayScore={scoreAway}
+      scored={homeScored ? 'home' : awayScored ? 'away' : null}
+      scoredColor={clip.team_color}
+      points={clip.points}
+      label={SHOT_TYPE_LABEL[clip.shot_type] ?? null}
+      clutch={!!clip.is_clutch}
+    />
+  )
 
   return (
     <div
@@ -690,7 +732,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       <div
         className={immersive
           // 조작부 띠(세로 아래 ~200px · 가로 오른쪽 148px)를 뺀 자리에 영상을 맞춘다 — 버튼이 영상 위에 겹치지 않게
-          ? 'relative shrink-0 aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full w-[min(100dvw,calc((100dvh-264px)*16/9))] landscape:w-[min(calc(100dvw-156px),calc(100dvh*16/9))]'
+          ? 'relative shrink-0 aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full w-[min(100dvw,calc((100dvh-312px)*16/9))] landscape:w-[min(calc(100dvw-172px),calc(100dvh*16/9))]'
           : 'relative rounded-xl overflow-hidden aspect-video bg-black'}
         aria-live="polite"
         aria-label={captionOverride
@@ -698,6 +740,14 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           : `${clip.player_name} — ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}${clip.assist_player_name ? `, ${clip.assist_player_name} 어시스트` : ''}, ${currentIdx + 1}/${clips.length}`}
       >
         <div ref={containerRef} className="w-full h-full" />
+        {activated && switching && clip.video_id && (
+          <div className="absolute inset-0 z-[4] pointer-events-none flex items-center justify-center" aria-hidden>
+            {/* eslint-disable-next-line @next/next/no-img-element -- YouTube 썸네일(외부 호스트) */}
+            <img src={`https://i.ytimg.com/vi/${clip.video_id}/hqdefault.jpg`} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <span className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.35)' }} />
+            <span className="relative w-9 h-9 rounded-full border-[3px] animate-spin" style={{ borderColor: 'rgba(255,255,255,0.35)', borderTopColor: '#fff' }} />
+          </div>
+        )}
         {!activated && clip.video_id && (
           <button
             type="button"
@@ -756,103 +806,13 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
             )}
           </div>
         )}
-        {/* 스코어보드 오버레이 (option A — 상단 · 항상 표시 · pointer-events-none 로 클릭 통과) */}
-        {!hideScoreboard && hasScore && (clip.home_team_name || clip.away_team_name) && !immersive && (
-          <div
-            className="absolute top-0 left-0 right-0 pointer-events-none flex items-center justify-center px-2 py-1.5 sm:py-2 z-10"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0) 100%)',
-            }}
-            aria-label={`스코어보드: ${clip.home_team_name} ${scoreHome} 대 ${scoreAway} ${clip.away_team_name}`}
-          >
-            <div
-              className="inline-flex items-center gap-1.5 sm:gap-2.5 max-w-full"
-              style={{ color: '#fff' }}
-            >
-              {/* 홈 팀 */}
-              <span
-                className="flex items-center gap-1 min-w-0 max-w-[38vw] sm:max-w-none"
-                style={{ opacity: homeScored ? 1 : 0.8 }}
-              >
-                <span
-                  aria-hidden
-                  className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 shrink-0"
-                  style={{
-                    background: homeScored ? (clip.team_color || '#fff') : 'rgba(255,255,255,0.4)',
-                    borderRadius: '2px',
-                    boxShadow: homeScored ? '0 0 0 1px rgba(255,255,255,0.4)' : undefined,
-                  }}
-                />
-                <span
-                  className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.08em] truncate"
-                  style={{ maxWidth: '18ch' }}
-                >
-                  {clip.home_team_name || '홈'}
-                </span>
-              </span>
-              {/* 홈 스코어 */}
-              <span
-                className="font-jersey font-black text-lg sm:text-2xl leading-none tabular-nums"
-                style={{
-                  color: homeScored ? 'var(--mm-yellow)' : '#fff',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-                }}
-              >
-                {scoreHome}
-              </span>
-              <span
-                aria-hidden
-                className="font-jersey font-black text-base sm:text-xl leading-none"
-                style={{ color: 'rgba(255,255,255,0.55)' }}
-              >
-                :
-              </span>
-              {/* 원정 스코어 */}
-              <span
-                className="font-jersey font-black text-lg sm:text-2xl leading-none tabular-nums"
-                style={{
-                  color: awayScored ? 'var(--mm-yellow)' : '#fff',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-                }}
-              >
-                {scoreAway}
-              </span>
-              {/* 원정 팀 */}
-              <span
-                className="flex items-center gap-1 min-w-0 max-w-[38vw] sm:max-w-none"
-                style={{ opacity: awayScored ? 1 : 0.8 }}
-              >
-                <span
-                  className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.08em] truncate"
-                  style={{ maxWidth: '18ch' }}
-                >
-                  {clip.away_team_name || '원정'}
-                </span>
-                <span
-                  aria-hidden
-                  className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 shrink-0"
-                  style={{
-                    background: awayScored ? (clip.team_color || '#fff') : 'rgba(255,255,255,0.4)',
-                    borderRadius: '2px',
-                    boxShadow: awayScored ? '0 0 0 1px rgba(255,255,255,0.4)' : undefined,
-                  }}
-                />
-              </span>
-              {/* 클러치 뱃지 (재생기 스코어보드 우측) */}
-              {clip.is_clutch && (
-                <span
-                  className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 ml-0.5 sm:ml-1"
-                  style={{ background: 'var(--mm-live-bg)', color: '#fff', borderRadius: '3px' }}
-                  aria-label="클러치 슛"
-                >
-                  <HeartCrack size={14} aria-hidden />
-                  <span className="hidden sm:inline">클러치</span>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
       </div>
+      {/* 스코어보드 — 영상 밖 띠(2026-11-10). 전체화면 가로에서는 조작부 안 세로형으로 옮긴다 */}
+      {showBug && (
+        <div className={immersive ? 'shrink-0 w-[min(100dvw,calc((100dvh-312px)*16/9))] landscape:hidden' : 'overflow-hidden rounded-lg'}>
+          {bug(false)}
+        </div>
+      )}
       {immersive && (
         <ImmersiveControls
           visible={controlsVisible}
@@ -876,6 +836,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           onDismissHint={() => setRotateHint(false)}
           rate={rate}
           onRate={cycleRate}
+          onReplay={replay}
+          scoreBug={showBug ? bug(true) : null}
         />
       )}
       </div>
@@ -908,6 +870,16 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           aria-label={playing ? '일시정지' : '재생'}
         >
           {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+        </button>
+        <button
+          type="button"
+          onClick={replay}
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer transition-[transform,filter] duration-150 hover:brightness-95 active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+          aria-label="이 장면 한 번 더"
+          title="한 번 더"
+        >
+          <RotateCcw size={18} />
         </button>
         
         <button
