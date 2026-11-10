@@ -6,6 +6,7 @@ import PrivateLeagueGate from '@/components/league/auth/PrivateLeagueGate'
 import { resolveLeagueAppIdentity } from '@/lib/pwa/leagueApp'
 import { appleWebAppMetadata } from '@/lib/pwa/appShell'
 import { getLeagueQuarters } from '@/lib/league/loadQuarters'
+import { leagueLogoOf } from '@/lib/league/leagueLogo'
 
 export async function generateMetadata({
   params,
@@ -75,7 +76,10 @@ export default async function LeagueLayout({
   //   화면(네비게이션 셸 포함)을 막는 역할, page.tsx 쪽 가드는 raw HTML 누출을 막는 역할로 이원화.
   // 판정은 page.tsx 쪽과 같은 함수 하나 — CEO 통과도 여기 들어 있다.
   if (await isLeaguePrivateGated(leagueId)) {
-    return <PrivateLeagueGate leagueId={leagueId} />
+    // 2026-11-10 운영진: 잠금 화면에는 동호회 이름·로고를 보여도 된다(비공개 = 안의 데이터를 못 보는 것).
+    //   이름 칸 하나만 읽는다 — 기록·명단 같은 안쪽 데이터는 여전히 아무것도 보내지 않는다.
+    const { data: gateRow } = await createClient().from('leagues').select('name').eq('id', leagueId).maybeSingle()
+    return <PrivateLeagueGate leagueId={leagueId} leagueName={(gateRow?.name as string | undefined) ?? null} logo={leagueLogoOf(leagueId)} />
   }
 
   // 좌측 상단 브랜드 라벨용 리그 이름 — 예전엔 클라이언트가 GET /api/leagues/{leagueId} 를

@@ -2,10 +2,9 @@
 // 비공개 리그 전체 화면 게이트 (2026-08-04)
 //   isLeaguePublic=false 이고 승인 회원 세션도 없을 때 LeagueLayout 이 children 대신 이 화면만 렌더한다.
 //
-//   ⚠️ 클럽 이름을 절대 표시하지 않는다 — 링크를 가진 사람이 보는 화면이지만,
-//      "여기가 어느 동호회인지"가 새어 나가면 비공개로 전환한 의미가 없다.
-//      leagueId(UUID)는 받아 로그인 API 호출에만 쓰고, 화면·탭 제목 어디에도 리그/팀/동호회
-//      이름을 노출하지 않는다 (탭 제목은 layout.tsx 의 generateMetadata 가 별도로 중립화한다).
+//   2026-11-10 운영진: 잠금 화면에는 동호회 이름·로고를 보여도 된다(「비공개 = 안의 데이터를 못 보는 것」 ·
+//      가입 승인은 어드민이 한다). 종전 「이름 절대 비노출」 원칙은 이 화면에서 풀었다.
+//      탭 제목·링크 미리보기 그림의 중립화(layout generateMetadata · opengraph-image)는 그대로 둔다.
 //
 //   로그인 버튼은 StatGate 와 같은 mm-open-login 커스텀 이벤트 패턴을 쓰되, 이 화면은
 //   LeagueLayoutClient(이벤트 리스너 + LoginModal 보유) 밖에서 렌더되므로 리스너와 모달을
@@ -22,9 +21,24 @@ const LoginModal = dynamic(() => import('./LoginModal'), { ssr: false })
 
 interface Props {
   leagueId: string
+  leagueName?: string | null
+  logo?: string | null
 }
 
-export default function PrivateLeagueGate({ leagueId }: Props) {
+// 동호회 로고 + 이름 (없으면 온볼)
+function Brand({ leagueName, logo, size }: { leagueName?: string | null; logo?: string | null; size: number }) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      {logo
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={logo} alt="" width={size + 14} height={size + 14} style={{ width: size + 14, height: size + 14 }} />
+        : <Basketball size={size} />}
+      <span className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: size }}>{leagueName ?? 'OnBall'}</span>
+    </div>
+  )
+}
+
+export default function PrivateLeagueGate({ leagueId, leagueName, logo }: Props) {
   const [loginOpen, setLoginOpen] = useState(false)
   const [startStep, setStartStep] = useState<'login' | 'signup'>('signup')
 
@@ -60,9 +74,8 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
   if (isGuide) {
     return (
       <main className="min-h-screen px-4 py-6 md:px-6 lg:py-10" style={{ background: 'var(--mm-ground)' }}>
-        <div className="mx-auto w-full max-w-[1080px] mb-4 flex items-center gap-2">
-          <Basketball size={22} />
-          <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: 20 }}>OnBall</span>
+        <div className="mx-auto w-full max-w-[1080px] mb-4 flex">
+          <Brand leagueName={leagueName} logo={logo} size={20} />
         </div>
         <GuideContent top={
           <div className="flex flex-wrap gap-2">
@@ -91,14 +104,8 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
       style={{ background: 'var(--mm-ground)' }}
     >
       <div className="w-full max-w-md text-center">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Basketball size={26} />
-          <span
-            className="font-bold"
-            style={{ color: 'var(--mm-ink)', fontSize: 26 }}
-          >
-            OnBall
-          </span>
+        <div className="mb-8">
+          <Brand leagueName={leagueName} logo={logo} size={26} />
         </div>
 
         <div
@@ -117,7 +124,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
             className="font-black text-xl sm:text-2xl mb-2"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
-            {mode === 'returning' ? '다시 로그인해 주세요' : mode === 'pending' ? '가입 승인을 기다리고 있어요' : '비공개로 운영되는 페이지입니다'}
+            {mode === 'returning' ? '다시 로그인해 주세요' : mode === 'pending' ? '가입 승인을 기다리고 있어요' : '회원 전용 페이지예요'}
           </h1>
           <p
             className="text-sm leading-relaxed break-keep"
