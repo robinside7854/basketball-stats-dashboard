@@ -29,6 +29,8 @@ interface WalletRes {
   bank?: string | null
   rules?: Rules
   months?: [string, string]
+  /** 카카오뱅크 입금 알림 연결 — 입금만 하면 자동 충전(129) */
+  auto_charge?: boolean
   me?: { balance: number; refundable: number; ledger: LedgerItem[]; requests: RequestItem[]; tickets: TicketItem[] } | null
 }
 
@@ -236,6 +238,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   const [refundBank, setRefundBank] = useState('')
   const [refundAccount, setRefundAccount] = useState('')
   const [busy, setBusy] = useState(false)
+  const [otherName, setOtherName] = useState(false)
 
   const api = `/api/leagues/${leagueId}/wallet`
   const load = useCallback(async () => {
@@ -497,8 +500,35 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
       </Sheet>
 
       {/* ── 창: 충전 ── */}
-      <Sheet open={sheet === 'charge'} onClose={() => setSheet(null)} title="충전하기" width="md">
-        {pending ? (
+      {/* 입금 알림이 연결돼 있으면 「입금만 하면 자동 충전」이 먼저, 충전 요청은 「다른 이름으로 입금했어요」 뒤로(2026-11-10 운영진) */}
+      <Sheet open={sheet === 'charge'} onClose={() => { setSheet(null); setOtherName(false) }} title="충전하기" width="md">
+        {data.auto_charge && !otherName ? (
+          <div className="space-y-3">
+            <div className="px-4 py-4 text-center" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-card)' }}>
+              <div className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>모임통장으로 입금만 하면<br />1분 안에 자동 충전돼요</div>
+              <div className="mt-1 text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
+                꼭 <b style={{ color: 'var(--mm-ink)' }}>본인 이름{user?.name ? `(${user.name})` : ''}</b>으로 보내 주세요 · 요청은 안 보내도 돼요
+              </div>
+            </div>
+            {data.bank && (
+              <div className="flex items-center justify-between gap-2 pl-3 pr-1 py-1" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                <span className="font-bold text-sm min-w-0 break-keep" style={{ color: 'var(--mm-ink)' }}>{data.bank}</span>
+                <button type="button" onClick={copyBank} className="mm-press shrink-0 inline-flex items-center gap-1 min-h-11 px-2 text-sm font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>
+                  <Copy size={16} aria-hidden />계좌번호 복사
+                </button>
+              </div>
+            )}
+            {rules?.bonus_min != null && rules.bonus_pct > 0 && (
+              <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
+                {(rules.bonus_min / 10000).toLocaleString()}만원 이상 {rules.bonus_pct}% 보너스 · <span className="whitespace-nowrap">5만원 → {fmtP(50000 + bonusOf(50000, rules))}</span>
+              </p>
+            )}
+            <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>들어오면 이 화면 잔액이 바로 늘어나요. 1~2분이 지나도 안 늘면 어드민에게 알려 주세요.</p>
+            <button type="button" onClick={() => setOtherName(true)} className="mm-press w-full min-h-11 text-sm font-bold underline underline-offset-2" style={{ color: 'var(--mm-ink-soft)' }}>
+              다른 이름으로 입금했어요
+            </button>
+          </div>
+        ) : pending ? (
           <p className="text-sm" style={{ color: 'var(--mm-ink)' }}>확인을 기다리는 요청이 있어요. 요청은 하나씩만 보낼 수 있어요 — 포인트 카드의 「취소」로 지우고 다시 보낼 수 있어요.</p>
         ) : (
           <div className="space-y-3">
@@ -541,7 +571,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
             <button type="button" disabled={busy || !amount} onClick={submitCharge} className="mm-press w-full min-h-12 font-black disabled:opacity-50" style={BTN_PRIMARY}>
               {busy ? '보내는 중' : '충전 요청 보내기'}
             </button>
-            <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>어드민이 통장을 확인하면 포인트가 들어와요.</p>
+            <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>{data.auto_charge ? '가족·다른 사람 계좌처럼 내 이름이 아닌 이름으로 보냈을 때만 써요. 적은 입금자명으로 들어오면 자동으로 들어가요.' : '어드민이 통장을 확인하면 포인트가 들어와요.'}</p>
           </div>
         )}
       </Sheet>

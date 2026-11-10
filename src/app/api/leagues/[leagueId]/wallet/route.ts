@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!session) return NextResponse.json({ enabled: true, name: config.name, bank: null, me: null })
 
   const sb = createClient()
-  const [balance, ledger, tickets, refundable, reqRes] = await Promise.all([
+  const [balance, ledger, tickets, refundable, reqRes, hookRes] = await Promise.all([
     loadBalance(teamId, session.pid),
     loadLedger(teamId, session.pid),
     loadTickets(teamId, session.pid),
@@ -35,10 +35,13 @@ export async function GET(_req: Request, { params }: Ctx) {
     sb.from('wallet_charge_requests').select(REQUEST_COLS)
       .eq('team_id', teamId).eq('league_player_id', session.pid)
       .order('created_at', { ascending: false }).limit(50),
+    // 카카오뱅크 입금 알림이 연결돼 있으면 「입금만 하면 자동 충전」 화면(2026-11-10 운영진)
+    sb.from('wallet_bank_hooks').select('team_id').eq('team_id', teamId).maybeSingle(),
   ])
   if (reqRes.error) return NextResponse.json({ error: reqRes.error.message }, { status: 500 })
   return NextResponse.json({
     enabled: true, name: config.name, bank: config.bank, rules: config.rules, months: buyableMonths(),
+    auto_charge: !!hookRes.data,
     me: { balance, refundable, ledger, tickets, requests: (reqRes.data ?? []) as ChargeRequestRow[] },
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
