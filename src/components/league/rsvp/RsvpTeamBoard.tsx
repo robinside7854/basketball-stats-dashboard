@@ -62,7 +62,7 @@ export default function RsvpTeamBoard({
     if ((e.placed_team_id ?? null) === target) return
     let returnTicket = false
     if (!target && e.ticket_used) {
-      returnTicket = confirm(`${e.name} 님을 대기명단으로 돌려요.\n쓴 비정규 티켓 1장을 돌려줄까요?\n(확인 = 돌려줌 · 취소 = 그대로 둠, 다시 배치해도 또 빠지지 않아요)`)
+      returnTicket = confirm(`${e.name} 님을 대기명단으로 돌려요.\n쓴 비정규 티켓 1장을 회원 월렛에 되돌려 둘까요? (다음에 쓸 수 있어요)\n(확인 = 되돌려 둠 · 취소 = 그대로 둠, 다시 배치해도 또 빠지지 않아요)`)
     }
     if (target && e.kind === 'non_regular' && !e.ticket_used && !confirm(`${e.name} 님을 배치하면 비정규 티켓 1장이 빠져요. 계속할까요?`)) return
     setBusy(true)
@@ -100,7 +100,7 @@ export default function RsvpTeamBoard({
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: gameDate, playerId: e.player_id, ...body }),
       }).then(async r => ({ ok: r.ok, j: await r.json().catch(() => ({})) }))
       if (e.kind !== 'guest' && e.placed_team_id && e.ticket_used) {
-        const returnTicket = confirm('쓴 비정규 티켓 1장을 돌려줄까요?\n(확인 = 돌려줌 · 취소 = 돌려주지 않음)')
+        const returnTicket = confirm('쓴 비정규 티켓 1장을 회원 월렛에 되돌려 둘까요? (다음에 쓸 수 있어요)\n(확인 = 되돌려 둠 · 취소 = 사용한 것으로 둠)')
         const r1 = await post({ action: 'place', teamId: null, returnTicket })
         if (!r1.ok) { toast.error(r1.j.error ?? '배치를 풀지 못했어요'); return }
       }

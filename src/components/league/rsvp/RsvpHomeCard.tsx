@@ -40,13 +40,13 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
   const canPayByPoints = data.ticket_price != null && (data.my_balance ?? 0) >= data.ticket_price
 
   async function answer(a: 'yes' | 'no') {
-    if (a === 'no' && locked && !confirm(`이번 주 참가를 취소할까요?\n팀 배치가 풀리고${me?.kind === 'non_regular' ? ', 쓴 비정규 티켓 1장은 돌려받아요' : ''}.`)) return
+    if (a === 'no' && locked && !confirm(`이번 주 참가를 취소할까요?\n팀 배치가 풀리고${me?.kind === 'non_regular' ? ', 쓴 비정규 티켓 1장은 내 월렛에 그대로 남아요(다음에 쓸 수 있어요)' : ''}.`)) return
     setBusy(true)
     try {
       const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answer: a }) })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(j.error ?? '저장하지 못했어요'); return }
-      toast.success(a === 'yes' ? '참가로 표시했어요' : j.ticket_returned ? '참가를 취소했어요 — 티켓 1장을 돌려받았어요' : '불참으로 표시했어요')
+      toast.success(a === 'yes' ? (j.ticket_bought ? '참가로 표시했어요 — 포인트로 비정규 티켓 1장을 샀어요' : '참가로 표시했어요') : j.ticket_returned ? '참가를 취소했어요 — 티켓 1장은 내 월렛에 남아요' : '불참으로 표시했어요')
       await load()
     } finally { setBusy(false) }
   }
@@ -91,12 +91,12 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
             </button>
           </div>
           <p className="text-sm mt-2" style={{ color: 'var(--mm-ink-soft)' }}>
-            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b>팀으로 배치됐어요.{open ? (locked && me.kind === 'non_regular' ? ' 못 나오게 되면 마감 전에 「불」 — 티켓은 돌려받아요.' : ' 못 나오게 되면 마감 전에 「불」로 바꿔 주세요.') : ''}</>
+            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b>팀으로 배치됐어요.{open ? (locked && me.kind === 'non_regular' ? ' 못 나오게 되면 마감 전에 「불」 — 티켓은 내 월렛에 남아요.' : ' 못 나오게 되면 마감 전에 「불」로 바꿔 주세요.') : ''}</>
               : me.answer === 'yes'
                 ? (me.kind === 'regular' ? '정규권이 있어요 — 팀 배치를 기다려 주세요.'
                   : me.kind === 'guest' ? '게스트 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 정해요. 게스트비는 같은 통장으로.'
                     : me.tickets_left > 0 ? `비정규 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 배치하고, 그때 티켓 1장을 써요 (남은 티켓 ${me.tickets_left}장).`
-                      : canPayByPoints ? `비정규 참가 — 대기명단에 들어갔어요. 팀에 배치되면 포인트에서 ${(data.ticket_price ?? 0).toLocaleString()}P가 자동으로 빠져요(티켓을 따로 안 사도 돼요).`
+                      : canPayByPoints ? `비정규 참가 — 대기명단에 들어갔어요. 포인트로 티켓 1장(${(data.ticket_price ?? 0).toLocaleString()}P)이 자동으로 준비돼요.`
                         : null)
                 : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
                   : open ? '아직 답하지 않았어요.' : '이번 주는 답하지 않았어요.'}

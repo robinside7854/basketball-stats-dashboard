@@ -227,7 +227,7 @@ export const AUTO_LABEL = '자동(이번 달 팀)'
  *   · 비정규(정규권 없음·게스트 아님)를 처음 배치할 때 비정규 티켓 1장(wallet_use_ticket) → ticket_id.
  *     남은 티켓이 없으면 포인트로 한 장 자동 발행(wallet_buy_ticket) 후 사용 — 포인트도 모자라면 배치를 막는다(2026-11-10).
  *   · 이미 티켓을 쓴 사람은 팀을 옮겨도 다시 빠지지 않는다.
- *   · 배치를 풀 때 returnTicket 이면 티켓을 돌려준다(포인트 환불 · 기록은 남는다).
+ *   · 배치를 풀 때 returnTicket 이면 쓴 티켓을 회원에게 **티켓으로** 되돌려 둔다(포인트 환불 아님, 2026-11-10).
  * 실패하면 { error, status } — 화면에 그대로 보여 줄 문구다.
  */
 export async function placeEntry(
@@ -288,11 +288,15 @@ export async function placeEntry(
     feeLedger = null
     ticket = '게스트비 포인트 돌려줌'
   }
+  // 배치를 풀 때 쓴 티켓은 **포인트로 돌려주지 않고 회원에게 티켓으로 되돌려 둔다**(2026-11-10 운영진 —
+  //   「티켓이 남아 있어야 그걸 쓰러 운동을 나온다」). 장부는 건드리지 않는다(티켓 상태만 used → active).
   if (!targetTeam && ticketId && opts.returnTicket) {
-    const { error } = await sb.rpc('wallet_return_ticket', { p_team_id: teamId, p_ticket_id: ticketId, p_note: `${gameDate} 배치 취소`, p_actor: actor })
+    const { error } = await sb.from('wallet_tickets').update({
+      status: 'active', used_date: null, used_note: `${gameDate} 배치 취소로 되돌림`, actor_label: actor, updated_at: new Date().toISOString(),
+    }).eq('id', ticketId).eq('team_id', teamId).eq('status', 'used')
     if (error) return { ok: false, error: error.message, status: 409 }
     ticketId = null
-    ticket = '비정규 티켓 돌려줌'
+    ticket = '비정규 티켓을 회원 월렛에 되돌려 둠'
   }
   const { error } = await sb.from('weekly_rsvp').update({
     placed_team_id: targetTeam, ticket_id: ticketId, ...(targetTeam ? { approved: true } : {}),
@@ -301,6 +305,23 @@ export async function placeEntry(
   }).eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId)
   if (error) return { ok: false, error: error.message, status: 500 }
   return { ok: true, ticket }
+}
+
+/**
+ * 비정규가 「참」을 누르면 티켓을 미리 한 장 사 둔다(2026-11-10 운영진 — 「포인트가 있으면 티켓이 먼저 자동으로 사지고,
+ * 배치되면 그 티켓이 빠진다」). 남은 티켓이 있거나 포인트가 모자라면 아무것도 안 한다(포인트 부족은 화면이 알린다).
+ * 이번 달 팀이 있는데 정규권만 없는 사람은 건너뛴다 — 그 사람은 비정규 티켓보다 정규권을 사야 한다.
+ * 돌려준 값: 이번에 샀는지.
+ */
+export async function prebuyTicketOnYes(sb: SB, leagueId: string, gameDate: string, playerId: string): Promise<boolean> {
+  const board = await loadRsvpBoard(sb, leagueId, gameDate)
+  const e = board.entries.find(x => x.player_id === playerId)
+  if (!e || e.answer !== 'yes' || e.kind !== 'non_regular' || e.ticket_used || e.tickets_left > 0 || e.suggested_team_id || !e.can_pay) return false
+  const teamId = await resolveTeamId(leagueId)
+  const { error } = await sb.rpc('wallet_buy_ticket', {
+    p_team_id: teamId, p_player_id: playerId, p_kind: 'non_regular', p_month: null, p_qty: 1, p_actor: `자동 구매(${gameDate} 참가 신청)`,
+  })
+  return !error
 }
 
 export const CLOSE_AUTO_LABEL = '자동(마감 배치)'

@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { resolveAuditActor } from '@/lib/audit'
-import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL, closeWeek, reopenWeek, rosterLocked, loadClosure, loadGuestPool, reinviteGuest, releaseGuestFee } from '@/lib/rsvp/weekly'
+import { loadRsvpRules, loadRsvpBoard, placeEntry, autoPlaceRegular, AUTO_LABEL, closeWeek, reopenWeek, rosterLocked, loadClosure, loadGuestPool, reinviteGuest, releaseGuestFee, prebuyTicketOnYes } from '@/lib/rsvp/weekly'
 import { logAudit } from '@/lib/audit'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -97,8 +97,10 @@ export async function POST(req: Request, { params }: Ctx) {
     const pv = prev as { placed_team_id?: string | null; ticket_id?: string | null } | null
     // 「불」로 바꿀 때: 티켓을 쓴 배치(비정규)는 먼저 배치를 풀어야 한다(티켓 돌려줄지 정해야 해서).
     //   티켓 없는 배치(정규 자동 배치 등)는 같이 푼다 — V/X 원클릭(2026-11-09 운영진).
+    // 티켓을 쓴 배치를 「불」로 바꾸면 배치를 풀고 티켓은 회원 월렛에 되돌려 둔다(2026-11-10 운영진)
     if (body.answer === 'no' && pv?.placed_team_id && pv.ticket_id) {
-      return NextResponse.json({ error: '비정규 티켓을 쓴 배치예요 — 먼저 대기명단으로 옮겨 티켓을 정리해 주세요' }, { status: 409 })
+      const un = await placeEntry(sb, leagueId, date, playerId, null, actor, { returnTicket: true })
+      if (!un.ok) return NextResponse.json({ error: un.error }, { status: un.status })
     }
     const { error } = await sb.from('weekly_rsvp').upsert({
       league_id: leagueId, game_date: date, league_player_id: playerId, answer: body.answer,
@@ -108,7 +110,8 @@ export async function POST(req: Request, { params }: Ctx) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     // 정규면 「참」 = 이번 달 팀으로 바로 배치(회원이 직접 누를 때와 같은 규칙)
     if (body.answer === 'yes') await autoPlaceRegular(sb, leagueId, date, playerId)
-    return NextResponse.json({ ok: true })
+    const ticketBought = body.answer === 'yes' ? await prebuyTicketOnYes(sb, leagueId, date, playerId) : false
+    return NextResponse.json({ ok: true, ticket_bought: ticketBought })
   }
 
   const { data: row } = await key(playerId).maybeSingle()

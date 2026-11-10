@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, type RsvpRules } from '@/lib/rsvp/weekly'
+import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, prebuyTicketOnYes, type RsvpRules } from '@/lib/rsvp/weekly'
 import { loadWalletConfig, loadBalance } from '@/lib/wallet/wallet'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
@@ -149,7 +149,7 @@ export async function POST(req: Request, { params }: Ctx) {
   const { data: prev } = await sb.from('weekly_rsvp').select('placed_team_id, ticket_id, placed_by_label')
     .eq('league_id', leagueId).eq('game_date', win.gameDate).eq('league_player_id', session.pid).maybeSingle()
   const pr = prev as { placed_team_id: string | null; ticket_id: string | null; placed_by_label: string | null } | null
-  // 배치된 뒤에도 본인이 「불」로 취소할 수 있다(2026-11-09 운영진) — 배치를 풀고, 쓴 비정규 티켓은 자동으로 돌려준다.
+  // 배치된 뒤에도 본인이 「불」로 취소할 수 있다(2026-11-09 운영진) — 배치를 풀고, 쓴 비정규 티켓은 내 월렛에 티켓으로 되돌려 둔다(2026-11-10).
   let ticketReturned = false
   if (body.answer === 'no' && pr?.placed_team_id && (pr.ticket_id || pr.placed_by_label !== AUTO_LABEL)) {
     const un = await placeEntry(sb, leagueId, win.gameDate, session.pid, null, '본인 취소', { returnTicket: true })
@@ -162,7 +162,9 @@ export async function POST(req: Request, { params }: Ctx) {
   }, { onConflict: 'league_id,game_date,league_player_id' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const placed = await autoPlaceRegular(sb, leagueId, win.gameDate, session.pid)
-  return NextResponse.json({ ok: true, placed_team_id: placed, ticket_returned: ticketReturned })
+  // 비정규 「참」 = 포인트가 있으면 티켓을 미리 한 장 사 둔다(배치 때 그 티켓이 쓰인다)
+  const ticketBought = body.answer === 'yes' ? await prebuyTicketOnYes(sb, leagueId, win.gameDate, session.pid) : false
+  return NextResponse.json({ ok: true, placed_team_id: placed, ticket_returned: ticketReturned, ticket_bought: ticketBought })
 }
 
 /** 회원이 참/불·게스트를 바꿀 수 있는 창 — 신청 기간 안이고 어드민이 마감하지 않았을 때만. */
