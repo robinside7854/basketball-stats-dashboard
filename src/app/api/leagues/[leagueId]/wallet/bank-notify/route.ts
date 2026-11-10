@@ -30,6 +30,6 @@ export async function POST(req: Request, { params }: Ctx) {
   } catch { /* 그냥 글 */ }
   if (!text.trim()) return NextResponse.json({ error: '빈 알림' }, { status: 400 })
 
-  const res = await handleBankNotification(sb, teamId, text)
+  const res = await handleBankNotification(sb, teamId, leagueId, text)
   return NextResponse.json({ ok: true, ...res })
 }

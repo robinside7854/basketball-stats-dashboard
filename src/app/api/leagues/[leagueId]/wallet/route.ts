@@ -6,7 +6,7 @@
 //   DELETE ?requestId=  → 내 대기 중 요청 취소
 //   본인 것만 본다. 캐시 없음(돈이라 늘 최신 · ISR Reads 0).
 import { NextResponse } from 'next/server'
-import { matchLateRequest } from '@/lib/wallet/bankAuto'
+import { matchLateRequest, alreadyChargedByDeposit } from '@/lib/wallet/bankAuto'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -101,6 +101,10 @@ export async function POST(req: Request, { params }: Ctx) {
   const depositor = str(body.depositor_name, 40)
   if (!depositor) return NextResponse.json({ error: '입금자명을 적어 주세요' }, { status: 400 })
 
+  // 입금만으로 이미 자동 충전된 돈이면 요청을 받지 않는다 — 어드민이 또 승인하면 두 번 충전된다(2026-11-10)
+  if (await alreadyChargedByDeposit(sb, teamId, session.pid, amount)) {
+    return NextResponse.json({ error: `이미 입금으로 ${amount.toLocaleString()}원이 자동 충전됐어요 — 포인트를 확인해 보세요` }, { status: 409 })
+  }
   const { data, error } = await sb.from('wallet_charge_requests').insert({
     team_id: teamId, league_player_id: session.pid, kind: 'charge', amount, depositor_name: depositor,
   }).select(REQUEST_COLS).single()

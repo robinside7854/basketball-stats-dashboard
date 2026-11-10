@@ -9,11 +9,13 @@ import { toast } from 'sonner'
 import { Copy } from 'lucide-react'
 import { fmtWhen } from './walletParts'
 
-type Ev = { id: string; raw_text: string; amount: number | null; status: 'matched' | 'unmatched' | 'ambiguous' | 'ignored'; created_at: string; name: string | null }
+type Ev = { id: string; raw_text: string; amount: number | null; status: 'matched' | 'unmatched' | 'ambiguous' | 'ignored' | 'charged' | 'guest_fee'; created_at: string; note?: string | null; name: string | null }
 type State = { ready: boolean; connected?: boolean; created_at?: string | null; last_used_at?: string | null; events?: Ev[] }
 
 const STATUS: Record<Ev['status'], { t: string; c: string }> = {
-  matched: { t: '자동 승인', c: '#059669' },
+  matched: { t: '요청 자동 승인', c: '#059669' },
+  charged: { t: '입금 자동 충전', c: '#059669' },
+  guest_fee: { t: '게스트비 확인', c: '#059669' },
   unmatched: { t: '짝 없음', c: 'var(--mm-live-bg)' },
   ambiguous: { t: '여러 명 — 손으로', c: 'var(--mm-live-bg)' },
   ignored: { t: '입금 아님·중복', c: 'var(--mm-muted)' },
@@ -63,8 +65,10 @@ export default function BankAutoBox({ leagueId }: { leagueId: string }) {
       </summary>
       <div className="mt-2 space-y-3 text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
         <p>
-          통장 주인 폰(안드로이드)에 온 카카오뱅크 입금 알림을 온볼이 받아, <b style={{ color: 'var(--mm-ink)' }}>입금자명과 금액이 딱 맞는 충전 요청</b>을 저절로 승인해요(보너스 포함).
-          같은 이름·같은 금액이 둘이거나 짝이 없으면 지금처럼 손으로 승인해요. 회원이 입금부터 하고 요청을 나중에 보내도 48시간 안이면 짝지어요.
+          모임통장 입금 알림을 온볼이 받아 저절로 처리해요(보너스 포함). 순서: ① 이름·금액이 딱 맞는 충전 요청 승인 →
+          ② 통장으로 낼 게스트비를 기다리는 게스트(게스트 본인 이름이나 부른 회원 이름으로 보낸 돈)면 「게스트비 입금 확인」 →
+          ③ <b style={{ color: 'var(--mm-ink)' }}>보낸 사람 이름이 명단의 한 사람과 같으면 요청 없이 그 사람 포인트로 충전</b>.
+          이름이 명단에 없거나 겹치면 「짝 없음」으로 남아 손으로 처리해요.
         </p>
         {st.connected && (
           <p>
@@ -113,7 +117,7 @@ export default function BankAutoBox({ leagueId }: { leagueId: string }) {
                 <li key={e.id} className="py-2 flex items-start justify-between gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <div className="min-w-0">
                     <div style={{ color: 'var(--mm-ink)' }}>{e.raw_text}</div>
-                    <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{fmtWhen(e.created_at)}{e.name ? ` · ${e.name} 님 충전 승인` : ''}</div>
+                    <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{fmtWhen(e.created_at)}{e.note ? ` · ${e.note}` : e.name ? ` · ${e.name} 님 충전 승인` : ''}</div>
                   </div>
                   <span className="shrink-0 text-xs font-black whitespace-nowrap" style={{ color: STATUS[e.status].c }}>{STATUS[e.status].t}</span>
                 </li>

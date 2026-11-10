@@ -44,7 +44,7 @@ export async function GET(req: Request, { params }: Ctx) {
   if (sp.get('bank')) {
     const [hookRes, evRes] = await Promise.all([
       sb.from('wallet_bank_hooks').select('created_at, created_by, last_used_at').eq('team_id', teamId).maybeSingle(),
-      sb.from('wallet_bank_events').select('id, raw_text, amount, status, request_id, created_at').eq('team_id', teamId)
+      sb.from('wallet_bank_events').select('id, raw_text, amount, status, request_id, note, created_at').eq('team_id', teamId)
         .order('created_at', { ascending: false }).limit(20),
     ])
     if (hookRes.error && /does not exist|schema cache/i.test(hookRes.error.message)) return NextResponse.json({ ready: false }, NO_STORE)
