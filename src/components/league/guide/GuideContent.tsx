@@ -1,5 +1,6 @@
 import { MEMBER_GUIDE } from '@/lib/guide/memberGuide'
 import ShareLeagueButton from '@/components/league/ShareLeagueButton'
+import GuideFaqTabs from './GuideFaqTabs'
 
 // 회원 이용 가이드 본문 — `/guide` 페이지가 그린다(그림 유무는 페이지가 파일을 보고 넘긴다).
 //   ⚠ 문장 하나 = 한 줄(마침표에서 줄을 나눈다, 2026-11-10 운영진) · 줄 사이 여백은 작게.
@@ -73,25 +74,8 @@ export default function GuideContent({ images }: { images: string[] }) {
             </div>
           )}
 
-          {/* 자주 묻는 질문 — 질문마다 칸 · Q(위) / A(아래, 옅은 바탕) */}
-          {s.faqs && (
-            <ol className="mt-4 lg:mt-6 space-y-3">
-              {s.faqs.map((f, j) => (
-                <li key={j} className="p-3 md:p-4" style={{ border: '1px solid var(--mm-rule)', borderRadius: '10px' }}>
-                  <p className={`flex gap-2 font-bold ${lineCls}`} style={{ color: 'var(--mm-ink)' }}>
-                    <span className="shrink-0 font-black" style={{ color: 'var(--mm-yellow-strong, #b8860b)' }}>Q{j + 1}.</span>
-                    <span>{f.q}</span>
-                  </p>
-                  <div className="mt-2 flex gap-2 p-3" style={{ background: 'var(--mm-panel-alt)', borderRadius: '8px' }}>
-                    <span className={`shrink-0 font-black ${lineCls}`} style={{ color: 'var(--mm-muted)' }}>A.</span>
-                    <div className="space-y-0.5">
-                      {f.a.map((l, k) => <p key={k} className={lineCls} style={{ color: 'var(--mm-ink)' }}>{l}</p>)}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
+          {/* 자주 묻는 질문 — 카테고리별(GuideFaqTabs) */}
+          {s.faqs && <GuideFaqTabs faqs={s.faqs} />}
         </section>
       ))}
     </div>

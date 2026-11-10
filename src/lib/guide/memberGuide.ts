@@ -5,7 +5,9 @@
 //     짧게 쓴다 — 폰(360)에서도 되도록 한 줄에 들어가게. 그림에 대한 문장은 그 그림의 묶음(group)에 둔다.
 
 export interface GuideGroup { image?: string; caption?: string; lines: string[] }
-export interface GuideFaq { q: string; a: string[] }
+export type FaqCategory = '참가신청' | '월렛' | '기록 · 영상' | '계정'
+export const FAQ_CATEGORIES: FaqCategory[] = ['참가신청', '월렛', '기록 · 영상', '계정']
+export interface GuideFaq { cat: FaqCategory; q: string; a: string[] }
 export interface GuideSection { id: string; title: string; summary: string; groups: GuideGroup[]; faqs?: GuideFaq[] }
 
 export const MEMBER_GUIDE: GuideSection[] = [
@@ -165,12 +167,17 @@ export const MEMBER_GUIDE: GuideSection[] = [
   {
     id: 'faq',
     title: '자주 묻는 질문',
-    summary: '',
+    summary: '궁금한 묶음을 눌러 보세요.',
     groups: [],
     faqs: [
-      { q: '「하루 평균」은 무슨 뜻이에요?', a: ['토요일 하루 9경기를 합쳐서 봐요.', '한 경기 10분은 너무 짧아서예요.'] },
-      { q: '순위에 제 이름이 없어요.', a: ['열린 날의 30% 이상 나와야 해요.', '프로농구도 같은 방식이에요.'] },
-      { q: '영상이 검은 화면이에요.', a: ['몇 초 기다리면 다시 켜져요.', '그래도 안 되면 새로고침해 주세요.'] },
+      { cat: '참가신청', q: '「참」을 눌렀는데 팀이 안 보여요.', a: ['비정규는 대기명단에서 기다려요.', '보통 금요일까지 정해져요.'] },
+      { cat: '참가신청', q: '금요일 이후에 못 나가게 됐어요.', a: ['신청은 금요일에 마감돼요.', '운영진에게 바로 말해 주세요.'] },
+      { cat: '월렛', q: '입금했는데 포인트가 안 들어와요.', a: ['본인 이름으로 보냈나요?', '아니면 충전 창에서 알려 주세요.'] },
+      { cat: '월렛', q: '비정규 티켓은 언제 빠져요?', a: ['팀에 배정될 때 빠져요.', '「불」로 바꾸면 자동으로 돌아와요.'] },
+      { cat: '기록 · 영상', q: '「하루 평균」은 무슨 뜻이에요?', a: ['토요일 하루 9경기를 합쳐서 봐요.', '한 경기 10분은 너무 짧아서예요.'] },
+      { cat: '기록 · 영상', q: '순위에 제 이름이 없어요.', a: ['열린 날의 30% 이상 나와야 해요.', '프로농구도 같은 방식이에요.'] },
+      { cat: '기록 · 영상', q: '영상이 검은 화면이에요.', a: ['몇 초 기다리면 다시 켜져요.', '그래도 안 되면 새로고침해 주세요.'] },
+      { cat: '계정', q: '비밀번호를 잊었어요.', a: ['운영진에게 초기화를 요청해 주세요.', '초기 비밀번호는 123456 이에요.'] },
     ],
   },
 ]
