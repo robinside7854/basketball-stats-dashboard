@@ -3,7 +3,8 @@
 //   ⚠ 실제 회원 이름이 든 캡처를 넣지 말 것 — 공개 폴더라 누구나 받을 수 있다.
 
 export interface GuideStep { text: string; image?: string; caption?: string }
-export interface GuideSection { id: string; title: string; summary: string; steps: GuideStep[] }
+export interface GuideFaq { q: string; a: string }
+export interface GuideSection { id: string; title: string; summary: string; steps: GuideStep[]; faqs?: GuideFaq[] }
 
 export const MEMBER_GUIDE: GuideSection[] = [
   {
@@ -25,7 +26,7 @@ export const MEMBER_GUIDE: GuideSection[] = [
     steps: [
       { text: '매주 월요일 0시에 그 주 토요일 참가신청(참 / 불)이 홈 맨 위에 열려요. 금요일 밤까지 누를 수 있어요.', image: 'rsvp-card', caption: '홈 맨 위 참가신청 카드' },
       { text: '정규 멤버는 「참」을 누르면 이번 달 팀에 바로 배정돼요.' },
-      { text: '비정규 멤버는 「참」을 누르면 대기명단에 들어가고, 팀마다 필요한 인원에 맞춰 운영진이 배정해요. 보통 수~금 사이에 배정이 끝나요.', image: 'rsvp-board', caption: '신청 현황 — 팀별 명단과 대기명단' },
+      { text: '비정규 멤버는 「참」을 누르면 대기명단에 들어가고, 팀마다 필요한 인원에 맞춰 운영진이 배정해요. 보통 수요일에서 금요일 사이에 배정이 끝나요.', image: 'rsvp-board', caption: '신청 현황 — 팀별 명단과 대기명단' },
       { text: '급한 사정으로 못 나오게 되면 「불」을 눌러 주세요. 배정 때 쓴 티켓은 자동으로 돌아와요. 운영진에게 미리 한마디 해 주는 센스도 부탁드려요!' },
       { text: '게스트를 부르고 싶으면 「게스트 신청」에서 이름 · 나이 · 포지션 · 키를 넣어요. 한 번 부른 게스트는 목록에 남아서 다음에는 「다시 신청」 한 번이면 돼요. (괜찮은 사람이면 회원으로 꼬셔 주세요 ㅋ)', image: 'guest-sheet', caption: '게스트 신청 창' },
       { text: '게스트비는 통장 입금 대신 내 포인트로 낼 수도 있어요. 아래 「미라클 월렛」에서 설명할게요.' },
@@ -72,10 +73,11 @@ export const MEMBER_GUIDE: GuideSection[] = [
     id: 'faq',
     title: '자주 묻는 질문',
     summary: '',
-    steps: [
-      { text: '「하루 평균」은 무슨 뜻이에요? — 미라클은 토요일 하루에 9경기를 해요. 한 경기는 10분이라 하나만 보기에는 너무 짧아서, 그날 뛴 모든 경기 기록을 합쳐 「하루」 단위로 활약을 봐요.' },
-      { text: '순위에 제 이름이 없어요. — 리그가 열린 날의 30% 이상 나와야 순위에 들어가요. 프로농구도 출전 경기가 모자라면 리더보드에 넣지 않아요.' },
-      { text: '영상이 검은 화면이에요. — YouTube 재생 창이 가끔 멈출 때가 있어요. 몇 초 기다리면 스스로 다시 켜지고, 그래도 안 되면 새로고침하면 돼요.' },
+    steps: [],
+    faqs: [
+      { q: '「하루 평균」은 무슨 뜻이에요?', a: '미라클은 토요일 하루에 9경기를 해요. 한 경기는 10분이라 하나만 보기에는 너무 짧아서, 그날 뛴 모든 경기 기록을 합쳐 「하루」 단위로 활약을 봐요.' },
+      { q: '순위에 제 이름이 없어요.', a: '리그가 열린 날의 30% 이상 나와야 순위에 들어가요. 프로농구도 출전 경기가 모자라면 리더보드에 넣지 않아요.' },
+      { q: '영상이 검은 화면이에요.', a: 'YouTube 재생 창이 가끔 멈출 때가 있어요. 몇 초 기다리면 스스로 다시 켜지고, 그래도 안 되면 새로고침하면 돼요.' },
     ],
   },
 ]
