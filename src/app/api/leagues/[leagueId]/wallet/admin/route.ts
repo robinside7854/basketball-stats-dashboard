@@ -2,6 +2,7 @@
 //   GET                     → { pending, recent, members: [{ player_id, name, balance }], total }
 //   GET ?playerId=          → 그 회원의 장부 · 티켓 · 환불 가능 금액
 //   GET ?count=1            → { pending: N } — 상단 톱니바퀴 빨간 배지용(가볍게 개수만)
+//   GET ?history=YYYY-MM    → { rows } — 그 달(KST)에 처리된 충전·환불 요청 전부(이름 포함) · 어드민 「처리 내역」 월별 보기(2026-11-10)
 //   GET ?bank=1             → { connected, created_at, last_used_at, events } — 카카오뱅크 자동 승인 연결 상태 · 최근 알림 20건(128)
 //   POST { action:'bank_token' | 'bank_disconnect' }       — 연결 비밀번호 새로 만들기(원문은 이때 한 번만) · 끊기
 //   GET ?passes=1           → { months: PassMonth[] } — 어드민 홈 「정규권 안 산 사람」 알림(이번 달 · 20일부터 다음 달)
@@ -39,6 +40,23 @@ export async function GET(req: Request, { params }: Ctx) {
       .select('id', { count: 'exact', head: true }).eq('team_id', teamId).eq('status', 'pending')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ pending: count ?? 0 }, NO_STORE)
+  }
+
+  const histMonth = sp.get('history')
+  if (histMonth) {
+    if (!/^\d{4}-\d{2}$/.test(histMonth)) return NextResponse.json({ error: 'history 는 YYYY-MM' }, { status: 400 })
+    const [y, m] = histMonth.split('-').map(Number)
+    const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+    const [rq, ps] = await Promise.all([
+      sb.from('wallet_charge_requests').select(REQUEST_COLS).eq('team_id', teamId).neq('status', 'pending')
+        .gte('reviewed_at', `${histMonth}-01T00:00:00+09:00`).lt('reviewed_at', `${next}-01T00:00:00+09:00`)
+        .order('reviewed_at', { ascending: false }).limit(1000),
+      sb.from('league_players').select('id, name').eq('team_id', teamId),
+    ])
+    if (rq.error) return NextResponse.json({ error: rq.error.message }, { status: 500 })
+    const nm = new Map((ps.data ?? []).map(p => [p.id as string, p.name as string]))
+    const rows = ((rq.data ?? []) as ChargeRequestRow[]).map(r => ({ ...r, name: nm.get(r.league_player_id) ?? '알 수 없음' }))
+    return NextResponse.json({ rows }, NO_STORE)
   }
 
   if (sp.get('bank')) {

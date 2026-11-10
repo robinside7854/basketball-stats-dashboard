@@ -2,7 +2,7 @@
 // 미라클 월렛 — 어드민 칸 (팀 어드민 누구나 · CEO, 2026-11-09 운영진)
 //   ① 확인 기다리는 요청 — 충전(통장 입금 확인 → 승인, 5만원↑ 보너스는 자동) · 환불(회원 계좌로 송금 → 「송금했어요」)
 //   ② 회원별 잔액(합계) — 누르면 그 회원의 내역 · 티켓(사용 처리 · 돌려주기) + 보정(이유 필수, 회원도 내역에서 본다)
-//   ③ 최근 처리한 요청
+//   ③ 처리 내역 — 달별 · 충전/환불 · 그 달 합계(2026-11-10 운영진)
 //   서버가 매 요청 canEditLeague 로 다시 확인한다 — 이 칸이 보이는 것은 화면 표시일 뿐.
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -12,7 +12,19 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
 import MimoImportBox from './MimoImportBox'
 import BankAutoBox from './BankAutoBox'
-import { LedgerList, RequestList, TicketList, fmtP, fmtWhen, ticketTitle, type LedgerItem, type RequestItem, type TicketItem } from './walletParts'
+import { LedgerList, RequestList, TicketList, MonthSelect, monthKey, fmtP, fmtWhen, ticketTitle, type LedgerItem, type RequestItem, type TicketItem } from './walletParts'
+
+/** 월렛이 생긴 달(2026-11)부터 이번 달까지, 최근이 앞 */
+function walletMonths(): string[] {
+  const now = monthKey(new Date().toISOString())
+  const out: string[] = []
+  let [y, m] = now.split('-').map(Number)
+  while (out.length < 36 && (y > 2026 || (y === 2026 && m >= 11))) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`)
+    m -= 1; if (m === 0) { m = 12; y -= 1 }
+  }
+  return out
+}
 
 /** 환불 계좌에서 계좌번호(숫자·하이픈)만 — 「카카오뱅크 3333000000000」 → 「3333000000000」 */
 function accountDigits(a: string | null): string | null {
@@ -44,7 +56,10 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
   const [adjAmount, setAdjAmount] = useState('')
   const [adjSign, setAdjSign] = useState<1 | -1>(1)
   const [adjMemo, setAdjMemo] = useState('')
-  const [showRecent, setShowRecent] = useState(false)
+  // 처리 내역 — 달별로 보기(2026-11-10 운영진) · 종류(전체·충전·환불)
+  const [histMonth, setHistMonth] = useState(() => monthKey(new Date().toISOString()))
+  const [histKind, setHistKind] = useState<'all' | 'charge' | 'refund'>('all')
+  const [history, setHistory] = useState<RequestItem[] | null>(null)
   // 회원별 잔액 — 세로로 너무 길었다(2026-11-09 운영진) → 이름 찾기 + 「잔액 있는 사람만」 + 여러 칸 격자
   const [query, setQuery] = useState('')
   const [onlyWithBalance, setOnlyWithBalance] = useState(true)
@@ -55,6 +70,13 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
     if (res.ok) setData(await res.json())
   }, [api])
   useEffect(() => { void load() }, [load])
+  const loadHistory = useCallback(async () => {
+    setHistory(null)
+    const res = await fetch(`${api}?history=${histMonth}`, { cache: 'no-store' })
+    const j = res.ok ? await res.json() : { rows: [] }
+    setHistory(j.rows ?? [])
+  }, [api, histMonth])
+  useEffect(() => { void loadHistory() }, [loadHistory])
 
   async function post(body: Record<string, unknown>): Promise<boolean> {
     const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -79,7 +101,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
     try {
       if (await post({ action: 'review', requestId: r.id, decision, note })) {
         toast.success(decision === 'reject' ? '반려했어요' : refund ? `${r.name} 님 환불을 기록했어요` : `${r.name} 님 충전을 승인했어요`)
-        await load(); onChanged(); void refreshPendingCharges(leagueId)
+        await load(); void loadHistory(); onChanged(); void refreshPendingCharges(leagueId)
       }
     } finally { setBusyId(null) }
   }
@@ -191,10 +213,45 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
             ))}
           </ul>
         )}
-        <button type="button" onClick={() => setShowRecent(v => !v)} className="mt-2 min-h-11 text-sm font-bold underline" style={{ color: 'var(--mm-ink-soft)' }}>
-          {showRecent ? '최근 처리 접기' : `최근 처리 보기 (${data.recent.length})`}
-        </button>
-        {showRecent && <RequestList rows={data.recent} />}
+      </SectionCard>
+
+      {/* 처리 내역 — 달별(2026-11-10 운영진). 처리한 날(KST) 기준 · 그 달 합계를 위에 */}
+      <SectionCard variant="standalone">
+        <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>처리 내역</h3>
+        <div className="mt-2 mb-2 flex flex-wrap items-center gap-1.5">
+          <MonthSelect value={histMonth} months={walletMonths()} onChange={setHistMonth} />
+          {(['all', 'charge', 'refund'] as const).map(k => (
+            <button key={k} type="button" onClick={() => setHistKind(k)}
+              className="mm-press min-h-11 px-3 text-sm font-bold border whitespace-nowrap"
+              style={{
+                borderColor: histKind === k ? 'var(--mm-ink)' : 'var(--mm-rule)',
+                background: histKind === k ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                color: histKind === k ? 'var(--mm-black)' : 'var(--mm-ink)',
+              }}>{k === 'all' ? '전체' : k === 'charge' ? '충전' : '환불'}</button>
+          ))}
+        </div>
+        {history === null ? <p className="text-sm py-2" style={{ color: 'var(--mm-muted)' }}>불러오는 중</p> : (() => {
+          const ok = (r: RequestItem) => r.status === 'approved'
+          const charges = history.filter(r => r.kind === 'charge' && ok(r))
+          const refunds = history.filter(r => r.kind === 'refund' && ok(r))
+          const sum = (rs: RequestItem[]) => rs.reduce((a, r) => a + r.amount, 0)
+          const shown = history.filter(r => histKind === 'all' || r.kind === histKind)
+          return (
+            <>
+              <div className="grid grid-cols-2 gap-1.5 mb-2">
+                <div className="px-3 py-2" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                  <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>충전 완료 {charges.length}건</div>
+                  <div className="font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{sum(charges).toLocaleString()}원</div>
+                </div>
+                <div className="px-3 py-2" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                  <div className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>환불 송금 {refunds.length}건</div>
+                  <div className="font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{sum(refunds).toLocaleString()}원</div>
+                </div>
+              </div>
+              <RequestList key={`${histMonth}-${histKind}`} rows={shown} emptyTitle="이 달에 처리한 요청이 없어요" />
+            </>
+          )
+        })()}
       </SectionCard>
 
       <SectionCard variant="standalone">
@@ -305,7 +362,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
               >{k === 'tickets' ? '티켓' : '포인트 내역'}</button>
             ))}
           </div>
-          {!ledger ? <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>불러오는 중</p> : sheetTab === 'ledger' ? <LedgerList rows={ledger} /> : (
+          {!ledger ? <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>불러오는 중</p> : sheetTab === 'ledger' ? <LedgerList rows={ledger} monthFilter /> : (
             <div className="space-y-2">
               {tickets.some(t => t.kind === 'non_regular' && t.status === 'active') && (
                 <button

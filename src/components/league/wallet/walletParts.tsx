@@ -95,27 +95,38 @@ export function Pager({ page, total, size, onChange }: { page: number; total: nu
   )
 }
 
-export function LedgerList({ rows }: { rows: LedgerItem[] }) {
+export function LedgerList({ rows, monthFilter = false }: { rows: LedgerItem[]; monthFilter?: boolean }) {
   const [page, setPage] = useState(0)
+  const [month, setMonth] = useState('')
   if (rows.length === 0) return <EmptyState title="아직 내역이 없어요" variant="compact" />
+  const months = [...new Set(rows.map(r => monthKey(r.created_at)))]
+  const shown = month ? rows.filter(r => monthKey(r.created_at) === month) : rows
+  const plus = shown.filter(r => r.amount > 0).reduce((a, r) => a + r.amount, 0)
+  const minus = shown.filter(r => r.amount < 0).reduce((a, r) => a + r.amount, 0)
   return (
     <>
+    {monthFilter && months.length > 1 && (
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <MonthSelect value={month} months={months} allLabel="전체 기간" onChange={v => { setMonth(v); setPage(0) }} />
+        {month && <span className="text-xs tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>들어옴 {fmtSigned(plus)} · 나감 {fmtSigned(minus)}</span>}
+      </div>
+    )}
     <ul>
-      {pageSlice(rows, page, FIRST).map(r => (
+      {pageSlice(shown, page, FIRST).map(r => (
         <li key={r.id} className="flex items-start justify-between gap-3 py-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <div className="min-w-0">
+          <div className={`min-w-0 ${WRAP}`}>
             <div className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{KIND_LABEL[r.kind]}</div>
             {r.memo && <div className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>{r.memo}</div>}
             <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{fmtWhen(r.created_at)}</div>
           </div>
           <div className="shrink-0 text-right">
-            <div className="font-black tabular-nums" style={{ color: r.amount > 0 ? '#059669' : 'var(--mm-ink)' }}>{fmtSigned(r.amount)}</div>
-            <div className="text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>잔액 {fmtP(r.balance_after)}</div>
+            <div className="font-black tabular-nums whitespace-nowrap" style={{ color: r.amount > 0 ? '#059669' : 'var(--mm-ink)' }}>{fmtSigned(r.amount)}</div>
+            <div className="text-xs tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>잔액 {fmtP(r.balance_after)}</div>
           </div>
         </li>
       ))}
     </ul>
-    <Pager page={page} total={rows.length} size={FIRST} onChange={setPage} />
+    <Pager page={page} total={shown.length} size={FIRST} onChange={setPage} />
     </>
   )
 }
@@ -127,47 +138,72 @@ const STATUS_STYLE: Record<RequestItem['status'], { bg: string; fg: string }> = 
   cancelled: { bg: 'var(--mm-panel-alt)', fg: 'var(--mm-ink-soft)' },
 }
 
-// 충전 요청 목록 (2026-11-09 운영진 — 요청·처리 시각이 한 줄에 나란히 있어 읽기 어려웠다)
-//   한 장 = 머리(상태 칩 · 금액) + 「요청」 줄 + 「처리」 줄. 줄마다 왼쪽에 이름표를 고정 폭으로 둔다.
-export function RequestList({ rows }: { rows: RequestItem[] }) {
+/** 처리한 사람 이름표를 짧게 — 자동 처리는 「자동 확인」으로(긴 이름표가 폰에서 두세 줄로 꺾였다, 2026-11-10) */
+function actorShort(r: RequestItem): string | null {
+  if (r.status === 'cancelled') return '본인 취소'
+  const l = r.reviewed_by_label
+  if (!l) return null
+  if (l.startsWith('자동')) return '자동 확인(입금 알림)'
+  return l
+}
+
+// 「한국어는 어절 단위로만」 꺾고, 띄어쓰기 없는 긴 값(이메일·계좌)은 모자랄 때만 꺾는다.
+const WRAP = 'break-keep [overflow-wrap:anywhere]'
+
+/** 달 고르기 — 'YYYY-MM' 목록(최근이 앞). 회원 내역·처리 내역 공용(2026-11-10 운영진 「월별로 보기」). */
+export function MonthSelect({ value, months, onChange, allLabel }: { value: string; months: string[]; onChange: (v: string) => void; allLabel?: string }) {
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)} aria-label="달 고르기"
+      className="min-h-11 px-2 text-sm font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]"
+      style={{ color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
+      {allLabel && <option value="">{allLabel}</option>}
+      {months.map(m => <option key={m} value={m}>{Number(m.slice(0, 4))}년 {Number(m.slice(5, 7))}월</option>)}
+    </select>
+  )
+}
+
+/** 'YYYY-MM' (KST) */
+export function monthKey(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 7)
+}
+
+// 충전·환불 요청 목록 (2026-11-10 운영진 — 폰에서 이름·내용이 어색하게 꺾였다)
+//   한 장 = ① 상태 칩 · 종류 ……… 금액  ② 이름(굵게, 한 줄)  ③ 「요청 시각 · 입금자」  ④ 「처리 시각 · 처리한 사람」  ⑤ 메모
+//   이름표 칸(3rem)을 없애 내용 폭을 넓혔고, 글은 어절 단위로만 꺾는다.
+export function RequestList({ rows, emptyTitle }: { rows: RequestItem[]; emptyTitle?: string }) {
   const [page, setPage] = useState(0)
-  if (rows.length === 0) return <EmptyState title="아직 충전 요청이 없어요" variant="compact" />
+  if (rows.length === 0) return <EmptyState title={emptyTitle ?? '아직 충전 요청이 없어요'} variant="compact" />
   return (
     <>
     <ul className="space-y-2">
       {pageSlice(rows, page, FIRST).map(r => {
         const st = STATUS_STYLE[r.status]
         const handled = r.status !== 'pending' && r.reviewed_at
+        const who = actorShort(r)
         return (
           <li key={r.id} className="p-3" style={{ border: '1px solid var(--mm-rule)' }}>
             <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-2 min-w-0">
-                <span className="shrink-0 inline-flex items-center px-2 py-0.5 text-xs font-black" style={{ background: st.bg, color: st.fg, borderRadius: 'var(--mm-radius-chip)' }}>
+              <span className="inline-flex items-center gap-1.5 shrink-0">
+                <span className="inline-flex items-center px-2 py-0.5 text-xs font-black whitespace-nowrap" style={{ background: st.bg, color: st.fg, borderRadius: 'var(--mm-radius-chip)' }}>
                   {STATUS_LABEL[r.status]}
                 </span>
-                <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{r.kind === 'refund' ? '환불' : '충전'}</span>
-                {r.name && <span className="font-bold text-sm break-keep" style={{ color: 'var(--mm-ink-soft)' }}>{r.name}</span>}
+                <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{r.kind === 'refund' ? '환불' : '충전'}</span>
               </span>
-              <span className="shrink-0 font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{r.kind === 'refund' ? `${r.amount.toLocaleString()}원` : fmtP(r.amount)}</span>
+              <span className="font-black tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{r.kind === 'refund' ? `${r.amount.toLocaleString()}원` : fmtP(r.amount)}</span>
             </div>
-            <dl className="mt-2 grid grid-cols-[3rem_1fr] gap-x-2 gap-y-1 text-xs">
-              <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>요청</dt>
-              <dd style={{ color: 'var(--mm-ink-soft)' }}>
-                {fmtWhen(r.created_at)} · {r.kind === 'refund' ? `받을 계좌 ${r.refund_account ?? ''} (${r.depositor_name})` : `입금자 ${r.depositor_name}`}
-              </dd>
-              <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>처리</dt>
-              <dd style={{ color: 'var(--mm-ink-soft)' }}>
-                {handled
-                  ? <>{fmtWhen(r.reviewed_at!)}{r.reviewed_by_label ? ` · ${r.status === 'cancelled' ? '본인 취소' : r.reviewed_by_label}` : ''}</>
-                  : '어드민 확인 기다리는 중'}
-              </dd>
-              {r.admin_note && (
-                <>
-                  <dt className="font-bold" style={{ color: 'var(--mm-muted)' }}>메모</dt>
-                  <dd style={{ color: 'var(--mm-ink-soft)' }}>{r.admin_note}</dd>
-                </>
-              )}
-            </dl>
+            {r.name && <div className={`mt-1 font-black ${WRAP}`} style={{ color: 'var(--mm-ink)' }}>{r.name}</div>}
+            <div className={`mt-1 text-xs space-y-0.5 ${WRAP}`} style={{ color: 'var(--mm-ink-soft)' }}>
+              <div>
+                <span className="font-bold" style={{ color: 'var(--mm-muted)' }}>요청</span>{' '}
+                <span className="whitespace-nowrap">{fmtWhen(r.created_at)}</span>
+                {' · '}{r.kind === 'refund' ? <>받을 계좌 {r.refund_account ?? ''} ({r.depositor_name})</> : <>입금자 {r.depositor_name}</>}
+              </div>
+              <div>
+                <span className="font-bold" style={{ color: 'var(--mm-muted)' }}>처리</span>{' '}
+                {handled ? <><span className="whitespace-nowrap">{fmtWhen(r.reviewed_at!)}</span>{who ? ` · ${who}` : ''}</> : '어드민 확인 기다리는 중'}
+              </div>
+              {r.admin_note && <div><span className="font-bold" style={{ color: 'var(--mm-muted)' }}>메모</span> {r.admin_note}</div>}
+            </div>
           </li>
         )
       })}

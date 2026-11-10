@@ -115,7 +115,7 @@ export default function BankAutoBox({ leagueId }: { leagueId: string }) {
             <ul>
               {st.events!.map(e => (
                 <li key={e.id} className="py-2 flex items-start justify-between gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <div className="min-w-0">
+                  <div className="min-w-0 break-keep [overflow-wrap:anywhere]">
                     <div style={{ color: 'var(--mm-ink)' }}>{e.raw_text}</div>
                     <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{fmtWhen(e.created_at)}{e.note ? ` · ${e.note}` : e.name ? ` · ${e.name} 님 충전 승인` : ''}</div>
                   </div>
