@@ -65,6 +65,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
       if (!res.ok) { toast.error(j.error ?? '처리하지 못했어요'); return }
       if (j.ticket) toast.success(j.ticket)
       else if (ok) toast.success(ok)
+      if (Array.isArray(j.unpaid) && j.unpaid.length > 0) toast.error(`포인트가 모자라 티켓·게스트비를 못 뺀 사람: ${j.unpaid.join(', ')}. 충전한 뒤 일정 탭에서 다시 배치해 주세요.`, { duration: 10000 })
       await load()
     } finally { setBusy(null) }
   }
@@ -123,7 +124,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                   )}
                   {!closed ? (
                     <button type="button" disabled={busy === 'close'}
-                      onClick={() => { const waiting = yes.filter(e => !e.placed_team_id).length; if (waiting > 0 && !confirm(`아직 팀에 배치되지 않은 사람이 ${waiting}명 있어요(대기명단).\n그대로 마감해도 일정 탭에서 기록 전까지 배치할 수 있어요. 계속할까요?`)) return; if (confirm(`${dateLabel(gameDate)} 참가신청을 마감할까요?\n· 홈 화면 카드가 사라지고 회원은 참/불을 못 바꿔요\n· 그날 일정과 빈 경기 칸이 만들어져요\n· 명단은 일정 탭에서 기록 전까지 고칠 수 있어요`)) void act({ action: 'close' }, 'close', '마감했어요 — 일정 탭에 그날 일정이 생겼어요') }}
+                      onClick={() => { const waiting = yes.filter(e => !e.placed_team_id).length; if (waiting > 0 && !confirm(`아직 팀에 배치되지 않은 사람이 ${waiting}명 있어요(대기명단).\n그대로 마감해도 일정 탭에서 기록 전까지 배치할 수 있어요. 계속할까요?`)) return; if (confirm(`${dateLabel(gameDate)} 참가신청을 마감할까요?\n· 홈 화면 카드가 사라지고 회원은 참/불을 못 바꿔요\n· 배치된 사람의 티켓·게스트비가 이때 빠져요\n· 그날 일정과 빈 경기 칸이 만들어져요\n· 명단은 일정 탭에서 기록 전까지 고칠 수 있어요`)) void act({ action: 'close' }, 'close', '마감했어요 — 일정 탭에 그날 일정이 생겼어요') }}
                       className="mm-press w-full min-h-11 text-sm font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                       style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>
                       <Lock size={15} aria-hidden />참가신청 마감하기

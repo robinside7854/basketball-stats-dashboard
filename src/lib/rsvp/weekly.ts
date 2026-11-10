@@ -103,7 +103,7 @@ export interface RsvpBoard {
 export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string): Promise<RsvpBoard> {
   const teamId = await resolveTeamId(leagueId)
   const month = monthOf(gameDate)!
-  const q = await loadCurrentQuarter(sb, leagueId)
+  const q = await loadCurrentQuarter(sb, leagueId, gameDate)   // 경기일 기준 분기(분기가 바뀌는 주 대비)
   const inQuarter = !!q?.start_date && !!q?.end_date && gameDate >= q.start_date && gameDate <= q.end_date
 
   const [rowsRes, playersRes, passRes, nonRegRes, memRes, monthMap, resolve, teamsRes, uniforms, leadersRes] = await Promise.all([
@@ -232,7 +232,7 @@ export const AUTO_LABEL = '자동(이번 달 팀)'
  */
 export async function placeEntry(
   sb: SB, leagueId: string, gameDate: string, playerId: string,
-  targetTeam: string | null, actor: string, opts: { returnTicket?: boolean; label?: string } = {},
+  targetTeam: string | null, actor: string, opts: { returnTicket?: boolean; label?: string; charge?: boolean; keepLabel?: boolean } = {},
 ): Promise<{ ok: true; ticket: string | null } | { ok: false; error: string; status: number }> {
   const teamId = await resolveTeamId(leagueId)
   const { data: row } = await sb.from('weekly_rsvp').select('answer, ticket_id, guest_pay, guest_payer_id, guest_fee_ledger_id')
@@ -241,9 +241,12 @@ export async function placeEntry(
   if (!r) return { ok: false, error: '신청 기록이 없어요', status: 404 }
   if (targetTeam && r.answer !== 'yes') return { ok: false, error: '「참」인 사람만 배치할 수 있어요', status: 409 }
 
+  // 티켓·게스트비는 **신청 마감(인원 확정) 때** 빠진다(2026-11-10 운영진). 마감 전 배치는 자리만 정한다.
+  //   마감 뒤(일정 탭에서 고치기)에 새로 배치하면 그 자리에서 바로 빠진다.
+  const charge = opts.charge ?? !!(await loadClosure(sb, leagueId, gameDate))
   let ticketId = r.ticket_id
   let ticket: string | null = null
-  if (targetTeam && !ticketId) {
+  if (targetTeam && charge && !ticketId) {
     const board = await loadRsvpBoard(sb, leagueId, gameDate)
     const e = board.entries.find(x => x.player_id === playerId)
     if (e?.kind === 'non_regular') {
@@ -276,7 +279,7 @@ export async function placeEntry(
   }
   // 게스트비를 포인트로 — 배치되는 순간 부른 회원 잔액에서 뺀다(모자라면 배치를 막는다, 2026-11-09 운영진)
   let feeLedger = r.guest_fee_ledger_id
-  if (targetTeam && !feeLedger && r.guest_pay === 'points' && r.guest_payer_id) {
+  if (targetTeam && charge && !feeLedger && r.guest_pay === 'points' && r.guest_payer_id) {
     const res = await chargeGuestFee(sb, teamId, gameDate, playerId, r.guest_payer_id, actor)
     if (!res.ok) return { ok: false, error: res.error, status: 409 }
     feeLedger = res.ledgerId
@@ -301,7 +304,7 @@ export async function placeEntry(
   const { error } = await sb.from('weekly_rsvp').update({
     placed_team_id: targetTeam, ticket_id: ticketId, ...(targetTeam ? { approved: true } : {}),
     ...(r.guest_pay === 'points' ? { guest_fee_ledger_id: feeLedger, guest_paid: !!feeLedger } : {}),
-    placed_by_label: opts.label ?? actor, updated_at: new Date().toISOString(),
+    ...(opts.keepLabel ? {} : { placed_by_label: opts.label ?? actor }), updated_at: new Date().toISOString(),
   }).eq('league_id', leagueId).eq('game_date', gameDate).eq('league_player_id', playerId)
   if (error) return { ok: false, error: error.message, status: 500 }
   return { ok: true, ticket }
@@ -314,6 +317,13 @@ export async function placeEntry(
  * 돌려준 값: 이번에 샀는지.
  */
 export async function prebuyTicketOnYes(sb: SB, leagueId: string, gameDate: string, playerId: string): Promise<boolean> {
+  // 2026-11-10 운영진: 티켓·게스트비는 신청 마감(인원 확정) 때만 빠진다 — 「참」 때 미리 사지 않는다.
+  void sb; void leagueId; void gameDate; void playerId
+  return false
+}
+
+/** (쓰지 않음 — 「참」 때 미리 사던 옛 동작. 되살리려면 위 함수가 이걸 부르게 한다.) */
+export async function prebuyTicketOnYesLegacy(sb: SB, leagueId: string, gameDate: string, playerId: string): Promise<boolean> {
   const board = await loadRsvpBoard(sb, leagueId, gameDate)
   const e = board.entries.find(x => x.player_id === playerId)
   if (!e || e.answer !== 'yes' || e.kind !== 'non_regular' || e.ticket_used || e.tickets_left > 0 || e.suggested_team_id || !e.can_pay) return false
@@ -374,21 +384,40 @@ export const SATURDAY_CLOSE_LABEL = '자동(경기일)'
  * 마감하기 — 여러 번 불러도 같다(이미 마감이면 기록만 그대로 두고 일정·배치를 다시 맞춘다).
  * 돌려준 값: 이번에 자동 배치한 정규 수 · 일정 칸 생성 실패 여부.
  */
-export async function closeWeek(sb: SB, leagueId: string, gameDate: string, label: string): Promise<{ ok: boolean; placed: number; error?: string }> {
+export async function closeWeek(sb: SB, leagueId: string, gameDate: string, label: string): Promise<{ ok: boolean; placed: number; unpaid?: string[]; error?: string }> {
   const { error } = await sb.from('weekly_rsvp_closures')
     .upsert({ league_id: leagueId, game_date: gameDate, closed_by_label: label }, { onConflict: 'league_id,game_date', ignoreDuplicates: true })
   // 마감 표가 없어도(126 전) 정규 자동 배치·일정 넣기는 한다 — 결과에 실패만 알린다.
   const closeErr = error?.message
   const placed = await autoPlaceAtClose(sb, leagueId, gameDate)
+  const unpaid = await settleAtClose(sb, leagueId, gameDate, label)
   // 일정 넣기 + 빈 경기 칸(정규일정 당 경기 수만큼). 이미 있으면 빠진 번호만 채운다.
   await sb.from('league_schedule_dates').upsert({ league_id: leagueId, date: gameDate, is_skipped: false }, { onConflict: 'league_id,date' })
   const { data: lg } = await sb.from('leagues').select('games_per_round').eq('id', leagueId).maybeSingle()
   try {
     await ensureDateSlots(sb, leagueId, gameDate, (lg as { games_per_round?: number | null } | null)?.games_per_round ?? 10)
   } catch (e) {
-    return { ok: !closeErr, placed, error: closeErr ?? (e instanceof Error ? e.message : '경기 칸을 만들지 못했어요') }
+    return { ok: !closeErr, placed, unpaid, error: closeErr ?? (e instanceof Error ? e.message : '경기 칸을 만들지 못했어요') }
   }
-  return closeErr ? { ok: false, placed, error: closeErr } : { ok: true, placed }
+  return closeErr ? { ok: false, placed, unpaid, error: closeErr } : { ok: true, placed, unpaid }
+}
+
+/**
+ * 마감 정산 — 배치된 비정규는 티켓 1장(없으면 포인트로 자동 발행), 포인트로 내는 게스트는 게스트비(2026-11-10 운영진 「인원 확정 시」).
+ * 이미 낸 사람은 건너뛴다(여러 번 불러도 한 번). 포인트가 모자라 못 낸 사람 이름을 돌려준다 — 배치는 그대로 둔다.
+ */
+export async function settleAtClose(sb: SB, leagueId: string, gameDate: string, actor: string): Promise<string[]> {
+  const board = await loadRsvpBoard(sb, leagueId, gameDate)
+  const unpaid: string[] = []
+  for (const e of board.entries) {
+    if (e.answer !== 'yes' || !e.placed_team_id) continue
+    const needTicket = e.kind === 'non_regular' && !e.ticket_used
+    const needFee = e.kind === 'guest' && e.guest_pay === 'points' && !e.guest_fee_charged
+    if (!needTicket && !needFee) continue
+    const res = await placeEntry(sb, leagueId, gameDate, e.player_id, e.placed_team_id, actor, { charge: true, keepLabel: true })
+    if (!res.ok) unpaid.push(e.name)
+  }
+  return unpaid
 }
 
 /** 마감 취소 — 기록 전에만. 일정·배치는 그대로 둔다(다시 마감하면 이어서 맞춘다). */

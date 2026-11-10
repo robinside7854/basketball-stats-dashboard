@@ -4,6 +4,7 @@
 //   내 월렛 = ① 포인트 카드(잔액 · 충전 · 환불 — 둘 다 창으로 열림) ② 내 티켓(정규권 = 검정·금색 카드, 비정규 = 노란 표 한 장씩) + 「티켓 사기」 창
 //            ③ 내역 하나(포인트 · 티켓 · 요청을 한 줄 목록으로, 칩으로 거르기).
 //   금액 계산(보너스·환불 가능액·티켓 가격)은 서버 DB 함수가 정본이다 — 화면은 미리보기만 한다.
+import { stripReservedDepositor } from '@/lib/wallet/depositorName'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Wallet, Copy, Loader2, X, Minus, Plus, Ticket, Crown, ArrowDownLeft, ArrowUpRight, Clock, RotateCcw } from 'lucide-react'
@@ -568,7 +569,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
             </div>
             <label className="block text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
               ③ 입금자명 (통장에 찍힌 이름)
-              <input value={depositor} onChange={e => setDepositor(e.target.value)} maxLength={40} className={INPUT} style={{ borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }} />
+              <input value={depositor} onChange={e => setDepositor(stripReservedDepositor(e.target.value))} maxLength={40} className={INPUT} style={{ borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }} />
             </label>
             <button type="button" disabled={busy || !amount} onClick={submitCharge} className="mm-press w-full min-h-12 font-black disabled:opacity-50" style={BTN_PRIMARY}>
               {busy ? '보내는 중' : '충전 요청 보내기'}

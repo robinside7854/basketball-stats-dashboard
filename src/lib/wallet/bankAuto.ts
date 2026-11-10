@@ -11,6 +11,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { inviterLabel } from '@/lib/rsvp/weekly'
 import { loadWalletConfig } from '@/lib/wallet/wallet'
+import { hasReservedDepositor } from '@/lib/wallet/depositorName'
 
 export const BANK_ACTOR = '자동(카카오뱅크 입금 알림)'
 const NOTE = '카카오뱅크 입금 알림으로 자동 확인'
@@ -23,6 +24,16 @@ export type BankEventStatus = 'matched' | 'unmatched' | 'ambiguous' | 'ignored' 
 export type BankEvent = { id: string; raw_text: string; amount: number | null; status: BankEventStatus; request_id: string | null; created_at: string; note?: string | null; name?: string | null }
 
 const squash = (s: string) => s.normalize('NFC').replace(/\s+/g, '')
+
+/** 같은 사람이 짧은 시간 안에 두 번 충전되지 않게(2026-11-10 운영진) — 이 시간 안에 승인된 충전이 있으면 자동 충전하지 않는다. */
+const RECENT_CHARGE_MINUTES = 10
+async function chargedRecently(sb: SupabaseClient, teamId: string, playerId: string): Promise<boolean> {
+  const since = new Date(Date.now() - RECENT_CHARGE_MINUTES * 60000).toISOString()
+  const { data } = await sb.from('wallet_charge_requests').select('id')
+    .eq('team_id', teamId).eq('league_player_id', playerId).eq('kind', 'charge').eq('status', 'approved')
+    .gte('reviewed_at', since).limit(1)
+  return (data ?? []).length > 0
+}
 
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -51,11 +62,11 @@ export function parseDepositAmount(text: string): number | null {
   return best?.v ?? null
 }
 
-type Pending = { id: string; amount: number; depositor_name: string }
+type Pending = { id: string; amount: number; depositor_name: string; league_player_id?: string }
 
 function pickMatch(pending: Pending[], amount: number, text: string): { one: Pending | null; many: boolean } {
   const body = squash(text)
-  const hits = pending.filter(p => p.amount === amount && squash(p.depositor_name).length >= 2 && body.includes(squash(p.depositor_name)))
+  const hits = pending.filter(p => p.amount === amount && squash(p.depositor_name).length >= 2 && !hasReservedDepositor(p.depositor_name) && body.includes(squash(p.depositor_name)))
   return { one: hits.length === 1 ? hits[0] : null, many: hits.length > 1 }
 }
 
@@ -106,6 +117,7 @@ async function chargeByName(sb: SupabaseClient, teamId: string, sender: string, 
   const hits = ((data ?? []) as { id: string; name: string; is_guest: boolean | null; is_active: boolean | null }[])
     .filter(p => !p.is_guest && p.is_active !== false && squash(p.name) === who)
   if (hits.length !== 1) return null
+  if (await chargedRecently(sb, teamId, hits[0].id)) return null
   const { data: req, error } = await sb.from('wallet_charge_requests').insert({
     team_id: teamId, league_player_id: hits[0].id, kind: 'charge', amount, depositor_name: sender,
   }).select('id').single()
@@ -140,10 +152,11 @@ export async function handleBankNotification(sb: SupabaseClient, teamId: string,
   if ((dup ?? []).length > 0 || amount == null) {
     status = 'ignored'
   } else {
-    const { data } = await sb.from('wallet_charge_requests').select('id, amount, depositor_name')
+    const { data } = await sb.from('wallet_charge_requests').select('id, amount, depositor_name, league_player_id')
       .eq('team_id', teamId).eq('status', 'pending').eq('kind', 'charge')
     const { one, many } = pickMatch((data ?? []) as Pending[], amount, text)
-    if (one && await approve(sb, teamId, one.id)) { status = 'matched'; requestId = one.id }
+    if (one && one.league_player_id && await chargedRecently(sb, teamId, one.league_player_id)) { status = 'unmatched'; note = '방금 충전된 사람이라 자동 처리하지 않았어요' }
+    else if (one && await approve(sb, teamId, one.id)) { status = 'matched'; requestId = one.id }
     else if (many) status = 'ambiguous'
     else {
       const sender = parseSenderName(text)
@@ -188,7 +201,8 @@ export async function matchLateRequest(sb: SupabaseClient, teamId: string, req: 
     .eq('team_id', teamId).eq('status', 'unmatched').eq('amount', req.amount).gte('created_at', since)
   if (error) return false   // 표가 없으면(마이그레이션 전) 조용히 건너뛴다
   const name = squash(req.depositor_name)
-  if (name.length < 2) return false
+  if (name.length < 2 || hasReservedDepositor(req.depositor_name)) return false
+  if (req.league_player_id && await chargedRecently(sb, teamId, req.league_player_id)) return false
   const hits = ((data ?? []) as { id: string; raw_text: string }[]).filter(e => squash(e.raw_text).includes(name))
   if (hits.length !== 1) return false
   if (!(await approve(sb, teamId, req.id))) return false

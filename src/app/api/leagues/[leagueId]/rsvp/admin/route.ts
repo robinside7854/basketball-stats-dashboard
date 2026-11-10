@@ -37,7 +37,7 @@ export async function POST(req: Request, { params }: Ctx) {
     const res = await closeWeek(sb, leagueId, date, actor)
     if (!res.ok) return NextResponse.json({ error: res.error?.includes('weekly_rsvp_closures') ? '마감 기능 준비가 아직 안 됐어요(마이그레이션 126)' : res.error }, { status: 500 })
     await logAudit({ req, action: 'rsvp.close', targetTable: 'weekly_rsvp_closures', targetId: date, leagueId, teamId, detail: { date, placed: res.placed } })
-    return NextResponse.json({ ok: true, placed: res.placed, warning: res.error ?? null })
+    return NextResponse.json({ ok: true, placed: res.placed, unpaid: res.unpaid ?? [], warning: res.error ?? null })
   }
 
   const locked = await rosterLocked(sb, leagueId, date)

@@ -54,6 +54,8 @@ export function pickCurrentQuarter<T extends {
 export async function loadCurrentQuarter(
   supabase: SupabaseClient,
   leagueId: string,
+  /** 기준 날짜(YYYY-MM-DD) — 없으면 오늘(KST). 참가신청은 경기일을 넘긴다(2026-11-10 운영진). */
+  onDate?: string,
 ): Promise<CurrentQuarter | null> {
   const { data } = await supabase
     .from('league_quarters')
@@ -64,7 +66,7 @@ export async function loadCurrentQuarter(
   const rows = ((data ?? []) as Row[]).filter(q => q.kind !== 'tournament')
   if (rows.length === 0) return null
 
-  const pick = pickCurrentQuarter(rows)!
+  const pick = pickCurrentQuarter(rows, onDate)!
 
   return {
     id: pick.id,

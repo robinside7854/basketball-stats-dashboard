@@ -18,6 +18,10 @@ export async function GET(
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })
   const supabase = createClient()
+  // 그 경기가 이 리그 것인지 먼저 확인 — 다른 리그 주소로 비공개 리그 기록을 읽지 못하게(2026-11-10)
+  const { data: game } = await supabase.from('league_games').select('id')
+    .eq('id', gameId).eq('league_id', leagueId).maybeSingle()
+  if (!game) return NextResponse.json({ error: '이 리그의 경기가 아니에요' }, { status: 404 })
   const { data, error } = await supabase
     .from('league_game_events')
     .select('*')

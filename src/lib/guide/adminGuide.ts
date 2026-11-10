@@ -49,9 +49,9 @@ export const ADMIN_GUIDE: AdminSection[] = [
           {
             label: '비정규', icon: 'ticket', steps: [
               { icon: 'check', who: 'member', title: '「참」' },
-              { icon: 'ticket', who: 'auto', title: '티켓 자동 구매', desc: '포인트에서 12,000P' },
               { icon: 'list', who: 'auto', title: '대기명단' },
-              { icon: 'drag', who: 'admin', title: '팀에 배치', desc: '이때 티켓 사용' },
+              { icon: 'drag', who: 'admin', title: '팀에 배치' },
+              { icon: 'ticket', who: 'auto', title: '마감 때 티켓 사용', desc: '없으면 포인트로 1장' },
             ],
           },
           {
@@ -59,7 +59,7 @@ export const ADMIN_GUIDE: AdminSection[] = [
               { icon: 'userPlus', who: 'member', title: '회원이 게스트 신청' },
               { icon: 'list', who: 'auto', title: '대기명단' },
               { icon: 'drag', who: 'admin', title: '팀에 배치' },
-              { icon: 'coins', who: 'auto', title: '게스트비 확인', desc: '포인트·입금 모두 자동' },
+              { icon: 'coins', who: 'auto', title: '게스트비 확인', desc: '포인트는 마감 때 · 입금은 자동' },
             ],
           },
         ],
@@ -77,7 +77,7 @@ export const ADMIN_GUIDE: AdminSection[] = [
       {
         kind: 'status', title: '대기명단 이름 옆 표시', items: [
           { tone: 'ok', title: '티켓 N장', desc: '남은 티켓이 있어요', action: '그냥 배치하면 돼요' },
-          { tone: 'ok', title: '포인트로 자동', desc: '티켓은 없지만 포인트가 있어요', action: '배치하면 저절로 1장 사요' },
+          { tone: 'ok', title: '포인트로 자동', desc: '티켓은 없지만 포인트가 있어요', action: '마감 때 저절로 1장 사요' },
           { tone: 'bad', title: '포인트 부족', desc: '티켓도 포인트도 모자라요', action: '회원에게 충전을 부탁해요' },
         ],
       },
@@ -92,8 +92,8 @@ export const ADMIN_GUIDE: AdminSection[] = [
           { icon: 'bank', who: 'member', title: '모임통장 입금', desc: '본인 이름으로' },
           { icon: 'phone', who: 'auto', title: '입금 알림', desc: '어드민 폰이 온볼로' },
           { icon: 'wallet', who: 'auto', title: '포인트 충전', desc: '5만원↑ 10% 보너스' },
-          { icon: 'ticket', who: 'auto', title: '티켓 구매', desc: '「참」 누를 때' },
-          { icon: 'check', who: 'auto', title: '경기 참가', desc: '배치 때 티켓 사용' },
+          { icon: 'ticket', who: 'auto', title: '티켓 구매', desc: '티켓 없으면 마감 때' },
+          { icon: 'check', who: 'auto', title: '경기 참가', desc: '신청 마감 때 티켓 사용' },
         ],
       },
       {
@@ -192,7 +192,7 @@ export const ADMIN_GUIDE: AdminSection[] = [
     blocks: [
       {
         kind: 'faq', faqs: [
-          { cat: '참가신청', q: '비정규를 배치하려는데 안 돼요.', a: ['포인트가 티켓값보다 모자란 거예요.', '충전되면 다시 배치하면 돼요.'] },
+          { cat: '참가신청', q: '마감 때 「포인트 부족」이 떠요.', a: ['그 사람 포인트가 티켓값보다 모자란 거예요.', '충전되면 일정 탭에서 다시 배치하면 돼요.'] },
           { cat: '참가신청', q: '마감 뒤에 한 명 더 넣어야 해요.', a: ['일정 탭 그 날짜 카드의 「참가 명단」 버튼으로 넣어요.', '기록이 시작되기 전까지만 돼요.'] },
           { cat: '참가신청', q: '배치를 취소하면 티켓은요?', a: ['회원 월렛에 티켓으로 남아요.', '다음에 나올 때 그 티켓을 써요.'] },
           { cat: '월렛', q: '입금했다는데 포인트가 안 들어갔대요.', a: ['「최근 받은 알림」에서 그 입금을 찾아봐요.', '이름이 달랐다면 충전 요청을 부탁해요.'] },

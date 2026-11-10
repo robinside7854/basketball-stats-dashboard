@@ -244,7 +244,7 @@ export default function RsvpTeamBoard({
           title={m.guest_fee_charged ? '부른 회원 포인트로 게스트비 입금 완료(자동)' : '팀에 배치하면 부른 회원 포인트에서 빠지고 입금 완료로 바뀌어요'}
           style={{ borderColor: m.guest_fee_charged ? '#059669' : 'var(--mm-rule)', background: m.guest_fee_charged ? '#059669' : 'transparent', color: m.guest_fee_charged ? '#fff' : 'var(--mm-muted)', borderRadius: 'var(--mm-radius-chip)' }}>
           {/* 배치되면 자동 「입금✓」(통장 입금 확인과 같은 모양) — 2026-11-09 운영진 */}
-          {m.guest_fee_charged ? <>입금<Check size={12} strokeWidth={3} aria-hidden /><span className="font-bold opacity-80"> 포인트</span></> : '입금 · 배치 때 포인트'}
+          {m.guest_fee_charged ? <>입금<Check size={12} strokeWidth={3} aria-hidden /><span className="font-bold opacity-80"> 포인트</span></> : '입금 · 마감 때 포인트'}
         </span>
       )}
       {admin && m.kind === 'guest' && m.guest_pay !== 'points' && (

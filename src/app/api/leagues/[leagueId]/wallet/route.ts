@@ -7,6 +7,7 @@
 //   본인 것만 본다. 캐시 없음(돈이라 늘 최신 · ISR Reads 0).
 import { NextResponse } from 'next/server'
 import { matchLateRequest, alreadyChargedByDeposit } from '@/lib/wallet/bankAuto'
+import { hasReservedDepositor } from '@/lib/wallet/depositorName'
 import { createClient } from '@/lib/supabase/admin'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -103,6 +104,7 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!amount) return NextResponse.json({ error: `금액은 1 ~ ${MAX_CHARGE.toLocaleString()}원 사이로 적어 주세요` }, { status: 400 })
   const depositor = str(body.depositor_name, 40)
   if (!depositor) return NextResponse.json({ error: '입금자명을 적어 주세요' }, { status: 400 })
+  if (hasReservedDepositor(depositor)) return NextResponse.json({ error: '입금자명에 「모임통장」은 쓸 수 없어요' }, { status: 400 })
 
   // 입금만으로 이미 자동 충전된 돈이면 요청을 받지 않는다 — 어드민이 또 승인하면 두 번 충전된다(2026-11-10)
   if (await alreadyChargedByDeposit(sb, teamId, session.pid, amount)) {
@@ -117,7 +119,7 @@ export async function POST(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   // 입금부터 하고 요청을 나중에 보낸 경우 — 먼저 와 있던 카카오뱅크 입금 알림과 짝지어 바로 승인(마이그레이션 128)
-  const row = data as unknown as { id: string; amount: number; depositor_name: string }
+  const row = { ...(data as unknown as { id: string; amount: number; depositor_name: string }), league_player_id: session.pid }
   if (await matchLateRequest(sb, teamId, row)) {
     const { data: fresh } = await sb.from('wallet_charge_requests').select(REQUEST_COLS).eq('id', row.id).single()
     return NextResponse.json({ ...(fresh ?? data), auto_approved: true }, { status: 201 })
