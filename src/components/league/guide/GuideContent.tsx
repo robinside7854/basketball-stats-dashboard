@@ -1,4 +1,5 @@
 import { MEMBER_GUIDE } from '@/lib/guide/memberGuide'
+import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 
 // 회원 이용 가이드 본문 — `/guide` 페이지가 그린다(그림 유무는 페이지가 파일을 보고 넘긴다).
 //   ⚠ 문장 하나 = 한 줄(마침표에서 줄을 나눈다, 2026-11-10 운영진) · 줄 사이 여백은 작게.
@@ -24,9 +25,13 @@ export default function GuideContent({ images }: { images: string[] }) {
   const has = new Set(images)
   return (
     <div className="mx-auto w-full max-w-[1080px] space-y-4 lg:space-y-6 break-keep">
-      <div>
-        <h2 className="font-black text-[28px] lg:text-[32px] leading-none text-[color:var(--mm-ink)] tracking-tight">이용 가이드</h2>
-        <p className="mt-2 text-sm lg:text-base" style={{ color: 'var(--mm-muted)' }}>처음 오셨다면 위에서부터 차례로 읽어 보세요.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-black text-[28px] lg:text-[32px] leading-none text-[color:var(--mm-ink)] tracking-tight">이용 가이드</h2>
+          <p className="mt-2 text-sm lg:text-base" style={{ color: 'var(--mm-muted)' }}>위에서부터 차례로 읽어 보세요.</p>
+        </div>
+        {/* 팀원에게 이 가이드 링크 보내기(2026-11-10 운영진) — 폰은 공유 창, 안 되면 링크 복사 */}
+        <ShareLeagueButton leagueName="이용 가이드" label="가이드 공유" />
       </div>
 
       <nav aria-label="가이드 목차" className="flex flex-wrap gap-2">

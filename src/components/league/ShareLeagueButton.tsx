@@ -12,7 +12,8 @@ import { useState } from 'react'
 import { Share2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
-export default function ShareLeagueButton({ leagueName }: { leagueName: string }) {
+// label 이 있으면 글자 버튼(이용 가이드의 「가이드 공유」 — 2026-11-10 운영진), 없으면 아이콘만.
+export default function ShareLeagueButton({ leagueName, label }: { leagueName: string; label?: string }) {
   const [copied, setCopied] = useState(false)
 
   async function share() {
@@ -45,9 +46,9 @@ export default function ShareLeagueButton({ leagueName }: { leagueName: string }
     <button
       type="button"
       onClick={share}
-      aria-label="이 팀 페이지 링크 공유"
+      aria-label={label ? `${label} — 링크 공유` : '이 팀 페이지 링크 공유'}
       title="링크 공유"
-      className="shrink-0 inline-flex items-center justify-center min-w-[44px] min-h-[44px] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+      className={`shrink-0 inline-flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] ${label ? 'px-3 text-sm lg:text-base font-bold whitespace-nowrap' : ''}`}
       style={{
         border: '1px solid var(--mm-rule)',
         color: copied ? 'var(--mm-positive)' : 'var(--mm-ink-soft)',
@@ -56,6 +57,7 @@ export default function ShareLeagueButton({ leagueName }: { leagueName: string }
       }}
     >
       {copied ? <Check size={20} aria-hidden /> : <Share2 size={20} aria-hidden />}
+      {label && <span>{label}</span>}
     </button>
   )
 }
