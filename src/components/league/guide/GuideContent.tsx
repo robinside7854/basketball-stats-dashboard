@@ -1,3 +1,6 @@
+'use client'
+import { useClub } from '@/contexts/ClubContext'
+import { sectionVisible, faqVisible } from '@/lib/guide/featureFilter'
 import { MEMBER_GUIDE, lineText, type GuideSection, type GuideGroup, type GuideLine } from '@/lib/guide/memberGuide'
 import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 import GuideFaqTabs from './GuideFaqTabs'
@@ -103,6 +106,10 @@ export default function GuideContent({ images = ALL_IMAGES, top, sections = MEMB
   sections?: GuideSection[]; title?: string; subtitle?: string; share?: boolean
 }) {
   const has = new Set(images)
+  // 켜진 기능의 장·질문만(2026-11-10 플랫폼화 3단계)
+  const feats = useClub().features
+  sections = sections.filter(sec => sectionVisible(sec.id, feats))
+    .map(sec => sec.faqs ? { ...sec, faqs: sec.faqs.filter(q => faqVisible(q.cat, feats)) } : sec)
   let n = 0
   return (
     <div className="mx-auto w-full max-w-[1080px] space-y-4 lg:space-y-5 break-keep">

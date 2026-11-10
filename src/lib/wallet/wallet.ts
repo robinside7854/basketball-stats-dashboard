@@ -4,6 +4,7 @@
 //     여기서 wallet_balances 를 직접 UPDATE 하지 말 것 — 장부와 잔액이 갈라진다.
 //   ⚠ 장부 행은 지우거나 고치지 않는다. 되돌리기는 반대 부호의 행(adjust · refund)을 하나 더 쓴다.
 //   단위는 팀(teams.id) — 계정·선수와 같다. leagueId 는 resolveTeamId 로 푼다.
+import { loadClub } from '@/lib/club/settings'
 import { createClient } from '@/lib/supabase/admin'
 
 export interface WalletRules {
@@ -84,6 +85,9 @@ export async function loadWalletConfig(teamId: string): Promise<WalletConfig | n
   if (error || !data) return null
   const row = data as { wallet_name: string | null; wallet_bank: string | null; wallet_rules: Partial<WalletRules> | null }
   if (!row.wallet_name) return null
+  // 동호회 기능 스위치(월렛)가 꺼져 있으면 월렛 전체가 없는 것으로(2026-11-10 플랫폼화 3단계) — 화면·API 가 전부 이 함수를 지난다
+  const club = await loadClub(teamId)
+  if (club && !club.features.wallet) return null
   const r = row.wallet_rules ?? {}
   return {
     teamId, name: row.wallet_name, bank: row.wallet_bank,

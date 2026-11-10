@@ -17,6 +17,7 @@
 // 대회 묶음에서는 돌지 않는다 — 대회 날짜는 경기를 등록할 때 들어간다(CLAUDE.md 대회 모드).
 // 호출부: 매일 밤 cron(`/api/cron/video-schedule`) · 일정 탭 「영상으로 일정 맞추기」(dryRun 미리보기 → 실행).
 
+import { featureOnForLeague } from '@/lib/club/settings'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getChannelId, syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 
@@ -124,6 +125,7 @@ export async function reconcileScheduleWithVideos(
     .from('leagues').select('mode, youtube_channel, games_per_round').eq('id', leagueId).single()
   if (!league) return { ...result, error: '리그를 찾을 수 없습니다' }
   if (league.mode === 'tournament') return { ...result, error: '대회는 영상으로 일정을 만들지 않습니다' }
+  if (!(await featureOnForLeague(leagueId, 'youtube'))) return { ...result, error: '이 동호회는 영상 연동이 꺼져 있어요' }
 
   // ── 1) 영상 → 일정 ─────────────────────────────────────────────
   const { data: sdRows } = await supabase.from('league_schedule_dates').select('date').eq('league_id', leagueId)

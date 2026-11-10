@@ -4,6 +4,7 @@
 //   ② 회원별 잔액(합계) — 누르면 그 회원의 내역 · 티켓(사용 처리 · 돌려주기) + 보정(이유 필수, 회원도 내역에서 본다)
 //   ③ 처리 내역 — 달별 · 충전/환불 · 그 달 합계(2026-11-10 운영진)
 //   서버가 매 요청 canEditLeague 로 다시 확인한다 — 이 칸이 보이는 것은 화면 표시일 뿐.
+import { useClub } from '@/contexts/ClubContext'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Check, X, Search, Copy } from 'lucide-react'
@@ -47,6 +48,7 @@ interface AdminRes {
 
 export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: string; onChanged: () => void }) {
   const [data, setData] = useState<AdminRes | null>(null)
+  const clubFeatures = useClub().features
   const [busyId, setBusyId] = useState<string | null>(null)
   const [openPlayer, setOpenPlayer] = useState<{ player_id: string; name: string; balance: number } | null>(null)
   const [ledger, setLedger] = useState<LedgerItem[] | null>(null)
@@ -318,9 +320,9 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
       </SectionCard>
 
       {/* 미모바스켓 잔액 옮기기는 2026-11-10 이관을 마쳐 화면에서 뺐다(운영진) — MimoImportBox·API 파일은 남김 */}
-      <SectionCard variant="standalone">
+      {clubFeatures.bank_auto && <SectionCard variant="standalone">
         <BankAutoBox leagueId={leagueId} members={data.members} onCharged={() => { void load(); onChanged() }} />
-      </SectionCard>
+      </SectionCard>}
 
       <Sheet open={!!openPlayer} onClose={() => setOpenPlayer(null)} title={openPlayer ? `${openPlayer.name} · ${fmtP(openPlayer.balance)}` : ''}>
         <div className="space-y-4">

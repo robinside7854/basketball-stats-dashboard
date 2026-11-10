@@ -6,6 +6,7 @@
 //
 // ⚠ 순위·팀 이름·스탯은 계속 분기 단위다. 이 표는 기록 화면의 「누가 이 팀 정규인가」만 바꾼다.
 //   이미 기록된 경기는 이벤트마다 team_id 가 저장돼 있어 박스스코어가 달라지지 않는다.
+import { featureOnForLeague } from '@/lib/club/settings'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /** 'YYYY-MM-DD' 또는 'YYYY-MM' → 'YYYY-MM-01'. 모양이 틀리면 null. */
@@ -60,6 +61,8 @@ export async function loadMonthRoster(
 ): Promise<Map<string, MonthRosterRow>> {
   const out = new Map<string, MonthRosterRow>()
   if (!month) return out
+  // 달별 정규 멤버 기능이 꺼진 동호회는 분기 소속만 쓴다(2026-11-10 플랫폼화 3단계)
+  if (!(await featureOnForLeague(leagueId, 'monthly_roster'))) return out
   const { data, error } = await supabase
     .from('league_player_months')
     .select('league_player_id, team_id, is_regular')

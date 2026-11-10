@@ -28,6 +28,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { isDraftManager, isDraftSessionController } from '@/lib/draftManagerAuth'
 import { logAudit } from '@/lib/audit'
+import { featureOnForLeague } from '@/lib/club/settings'
 
 export async function POST(
   req: Request,
@@ -46,6 +47,8 @@ export async function POST(
   if (!await isDraftSessionController(req, leagueId, body.quarter_id)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // 드래프트 기능이 꺼진 동호회는 새 세션을 만들지 않는다(2026-11-10 플랫폼화 3단계)
+  if (!(await featureOnForLeague(leagueId, 'draft'))) return NextResponse.json({ error: '이 동호회는 드래프트 기능이 꺼져 있어요' }, { status: 409 })
   const poolIds = Array.isArray(body.pool_player_ids) ? body.pool_player_ids.filter(id => typeof id === 'string' && id) : []
   if (poolIds.length === 0) {
     return NextResponse.json({ error: '드래프트 대상 선수(풀)를 1명 이상 선택하세요' }, { status: 400 })

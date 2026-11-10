@@ -7,6 +7,7 @@
 //   · 네 벌이 없는 선수는 건드리지 않는다
 // photo_url 을 바꿔 두므로 화면 코드는 그대로 — 모든 화면이 같은 사진을 본다.
 // 부르는 곳: 유니폼 색 저장 · 달별 정규 멤버 저장/되돌리기 · 사진 네 벌 올리기 · 매일 밤 cron(달이 바뀌는 날).
+import { featureOnForLeague } from '@/lib/club/settings'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadCurrentQuarter } from '@/lib/league/currentQuarter'
 import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
@@ -39,6 +40,7 @@ export async function loadMonthUniforms(sb: SupabaseClient, leagueId: string, mo
 
 /** 오늘 기준으로 선수 photo_url 을 그 달 유니폼 사진으로 맞춘다. 바꾼 선수 수를 돌려준다. */
 export async function applyMonthlyPhotos(sb: SupabaseClient, leagueId: string): Promise<{ changed: number; checked: number }> {
+  if (!(await featureOnForLeague(leagueId, 'uniform_photos'))) return { changed: 0, checked: 0 }   // 기능 꺼짐(2026-11-10)
   const today = todayKst()
   const month = monthOf(today)!
   const [q, teamId] = await Promise.all([loadCurrentQuarter(sb, leagueId), resolveTeamId(leagueId)])

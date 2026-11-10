@@ -27,6 +27,7 @@
 //
 // 주의: YOUTUBE_API_KEY 쿼터 절약을 위해 caller 가 스킵 조건(youtube_channel 유무·오늘 게임 유무)을 미리 필터링해야 한다.
 
+import { featureOnForLeague } from '@/lib/club/settings'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { parseQuarterTitle, parseLegacyGameNumber, type QuarterTitle } from './videoTitle'
 import { searchChannelVideosByDate } from './searchByDate'
@@ -208,6 +209,8 @@ export async function syncYoutubeForLeague(
       reason: '대회는 영상 자동 매핑을 쓰지 않습니다. 기록 화면에서 경기를 고른 뒤 쿼터별로 "목록에서 고르기"로 연결하세요.',
     }
   }
+
+  if (!(await featureOnForLeague(leagueId, 'youtube'))) return { ok: false, reason: '이 동호회는 영상 연동이 꺼져 있어요' }
 
   // 1. 채널 ID
   const { id: channelId } = await getChannelId(channelHandle, apiKey)

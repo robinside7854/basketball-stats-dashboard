@@ -1,4 +1,6 @@
 'use client'
+import { useClub } from '@/contexts/ClubContext'
+import { sectionVisible } from '@/lib/guide/featureFilter'
 // 어드민 가이드 — 매뉴얼처럼 도식화(2026-11-10 운영진 「글로 쭉 쓰면 읽기 싫다 · 도형·아이콘 적극」).
 //   본문 정본 lib/guide/adminGuide.ts — 흐름도(flow) · 갈래 흐름(lanes) · 카드(cards) · 상태표(status) · 자주 묻는 질문(faq).
 //   색 = 누가 하나: 자동(초록 번개) · 어드민(노랑 손) · 회원(회색 사람). 맨 위 범례와 같은 색을 모든 칸이 쓴다.
@@ -187,6 +189,9 @@ function Section({ s, n }: { s: AdminSection; n: number }) {
 }
 
 export default function AdminGuideView() {
+  // 켜진 기능의 장·질문만(2026-11-10 플랫폼화 3단계)
+  const feats = useClub().features
+  const sections = ADMIN_GUIDE.filter(sec => sectionVisible(sec.id, feats))
   return (
     <div className="mx-auto w-full max-w-[1080px] space-y-4 lg:space-y-5 break-keep">
       <div>
@@ -205,7 +210,7 @@ export default function AdminGuideView() {
           ))}
         </div>
         <nav aria-label="가이드 목차" className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          {ADMIN_GUIDE.map((s, i) => {
+          {sections.map((s, i) => {
             const I = ICONS[s.icon]
             return (
               <a key={s.id} href={`#${s.id}`} className="mm-press flex items-center gap-2 min-h-11 px-2.5 py-2 text-sm font-bold"
@@ -218,7 +223,7 @@ export default function AdminGuideView() {
         </nav>
       </div>
 
-      {ADMIN_GUIDE.map((s, i) => <Section key={s.id} s={s} n={i + 1} />)}
+      {sections.map((s, i) => <Section key={s.id} s={s} n={i + 1} />)}
     </div>
   )
 }

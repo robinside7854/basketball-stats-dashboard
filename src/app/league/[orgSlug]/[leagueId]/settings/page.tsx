@@ -1,4 +1,5 @@
 'use client'
+import { useClub } from '@/contexts/ClubContext'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -52,6 +53,7 @@ export default function LeagueSettingsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
   const chargeCount = usePendingCharges(leagueId)
+  const clubFeatures = useClub().features
   const router = useRouter()
   const { isEditMode, isInitialized, leagueHeaders, openLogin } = useLeagueEditMode()
 
@@ -357,7 +359,7 @@ export default function LeagueSettingsPage() {
           <span className="inline-flex items-center gap-2"><Users size={16} aria-hidden />명단 관리 (선수 · 소속 · +1)</span>
           <ChevronRight size={16} aria-hidden />
         </Link>
-        {/* 미라클 월렛(2026-11-09) — 충전 승인은 월렛 화면의 「어드민」 탭에서(바로 그 탭으로 연다) */}
+{clubFeatures.wallet && (<>        {/* 미라클 월렛(2026-11-09) — 충전 승인은 월렛 화면의 「어드민」 탭에서(바로 그 탭으로 연다) */}
         <Link
           href={`/league/${orgSlug}/${leagueId}/wallet?tab=admin`}
           className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
@@ -371,7 +373,7 @@ export default function LeagueSettingsPage() {
             )}
             <ChevronRight size={16} aria-hidden />
           </span>
-        </Link>
+        </Link></>)}
         {/* 어드민 가이드(2026-11-10 운영진) — 운영진이 하는 일만 모은 안내 */}
         <Link
           href={`/league/${orgSlug}/${leagueId}/guide/admin`}

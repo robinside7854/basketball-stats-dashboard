@@ -8,6 +8,7 @@
 //       2026-08-08 stats-umbrella-move 기준 갱신).
 //   계정: 아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃을 AccountCard 한 장으로(2026-10-17 — 종전엔 프로필 카드
 //     아래와 페이지 맨 아래로 갈라져 있었다). 둘러보기 버튼은 기능 자체가 삭제되어 함께 제거했다(Task 4-A).
+import { useClub } from '@/contexts/ClubContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
@@ -38,6 +39,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // 드래프트 바로가기 — 드래프트는 주장·어드민 전용이 됐다(2026-10-12) → 편집 모드(어드민 ∥ CEO)에게만,
   //   그리고 현재 분기에 진행 중인 세션이 있을 때만. 레이아웃 드래프트 탭과 같은 훅(useActiveDraft)으로 판정한다.
   const showDraft = useActiveDraft(leagueId)
+  const clubFeatures = useClub().features
   const { isEditMode } = useLeagueEditMode()
 
   // 미라클 월렛(2026-11-09) — 월렛을 켠 팀에서 로그인한 회원에게 잔액과 함께 바로가기를 보인다.
@@ -65,7 +67,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
           right={wallet.balance != null && <span className="shrink-0 font-black text-xl tabular-nums" style={{ color: 'var(--mm-ink)' }}>{wallet.balance.toLocaleString()}P</span>}
         />
       )}
-      {showDraft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" />}
+      {showDraft && clubFeatures.draft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" />}
       <ShortcutRow href={`${base}/guide`} Icon={BookOpen} label="이용 가이드" sub="가입 · 참가신청 · 월렛 · 기록 보는 법" last={!isEditMode} />
       {/* 어드민 가이드 — 운영진에게만(2026-11-10) */}
       {isEditMode && <ShortcutRow href={`${base}/guide/admin`} Icon={BookOpen} label="어드민 가이드" sub="배치 · 월렛 · 매달 준비 · 입금 자동 확인" last />}

@@ -9,36 +9,8 @@ import { createClient } from '@/lib/supabase/admin'
 
 export const WEEKDAY_LABELS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'] as const
 
-export interface ClubSettings {
-  /** 경기 요일 0(일)~6(토) — 참가신청 창·마감·문구 */
-  game_weekday: number
-  /** 참가 정원 — null 이면 안내 안 함 */
-  capacity: number | null
-  /** 한 날 팀 수 */
-  team_count: number
-  /** 대진 자동 배정 방식 — winner_stays = 승자 잔류·2연속 휴식(미라클) · none = 손으로 */
-  rotation: 'winner_stays' | 'none'
-  /** 파울 기록 여부 */
-  record_fouls: boolean
-  /** 소속 방식 */
-  roster_mode: Array<'quarter_draft' | 'monthly_regular' | 'fixed'>
-  /** 입금자명에 쓸 수 없는 낱말(입금 알림 글에 늘 들어 있는 통장 이름 등) */
-  bank_reserved_words: string[]
-}
-
-export { FEATURE_KEYS, FEATURE_LABELS, type FeatureKey, type ClubFeatures } from './features'
-import type { ClubFeatures } from './features'
-
-/** 지금 미라클 동작 = 기본값 */
-export const DEFAULT_SETTINGS: ClubSettings = {
-  game_weekday: 6,
-  capacity: 18,
-  team_count: 3,
-  rotation: 'winner_stays',
-  record_fouls: false,
-  roster_mode: ['quarter_draft', 'monthly_regular'],
-  bank_reserved_words: ['모임통장'],
-}
+export { FEATURE_KEYS, FEATURE_LABELS, DEFAULT_SETTINGS, ALL_FEATURES_ON, type FeatureKey, type ClubFeatures, type ClubSettings } from './features'
+import { DEFAULT_SETTINGS, type ClubFeatures, type FeatureKey, type ClubSettings } from './features'
 
 export interface ClubRow {
   id: string
@@ -114,4 +86,17 @@ export const loadClub = cache(async function loadClub(teamId: string): Promise<C
 /** 「지난 토요일」 같은 문구용 */
 export function weekdayLabel(n: number): string {
   return WEEKDAY_LABELS[((n % 7) + 7) % 7]
+}
+
+/**
+ * 시즌(리그) id 로 그 동호회 기능이 켜져 있는지 — 서버 라우트·lib 의 입구 검사용(2026-11-10 플랫폼화 3단계).
+ *   화면만 숨기면 주소로 들어오므로 서버 입구에서도 막는다. 동호회를 못 찾으면 켜진 것으로 본다(종전 동작).
+ */
+export async function featureOnForLeague(leagueId: string, key: FeatureKey): Promise<boolean> {
+  const sb = createClient()
+  const { data } = await sb.from('leagues').select('team_id').eq('id', leagueId).maybeSingle()
+  const teamId = (data as { team_id?: string | null } | null)?.team_id
+  if (!teamId) return true
+  const club = await loadClub(teamId)
+  return club ? club.features[key] : true
 }

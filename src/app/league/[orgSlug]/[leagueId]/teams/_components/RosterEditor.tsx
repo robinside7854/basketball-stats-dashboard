@@ -2,6 +2,7 @@
 // 옛 /roster(선수 명단) 화면의 운영자 편집 부분을 그대로 옮긴 컴포넌트(2026-09-28, 스탯 탭 4→2 정리).
 // 팀 페이지 헤더의 「명단 편집」(?edit=1)으로만 열린다 — 읽기 전용 명단은 팀 페이지의
 // 팀별 선수·게스트 섹션이 맡으므로 여기에는 운영진용 화면만 남았다.
+import { useClub } from '@/contexts/ClubContext'
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -163,6 +164,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
 }) {
   // 이 컴포넌트는 팀 페이지가 isEditMode 일 때만 렌더한다 — 아래 isEditMode 분기는 옮기기 전 그대로 둔다.
   const { isEditMode, leagueHeaders } = useLeagueEditMode()
+  const clubFeatures = useClub().features
 
   const [players, setPlayers] = useState<LeaguePlayer[]>([])
   const [teams, setTeams] = useState<Team[]>(initialTeams)
@@ -896,7 +898,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
       )}
 
       {/* 달별 정규 멤버 — 분기 소속 위에 「이 달만」 덮어쓰기(120) */}
-      {isEditMode && (
+      {isEditMode && clubFeatures.monthly_roster && (
         <MonthlyRosterPanel
           onChanged={() => { if (todayQ) loadToday(todayQ.id) }}
           leaders={leaderMap}

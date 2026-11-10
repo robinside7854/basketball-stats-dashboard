@@ -1,4 +1,5 @@
 import { toast } from 'sonner'
+import { useClub } from '@/contexts/ClubContext'
 import type { LeaguePlayer } from '@/types/league'
 import type { Game } from '@/types/database'
 import { rotationFromFirstTwo, generateRotation } from '@/lib/league/rotation'
@@ -20,6 +21,7 @@ export type UseSlotCoreCtx = Pick<RecordState,
 }
 
 export function useSlotCore(ctx: UseSlotCoreCtx) {
+  const clubSettings = useClub().settings
   const { isTournament, selectedDate, selectedSlotId, setAwayRoster, setGameStarted, setHomeRoster,
     setInitializingSlots, setIrregularRoster, setLiveScore, setMinutes, setPendingAway,
     setPendingHome, setPlusOneConflict, setRosterLoading, setSelectedDate, setSelectedSlotId,
@@ -176,6 +178,8 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
   //   onlyEmpty: 팀이 빈 칸만 채운다 — 1·2경기를 저장한 게 아니라 칸이 새로 생긴 경우(영상 연동).
   async function autoFillRotation(fresh: GameSlot[], opts: { onlyEmpty?: boolean } = {}) {
     if (isTournament) return
+    // 동호회 운영 설정의 대진 방식이 「손으로」면 자동 배정하지 않는다(2026-11-10 플랫폼화 3단계)
+    if (clubSettings.rotation !== 'winner_stays') return
     const ordered = [...fresh].filter(x => x.slot_num != null).sort((a, b) => a.slot_num - b.slot_num)
     if (ordered.some(x => x.is_exhibition)) return
     const g1 = ordered.find(x => x.slot_num === 1)

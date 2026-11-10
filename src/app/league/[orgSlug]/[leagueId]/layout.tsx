@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { resolveTeamId } from '@/lib/league/teamScope'
+import { loadClub } from '@/lib/club/settings'
 import { isLeaguePublic, getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueLayoutClient from './_components/LeagueLayoutClient'
@@ -100,10 +102,12 @@ export default async function LeagueLayout({
     sb.from('leagues').select('name').eq('id', leagueId).maybeSingle(),
     getLeagueQuarters(leagueId).catch(() => ({ quarters: null })),
   ])
+  // 동호회 운영 설정·기능 스위치(2026-11-10 플랫폼화 3단계) — 메뉴·기능 표시가 이걸 본다
+  const club = await resolveTeamId(leagueId).then(t => t ? loadClub(t) : null).catch(() => null)
   const leagueName = (leagueRow?.name as string | undefined) ?? null
 
   return (
-    <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName} initialQuarters={quartersRes.quarters}>
+    <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName} initialQuarters={quartersRes.quarters} club={club ? { features: club.features, settings: club.settings } : null}>
       {children}
     </LeagueLayoutClient>
   )

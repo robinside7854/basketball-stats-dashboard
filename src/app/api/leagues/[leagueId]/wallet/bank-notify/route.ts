@@ -2,6 +2,7 @@
 //   통장 주인 폰의 알림 자동화 앱(MacroDroid 등)이 보낸다. 로그인 대신 연결 비밀번호(헤더 x-bank-token
 //   또는 Authorization: Bearer) — 어드민이 월렛 어드민 탭에서 발급(해시만 저장).
 //   본문 = JSON { text } 또는 그냥 글(text/plain). 짝이 딱 하나면 충전 요청 자동 승인 — 정본 lib/wallet/bankAuto.ts.
+import { featureOnForLeague } from '@/lib/club/settings'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -14,6 +15,8 @@ export async function POST(req: Request, { params }: Ctx) {
   const { leagueId } = await params
   const teamId = await resolveTeamId(leagueId)
   if (!teamId || !(await loadWalletConfig(teamId))) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  // 입금 자동 확인 기능이 꺼져 있으면 알림을 받지 않는다(2026-11-10 플랫폼화 3단계)
+  if (!(await featureOnForLeague(leagueId, 'bank_auto'))) return NextResponse.json({ error: 'not_found' }, { status: 404 })
   const sb = createClient()
   const auth = req.headers.get('authorization')
   const token = req.headers.get('x-bank-token') ?? (auth?.startsWith('Bearer ') ? auth.slice(7).trim() : null)

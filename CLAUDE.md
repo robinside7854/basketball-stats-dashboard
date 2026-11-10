@@ -788,6 +788,9 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 이미 설정을 읽는 곳: 참가신청 요일·정원·켜기(`loadRsvpRules`) · 로고(`clubLogoOf` — `teams.logo_url` 먼저) · 입금자명 금지어(월렛 충전 요청).
 - CEO 콘솔 첫 화면 = **동호회 목록**(`components/admin/club/ClubList`), 상세 `/admin/clubs/[teamId]`(기본 정보 · 운영 설정 · 기능 · 시즌 · 사람). API `/api/admin/clubs`.
 - 새 화면 문구에 「토요일」·「모임통장」·「미라클」을 박지 말 것 — 설정값이나 동호회 이름(`getClubName`)으로.
+- **기능 스위치 적용(3단계, 2026-11-10)**: 서버 입구 `featureOnForLeague(leagueId, key)` — 월렛(`loadWalletConfig` 가 null) · 참가신청(`loadRsvpRules`) · 영상(`syncYoutubeForLeague`·`reconcileScheduleWithVideos`) · 유니폼 사진(`applyMonthlyPhotos`) · 달별 정규(`loadMonthRoster` 빈 값) · 입금 알림(`bank-notify` 404) · 드래프트 새 세션(409).
+  화면은 `contexts/ClubContext` 의 `useClub()`(리그 layout 이 `loadClub` 결과를 넘김 — 프로바이더 밖이면 전부 켬) — 영상 탭 · 드래프트 탭·바로가기 · 대회 전환 · 달별 정규 패널 · 입금 알림 칸 · 설정의 월렛 버튼 · 대진 자동 배정(`settings.rotation`) · 가이드 장/질문(`lib/guide/featureFilter.ts`).
+  ⚠ 새 기능을 만들면 스위치를 하나 더하고, 서버 입구와 화면 둘 다에 건다(화면만 숨기면 주소로 들어온다).
 
 ### 드래프트 결과는 운영진 확인 뒤 반영 (2026-11-10 운영진, 마이그레이션 131)
 - 픽(`pick`·`auto-pick`)은 `league_draft_picks` 에만 쓴다 — **분기 소속(`league_player_quarters`)은 쓰지 않는다.**

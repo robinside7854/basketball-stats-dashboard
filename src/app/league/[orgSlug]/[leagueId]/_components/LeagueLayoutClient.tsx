@@ -1,4 +1,6 @@
 'use client'
+import { ClubProvider, useClub } from '@/contexts/ClubContext'
+import type { ClubFeatures, ClubSettings } from '@/lib/club/features'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
@@ -99,6 +101,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   //   · '내 기록(사용자 이름)' : 다른 탭과 생김새가 같아 누르는 자리인지 구분이 안 됐다.
   //     우측 상단 프로필 칩(사진+이름)으로 옮겼다 — 모바일 하단 탭이 이미 쓰던 패턴과 같다.
   //   두 경로 모두 우측 액션 영역에서 닿으므로 진입 자체가 사라진 건 아니다.
+  const clubFeatures = useClub().features
   const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
     { href: base, label: '홈', match: [] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
@@ -109,9 +112,10 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     // 2026-11 운영진: 「선수」 → 「기록」(서브탭 리더보드 · 선수 · 팀). 기록실(/records)은 운영진 전용 「영상」 서브탭.
     // 2026-11-04: 기록실(/records, 운영진)은 다시 「기록」 탭 안 — 서브탭 명단 · 리더보드 · 팀 · 기록실
     { href: `${base}/players`, label: '기록', match: [`${base}/players`, `${base}/stats`, `${base}/teams`, `${base}/records`] },
-    { href: `${base}/highlights`, label: '영상', match: [`${base}/highlights`] },
+    // 영상·드래프트는 동호회 기능 스위치로(2026-11-10 플랫폼화 3단계)
+    ...(clubFeatures.youtube ? [{ href: `${base}/highlights`, label: '영상', match: [`${base}/highlights`] }] : []),
     // 드래프트는 주장·운영진 전용 절차다(2026-10-12) — 일반 회원 탭 줄에는 띄우지 않는다.
-    ...(showDraft && isEditMode ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
+    ...(showDraft && isEditMode && clubFeatures.draft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
   ]
 
   // 프로필 칩 활성 판정 — /me 를 흡수한다.
@@ -330,7 +334,8 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
 // 경기묶음(리그 ↔ 대회) 전환은 CEO 전용 — 편집 모드 컨텍스트를 읽어야 해서 Provider 안쪽 컴포넌트로 뺐다.
 function CeoCompetitionSwitcher({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
   const { isCeo } = useLeagueEditMode()
-  if (!isCeo) return null
+  const { features } = useClub()
+  if (!isCeo || !features.tournament) return null
   return <CompetitionSwitcher orgSlug={orgSlug} leagueId={leagueId} />
 }
 
@@ -350,11 +355,12 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   // 선수 명단·팀 순위는 스탯 탭으로 이동(2026-08-08, 아래 isActive 참조) — 경기 탭은 원래대로 경기만.
   // 드래프트·설정은 하단 탭에 없다. 드래프트는 /me 「바로가기」(어드민)와 데스크톱 상단 탭으로,
   //   설정은 헤더의 톱니 버튼(어드민·CEO, 위 「어드민 설정 진입점」) 하나로만 닿는다 — /me 에는 설정 바로가기가 없다.
+  const clubFeatures = useClub().features
   const mainTabs: { href: string; label: string; Icon: typeof Home; ariaLabel?: string }[] = [
     { href: base,                  label: '홈',      Icon: Home },
     { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
     { href: `${base}/players`,     label: '기록',     Icon: Users },
-    { href: `${base}/highlights`,  label: '영상',     Icon: PlayCircle },
+    ...(clubFeatures.youtube ? [{ href: `${base}/highlights`, label: '영상', Icon: PlayCircle }] : []),
     { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
   ]
 
@@ -479,12 +485,14 @@ function LeagueLayout({
   leagueId,
   leagueName,
   initialQuarters,
+  club,
   children,
 }: {
   orgSlug: string
   leagueId: string
   leagueName: string | null
   initialQuarters: Quarter[] | null
+  club: { features: ClubFeatures; settings: ClubSettings } | null
   children: React.ReactNode
 }) {
   const { theme } = useTheme()
@@ -513,6 +521,7 @@ function LeagueLayout({
   // LeagueAuthProvider 가 최외곽 — LeagueEditModeProvider 가 로그인 유저의 role 로
   // 편집 모드를 켜므로 auth 컨텍스트가 상위에 있어야 한다 (2026-08-04 순서 교체).
   return (
+    <ClubProvider value={club}>
     <LeagueAuthProvider leagueId={leagueId}>
     <LeagueEditModeProvider leagueId={leagueId}>
     <LeagueQuarterProvider leagueId={leagueId} initialQuarters={initialQuarters}>
@@ -557,6 +566,7 @@ function LeagueLayout({
     </LeagueQuarterProvider>
     </LeagueEditModeProvider>
     </LeagueAuthProvider>
+    </ClubProvider>
   )
 }
 
@@ -565,6 +575,7 @@ export default function LeagueLayoutClient({
   leagueId,
   leagueName,
   initialQuarters = null,
+  club = null,
   children,
 }: {
   orgSlug: string
@@ -572,7 +583,9 @@ export default function LeagueLayoutClient({
   leagueName: string | null
   /** 레이아웃(서버)이 미리 받은 분기 목록 — null 이면 프로바이더가 브라우저에서 받는다 */
   initialQuarters?: Quarter[] | null
+  /** 동호회 운영 설정·기능 스위치(서버 loadClub) — null 이면 종전처럼 전부 켬 */
+  club?: { features: ClubFeatures; settings: ClubSettings } | null
   children: React.ReactNode
 }) {
-  return <LeagueLayout orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName} initialQuarters={initialQuarters}>{children}</LeagueLayout>
+  return <LeagueLayout orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName} initialQuarters={initialQuarters} club={club}>{children}</LeagueLayout>
 }
