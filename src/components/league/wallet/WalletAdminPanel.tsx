@@ -10,7 +10,6 @@ import { Check, X, Search, Copy } from 'lucide-react'
 import { refreshPendingCharges } from '@/lib/hooks/usePendingCharges'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
-import MimoImportBox from './MimoImportBox'
 import BankAutoBox from './BankAutoBox'
 import { LedgerList, RequestList, TicketList, MonthSelect, monthKey, fmtP, fmtWhen, ticketTitle, type LedgerItem, type RequestItem, type TicketItem } from './walletParts'
 
@@ -307,10 +306,9 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
         <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)' }}>이름을 누르면 그 회원의 내역과 보정 칸이 열려요. 검색하면 잔액이 없는 회원도 나와요.</p>
       </SectionCard>
 
-      {/* 미모바스켓 잔액 옮기기(2026-11-09 운영진) — 한 번 쓰고 마는 일이라 접어 둔다 */}
+      {/* 미모바스켓 잔액 옮기기는 2026-11-10 이관을 마쳐 화면에서 뺐다(운영진) — MimoImportBox·API 파일은 남김 */}
       <SectionCard variant="standalone">
         <BankAutoBox leagueId={leagueId} />
-        <MimoImportBox leagueId={leagueId} onDone={() => { void load(); onChanged() }} />
       </SectionCard>
 
       <Sheet open={!!openPlayer} onClose={() => setOpenPlayer(null)} title={openPlayer ? `${openPlayer.name} · ${fmtP(openPlayer.balance)}` : ''}>
