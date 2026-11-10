@@ -30,15 +30,23 @@ export function newToken(): string {
   return randomBytes(24).toString('base64url')
 }
 
-/** 알림 글에서 입금액. 입금 알림이 아니면 null. */
+/** 알림 글에서 입금액. 입금 알림이 아니면 null.
+ *  「입금 50,000원」·「홍길동님이 50,000원을 입금했어요」(모임통장) 둘 다 읽는다 — 「잔액 N원」은 건너뛰고
+ *  「입금」 글자에 가장 가까운 금액을 고른다. */
 export function parseDepositAmount(text: string): number | null {
   const t = text.normalize('NFC')
-  if (!t.includes('입금')) return null
-  const num = (s: string) => Number(s.replace(/,/g, ''))
-  const direct = t.match(/입금\s*([\d,]+)\s*원/)
-  if (direct) return num(direct[1]) || null
-  const any = t.match(/([\d,]{3,})\s*원/)
-  return any ? num(any[1]) || null : null
+  const at = t.indexOf('입금')
+  if (at < 0) return null
+  const re = /([\d,]{3,}|\d+)\s*원/g
+  let best: { v: number; d: number } | null = null
+  for (let m = re.exec(t); m; m = re.exec(t)) {
+    if (/잔액\s*$/.test(t.slice(Math.max(0, m.index - 6), m.index))) continue
+    const v = Number(m[1].replace(/,/g, ''))
+    if (!v) continue
+    const d = Math.abs(m.index - at)
+    if (!best || d < best.d) best = { v, d }
+  }
+  return best?.v ?? null
 }
 
 type Pending = { id: string; amount: number; depositor_name: string }
