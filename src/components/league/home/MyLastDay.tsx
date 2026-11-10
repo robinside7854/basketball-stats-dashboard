@@ -55,10 +55,11 @@ export default function MyLastDay({ base, embedded = false }: { base: string; em
   // 출전 경기를 득점 왼쪽에(2026-11-09 운영진 — 오른쪽 득점 순위 고리는 뺐다)
   const big: Array<[string, number]> = [['출전', games], ['득점', line.pts], ['리바', line.reb], ['어시', line.ast], ['스틸', line.stl], ['블록', line.blk]]
 
+  // 칸마다 가운데 정렬(2026-11-10 운영진 — 왼쪽 붙임이면 두 자리 숫자 칸이 옆으로 쏠려 보이고 오른쪽 끝이 비었다)
   const stats = (
     <dl className="grid grid-cols-6 gap-1.5 sm:gap-2 flex-1 min-w-0" style={{ containerType: 'inline-size' }}>
       {big.map(([label, v]) => (
-        <div key={label} className="min-w-0">
+        <div key={label} className="min-w-0 text-center">
           <dt className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
           <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 9cqw, 36px)' }}>{v}</dd>
         </div>
@@ -91,7 +92,7 @@ export default function MyLastDay({ base, embedded = false }: { base: string; em
             화면 폭 기준 큰 글자가 다섯 칸에 안 들어가 「35」「7」이 겹쳤다(2026-11-09). */}
         <dl className="grid grid-cols-6 gap-1.5 sm:gap-2 flex-1 min-w-0" style={{ containerType: 'inline-size' }}>
           {big.map(([label, v]) => (
-            <div key={label} className="min-w-0">
+            <div key={label} className="min-w-0 text-center">
               <dt className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{label}</dt>
               <dd className="font-jersey font-black tabular-nums leading-none mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(14px, 9cqw, 36px)' }}>{v}</dd>
             </div>
