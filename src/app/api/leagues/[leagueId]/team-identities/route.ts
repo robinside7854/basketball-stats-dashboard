@@ -283,10 +283,35 @@ export async function GET(
     return v && quarters.some(q => q.id === v) ? v : null
   })()
   const teamScopeId = await resolveTeamId(leagueId)
+  // 정체성의 분기들을 **날짜 범위**로 바꾼다(2026-11-10 리뷰 — 종전엔 quarter_id 로 골라, 분기 첫 주처럼
+  //   경기의 quarter_id 가 늦게 채워진 때 선수 표가 승패와 다른 경기를 셌다). 기간이 없거나 끊긴 분기면 종전대로.
+  const rangeOf = (qids: string[]): { from: string; to: string } | null => {
+    const qs = qids.map(id => quarters.find(q => q.id === id)).filter(Boolean) as typeof quarters
+    if (qs.length !== qids.length || qs.some(q => !q.start_date || !q.end_date)) return null
+    const sorted = [...qs].sort((a, b) => a.start_date!.localeCompare(b.start_date!))
+    for (let i = 1; i < sorted.length; i++) {
+      const prevEnd = new Date(sorted[i - 1].end_date! + 'T00:00:00Z'); prevEnd.setUTCDate(prevEnd.getUTCDate() + 1)
+      if (prevEnd.toISOString().slice(0, 10) < sorted[i].start_date!) return null
+    }
+    return { from: sorted[0].start_date!, to: sorted[sorted.length - 1].end_date! }
+  }
+  const optsOf = (teamId: string | null, qids: string[]) => {
+    const rg = rangeOf(qids)
+    return rg ? { ...(teamId ? { teamId } : {}), from: rg.from, to: rg.to } : { ...(teamId ? { teamId } : {}), quarterIds: qids }
+  }
+  // 팀 스탯 「경기당」의 분모 — 선수 기록과 같은 경기 집합(기록 시작된 정규전, 같은 날짜 범위)에서 그 팀이 뛴 경기 수
+  const { data: startedRaw } = await supabase.from('league_games').select('date, quarter_id, home_team_id, away_team_id')
+    .eq('league_id', leagueId).eq('is_started', true).eq('is_exhibition', false)
+  const started = (startedRaw ?? []) as Array<{ date: string; quarter_id: string | null; home_team_id: string | null; away_team_id: string | null }>
+  const statGpOf = (teamId: string, qids: string[]) => {
+    const rg = rangeOf(qids)
+    return started.filter(g => (g.home_team_id === teamId || g.away_team_id === teamId)
+      && (rg ? g.date >= rg.from && g.date <= rg.to : (g.quarter_id != null && qids.includes(g.quarter_id)))).length
+  }
   // 정체성마다 하나씩(12개 안팎) + 미배정 분기 = 캐시 **1회**(2026-11-03 ISR Reads — 종전 13회)
   const statsManyP = getCachedLeagueStatsMany(leagueId, [
-    ...identities.map(id => ({ teamId: id.team_id, quarterIds: id.quarter_ids })),
-    ...(unassignedQid ? [{ quarterId: unassignedQid }] : []),
+    ...identities.map(id => optsOf(id.team_id, id.quarter_ids)),
+    ...(unassignedQid ? [rangeOf([unassignedQid]) ? optsOf(null, [unassignedQid]) : { quarterId: unassignedQid }] : []),
   ]).then(rs => rs.map(r => r.players)).catch(() => null)
   const [statsMany, membershipRes, playersRes, leadersRes, externalIds] = await Promise.all([
     statsManyP,
@@ -326,7 +351,7 @@ export async function GET(
       .filter(l => l.team_id === id.team_id && qset.has(l.quarter_id) && l.leader_player_id)
       .sort((a, b) => (qOrder.get(a.quarter_id) ?? 0) - (qOrder.get(b.quarter_id) ?? 0))
       .at(-1)?.leader_player_id ?? null
-    return { ...id, players: statsByIdentity[i], regular, leader_player_id: leader }
+    return { ...id, players: statsByIdentity[i], regular, leader_player_id: leader, stat_gp: statGpOf(id.team_id, id.quarter_ids) }
   })
 
   const inIdentity = new Set(statsByIdentity.flat().map(p => p.player_id))

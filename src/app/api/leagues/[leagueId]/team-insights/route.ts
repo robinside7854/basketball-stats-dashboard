@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { fetchAllPaged } from '@/lib/supabase/paged'
 import { NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import { gameDateRange } from '@/lib/league/currentQuarter'
@@ -34,6 +35,22 @@ export async function GET(
     return NextResponse.json({ error: 'login_required' }, { status: 401 })
   }
   const quarterId = new URL(req.url).searchParams.get('quarterId')
+  // 리그·분기 단위 캐시(2026-11-10 리뷰 — 펼칠 때마다 리그 전체 이벤트를 다시 셌다). 인가는 위에서 요청마다.
+  let out
+  try {
+    out = await unstable_cache(
+    () => computeTeamInsights(leagueId, quarterId),
+    ['team-insights', leagueId, quarterId ?? 'all', 'v1'],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
+  )()
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+  }
+  if ('error' in out) return NextResponse.json({ error: out.error }, { status: out.status })
+  return NextResponse.json(out)
+}
+
+async function computeTeamInsights(leagueId: string, quarterId: string | null) {
   const supabase = createClient()
 
   const { data: quarterRows } = await supabase
@@ -43,7 +60,7 @@ export async function GET(
   type QRow = { id: string; year: number; quarter: number; start_date: string | null; end_date: string | null; kind: string | null }
   const quarters = ((quarterRows ?? []) as QRow[]).filter(q => q.kind !== 'tournament')
   const selected = quarterId && quarterId !== 'all' ? (quarterRows ?? []).find(q => q.id === quarterId) as QRow | undefined : undefined
-  if (quarterId && quarterId !== 'all' && !selected) return NextResponse.json({ error: 'quarter not found' }, { status: 404 })
+  if (quarterId && quarterId !== 'all' && !selected) return { error: 'quarter not found', status: 404 } as const
   const range = selected ? gameDateRange({ ...selected, label: '' }) : null
 
   let gq = supabase
@@ -61,9 +78,9 @@ export async function GET(
     loadIdentityResolver(supabase, leagueId),
     resolveTeamId(leagueId),
   ])
-  if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 })
+  if (gErr) throw new Error(gErr.message)   // 실패는 캐시에 넣지 않는다
   const empty = { teams: [], players: [], assist_links: [], shot_types: [] }
-  if (!games || games.length === 0) return NextResponse.json(empty)
+  if (!games || games.length === 0) return empty
 
   type Game = { id: string; date: string; home_team_id: string; away_team_id: string; quarter_id: string | null }
   // 이 경기가 속한 분기 — 특정 분기를 골랐으면 그 분기, 「전체」면 날짜가 든 분기(없으면 경기의 quarter_id)
@@ -92,7 +109,7 @@ export async function GET(
         .in('league_game_id', gameIds).order('id', { ascending: true }).range(from, to)),
     ])
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    throw e
   }
 
   const [{ data: players }, { data: memberships }] = await Promise.all([
@@ -179,10 +196,10 @@ export async function GET(
     .filter(p => usedPlayers.has(p.id as string))
     .map(p => ({ id: p.id as string, name: p.name as string, photo_url: (p.photo_url as string | null) ?? null }))
 
-  return NextResponse.json({
+  return {
     teams: [...identities.values()],
     players: playerOut,
     assist_links: [...linkMap.values()].sort((a, b) => b.count - a.count),
     shot_types: [...shotMap.values()],
-  })
+  }
 }

@@ -149,7 +149,6 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
     const from = regularTeamOf(r) ?? NONE
     if (from === col) return
     const teamId = col === NONE ? null : col
-    const before = rows
     // 바로 옮겨 보이고, 저장이 실패하면 되돌린다 — 끌어 놓은 손이 기다리지 않게
     setRows(prev => prev.map(x => x.id === r.id ? { ...x, team_id: teamId, is_regular: teamId ? true : null, month_override: true } : x))
     setSavingId(r.id)
@@ -160,7 +159,8 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
     }).catch(() => null)
     setSavingId(null)
     if (!res?.ok) {
-      setRows(before)
+      // 그 선수 한 명만 되돌린다 — 그사이 옮겨 저장된 다른 사람까지 화면에서 되돌아가지 않게(2026-11-10)
+      setRows(prev => prev.map(x => x.id === r.id ? r : x))
       toast.error('옮기지 못했어요. 다시 해 주세요')
       return
     }

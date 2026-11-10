@@ -456,7 +456,7 @@ function TraitCompare({ def, peers, selfKey }: { def: TraitDef; peers: TraitPeer
 }
 
 // ── TeamDetailPanel ────────────────────────────────────────────────────────
-type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
+type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number; statGp?: number | null }
 
 /** 팀 특성 비교에 쓰는 같은 기간 다른 팀(이 팀 포함) */
 type TraitPeer = { key: string; name: string; color: string; traits: TeamTraits | null }
@@ -482,8 +482,9 @@ function TeamDetailPanel({
   const openPlayerCard = useOpenPlayerCard()
   const setQuickView = (p: { id: string; name: string } | null) => { if (p) openPlayerCard?.({ playerId: p.id, playerName: p.name, quarterId }) }
 
-  // 분모 = 카드에 보이는 그 팀의 마감 정규전 수(친선 제외 — 승패와 같은 경기 집합)
-  const gp = (standing.w + standing.d + standing.l) || 1
+  // 분모 = 선수 기록과 같은 경기 집합(기록 시작된 정규전 · 같은 날짜 범위)에서 이 팀이 뛴 경기 수(2026-11-10 리뷰 —
+  //   종전엔 마감 경기 수라, 기록 중인 날엔 분자만 늘어 경기당 값이 부풀었다). 옛 응답이면 마감 경기 수로.
+  const gp = (standing.statGp ?? (standing.w + standing.d + standing.l)) || 1
   // 「팀 특성 · 하이라이트 · 4요소 · 공격 리바」는 한 번 접어 둔다(2026-10-26) — 펼칠 때만 요청이 나간다
   const [moreOpen, setMoreOpen] = useState(false)
 
@@ -738,6 +739,8 @@ function LeagueTeamsPageInner() {
     players?: PlayerStat[]
     regular?: RegularPlayer[]
     leader_player_id?: string | null
+    /** 선수 기록과 같은 경기 집합(기록 시작된 정규전)에서 이 팀이 뛴 경기 수 — 「경기당」 분모(2026-11-10) */
+    stat_gp?: number
   }
   type RegularPlayer = { id: string; name: string; number: number | null; position: string | null; photo_url: string | null }
   type TeamsData = { identities: TeamIdentity[]; unassigned: PlayerStat[]; games: GridGame[]; locked: boolean }
@@ -809,6 +812,7 @@ function LeagueTeamsPageInner() {
       form: id.form ?? null,
       gamesBehind: id.games_behind ?? null,
       leaderId: id.leader_player_id ?? null,
+      statGp: id.stat_gp ?? null,
     }))
   }, [identities])
 
@@ -941,7 +945,7 @@ function LeagueTeamsPageInner() {
   // 팀 특성 비교 재료 — 지금 보이는 모든 팀(2026-11-09). 분모 gp 는 카드 승패와 같은 경기 집합
   const traitPeers = useMemo(() => standings.map(st => ({
     key: st.identityKey, name: st.displayName, color: st.color,
-    traits: computeTeamTraits(teamStats[st.identityKey] ?? [], regularIdsByIdentity[st.identityKey] ?? EMPTY_IDS, st.w + st.d + st.l),
+    traits: computeTeamTraits(teamStats[st.identityKey] ?? [], regularIdsByIdentity[st.identityKey] ?? EMPTY_IDS, st.statGp ?? (st.w + st.d + st.l)),
   })), [standings, teamStats, regularIdsByIdentity])
   const visibleTeamPlayers = (key: string) => (teamStats[key] ?? []).filter(p =>
     !isGuest(p) && (showIrregular || (regularIdsByIdentity[key]?.has(p.player_id) ?? false)))
@@ -1141,7 +1145,7 @@ function LeagueTeamsPageInner() {
                 <TeamDetailPanel
                   teamId={selStanding.teamId}
                   team={teamForPanel}
-                  standing={{ w: selStanding.w, d: selStanding.d, l: selStanding.l, gf: selStanding.gf, ga: selStanding.ga, teamId: selStanding.teamId }}
+                  standing={{ w: selStanding.w, d: selStanding.d, l: selStanding.l, gf: selStanding.gf, ga: selStanding.ga, teamId: selStanding.teamId, statGp: selStanding.statGp }}
                   players={teamStats[selectedTeamId] ?? []}
                   regularIds={regularIdsByIdentity[selectedTeamId] ?? EMPTY_IDS}
                   leagueId={leagueId}

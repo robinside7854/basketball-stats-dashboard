@@ -494,6 +494,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - `guard.ts` 의 `getApprovedSession`·`isLeaguePublic` 은 React `cache` — 한 요청 안에서만 결과를 나눠 쓴다.
 - 선수 카드: 탭 4개(요약 / 기록 / 플레이스타일 / 커리어 하이), 첫 열기 요청 1개(`detail?profile=1` — 선수 기본 정보 포함),
   나머지는 필요할 때. 비교 시트는 `detail?lite=1`. `recent_games`·`similar_players` 는 응답에서 없앴다(`game_log` 하나).
+- 팀 탭 선수 기록은 정체성의 분기를 **날짜 범위**로 바꿔 읽고(끊긴 분기·기간 없음만 quarterIds), 「팀 스탯」 경기당 분모는 응답 `stat_gp`(같은 범위의 기록 시작된 정규전 중 그 팀 경기 수) — 2026-11-10 리뷰. `team-insights` 는 리그·분기 캐시(v1). 드래프트 점수 `aggregateQuarterStats` 는 정본 `loadPeriodStats` 를 쓴다. `roster-cards` 응답에 기록 숫자(`line`)는 없다.
 - 팀 탭: `team-identities?withPlayers=1` 한 번 + 누적 맞대결 1회(종전 11~20회). 열 이름 한글. 상세 지표는 「더 보기」.
 - 팀 탭(2026-11-09 운영진): 카드 흐름 줄 = 「현재 연승·연패 · 최근 10경기」(승차·점 삭제) · 상세 「팀 특성」 = 모든 팀 막대 비교(`teams/_lib/teamTraits.ts` 한 벌) · 선수 표 기본 열 = 리더보드와 같은 열 + PC 순위 칸.
 - 일정 탭: 리그/대회 판정·고정 대관을 서버(page.tsx)가 넘긴다 — 클라는 일정·경기 2요청.
