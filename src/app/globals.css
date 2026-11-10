@@ -1012,3 +1012,8 @@
   html.mm-rec-focus [data-rec-sticky] { top: 0 !important; }
   html.mm-rec-focus .mm-rec-flat { padding-top: 0; border-top: 0 !important; }
 }
+
+/* 누를 때 퍼지는 고리 — 하이라이트 전체화면 조작부(2026-11-10 「눌렀을 때 타격감」) */
+@keyframes mm-tap-ring { from { box-shadow: 0 0 0 0 rgba(255,255,255,0.55); } to { box-shadow: 0 0 0 16px rgba(255,255,255,0); } }
+.mm-tap-ring { animation: mm-tap-ring 380ms ease-out forwards; }
+@media (prefers-reduced-motion: reduce) { .mm-tap-ring { animation: none; } }

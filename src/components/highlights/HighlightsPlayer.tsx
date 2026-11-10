@@ -650,7 +650,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           iframe 이 다시 마운트되면 재생이 끊긴다(클래스만 바꾼다). */}
       <div
         ref={stageRef}
-        className={immersive ? 'fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden' : undefined}
+        className={immersive ? 'fixed inset-0 z-[1000] flex flex-col landscape:flex-row items-center justify-center overflow-hidden' : undefined}
         style={immersive ? { background: '#000', width: '100dvw', height: '100dvh' } : undefined}
         role={immersive ? 'dialog' : undefined}
         aria-modal={immersive ? true : undefined}
@@ -659,9 +659,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       >
       <div
         className={immersive
-          ? 'relative aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full'
+          // 조작부 띠(세로 아래 ~200px · 가로 오른쪽 148px)를 뺀 자리에 영상을 맞춘다 — 버튼이 영상 위에 겹치지 않게
+          ? 'relative shrink-0 aspect-video bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:w-full [&_iframe]:h-full w-[min(100dvw,calc((100dvh-210px)*16/9))] landscape:w-[min(calc(100dvw-156px),calc(100dvh*16/9))]'
           : 'relative rounded-xl overflow-hidden aspect-video bg-black'}
-        style={immersive ? { width: 'min(100dvw, calc(100dvh * 16 / 9))' } : undefined}
         aria-live="polite"
         aria-label={captionOverride
           ? `${captionOverride.primary}, ${currentIdx + 1}/${clips.length}`
@@ -727,7 +727,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           </div>
         )}
         {/* 스코어보드 오버레이 (option A — 상단 · 항상 표시 · pointer-events-none 로 클릭 통과) */}
-        {!hideScoreboard && hasScore && (clip.home_team_name || clip.away_team_name) && !(immersive && controlsVisible) && (
+        {!hideScoreboard && hasScore && (clip.home_team_name || clip.away_team_name) && !immersive && (
           <div
             className="absolute top-0 left-0 right-0 pointer-events-none flex items-center justify-center px-2 py-1.5 sm:py-2 z-10"
             style={{
