@@ -6,7 +6,9 @@ import { FAQ_CATEGORIES, type GuideFaq } from '@/lib/guide/memberGuide'
 const lineCls = 'text-[15px] lg:text-[18px] leading-[1.6]'
 
 export default function GuideFaqTabs({ faqs }: { faqs: GuideFaq[] }) {
-  const cats = FAQ_CATEGORIES.filter(c => faqs.some(f => f.cat === c))
+  // 회원 가이드는 정해 둔 순서, 그 밖(어드민 가이드)은 처음 나온 순서
+  const known = FAQ_CATEGORIES.filter(c => faqs.some(f => f.cat === c)) as string[]
+  const cats = [...known, ...[...new Set(faqs.map(f => f.cat))].filter(c => !known.includes(c))]
   const [cat, setCat] = useState(cats[0])
   const list = faqs.filter(f => f.cat === cat)
   return (

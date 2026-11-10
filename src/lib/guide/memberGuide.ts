@@ -8,7 +8,8 @@
 export interface GuideGroup { image?: string; caption?: string; lines: string[] }
 export type FaqCategory = '참가신청' | '월렛' | '기록 · 영상' | '계정'
 export const FAQ_CATEGORIES: FaqCategory[] = ['참가신청', '월렛', '기록 · 영상', '계정']
-export interface GuideFaq { cat: FaqCategory; q: string; a: string[] }
+/** cat — 회원 가이드는 FAQ_CATEGORIES, 어드민 가이드는 자기 묶음 이름(칩 순서 = 처음 나온 순서) */
+export interface GuideFaq { cat: string; q: string; a: string[] }
 export interface GuideSection { id: string; title: string; summary: string; groups: GuideGroup[]; faqs?: GuideFaq[] }
 
 export const MEMBER_GUIDE: GuideSection[] = [

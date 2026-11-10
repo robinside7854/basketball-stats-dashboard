@@ -14,6 +14,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { BookOpen, ChevronRight, ClipboardList, Wallet } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useActiveDraft } from '@/lib/hooks/useActiveDraft'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser, AccountCard } from '@/components/league/auth/PersonalDashboard'
@@ -37,6 +38,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // 드래프트 바로가기 — 드래프트는 주장·어드민 전용이 됐다(2026-10-12) → 편집 모드(어드민 ∥ CEO)에게만,
   //   그리고 현재 분기에 진행 중인 세션이 있을 때만. 레이아웃 드래프트 탭과 같은 훅(useActiveDraft)으로 판정한다.
   const showDraft = useActiveDraft(leagueId)
+  const { isEditMode } = useLeagueEditMode()
 
   // 미라클 월렛(2026-11-09) — 월렛을 켠 팀에서 로그인한 회원에게 잔액과 함께 바로가기를 보인다.
   const [wallet, setWallet] = useState<{ name: string; balance: number | null } | null>(null)
@@ -64,7 +66,9 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         />
       )}
       {showDraft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" />}
-      <ShortcutRow href={`${base}/guide`} Icon={BookOpen} label="이용 가이드" sub="가입 · 참가신청 · 월렛 · 기록 보는 법" last />
+      <ShortcutRow href={`${base}/guide`} Icon={BookOpen} label="이용 가이드" sub="가입 · 참가신청 · 월렛 · 기록 보는 법" last={!isEditMode} />
+      {/* 어드민 가이드 — 운영진에게만(2026-11-10) */}
+      {isEditMode && <ShortcutRow href={`${base}/guide/admin`} Icon={BookOpen} label="어드민 가이드" sub="배치 · 월렛 · 매달 준비 · 입금 자동 확인" last />}
     </SectionCard>
   )
   // PC 왼쪽 칸 아래에는 계정만 — 월렛·드래프트는 PC·폰 모두 제목 바로 아래(2026-11-09 운영진 — PC 에서도 안 보였다)

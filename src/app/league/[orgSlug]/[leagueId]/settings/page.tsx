@@ -7,7 +7,7 @@ import { usePendingCharges } from '@/lib/hooks/usePendingCharges'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Youtube, Calendar, ChevronRight, Globe, MapPin, Users, Wallet } from 'lucide-react'
+import { Loader2, Lock, Youtube, Calendar, ChevronRight, Globe, MapPin, Users, Wallet, BookOpen } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import InfoTip from '@/components/league/ui/InfoTip'
@@ -371,6 +371,14 @@ export default function LeagueSettingsPage() {
             )}
             <ChevronRight size={16} aria-hidden />
           </span>
+        </Link>
+        {/* 어드민 가이드(2026-11-10 운영진) — 운영진이 하는 일만 모은 안내 */}
+        <Link
+          href={`/league/${orgSlug}/${leagueId}/guide/admin`}
+          className="mm-press sm:col-span-2 flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
+        >
+          <span className="inline-flex items-center gap-2"><BookOpen size={16} aria-hidden />어드민 가이드 (운영 방법)</span>
+          <ChevronRight size={16} aria-hidden />
         </Link>
       </div>
       <nav aria-label="설정 바로가기" className="flex flex-wrap gap-2">

@@ -223,6 +223,10 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   ④ (2026-11-09 운영진) 내역 그림: 정규권 = 검정 동그라미 + 금색 왕관 · 비정규 = 노란 표 · PC 에서는 내역 칸이 왼쪽 칸 높이에 맞고 안에서 넘긴다 · 환불 요청은 **은행 · 계좌번호를 따로** 받아 `refund_account = '은행 번호'` 로 저장, 어드민 칸에 「계좌번호 복사」(숫자·하이픈만).
   ③ **내역 하나**(장부 + 기다림·반려·취소 요청 + 티켓 사용·돌려받음, 날짜 묶음 · 칩 「전체·포인트·티켓·요청」 · **쪽 번호로 넘김**(`Pager`, 「더 보기」 없앰 — 어드민 칸 목록도 같음)). 종전 세 탭(포인트 내역/충전·환불 요청/티켓)은 합쳤다. `LedgerList`·`RequestList`·`TicketList` 는 어드민 칸이 계속 쓴다.
 
+### 어드민 가이드 (2026-11-10 운영진)
+- `/guide/admin` — 본문 정본 `lib/guide/adminGuide.ts`(회원 가이드 `memberGuide.ts` 와 같은 모양·규칙: 문장 하나 = 한 줄, 동호회 이름·실명·계좌번호 금지). 그리기는 `GuideContent`(`sections`·`title`·`subtitle`·`share` 를 넘긴다). 어드민(`isEditMode`)에게만 본문. 들어가는 곳 = 설정 맨 위 · 「나」 바로가기(운영진만).
+- ⚠ **기능을 바꾸면 회원 가이드와 어드민 가이드를 같이 고친다**(둘 다 화면 정본이다).
+
 ### 주간 참가신청 (2026-11-09 운영진, 마이그레이션 124) — 정본 `src/lib/rsvp/weekly.ts`
 - `leagues.rsvp_rules`(미라클 = 토요일 · 정원 18)가 있는 리그에만. 표 `weekly_rsvp(league_id, game_date, league_player_id, answer yes/no, approved, placed_team_id, ticket_id, guest_paid)`.
   ⚠ 옛 `league_rsvp` 는 일정 날짜에 묶여 있어 쓰지 않는다 — 앞날 빈 일정은 밤마다 「영상으로 일정 맞추기」가 지운다.

@@ -1,4 +1,4 @@
-import { MEMBER_GUIDE } from '@/lib/guide/memberGuide'
+import { MEMBER_GUIDE, type GuideSection } from '@/lib/guide/memberGuide'
 import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 import GuideFaqTabs from './GuideFaqTabs'
 
@@ -25,22 +25,26 @@ function Lines({ lines }: { lines: string[] }) {
 // images 를 안 넘기면 본문에 적힌 그림 전부(잠금 화면처럼 파일 목록을 못 읽는 곳)
 const ALL_IMAGES = MEMBER_GUIDE.flatMap(s => s.groups.map(g => g.image).filter((x): x is string => !!x))
 
-export default function GuideContent({ images = ALL_IMAGES, top }: { images?: string[]; top?: React.ReactNode }) {
+export default function GuideContent({ images = ALL_IMAGES, top, sections = MEMBER_GUIDE, title = '이용 가이드', subtitle = '위에서부터 차례로 읽어 보세요.', share = true }: {
+  images?: string[]; top?: React.ReactNode
+  /** 어드민 가이드(2026-11-10)도 같은 그리기를 쓴다 — 본문만 바꿔 넘긴다 */
+  sections?: GuideSection[]; title?: string; subtitle?: string; share?: boolean
+}) {
   const has = new Set(images)
   return (
     <div className="mx-auto w-full max-w-[1080px] space-y-4 lg:space-y-6 break-keep">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-black text-[28px] lg:text-[32px] leading-none text-[color:var(--mm-ink)] tracking-tight">이용 가이드</h2>
-          <p className="mt-2 text-sm lg:text-base" style={{ color: 'var(--mm-muted)' }}>위에서부터 차례로 읽어 보세요.</p>
+          <h2 className="font-black text-[28px] lg:text-[32px] leading-none text-[color:var(--mm-ink)] tracking-tight">{title}</h2>
+          <p className="mt-2 text-sm lg:text-base" style={{ color: 'var(--mm-muted)' }}>{subtitle}</p>
         </div>
         {/* 팀원에게 이 가이드 링크 보내기(2026-11-10 운영진) — 폰은 공유 창, 안 되면 링크 복사 */}
-        <ShareLeagueButton leagueName="이용 가이드" label="가이드 공유" />
+        {share && <ShareLeagueButton leagueName={title} label="가이드 공유" />}
       </div>
       {top}
 
       <nav aria-label="가이드 목차" className="flex flex-wrap gap-2">
-        {MEMBER_GUIDE.map((s, i) => (
+        {sections.map((s, i) => (
           <a key={s.id} href={`#${s.id}`} className="mm-press px-3 py-2 lg:px-4 lg:py-2.5 text-sm lg:text-base font-bold whitespace-nowrap"
             style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
             {i + 1}. {s.title}
@@ -48,7 +52,7 @@ export default function GuideContent({ images = ALL_IMAGES, top }: { images?: st
         ))}
       </nav>
 
-      {MEMBER_GUIDE.map((s, i) => (
+      {sections.map((s, i) => (
         <section key={s.id} id={s.id} className="scroll-mt-20 p-4 md:p-5 lg:p-8" style={card}>
           <h3 className="flex items-center gap-2 lg:gap-3 font-black text-xl lg:text-[26px]" style={{ color: 'var(--mm-ink)' }}>
             <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 lg:w-9 lg:h-9 text-sm lg:text-base"
