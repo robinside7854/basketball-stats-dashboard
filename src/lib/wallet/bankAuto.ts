@@ -85,7 +85,9 @@ export async function handleBankNotification(sb: SupabaseClient, teamId: string,
     else if (many) status = 'ambiguous'
   }
 
-  await sb.from('wallet_bank_events').insert({ team_id: teamId, raw_text: text, amount, status, request_id: requestId })
+  // 입금이 아닌 알림(출금 등)은 글을 남기지 않는다 — 개인 통장 출금·잔액이 어드민 화면에 보였다(2026-11-10)
+  const stored = amount == null ? '(입금 알림 아님 — 내용 저장 안 함)' : text
+  await sb.from('wallet_bank_events').insert({ team_id: teamId, raw_text: stored, amount, status, request_id: requestId })
   return { status, requestId, amount }
 }
 
