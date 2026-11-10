@@ -49,6 +49,8 @@ export interface RsvpEntry {
   /** 「본인」 · 「OO 초대」(게스트) · 대신 눌러 준 어드민 */
   answered_by: string | null
   tickets_left: number      // 비정규 티켓 남은 장수(배치 가능 여부 안내)
+  /** 배치될 수 있나 — 티켓이 있거나, 없으면 포인트가 티켓값 이상(배치 때 자동 발행, 2026-11-10) */
+  can_pay: boolean
   suggested_team_id: string | null
   answered_at: string
 }
@@ -121,6 +123,13 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
     q ? sb.from('league_team_quarter_leaders').select('team_id, leader_player_id').eq('quarter_id', q.id)
       : Promise.resolve({ data: [] as { team_id: string; leader_player_id: string }[] }),
   ])
+  // 비정규 티켓이 없어도 포인트가 있으면 배치 때 자동 발행 — 그 판단용 잔액·가격(2026-11-10 운영진)
+  const [balRes, walletCfg] = await Promise.all([
+    sb.from('wallet_balances').select('league_player_id, balance').eq('team_id', teamId),
+    loadWalletConfig(teamId),
+  ])
+  const balanceOf = new Map(((balRes.data ?? []) as Array<{ league_player_id: string; balance: number }>).map(b => [b.league_player_id, b.balance]))
+  const ticketPrice = walletCfg?.rules.non_regular_price ?? null
   if (rowsRes.error) throw new Error(`weekly_rsvp 조회 실패 — ${rowsRes.error.message}`)
   if (playersRes.error) throw new Error(`league_players 조회 실패 — ${playersRes.error.message}`)
 
@@ -152,6 +161,7 @@ export async function loadRsvpBoard(sb: SB, leagueId: string, gameDate: string):
         approved: kind === 'regular' ? r.answer === 'yes' : r.approved,
         placed_team_id: r.placed_team_id, ticket_used: !!r.ticket_id, guest_paid: r.guest_paid, guest_pay: r.guest_pay ?? 'bank', guest_fee_charged: !!r.guest_fee_ledger_id, answered_by: r.answered_by_label,
         tickets_left: ticketsLeft.get(r.league_player_id) ?? 0,
+        can_pay: (ticketsLeft.get(r.league_player_id) ?? 0) > 0 || (ticketPrice != null && (balanceOf.get(r.league_player_id) ?? 0) >= ticketPrice),
         suggested_team_id: regularTeam.get(r.league_player_id) ?? null,
         answered_at: r.answered_at,
       }
@@ -215,6 +225,7 @@ export const AUTO_LABEL = '자동(이번 달 팀)'
 /**
  * 한 사람을 팀에 배치하거나(targetTeam) 배치를 푼다(null) — 어드민 「팀 배치」와 마감 자동 배치가 같은 한 벌을 쓴다.
  *   · 비정규(정규권 없음·게스트 아님)를 처음 배치할 때 비정규 티켓 1장(wallet_use_ticket) → ticket_id.
+ *     남은 티켓이 없으면 포인트로 한 장 자동 발행(wallet_buy_ticket) 후 사용 — 포인트도 모자라면 배치를 막는다(2026-11-10).
  *   · 이미 티켓을 쓴 사람은 팀을 옮겨도 다시 빠지지 않는다.
  *   · 배치를 풀 때 returnTicket 이면 티켓을 돌려준다(포인트 환불 · 기록은 남는다).
  * 실패하면 { error, status } — 화면에 그대로 보여 줄 문구다.
@@ -236,16 +247,31 @@ export async function placeEntry(
     const board = await loadRsvpBoard(sb, leagueId, gameDate)
     const e = board.entries.find(x => x.player_id === playerId)
     if (e?.kind === 'non_regular') {
-      const { data, error } = await sb.rpc('wallet_use_ticket', {
+      const use = () => sb.rpc('wallet_use_ticket', {
         p_team_id: teamId, p_player_id: playerId, p_date: gameDate, p_note: '참가 배치', p_actor: actor,
       })
+      let { data, error } = await use()
+      let bought = false
+      // 남은 티켓이 없으면 포인트로 한 장 자동 발행 후 바로 사용(2026-11-10 운영진 — 회원이 티켓을 미리 사지 않아도 되게)
+      if (error && error.message.includes('남은 비정규 티켓이 없습니다')) {
+        const buy = await sb.rpc('wallet_buy_ticket', {
+          p_team_id: teamId, p_player_id: playerId, p_kind: 'non_regular', p_month: null, p_qty: 1,
+          p_actor: `자동 발행(${gameDate} 배치)`,
+        })
+        if (buy.error) {
+          const name = e.name
+          return { ok: false, error: `${name} 님 포인트가 모자라요 — 비정규 티켓값만큼 충전하면 배치할 수 있어요`, status: 409 }
+        }
+        bought = true
+        ;({ data, error } = await use())
+      }
       if (error) {
         const i = error.message.indexOf('wallet: ')
         const msg = i >= 0 ? error.message.slice(i + 8) : null
-        return { ok: false, error: msg ? `${msg} — 비정규 티켓을 사야 배치할 수 있어요` : error.message, status: msg ? 409 : 500 }
+        return { ok: false, error: msg ?? error.message, status: msg ? 409 : 500 }
       }
       ticketId = (data as { id: string }).id
-      ticket = '비정규 티켓 1장 사용'
+      ticket = bought ? '포인트로 비정규 티켓 1장 자동 발행·사용' : '비정규 티켓 1장 사용'
     }
   }
   // 게스트비를 포인트로 — 배치되는 순간 부른 회원 잔액에서 뺀다(모자라면 배치를 막는다, 2026-11-09 운영진)

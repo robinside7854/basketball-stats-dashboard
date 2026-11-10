@@ -101,6 +101,7 @@ export async function GET(req: Request, { params }: Ctx) {
     guest_pool: guestPool,
     guest_price: guestPrice,
     my_balance: myBalance,
+    ticket_price: walletCfg?.rules.non_regular_price ?? null,
   }, NO_STORE)
 }
 

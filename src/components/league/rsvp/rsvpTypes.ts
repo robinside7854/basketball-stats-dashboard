@@ -18,6 +18,7 @@ export interface RsvpEntryView {
   guest_fee_charged?: boolean
   answered_by?: string | null
   tickets_left: number
+  can_pay?: boolean
   suggested_team_id: string | null
   answered_at: string
 }
@@ -37,6 +38,8 @@ export interface RsvpRes {
   teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null; leader_id?: string | null; regulars?: Array<{ player_id: string; name: string; position: string | null }> }>
   guest_price?: number | null
   my_balance?: number | null
+  /** 비정규 티켓값 — 티켓이 없으면 배치 때 포인트에서 자동 발행 */
+  ticket_price?: number | null
   guest_pool?: Array<{ player_id: string; name: string; age: number | null; position: string | null; height_cm: number | null; inviter_label: string | null; last_date: string }>
   unanswered?: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id?: string | null }>
 }

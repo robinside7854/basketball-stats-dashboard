@@ -258,7 +258,10 @@ export default function RsvpTeamBoard({
         </button>
       )}
       {admin && m.kind === 'non_regular' && !m.placed_team_id && (
-        <span className="text-xs whitespace-nowrap" style={{ color: m.tickets_left > 0 ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>티켓 {m.tickets_left}장</span>
+        // 티켓이 없어도 포인트가 있으면 배치 때 자동 발행(2026-11-10) — 막히는 사람만 빨갛게
+        <span className="text-xs whitespace-nowrap" style={{ color: m.tickets_left > 0 || m.can_pay !== false ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>
+          {m.tickets_left > 0 ? `티켓 ${m.tickets_left}장` : m.can_pay !== false ? '포인트로 자동' : '포인트 부족'}
+        </span>
       )}
       {/* 부른 회원의 「취소」 — 어드민 화면에는 어드민 「✕ 취소」가 있으니 하나만(2026-11-09 운영진 — 두 개 보이던 오류) */}
       {!admin && canCancelGuests && m.kind === 'guest' && myGuestIds.includes(m.player_id) && (

@@ -36,6 +36,8 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
   const over = yes.length > data.capacity
   // 배치된 비정규·게스트는 「참」은 그대로(이미 참) · 「불」로 취소는 본인이 할 수 있다(티켓 자동 반환, 2026-11-09 운영진).
   const locked = !!me?.placed_team_id && me.kind !== 'regular'
+  // 티켓이 없어도 포인트가 티켓값 이상이면 배치 때 자동 발행(2026-11-10 운영진)
+  const canPayByPoints = data.ticket_price != null && (data.my_balance ?? 0) >= data.ticket_price
 
   async function answer(a: 'yes' | 'no') {
     if (a === 'no' && locked && !confirm(`이번 주 참가를 취소할까요?\n팀 배치가 풀리고${me?.kind === 'non_regular' ? ', 쓴 비정규 티켓 1장은 돌려받아요' : ''}.`)) return
@@ -94,7 +96,8 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
                 ? (me.kind === 'regular' ? '정규권이 있어요 — 팀 배치를 기다려 주세요.'
                   : me.kind === 'guest' ? '게스트 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 정해요. 게스트비는 같은 통장으로.'
                     : me.tickets_left > 0 ? `비정규 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 배치하고, 그때 티켓 1장을 써요 (남은 티켓 ${me.tickets_left}장).`
-                      : null)
+                      : canPayByPoints ? `비정규 참가 — 대기명단에 들어갔어요. 팀에 배치되면 포인트에서 ${(data.ticket_price ?? 0).toLocaleString()}P가 자동으로 빠져요(티켓을 따로 안 사도 돼요).`
+                        : null)
                 : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
                   : open ? '아직 답하지 않았어요.' : '이번 주는 답하지 않았어요.'}
           </p>
@@ -104,10 +107,10 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
               <Link href={`${base}/wallet`} className="underline underline-offset-2">정규권 사기</Link>
             </p>
           )}
-          {me.answer === 'yes' && me.kind === 'non_regular' && !me.month_team_id && me.tickets_left === 0 && !myTeam && (
+          {me.answer === 'yes' && me.kind === 'non_regular' && !me.month_team_id && me.tickets_left === 0 && !canPayByPoints && !myTeam && (
             <p className="text-sm font-bold mt-1 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
-              비정규 티켓이 없어요 — 팀에 배치되려면 1장이 필요해요.{' '}
-              <Link href={`${base}/wallet`} className="underline underline-offset-2">월렛에서 사기</Link>
+              포인트가 모자라요 — 팀에 배치되려면 {(data.ticket_price ?? 0).toLocaleString()}P가 필요해요.{' '}
+              <Link href={`${base}/wallet`} className="underline underline-offset-2">충전하기</Link>
             </p>
           )}
         </>
