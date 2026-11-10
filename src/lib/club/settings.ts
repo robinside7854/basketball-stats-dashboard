@@ -1,7 +1,7 @@
 // 동호회 운영 설정 · 기능 스위치 — 정본 (2026-11-10 온볼 플랫폼화 2단계, docs/onball-platform-design.md)
 //
 // 원칙: **기능은 하나, 동호회마다 다른 점은 설정으로.** 설정이 비어 있으면 지금 미라클 동작과 같아야 한다.
-//   · settings / features 는 teams 표의 jsonb 칸(마이그레이션 134). 칸이 아직 없어도 돈다 — select('*') 로 읽고 없으면 기본값.
+//   · settings / features 는 teams 표의 jsonb 칸(마이그레이션 135). 칸이 아직 없어도 돈다 — select('*') 로 읽고 없으면 기본값.
 //   · 기능 스위치를 따로 적지 않은 동호회는 **지금 판정**(월렛 이름이 있으면 월렛 켬 등)을 그대로 쓴다.
 //   · 화면·라우트에서 기본값을 다시 적지 말 것 — 이 파일의 loadClub() 하나로 읽는다.
 import { cache } from 'react'
@@ -60,7 +60,7 @@ export interface Club {
   system: 'league' | 'legacy'
   settings: ClubSettings
   features: ClubFeatures
-  /** settings·features 칸이 DB 에 있는가(마이그레이션 134) — 없으면 화면은 읽기 전용 */
+  /** settings·features 칸이 DB 에 있는가(마이그레이션 135) — 없으면 화면은 읽기 전용 */
   configurable: boolean
 }
 

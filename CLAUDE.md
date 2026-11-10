@@ -783,7 +783,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   대회 기록이 리그 순위·배지에 섞이지 않는다. 공유되는 건 이름·사진뿐이다.
 
 ### 온볼 플랫폼화 — 동호회 설정 (2026-11-10, 설계 `docs/onball-platform-design.md`)
-- 동호회 = `teams` 한 줄. 운영 설정·기능 스위치 정본은 `lib/club/settings.ts` 의 `loadClub(teamId)` 하나(`settings`·`features` jsonb, 마이그레이션 134). **비어 있으면 지금 미라클 동작이 기본값**이다 — 화면·라우트에서 기본값을 다시 적지 말 것.
+- 동호회 = `teams` 한 줄. 운영 설정·기능 스위치 정본은 `lib/club/settings.ts` 의 `loadClub(teamId)` 하나(`settings`·`features` jsonb, 마이그레이션 135). **비어 있으면 지금 미라클 동작이 기본값**이다 — 화면·라우트에서 기본값을 다시 적지 말 것.
 - 기능 스위치를 저장하지 않은 동호회는 종전 판정(월렛 이름 있으면 월렛 등)을 그대로 쓴다(`inferFeatures`). 목록은 `lib/club/features.ts`(클라이언트도 씀).
 - 이미 설정을 읽는 곳: 참가신청 요일·정원·켜기(`loadRsvpRules`) · 로고(`clubLogoOf` — `teams.logo_url` 먼저) · 입금자명 금지어(월렛 충전 요청).
 - CEO 콘솔 첫 화면 = **동호회 목록**(`components/admin/club/ClubList`), 상세 `/admin/clubs/[teamId]`(기본 정보 · 운영 설정 · 기능 · 시즌 · 사람). API `/api/admin/clubs`.

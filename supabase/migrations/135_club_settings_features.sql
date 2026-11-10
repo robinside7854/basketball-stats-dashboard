@@ -1,4 +1,4 @@
--- 134: 동호회 운영 설정 · 기능 스위치 (2026-11-10 온볼 플랫폼화 2단계 — docs/onball-platform-design.md)
+-- 135: 동호회 운영 설정 · 기능 스위치 (2026-11-10 온볼 플랫폼화 2단계 — docs/onball-platform-design.md)
 --   동호회(teams 한 줄)마다 다른 점을 한 칸에 모은다. 비어 있으면 코드 기본값(= 지금 미라클 동작)으로 돈다.
 --   읽는 곳은 lib/club/settings.ts 의 loadClub() 하나.
 ALTER TABLE teams

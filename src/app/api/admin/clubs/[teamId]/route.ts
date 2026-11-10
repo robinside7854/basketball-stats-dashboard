@@ -1,7 +1,7 @@
 // GET/PATCH /api/admin/clubs/[teamId] — CEO 콘솔 동호회 상세 (2026-11-10 온볼 플랫폼화 1·2단계)
 //   GET  = 기본 정보 · 운영 설정 · 기능 스위치 · 시즌 · 사람(어드민·가입 대기)
 //   PATCH { name?, is_public?, logo_url?, accent_color?, settings?, features? }
-//     settings·features 는 마이그레이션 134 칸이 있어야 저장된다(없으면 503 — 화면은 읽기 전용).
+//     settings·features 는 마이그레이션 135 칸이 있어야 저장된다(없으면 503 — 화면은 읽기 전용).
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/admin'
@@ -77,7 +77,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if ('logo_url' in body) update.logo_url = typeof body.logo_url === 'string' && body.logo_url.trim() ? body.logo_url.trim().slice(0, 500) : null
   if (typeof body.accent_color === 'string' && /^#[0-9a-fA-F]{6}$/.test(body.accent_color)) update.accent_color = body.accent_color
   if ('settings' in body || 'features' in body) {
-    if (!club.configurable) return NextResponse.json({ error: 'DB 준비가 필요해요(마이그레이션 134)' }, { status: 503 })
+    if (!club.configurable) return NextResponse.json({ error: 'DB 준비가 필요해요(마이그레이션 135)' }, { status: 503 })
     if ('settings' in body) {
       const s = cleanSettings(body.settings)
       if (typeof s === 'string') return NextResponse.json({ error: s }, { status: 400 })

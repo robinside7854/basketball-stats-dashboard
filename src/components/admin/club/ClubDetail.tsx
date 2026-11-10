@@ -1,6 +1,6 @@
 'use client'
 // CEO 콘솔 동호회 상세 (2026-11-10 온볼 플랫폼화 1·2단계, docs/onball-platform-design.md 4장)
-//   탭: 기본 정보 · 운영 설정 · 기능 · 시즌 · 사람. 운영 설정·기능은 DB 칸(134)이 있으면 저장, 없으면 지금 값만 보인다.
+//   탭: 기본 정보 · 운영 설정 · 기능 · 시즌 · 사람. 운영 설정·기능은 DB 칸(135)이 있으면 저장, 없으면 지금 값만 보인다.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
