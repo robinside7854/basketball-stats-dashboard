@@ -43,7 +43,7 @@ export interface RsvpRes {
   /** 입금 안내(계좌) · 입금만 하면 자동 충전되는지(129) */
   wallet_bank?: string | null
   auto_charge?: boolean
-  /** 경기 달 정규권 판매(130) */
+  /** 경기 달 정규권 판매(134) */
   pass_sale?: { month: string; state: 'upcoming' | 'open' | 'closed'; sold: number; capacity: number; opens_at: string; closes_at: string } | null
   guest_pool?: Array<{ player_id: string; name: string; age: number | null; position: string | null; height_cm: number | null; inviter_label: string | null; last_date: string }>
   unanswered?: Array<{ player_id: string; name: string; kind: RsvpKind; suggested_team_id?: string | null }>

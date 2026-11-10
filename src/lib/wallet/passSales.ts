@@ -1,4 +1,4 @@
-// 정규권 판매 기간 · 정원 (2026-11-10 운영진, 마이그레이션 130)
+// 정규권 판매 기간 · 정원 (2026-11-10 운영진, 마이그레이션 134)
 //   정규권은 인기가 많아 운영진이 달마다 「오픈」을 알리고, 정해진 기간에 정원(18명)까지만 판다.
 //   · 판매가 열려 있을 때만 회원이 정규권을 산다(정원 검사는 DB 함수 wallet_buy_regular_pass 가 판매 행을 잠그고 한다).
 //   · 산 사람이 **전 달 정규로 팀에 배정돼 있었으면 같은 팀으로 그 달 정규 자동 배정**(league_player_months).
@@ -36,7 +36,7 @@ export async function loadPassSales(sb: SupabaseClient, teamId: string): Promise
   const thisMonth = `${todayKst().slice(0, 7)}-01`
   const { data, error } = await sb.from('wallet_pass_sales').select(SALE_COLS)
     .eq('team_id', teamId).gte('month', thisMonth).order('month')
-  if (error) return []   // 130 실행 전이면 판매 없음
+  if (error) return []   // 134 실행 전이면 판매 없음
   const rows = (data ?? []) as Omit<PassSale, 'sold' | 'state'>[]
   if (rows.length === 0) return []
   const { data: t } = await sb.from('wallet_tickets').select('month').eq('team_id', teamId)

@@ -7,7 +7,7 @@
 //   POST { action:'bank_token' | 'bank_disconnect' }       — 연결 비밀번호 새로 만들기(원문은 이때 한 번만) · 끊기
 //   GET ?passes=1           → { months: PassMonth[] } — 어드민 홈 「정규권 안 산 사람」 알림(이번 달 · 20일부터 다음 달)
 //   GET ?home=1             → { months, sales, unmatched, stale } — 어드민 홈 알림 한 번에(정규권 · 판매 · 입금 매칭 불가 · 입금 알림 끊김)
-//   GET ?sales=1            → { sales: [...판매, buyers] } — 정규권 판매(130) 칸
+//   GET ?sales=1            → { sales: [...판매, buyers] } — 정규권 판매(134) 칸
 //   POST { action:'pass_sale', month, opens_at, closes_at, capacity }  — 정규권 판매 열기·고치기
 //   POST { action:'pass_sale_close', month }                         — 지금 마감
 //   POST { action:'bank_resolve', eventId, playerId? }  — 「짝 없음」 입금: playerId 면 그 사람에게 충전 · 없으면 「확인했어요」(알림에서 뺌)

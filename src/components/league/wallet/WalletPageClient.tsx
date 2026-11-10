@@ -30,7 +30,7 @@ interface WalletRes {
   bank?: string | null
   rules?: Rules
   months?: [string, string]
-  /** 정규권 판매(130) — 운영진이 연 기간 · 정원 안에서만 산다 */
+  /** 정규권 판매(134) — 운영진이 연 기간 · 정원 안에서만 산다 */
   pass_sales?: PassSaleLite[]
   /** 카카오뱅크 입금 알림 연결 — 입금만 하면 자동 충전(129) */
   auto_charge?: boolean

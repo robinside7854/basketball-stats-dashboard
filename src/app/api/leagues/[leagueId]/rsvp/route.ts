@@ -70,7 +70,7 @@ export async function GET(req: Request, { params }: Ctx) {
   const walletCfg = await loadWalletConfig(walletTeam)
   const guestPrice = walletCfg?.rules.guest_price ?? null
   const myBalance = session && walletCfg ? await loadBalance(walletTeam, session.pid) : null
-  // 포인트 부족 미리 안내(「입금만 하면 자동 충전」 + 계좌) · 경기 달 정규권 판매 상태(130) — 2026-11-10 운영진
+  // 포인트 부족 미리 안내(「입금만 하면 자동 충전」 + 계좌) · 경기 달 정규권 판매 상태(134) — 2026-11-10 운영진
   const [hookRes, passSales] = session && walletCfg
     ? await Promise.all([sb.from('wallet_bank_hooks').select('team_id').eq('team_id', walletTeam).maybeSingle(), loadPassSales(sb, walletTeam)])
     : [null, []]

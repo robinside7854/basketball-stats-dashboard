@@ -53,7 +53,7 @@ export default function AdminPassAlert({ leagueId, base }: { leagueId: string; b
   }, [isEditMode, leagueId])
 
   if (!isEditMode || !home) return null
-  // 다음 달은 판매(130)가 맡는다 — 「안 산 사람」 목록은 이번 달만
+  // 다음 달은 판매(134)가 맡는다 — 「안 산 사람」 목록은 이번 달만
   const show = home.months.slice(0, 1).filter(m => m.regulars > 0 && m.missing.length > 0)
   const next = home.months[1]   // 20일부터만 온다
   const nextSale = next ? home.sales.find(x => x.month === next.month) : undefined

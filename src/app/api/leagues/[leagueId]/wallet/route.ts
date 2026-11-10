@@ -3,7 +3,7 @@
 //   POST { action:'charge', amount, depositor_name }          → 충전 요청(5만원↑ 보너스는 승인 때 DB 가 붙인다)
 //   POST { action:'refund', holder, account }                  → 환불 요청(금액은 서버가 계산 — 입금액 − 사용액)
 //   POST { action:'buy', kind:'regular_pass'|'non_regular', month?, qty?, useTickets? } → 티켓 사기(가격은 DB 가 팀 규칙에서 읽는다)
-//     정규권은 운영진이 연 판매 기간 · 정원 안에서만(130) · 남은 비정규 티켓으로 할인(useTickets) ·
+//     정규권은 운영진이 연 판매 기간 · 정원 안에서만(134) · 남은 비정규 티켓으로 할인(useTickets) ·
 //     전 달 정규였으면 같은 팀으로 그 달 정규 자동 배정(passSales.ts)
 //   DELETE ?requestId=  → 내 대기 중 요청 취소
 //   본인 것만 본다. 캐시 없음(돈이라 늘 최신 · ISR Reads 0).
