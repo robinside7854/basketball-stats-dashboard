@@ -35,7 +35,7 @@ export const ATTEMPT_MAX = 10
 export const ATTEMPT_WINDOW_MS = 15 * 60_000 // 15분
 
 /** 인증 표면. 표면마다 카운터가 따로 돈다 — 한쪽이 잠겨도 다른 쪽은 자기 예산을 쓴다. */
-export type AttemptScope = 'league_pin' | 'team_pin' | 'admin_login'
+export type AttemptScope = 'league_pin' | 'team_pin' | 'admin_login' | 'draft_code'
 
 export type ThrottleState = {
   locked: boolean

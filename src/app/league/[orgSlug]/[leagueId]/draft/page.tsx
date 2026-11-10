@@ -887,7 +887,7 @@ export default function LeagueDraftPage() {
               <div className="bg-[color:var(--mm-yellow)] rounded-sm p-5 text-center">
                 <p className="text-[color:var(--mm-black)] font-bold text-lg sm:text-xl">드래프트 완료</p>
                 <p className="text-sm text-[color:var(--mm-black)]/75 mt-1.5 leading-relaxed">
-                  {draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다' : '분기 멤버십이 자동 반영되었습니다'}
+                  {draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다' : (draft as { applied_at?: string | null }).applied_at ? '리그에 반영됐어요' : '운영진이 확인하고 리그에 반영하면 소속이 정해져요'}
                 </p>
                 <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="inline-flex items-center gap-1 mt-3 text-base text-[color:var(--mm-black)] hover:underline underline-offset-4 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] rounded-sm">
                   팀 구성 페이지로 <ChevronRight size={16} />

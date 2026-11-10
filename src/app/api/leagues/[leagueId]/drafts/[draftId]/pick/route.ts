@@ -5,8 +5,7 @@
 //   2. draft.status='in_progress' 확인
 //   3. 현재 차례의 team_id 가 본인 팀과 같은지 확인 (snake/linear 둘 다 처리)
 //   4. 선수가 이 드래프트에서 이미 픽되지 않았는지 확인 (UNIQUE 제약도 보장)
-//   5. league_draft_picks INSERT + league_player_quarters UPSERT
-//      (is_test 세션이면 league_player_quarters UPSERT 는 건너뛴다 — 리허설은 리그에 반영하지 않는다)
+//   5. league_draft_picks INSERT (분기 소속은 끝난 뒤 운영진이 「리그에 반영」할 때 쓴다 — 2026-11-10)
 //   6. draft.current_pick_index/current_round/total_picks 갱신
 //   7. 모든 선수 픽 완료 시 status='completed'
 //
@@ -142,28 +141,8 @@ export async function POST(
     return NextResponse.json({ error: pickErr.message }, { status: 500 })
   }
 
-  // 2) league_player_quarters UPSERT (정규 멤버십 자동 반영)
-  //    테스트 세션은 건너뛴다 — 픽 자체는 세션 안(league_draft_picks)에만 남고,
-  //    세션을 지우면 흔적 없이 사라진다.
-  if (!d.is_test) {
-    const { error: lpqErr } = await supabase
-      .from('league_player_quarters')
-      .upsert(
-        {
-          league_id: leagueId,
-          quarter_id: d.quarter_id,
-          league_player_id: body.league_player_id,
-          team_id: body.team_id,
-          is_regular: true,
-        },
-        { onConflict: 'quarter_id,league_player_id' },
-      )
-    if (lpqErr) {
-      // 멤버십 실패 — 픽 롤백
-      await supabase.from('league_draft_picks').delete().eq('draft_id', draftId).eq('pick_number', pickNumber)
-      return NextResponse.json({ error: `멤버십 반영 실패: ${lpqErr.message}` }, { status: 500 })
-    }
-  }
+  // 2) 분기 소속(league_player_quarters)은 여기서 쓰지 않는다(2026-11-10 운영진) —
+  //    드래프트가 끝나면 운영진이 「리그에 반영」(admin …/drafts/[draftId]/apply)을 눌러 한 번에 쓴다.
 
   // 3) 드래프트 진행 상태 갱신
   //    다음 인덱스 = current_pick_index + 1
@@ -200,9 +179,15 @@ export async function POST(
         : { pick_deadline: null }),
     })
     .eq('id', draftId)
+    // 진행 칸이 그사이 바뀌지 않았을 때만(2026-11-10 리뷰) — 실패하면 방금 넣은 픽을 지워 픽 기록과 진행 칸을 맞춘다.
+    //   종전엔 갱신이 실패하면 픽만 남아 다음 픽이 같은 번호로 계속 충돌(409)해 드래프트가 멈췄다.
+    .eq('total_picks', d.total_picks)
     .select()
-    .single()
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+    .maybeSingle()
+  if (updErr || !updated) {
+    await supabase.from('league_draft_picks').delete().eq('draft_id', draftId).eq('pick_number', pickNumber)
+    return NextResponse.json({ error: updErr ? updErr.message : '동시 픽 충돌 — 다시 시도하세요' }, { status: updErr ? 500 : 409 })
+  }
 
   return NextResponse.json({
     ok: true,

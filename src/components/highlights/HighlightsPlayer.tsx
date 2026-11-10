@@ -217,10 +217,12 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   }
 
   const clip = clips[currentIdx] ?? null
+  // 클립이 0개가 되면 재생 칸이 화면에서 빠졌다가, 다시 생길 때 새 칸에 재생기를 새로 만들어야 한다(2026-11-10 리뷰)
+  const hasClip = !!clip
 
   // 플레이어 인스턴스 생성 (1회 — 포스터면 ▶ 를 누른 뒤)
   useEffect(() => {
-    if (!activated) return
+    if (!activated || !hasClip) return
     if (!containerRef.current) return
     // 다시 만들 때는 지금 보고 있는 클립으로 (처음엔 같은 값)
     const startClip = clipsRef.current[currentIdxRef.current] ?? clip
@@ -331,7 +333,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       if (containerRef.current) containerRef.current.innerHTML = ''
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activated, rebuildKey])
+  }, [activated, rebuildKey, hasClip])
 
   // 클립 변경 → loadVideoById 또는 seekTo
   // ⚠ 플레이어 미준비 상태면 아무 것도 안 함 (검은 화면 원인)

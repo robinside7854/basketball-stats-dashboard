@@ -60,8 +60,9 @@ export async function POST(
   }
   const plainCode = body.plain_code.trim()
   const label = rawLabel
-  if (plainCode.length < 3 || plainCode.length > 32) {
-    return NextResponse.json({ error: '코드는 3~32자 사이여야 합니다' }, { status: 400 })
+  // 6자 이상(2026-11-10 리뷰 — 3자리는 몇 번 만에 맞힐 수 있었다)
+  if (plainCode.length < 6 || plainCode.length > 32) {
+    return NextResponse.json({ error: '코드는 6~32자 사이여야 합니다' }, { status: 400 })
   }
   if (label.length < 1 || label.length > 60) {
     return NextResponse.json({ error: '레이블은 1~60자 사이여야 합니다' }, { status: 400 })

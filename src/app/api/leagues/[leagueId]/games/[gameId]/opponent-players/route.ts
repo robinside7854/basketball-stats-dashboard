@@ -41,6 +41,14 @@ export async function POST(
     return NextResponse.json({ error: '상대(외부) 팀에만 등록할 수 있습니다' }, { status: 400 })
   }
 
+  // 경기도 이 리그 것이고, 그 팀이 이 경기에 나와야 한다(2026-11-10 리뷰 — 아무 경기에나 상대 선수가 붙을 수 있었다)
+  const { data: game } = await supabase.from('league_games').select('home_team_id, away_team_id')
+    .eq('id', gameId).eq('league_id', leagueId).maybeSingle()
+  if (!game) return NextResponse.json({ error: '이 리그의 경기가 아니에요' }, { status: 404 })
+  if (teamId !== game.home_team_id && teamId !== game.away_team_id) {
+    return NextResponse.json({ error: '이 경기에 나오는 팀이 아니에요' }, { status: 400 })
+  }
+
   // 같은 경기·같은 팀에 같은 등번호가 이미 있으면 그 선수를 재사용한다.
   // 기록 중 같은 번호를 여러 번 누르는 건 정상이므로(더블탭, 통신 재시도) 중복 생성이 나면 안 된다.
   const { data: existing, error: exErr } = await supabase

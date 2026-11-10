@@ -5,9 +5,23 @@
 // 인증 성공 시 league_draft_codes.last_used_at 이 갱신된다.
 
 import bcrypt from 'bcryptjs'
+import { timingSafeEqual } from 'node:crypto'
 import { createClient } from '@/lib/supabase/admin'
 
 const BCRYPT_ROUNDS = 12
+
+/**
+ * 코드 맞춰보기 — 평문(plain_code)이 저장돼 있으면 그걸로 바로 비교하고(상수시간), 없을 때만 bcrypt.
+ * (2026-11-10 리뷰) 채팅이 2.5초마다 코드를 확인하는데, 요청마다 활성 코드 전부를 bcrypt(1개 약 0.2초)로
+ * 비교해 서버 시간을 크게 썼다. plain_code 는 어드민 화면이 코드를 다시 보여 주려고 이미 저장하고 있다.
+ */
+async function codeMatches(plain: string, row: { code_hash: string; plain_code?: string | null }): Promise<boolean> {
+  if (row.plain_code) {
+    const a = Buffer.from(plain), b = Buffer.from(row.plain_code)
+    return a.length === b.length && timingSafeEqual(a, b)
+  }
+  return bcrypt.compare(plain, row.code_hash)
+}
 
 export interface DraftCodeVerifyResult {
   valid: boolean
@@ -36,7 +50,7 @@ export async function verifyDraftCode(
   const supabase = createClient()
   const { data: rows } = await supabase
     .from('league_draft_codes')
-    .select('id, code_hash, label, team_id, role')
+    .select('id, code_hash, plain_code, label, team_id, role')
     .eq('league_id', leagueId)
     .eq('quarter_id', quarterId)
     .eq('team_id', teamId)
@@ -44,10 +58,10 @@ export async function verifyDraftCode(
     .eq('is_active', true)
     .limit(1)
 
-  const row = (rows ?? [])[0] as { id: string; code_hash: string; label: string; team_id: string; role: 'manager' | 'supervisor' } | undefined
+  const row = (rows ?? [])[0] as { id: string; code_hash: string; plain_code?: string | null; label: string; team_id: string; role: 'manager' | 'supervisor' } | undefined
   if (!row) return { valid: false }
 
-  const ok = await bcrypt.compare(plain, row.code_hash)
+  const ok = await codeMatches(plain, row)
   if (!ok) return { valid: false }
 
   // 마지막 사용 시각 갱신 (비차단 — await 으로 처리하지만 빠름)
@@ -75,14 +89,14 @@ export async function verifySupervisorCode(
   const supabase = createClient()
   const { data: rows } = await supabase
     .from('league_draft_codes')
-    .select('id, code_hash, label')
+    .select('id, code_hash, plain_code, label')
     .eq('league_id', leagueId)
     .eq('quarter_id', quarterId)
     .eq('role', 'supervisor')
     .eq('is_active', true)
 
-  for (const row of (rows ?? []) as { id: string; code_hash: string; label: string }[]) {
-    if (await bcrypt.compare(plain, row.code_hash)) {
+  for (const row of (rows ?? []) as { id: string; code_hash: string; plain_code?: string | null; label: string }[]) {
+    if (await codeMatches(plain, row)) {
       await supabase
         .from('league_draft_codes')
         .update({ last_used_at: new Date().toISOString() })
@@ -116,13 +130,13 @@ export async function lookupDraftCode(
   const supabase = createClient()
   const { data: rows } = await supabase
     .from('league_draft_codes')
-    .select('id, code_hash, label, team_id, role')
+    .select('id, code_hash, plain_code, label, team_id, role')
     .eq('league_id', leagueId)
     .eq('quarter_id', quarterId)
     .eq('is_active', true)
 
-  for (const row of (rows ?? []) as { id: string; code_hash: string; label: string; team_id: string | null; role: 'manager' | 'supervisor' }[]) {
-    if (await bcrypt.compare(plain, row.code_hash)) {
+  for (const row of (rows ?? []) as { id: string; code_hash: string; plain_code?: string | null; label: string; team_id: string | null; role: 'manager' | 'supervisor' }[]) {
+    if (await codeMatches(plain, row)) {
       return { codeId: row.id, teamId: row.team_id, label: row.label, role: row.role ?? 'manager' }
     }
   }

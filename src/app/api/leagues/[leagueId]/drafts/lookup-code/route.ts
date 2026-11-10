@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import { lookupDraftCode } from '@/lib/leagueDraftAuth'
+import { checkAttemptLock, recordFailedAttempt, clearFailedAttempts, clientIp, lockMessage } from '@/lib/auth/attemptThrottle'
 
 export async function POST(
   req: Request,
@@ -22,10 +23,17 @@ export async function POST(
     return NextResponse.json({ error: 'quarter_id, plain_code 필요' }, { status: 400 })
   }
 
+  // 틀린 시도 횟수 제한(2026-11-10 리뷰) — 분기·IP 단위. 막히면 몇 분 뒤 다시.
+  const ip = clientIp(req.headers)
+  const subject = `${leagueId}:${body.quarter_id}`
+  const lock = await checkAttemptLock('draft_code', subject, ip)
+  if (lock.locked) return NextResponse.json({ error: lockMessage(lock.retryAfterSec) }, { status: 429 })
   const result = await lookupDraftCode(leagueId, body.quarter_id, body.plain_code.trim())
   if (!result) {
+    await recordFailedAttempt('draft_code', subject, ip)
     return NextResponse.json({ matched: null })
   }
+  await clearFailedAttempts('draft_code', subject, ip)
   return NextResponse.json({
     matched: {
       team_id: result.teamId,

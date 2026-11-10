@@ -139,13 +139,7 @@ export async function POST(
     if (pickErr.code === '23505') return NextResponse.json({ error: '이미 처리됨' }, { status: 409 })
     return NextResponse.json({ error: pickErr.message }, { status: 500 })
   }
-  // 테스트 세션은 분기 멤버십을 쓰지 않는다 (pick/route.ts 와 같은 규칙)
-  if (!d.is_test) {
-    await supabase.from('league_player_quarters').upsert(
-      { league_id: leagueId, quarter_id: d.quarter_id, league_player_id: chosen, team_id: teamId, is_regular: true },
-      { onConflict: 'quarter_id,league_player_id' },
-    )
-  }
+  // 분기 소속은 여기서 쓰지 않는다 — 끝난 뒤 운영진이 「리그에 반영」(2026-11-10, pick/route.ts 와 같은 규칙)
 
   let nextIndex = d.current_pick_index + 1
   let nextRound = d.current_round
@@ -167,9 +161,15 @@ export async function POST(
         : { pick_deadline: null }),
     })
     .eq('id', draftId)
+    // 진행 칸이 그사이 바뀌지 않았을 때만(2026-11-10 리뷰) — 실패하면 방금 넣은 픽을 지워 픽 기록과 진행 칸을 맞춘다.
+    //   종전엔 갱신이 실패하면 픽만 남아 다음 픽이 같은 번호로 계속 충돌(409)해 드래프트가 멈췄다.
+    .eq('total_picks', d.total_picks)
     .select()
-    .single()
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+    .maybeSingle()
+  if (updErr || !updated) {
+    await supabase.from('league_draft_picks').delete().eq('draft_id', draftId).eq('pick_number', pickNumber)
+    return NextResponse.json({ error: updErr ? updErr.message : '동시 픽 충돌 — 다시 시도하세요' }, { status: updErr ? 500 : 409 })
+  }
 
   return NextResponse.json({ ok: true, auto: true, mode, picked_player_id: chosen, team_id: teamId, draft: updated })
 }

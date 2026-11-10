@@ -1262,7 +1262,7 @@ export default function DraftPortalClient({
               }
             } else if (status === 'completed') {
               title = '드래프트 완료'
-              helper = draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다.' : '멤버십이 자동 반영되었습니다.'
+              helper = draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다.' : (draft as { applied_at?: string | null }).applied_at ? '리그에 반영됐어요.' : '운영진이 확인하고 리그에 반영하면 소속이 정해져요.'
               tint = 'border-[var(--mm-positive)] bg-[var(--mm-positive-bg)]'
               action = 'final'
             }

@@ -137,6 +137,10 @@ export async function DELETE(
   const date = searchParams.get('date')
   if (!date) return NextResponse.json({ error: 'date is required' }, { status: 400 })
   const supabase = createClient()
+  // 그날 기록이 시작된 경기가 있으면 지우지 않는다(2026-11-10 리뷰 — 날짜가 일정에서 빠지면 그날 기록으로 가는 길이 사라진다)
+  const { count: startedCount } = await supabase.from('league_games').select('id', { count: 'exact', head: true })
+    .eq('league_id', leagueId).eq('date', date).eq('is_started', true)
+  if ((startedCount ?? 0) > 0) return NextResponse.json({ error: '이 날짜에 기록이 있는 경기가 있어 지울 수 없어요' }, { status: 409 })
   // 이 삭제는 참여신청(RSVP)까지 캐스케이드로 함께 지운다 — 날짜 한 줄이 아니라
   // 그날 신청 기록이 통째로 사라지는 행위라 반드시 흔적을 남긴다.
   const { data: removed } = await supabase

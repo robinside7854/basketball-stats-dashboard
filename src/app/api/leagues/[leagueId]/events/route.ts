@@ -48,7 +48,7 @@ export async function POST(
   // 소속인지는 여기서 확인해야 한다).
   const { data: g, error: gErr } = await supabase
     .from('league_games')
-    .select('plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
+    .select('plus_one_player_id, plus_one_extra_ids, plus_one_quarters, home_team_id, away_team_id')
     .eq('id', body.league_game_id)
     .eq('league_id', leagueId)
     .maybeSingle()
@@ -62,6 +62,12 @@ export async function POST(
       { error: `league_game_id=${body.league_game_id} 를 이 리그(${leagueId})에서 찾을 수 없습니다` },
       { status: 400 },
     )
+  }
+  // 팀은 이 경기의 두 팀 중 하나여야 한다(2026-11-10 리뷰) — 엉뚱한 팀이 박히면 그 선수가 박스스코어에서 사라진다.
+  //   팀이 비어 있는 것(옛 화면·상대 득점 경로)은 막지 않는다 — 기록 도중 저장이 막히면 더 큰 사고다.
+  const gt = g as { home_team_id: string | null; away_team_id: string | null }
+  if (body.team_id && body.team_id !== gt.home_team_id && body.team_id !== gt.away_team_id) {
+    return NextResponse.json({ error: '이 경기에 나오는 팀이 아니에요' }, { status: 400 })
   }
   // ⚠ 선수 없는 이벤트가 있다 — 대회의 **상대 득점**은 선수 없이 팀에만 붙는다
   //   (우리는 상대 선수를 기록하지 않는다). 예전에는 그대로 `.eq('id', null)` 을 태워

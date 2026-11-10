@@ -777,6 +777,12 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   ⚠ **기록·스탯은 `league_id` 로 완전히 갈린다** — 집계가 전부 경기를 league_id 로 먼저 거르므로
   대회 기록이 리그 순위·배지에 섞이지 않는다. 공유되는 건 이름·사진뿐이다.
 
+### 드래프트 결과는 운영진 확인 뒤 반영 (2026-11-10 운영진, 마이그레이션 131)
+- 픽(`pick`·`auto-pick`)은 `league_draft_picks` 에만 쓴다 — **분기 소속(`league_player_quarters`)은 쓰지 않는다.**
+- 끝난 실전 세션에서 운영진(어드민 ∥ CEO, 감독관 코드 불가)이 「리그에 반영하기」 → `POST /api/admin/leagues/[id]/drafts/[draftId]/apply` 가 픽을 한 번에 정규 소속으로 쓰고 `league_drafts.applied_at·applied_by_label` 을 남긴다(한 번만 · 리허설 불가 · 감사 로그 `draft.apply`).
+- 반영한 세션은 리셋 409. 세션 리셋·삭제는 분기 소속을 건드리지 않는다(종전엔 픽과 같은 소속을 지워 원래 소속까지 날렸다).
+- 드래프트 코드는 6자 이상 · 맞춰보기(`lookup-code`)는 틀린 횟수 제한(`attemptThrottle` scope `draft_code`) · 코드 비교는 `plain_code` 상수시간 비교 먼저(bcrypt 는 평문이 없을 때만).
+
 ### 폐지된 기능 (2026-10-11 운영진 결정) — 되살리지 말 것
 - **배지 제도** — 자동 배지(퍼펙트·DD/TD·위닝샷)·리더 배지·특성 배지·배지 도감·배지 cron 전부. DB 표(`player_badges` 등)는 보존.
   박스스코어의 DD/TD 칩은 배지가 아니라 표시라 남았다(`lib/stats/doubleDouble.ts`). 명경기 위닝샷 문구는 `classicGames.ts` 가 직접 판정.

@@ -104,6 +104,7 @@ export type AuditAction =
   | 'draft.create'
   | 'draft.delete'
   | 'draft.reset'
+  | 'draft.apply'
   | 'draft.share_token.rotate'
   | 'draft.share_token.revoke'
   | 'draft_code.create'

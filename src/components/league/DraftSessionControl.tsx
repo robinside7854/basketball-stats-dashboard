@@ -28,6 +28,9 @@ interface Draft {
   share_token: string | null
   /** 리허설 세션 — 픽·팀장이 분기 소속에 반영되지 않는다 (migration 115) */
   is_test?: boolean
+  /** 운영진이 「리그에 반영」한 때(131) — 없으면 아직 분기 소속이 아니다 */
+  applied_at?: string | null
+  applied_by_label?: string | null
 }
 
 interface Pick {
@@ -292,6 +295,31 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       confirmLabel: '강제 종료',
       run: completeSession,
     })
+  }
+
+  // 드래프트 결과를 리그(그 분기 정규 소속)에 반영 — 운영진 최종 확인(2026-11-10)
+  function requestApply() {
+    if (!draft) return
+    setPendingConfirm({
+      title: '드래프트 결과를 리그에 반영할까요?',
+      lines: [
+        `뽑힌 ${draft.total_picks}명이 이 분기 정규 소속이 돼요.`,
+        '반영한 뒤에는 드래프트를 리셋할 수 없어요.',
+        '소속을 고칠 때는 팀 탭 「명단 편집」에서 해요.',
+      ],
+      confirmLabel: '리그에 반영',
+      run: applyToLeague,
+    })
+  }
+
+  async function applyToLeague() {
+    if (!draft) return
+    setActing(true)
+    const res = await fetch(`/api/admin/leagues/${leagueId}/drafts/${draft.id}/apply`, { method: 'POST', headers: authHeaders })
+    setActing(false)
+    const d = await res.json().catch(() => ({}))
+    if (res.ok) { toast.success(`리그에 반영했어요 · ${d.applied ?? 0}명`); fetchData(true); onChanged?.() }
+    else toast.error(d.error ?? '반영하지 못했어요')
   }
 
   async function completeSession() {
@@ -742,6 +770,25 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             </span>
           )}
         </div>
+
+        {/* 끝난 실전 드래프트 — 운영진이 확인하고 리그에 반영한다(2026-11-10). 감독관 화면(canDelete=false)은 안내만. */}
+        {draft.status === 'completed' && !draft.is_test && (
+          draft.applied_at ? (
+            <p className="text-base text-[var(--mm-ink-soft)] break-keep">
+              리그에 반영했어요 · {new Date(draft.applied_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}{draft.applied_by_label ? ` · ${draft.applied_by_label}` : ''}
+            </p>
+          ) : canDelete ? (
+            <div className="space-y-2">
+              <Button onClick={requestApply} disabled={acting}
+                className="w-full bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 font-black text-lg py-3 min-h-[56px] cursor-pointer disabled:opacity-50">
+                리그에 반영하기
+              </Button>
+              <p className="text-base text-[var(--mm-ink-soft)] text-center break-keep">결과를 확인한 뒤 눌러 주세요. 누르기 전에는 소속이 바뀌지 않아요.</p>
+            </div>
+          ) : (
+            <p className="text-base text-[var(--mm-ink-soft)] break-keep">운영진이 결과를 확인하고 리그에 반영하면 소속이 정해져요.</p>
+          )
+        )}
 
         {/* Primary CTA — phase 에서 가장 자연스러운 다음 단계, full-width 모바일 친화.
             포털은 페이즈 카드가 같은 버튼을 이미 크게 내므로 showPrimary=false 로 끈다. */}

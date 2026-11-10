@@ -129,7 +129,13 @@ export async function POST(
     status: autoApprove ? 'approved' : 'pending',
     ...(autoApprove ? { approved_at: now, approved_by: '자동(명단 이름 일치)', last_login_at: now } : {}),
   }).select('id').single()
-  if (error || !acc) return NextResponse.json({ error: error?.message ?? '가입 요청을 만들지 못했어요' }, { status: 500 })
+  if (error || !acc) {
+    // 23505 = 거의 동시에 같은 사람이 두 번 가입했거나 아이디가 겹침(2026-11-10 — 계정이 둘 생기지 않게 DB 가 막는다)
+    if ((error as { code?: string } | null)?.code === '23505') {
+      return NextResponse.json({ status: 'pending', message: '이미 가입 요청이 있어요. 운영진 승인을 기다리거나 로그인해 주세요.' }, { status: 409 })
+    }
+    return NextResponse.json({ error: error?.message ?? '가입 요청을 만들지 못했어요' }, { status: 500 })
+  }
 
   // 선수 생년월일이 비어 있으면 채운다(나이 표시 · 2026-11-10 — 종전엔 비밀번호로만 쓰고 저장하지 않았다)
   await sb.from('league_players').update({ birth_date: birthDate }).eq('id', matched.id).is('birth_date', null)

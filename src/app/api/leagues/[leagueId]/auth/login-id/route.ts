@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
-import { AUTH_COOKIE, verifySession } from '@/lib/auth/session'
+import { AUTH_COOKIE, verifySession, signSession, buildAuthCookieHeader } from '@/lib/auth/session'
 import { verifyPassword } from '@/lib/auth/password'
 import { sessionMatchesLeague } from '@/lib/auth/teamMatch'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -36,6 +36,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ league
     return NextResponse.json({ error: '이미 쓰고 있는 아이디예요' }, { status: 409 })
   }
   const { error } = await sb.from('league_user_accounts').update({ login_id: next }).eq('id', acc.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, loginId: next })
+  if (error) {
+    if ((error as { code?: string }).code === '23505') return NextResponse.json({ error: '이미 쓰고 있는 아이디예요' }, { status: 409 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  // 로그인 쿠키에도 새 아이디를 넣어 다시 발급한다(2026-11-10 리뷰 — 종전엔 다시 로그인할 때까지 옛 아이디가
+  //   쿠키에 남아 화면·월렛 장부 기록에 옛 이름이 찍혔다)
+  const res = NextResponse.json({ ok: true, loginId: next })
+  const { token, maxAge } = signSession({ ...session, loginId: next })
+  res.headers.append('Set-Cookie', buildAuthCookieHeader(token, maxAge))
+  return res
 }

@@ -116,23 +116,11 @@ export async function DELETE(
   }
   if (!d) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
 
-  // 픽으로 만든 멤버십 되돌림 (정확 매칭)
-  // ⚠ 테스트 세션은 멤버십을 쓴 적이 없다 — 여기서 지우면 같은 분기에 다른 경로로 들어온
-  //    진짜 소속을 대신 지운다. 픽 목록은 감사 로그 숫자를 위해 그대로 읽는다.
+  // 세션을 지워도 분기 소속은 건드리지 않는다(2026-11-10) — 반영 전이면 쓴 적이 없고, 반영 뒤면 이미 리그 데이터다.
   const { data: picks } = await supabase
     .from('league_draft_picks')
     .select('team_id, league_player_id')
     .eq('draft_id', draftId)
-  if (!d.is_test) {
-    for (const p of (picks ?? []) as { team_id: string; league_player_id: string }[]) {
-      await supabase
-        .from('league_player_quarters')
-        .delete()
-        .eq('quarter_id', d.quarter_id)
-        .eq('league_player_id', p.league_player_id)
-        .eq('team_id', p.team_id)
-    }
-  }
 
   // 세션 삭제 (picks/pool/chat cascade)
   const { error } = await supabase.from('league_drafts').delete().eq('id', draftId).eq('league_id', leagueId)

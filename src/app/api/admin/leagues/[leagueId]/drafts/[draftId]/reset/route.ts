@@ -38,12 +38,14 @@ export async function POST(
   // 드래프트 + 분기 조회
   const { data: draft } = await supabase
     .from('league_drafts')
-    .select('id, quarter_id, is_test')
+    .select('id, quarter_id, is_test, applied_at')
     .eq('id', draftId)
     .eq('league_id', leagueId)
     .maybeSingle()
   if (!draft) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
-  const d = draft as { id: string; quarter_id: string; is_test: boolean }
+  const d = draft as { id: string; quarter_id: string; is_test: boolean; applied_at: string | null }
+  // 리그에 반영한 드래프트는 되돌리지 않는다 — 이미 분기 소속이 됐다(고치려면 팀 탭 명단 편집으로)
+  if (d.applied_at) return NextResponse.json({ error: '이미 리그에 반영한 드래프트예요 — 소속은 팀 탭 「명단 편집」에서 고쳐 주세요' }, { status: 409 })
 
   // 감사 로그에 "몇 명의 분기 멤버십이 되돌아갔는지" 를 남기기 위해 블록 밖에서 센다.
   let revertedMemberships = 0
@@ -54,20 +56,9 @@ export async function POST(
       .from('league_draft_picks')
       .select('team_id, league_player_id')
       .eq('draft_id', draftId)
-    // 멤버십 되돌림 — 같은 (quarter_id, league_player_id) AND team_id 정확히 일치
-    // ⚠ 테스트 세션은 멤버십을 쓴 적이 없다. 되돌릴 것이 없는데 지우면, 같은 분기에
-    //    다른 경로로 들어온 진짜 소속을 대신 지우게 된다(픽과 (선수, 팀) 조합이 겹칠 수 있다).
-    if (!d.is_test) {
-      revertedMemberships = (picks ?? []).length
-      for (const p of (picks ?? []) as { team_id: string; league_player_id: string }[]) {
-        await supabase
-          .from('league_player_quarters')
-          .delete()
-          .eq('quarter_id', d.quarter_id)
-          .eq('league_player_id', p.league_player_id)
-          .eq('team_id', p.team_id)
-      }
-    }
+    // 분기 소속은 반영 전에는 쓴 적이 없다(2026-11-10 — 픽은 드래프트 안에만 남는다). 그래서 되돌릴 것도 없다.
+    //   종전엔 여기서 픽과 같은 (선수, 팀) 소속을 지웠는데, 원래 있던 소속까지 지울 수 있었다.
+    void picks
 
     // 픽 삭제
     await supabase

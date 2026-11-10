@@ -122,7 +122,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
   async function issueManager(teamId: string) {
     const form = drafting[teamId]
     if (!form || !form.playerId || !form.code.trim()) { toast.error('단장 선수와 코드를 모두 입력하세요'); return }
-    if (form.code.trim().length < 3) { toast.error('코드는 최소 3자 이상이어야 합니다'); return }
+    if (form.code.trim().length < 6) { toast.error('코드는 6자 이상이어야 해요'); return }
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes`, {
       method: 'POST', headers: jsonHeaders,
       body: JSON.stringify({ quarter_id: quarterId, team_id: teamId, plain_code: form.code.trim(), league_player_id: form.playerId }),
@@ -136,7 +136,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
 
   async function issueSupervisor() {
     if (!supDraft.label.trim() || !supDraft.code.trim()) { toast.error('레이블과 코드를 모두 입력하세요'); return }
-    if (supDraft.code.trim().length < 3) { toast.error('코드는 최소 3자 이상이어야 합니다'); return }
+    if (supDraft.code.trim().length < 6) { toast.error('코드는 6자 이상이어야 해요'); return }
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes`, {
       method: 'POST', headers: jsonHeaders,
       body: JSON.stringify({ quarter_id: quarterId, role: 'supervisor', plain_code: supDraft.code.trim(), label: supDraft.label.trim() }),
@@ -296,7 +296,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
                     <option value="">— 단장 선수 선택 —</option>
                     {selectablePlayers.map(p => <option key={p.id} value={p.id}>{p.name}{p.number != null ? ` #${p.number}` : ''}</option>)}
                   </select>
-                  <Input value={form.code} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, code: e.target.value } }))} placeholder="코드 (영문 3자, 예: LAK)" maxLength={32} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] min-h-11 text-base font-mono" onKeyDown={e => e.key === 'Enter' && issueManager(t.id)} />
+                  <Input value={form.code} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, code: e.target.value } }))} placeholder="코드 (6자 이상, 예: LAK2026)" maxLength={32} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] min-h-11 text-base font-mono" onKeyDown={e => e.key === 'Enter' && issueManager(t.id)} />
                   <Button onClick={() => issueManager(t.id)} className="w-full bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-sm min-h-11 font-bold cursor-pointer">코드 발급</Button>
                 </div>
               )}
@@ -348,7 +348,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
         {supDraft.open ? (
           <div className="bg-[var(--mm-panel-alt)] border border-[var(--mm-yellow-strong)]/40 rounded-lg p-3 space-y-2 max-w-md">
             <Input value={supDraft.label} onChange={e => setSupDraft(s => ({ ...s, label: e.target.value }))} placeholder="이름 (예: 홍길동)" className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] min-h-11 text-base" autoFocus />
-            <Input value={supDraft.code} onChange={e => setSupDraft(s => ({ ...s, code: e.target.value }))} placeholder="코드 (영문 3자, 예: ADM)" maxLength={32} className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] min-h-11 text-base font-mono" onKeyDown={e => e.key === 'Enter' && issueSupervisor()} />
+            <Input value={supDraft.code} onChange={e => setSupDraft(s => ({ ...s, code: e.target.value }))} placeholder="코드 (6자 이상, 예: ADM2026)" maxLength={32} className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] min-h-11 text-base font-mono" onKeyDown={e => e.key === 'Enter' && issueSupervisor()} />
             <div className="flex gap-1.5">
               <Button onClick={issueSupervisor} className="flex-1 bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-sm min-h-11 font-bold cursor-pointer">발급</Button>
               <Button onClick={() => setSupDraft({ open: false, label: '', code: '' })} aria-label="발급 취소" variant="outline" className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] min-w-11 min-h-11 text-sm cursor-pointer"><X size={16} /></Button>

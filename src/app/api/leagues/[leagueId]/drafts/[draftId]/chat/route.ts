@@ -41,17 +41,16 @@ export async function GET(
   const { searchParams } = new URL(req.url)
   const after = searchParams.get('after')
 
-  let q = r.supabase
+  const base = r.supabase
     .from('league_draft_chat')
     .select('id, sender_role, team_id, sender_label, message, created_at')
     .eq('draft_id', draftId)
-    .order('created_at', { ascending: true })
-  if (after) q = q.gt('created_at', after)
-  else q = q.limit(100)
-
-  const { data, error } = await q
+  // 처음 열 때는 **최근** 100개(2026-11-10 리뷰 — 종전엔 가장 오래된 100개라 100개가 넘으면 새 글이 안 보였다)
+  const { data, error } = after
+    ? await base.gt('created_at', after).order('created_at', { ascending: true })
+    : await base.order('created_at', { ascending: false }).limit(100)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+  return NextResponse.json(after ? (data ?? []) : [...(data ?? [])].reverse())
 }
 
 export async function POST(
