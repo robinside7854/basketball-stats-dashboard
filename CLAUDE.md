@@ -212,7 +212,7 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   ⚠ **장부 행은 지우거나 고치지 않는다** — 되돌리기는 반대 부호 행(adjust·refund). 티켓 돌려주기도 이력을 남긴다(운영진).
 - 회원(승인 회원 본인만): `/wallet` 화면 — 잔액 · 충전 요청 · 사용 내역 · 충전 요청 이력. `GET/POST/DELETE /api/leagues/[id]/wallet`.
 - 어드민 **누구나**(+CEO): 같은 화면 아래 어드민 칸 — 승인/반려 · 회원별 잔액 · 보정(이유 필수). `GET/POST /wallet/admin`. 처리자는 `resolveAuditActor` 라벨로 장부·요청에 남고 감사 로그 `wallet.*`.
-- 어드민 화면(2026-11-09): 회원별 잔액 = 이름 찾기 + 「잔액 있는 사람/전체」 + 2~3칸 격자 · 충전 요청 카드 = 상태 칩 + 「요청」·「처리」 줄. 대기 중 충전 요청 수는 상단 톱니바퀴 빨간 배지(가입 신청 수와 합산 — `usePendingCharges`, `GET /wallet/admin?count=1`)와 설정의 월렛 버튼에.
+- 어드민 화면(2026-11-09): 회원별 잔액 = **(2026-11-11 운영진 「한눈에 안 보인다」 개편)** 요약 세 칸(총 잔액 · 잔액 있음 · **부족** = 0 < 잔액 < 비정규 한 번 값 이고 남은 티켓 0, 누르면 그 사람만) + 이름 찾기 + **한 줄 목록**(잔액 많은 순 · 폰 1줄·sm↑ 2줄 · 이름 옆 이번 달 정규권 왕관·남은 비정규 티켓 장수 · 잔액 크게 오른쪽, 부족은 빨강) + 잔액 0·티켓 0·정규권 없음은 맨 아래 「잔액 없음 N명」 접기(이름 칩) — `WalletAdminPanel` 의 `MemberBalances`, 응답 `members[].tickets·pass`·`ticket_price` · 충전 요청 카드 = 상태 칩 + 「요청」·「처리」 줄. 대기 중 충전 요청 수는 상단 톱니바퀴 빨간 배지(가입 신청 수와 합산 — `usePendingCharges`, `GET /wallet/admin?count=1`)와 설정의 월렛 버튼에.
 - **2단계(마이그레이션 123, 2026-11-09 운영진)**: 규칙은 `teams.wallet_rules`(bonus_min 50,000 · bonus_pct 10 · regular_pass_price 28,000 · non_regular_price 12,000).
   - 충전 보너스: 승인 때 DB 가 `bonus` 장부 행을 따로 쓴다(5만원 → 55,000P).
   - 환불: 회원이 받을 계좌로 요청(`wallet_charge_requests.kind='refund'`) → 어드민이 송금 후 「송금했어요」 → `withdraw`(−환불액) + `forfeit`(−나머지). 환불액 = 마지막 환불 이후 (charge·opening·adjust 합 − 티켓에 쓴 것), 0~잔액 — **정본 `wallet_refundable()`**. 보너스는 환불 제외.

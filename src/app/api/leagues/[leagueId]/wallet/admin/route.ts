@@ -136,7 +136,8 @@ export async function GET(req: Request, { params }: Ctx) {
     return NextResponse.json({ ledger, tickets, refundable }, NO_STORE)
   }
 
-  const [pendingRes, recentRes, playersRes, balRes] = await Promise.all([
+  const thisMonth = `${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 7)}-01`
+  const [pendingRes, recentRes, playersRes, balRes, ticketRes, cfg] = await Promise.all([
     sb.from('wallet_charge_requests').select(REQUEST_COLS).eq('team_id', teamId).eq('status', 'pending')
       .order('created_at', { ascending: true }),
     sb.from('wallet_charge_requests').select(REQUEST_COLS).eq('team_id', teamId).neq('status', 'pending')
@@ -144,6 +145,10 @@ export async function GET(req: Request, { params }: Ctx) {
     // 선수는 팀 소유 — league_id 로 찾으면 대회 묶음에서 0명(CLAUDE.md)
     sb.from('league_players').select('id, name, is_guest, is_active').eq('team_id', teamId),
     sb.from('wallet_balances').select('league_player_id, balance').eq('team_id', teamId),
+    // 회원별 잔액 칸에 「남은 비정규 티켓 · 이번 달 정규권」(2026-11-11 운영진)
+    sb.from('wallet_tickets').select('league_player_id, kind, month, status').eq('team_id', teamId)
+      .or(`and(kind.eq.non_regular,status.eq.active),and(kind.eq.regular_pass,month.eq.${thisMonth},status.neq.returned)`),
+    loadWalletConfig(teamId),
   ])
   const err = pendingRes.error ?? recentRes.error ?? playersRes.error ?? balRes.error
   if (err) return NextResponse.json({ error: err.message }, { status: 500 })
@@ -151,12 +156,18 @@ export async function GET(req: Request, { params }: Ctx) {
   const players = (playersRes.data ?? []) as Array<{ id: string; name: string; is_guest: boolean | null; is_active: boolean | null }>
   const nameOf = new Map(players.map(p => [p.id, p.name]))
   const balOf = new Map(((balRes.data ?? []) as Array<{ league_player_id: string; balance: number }>).map(b => [b.league_player_id, b.balance]))
+  const ticketsOf = new Map<string, number>()
+  const passOf = new Set<string>()
+  for (const t of (ticketRes.data ?? []) as Array<{ league_player_id: string; kind: string }>) {
+    if (t.kind === 'regular_pass') passOf.add(t.league_player_id)
+    else ticketsOf.set(t.league_player_id, (ticketsOf.get(t.league_player_id) ?? 0) + 1)
+  }
   const withName = (r: ChargeRequestRow) => ({ ...r, name: nameOf.get(r.league_player_id) ?? '알 수 없음' })
 
   // 게스트는 포인트 계정이 없다(운영진 — 게스트비는 통장으로 따로) → 잔액이 있을 때만 보인다.
   const members = players
     .filter(p => balOf.has(p.id) || (!p.is_guest && p.is_active !== false))
-    .map(p => ({ player_id: p.id, name: p.name, balance: balOf.get(p.id) ?? 0 }))
+    .map(p => ({ player_id: p.id, name: p.name, balance: balOf.get(p.id) ?? 0, tickets: ticketsOf.get(p.id) ?? 0, pass: passOf.has(p.id) }))
     .sort((a, b) => b.balance - a.balance || a.name.localeCompare(b.name, 'ko'))
 
   return NextResponse.json({
@@ -164,6 +175,8 @@ export async function GET(req: Request, { params }: Ctx) {
     recent: ((recentRes.data ?? []) as ChargeRequestRow[]).map(withName),
     members,
     total: members.reduce((s, m) => s + m.balance, 0),
+    // 「부족」 기준 = 비정규 한 번 값
+    ticket_price: cfg?.rules.non_regular_price ?? null,
   }, NO_STORE)
 }
 
