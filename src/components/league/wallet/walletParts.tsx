@@ -180,6 +180,8 @@ export function RequestList({ rows, emptyTitle }: { rows: RequestItem[]; emptyTi
         const st = STATUS_STYLE[r.status]
         const handled = r.status !== 'pending' && r.reviewed_at
         const who = actorShort(r)
+        // 입금 알림으로 자동 처리된 충전 — 「완료 · 자동 충전」 + 시간 한 줄(요청·처리가 같은 때), 메모 없음(2026-11-11 운영진)
+        const auto = r.kind !== 'refund' && r.status === 'approved' && !!r.reviewed_by_label?.startsWith('자동')
         return (
           <li key={r.id} className="p-3" style={{ border: '1px solid var(--mm-rule)' }}>
             <div className="flex items-center justify-between gap-2">
@@ -187,12 +189,17 @@ export function RequestList({ rows, emptyTitle }: { rows: RequestItem[]; emptyTi
                 <span className="inline-flex items-center px-2 py-0.5 text-xs font-black whitespace-nowrap" style={{ background: st.bg, color: st.fg, borderRadius: 'var(--mm-radius-chip)' }}>
                   {STATUS_LABEL[r.status]}
                 </span>
-                <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{r.kind === 'refund' ? '환불' : '충전'}</span>
+                <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{r.kind === 'refund' ? '환불' : auto ? '자동 충전' : '충전'}</span>
               </span>
               <span className="font-black tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{r.kind === 'refund' ? `${r.amount.toLocaleString()}원` : fmtP(r.amount)}</span>
             </div>
             {r.name && <div className={`mt-1 font-black ${WRAP}`} style={{ color: 'var(--mm-ink)' }}>{r.name}</div>}
             <div className={`mt-1 text-xs space-y-0.5 ${WRAP}`} style={{ color: 'var(--mm-ink-soft)' }}>
+              {auto ? (
+                <div>
+                  <span className="whitespace-nowrap">{fmtWhen(r.reviewed_at ?? r.created_at)}</span>{' · '}입금자 {r.depositor_name}
+                </div>
+              ) : <>
               <div>
                 <span className="font-bold" style={{ color: 'var(--mm-muted)' }}>요청</span>{' '}
                 <span className="whitespace-nowrap">{fmtWhen(r.created_at)}</span>
@@ -202,7 +209,8 @@ export function RequestList({ rows, emptyTitle }: { rows: RequestItem[]; emptyTi
                 <span className="font-bold" style={{ color: 'var(--mm-muted)' }}>처리</span>{' '}
                 {handled ? <><span className="whitespace-nowrap">{fmtWhen(r.reviewed_at!)}</span>{who ? ` · ${who}` : ''}</> : '어드민 확인 기다리는 중'}
               </div>
-              {r.admin_note && <div><span className="font-bold" style={{ color: 'var(--mm-muted)' }}>메모</span> {r.admin_note}</div>}
+              </>}
+              {r.admin_note && !auto && <div><span className="font-bold" style={{ color: 'var(--mm-muted)' }}>메모</span> {r.admin_note}</div>}
             </div>
           </li>
         )

@@ -133,6 +133,7 @@ export const ADMIN_GUIDE: AdminSection[] = [
           { icon: 'alert', title: '정규권이 없으면', desc: '정규 멤버도 그 달은 비정규로 잡혀요' },
           { icon: 'lock', who: 'auto', title: '정원이 차면', desc: '판매가 저절로 마감돼요' },
           { icon: 'gift', who: 'auto', title: '티켓 할인', desc: '남은 비정규 티켓만큼 정규권 값을 깎아요' },
+          { icon: 'crown', who: 'auto', title: '운영진은 무료', desc: '어드민은 정규권 0P · 정원에는 들어요' },
         ],
       },
     ],

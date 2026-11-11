@@ -418,24 +418,25 @@ function MemberBalances({ data, query, setQuery, onlyShort, setOnlyShort, showEm
       {shown.length === 0 ? (
         <p className="text-sm py-3" style={{ color: 'var(--mm-ink-soft)' }}>{q ? '찾는 이름이 없어요' : onlyShort ? '부족한 회원이 없어요' : '잔액이 있는 회원이 없어요'}</p>
       ) : (
-        <ul className="mt-2 grid sm:grid-cols-2 sm:gap-x-6">
+        // 세로 길이 줄이기(2026-11-11 운영진 「여전히 길다」) — 폰 2칸 · 태블릿 3칸 · PC 4칸, 줄 높이 낮게
+        <ul className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-5">
           {shown.map(m => {
             const sh = isShort(m)
             return (
               <li key={m.player_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <button type="button" onClick={() => onOpen(m)}
-                  className="mm-press w-full flex items-center gap-2 min-h-12 px-1.5 text-left hover:bg-[color:var(--mm-panel-alt)]">
-                  <span className="font-bold text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
-                  {m.pass && <span title="이번 달 정규권" aria-label="이번 달 정규권" className="inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0" style={{ background: '#111', color: '#D4AF37' }}><Crown size={11} strokeWidth={2.5} aria-hidden /></span>}
+                <button type="button" onClick={() => onOpen(m)} title={sh ? '부족 — 남은 티켓 없고 비정규 한 번 값보다 적어요' : undefined}
+                  className="mm-press w-full flex flex-wrap items-center gap-x-1 min-h-10 px-1 py-1 text-left hover:bg-[color:var(--mm-panel-alt)]">
+                  <span className="font-bold text-sm whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
+                  {m.pass && <span title="이번 달 정규권" aria-label="이번 달 정규권" className="inline-flex items-center justify-center w-4 h-4 rounded-full shrink-0" style={{ background: '#111', color: '#D4AF37' }}><Crown size={9} strokeWidth={2.5} aria-hidden /></span>}
                   {(m.tickets ?? 0) > 0 && (
-                    <span title={`남은 비정규 티켓 ${m.tickets}장`} className="inline-flex items-center gap-0.5 px-1 text-xs font-black whitespace-nowrap shrink-0"
+                    <span title={`남은 비정규 티켓 ${m.tickets}장`} className="inline-flex items-center gap-0.5 px-0.5 text-[11px] font-black whitespace-nowrap shrink-0"
                       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
-                      <Ticket size={12} aria-hidden />{m.tickets}
+                      <Ticket size={10} aria-hidden />{m.tickets}
                     </span>
                   )}
-                  <span className="ml-auto inline-flex items-baseline gap-1.5 shrink-0">
-                    {sh && <span className="text-xs font-black" style={{ color: 'var(--mm-live-bg)' }}>부족</span>}
-                    <span className="font-black text-lg tabular-nums" style={{ color: m.balance > 0 ? (sh ? 'var(--mm-live-bg)' : 'var(--mm-ink)') : 'var(--mm-muted)' }}>{fmtP(m.balance)}</span>
+                  <span className="ml-auto font-black text-sm tabular-nums whitespace-nowrap shrink-0"
+                    style={{ color: m.balance > 0 ? (sh ? 'var(--mm-live-bg)' : 'var(--mm-ink)') : 'var(--mm-muted)' }}>
+                    {m.balance.toLocaleString()}<span className="text-[11px] font-bold">P</span>
                   </span>
                 </button>
               </li>

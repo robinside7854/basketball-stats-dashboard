@@ -14,6 +14,7 @@ import { loadClub } from '@/lib/club/settings'
 import { createClient } from '@/lib/supabase/admin'
 import { loadPassSales, autoAssignAfterPass, teamNameInMonth } from '@/lib/wallet/passSales'
 import { getApprovedSession } from '@/lib/auth/guard'
+import { getLeagueAdminSession } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import {
   loadWalletConfig, loadBalance, loadLedger, loadTickets, loadRefundable, buyableMonths,
@@ -32,7 +33,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!session) return NextResponse.json({ enabled: true, name: config.name, bank: null, me: null })
 
   const sb = createClient()
-  const [balance, ledger, tickets, refundable, reqRes, hookRes, passSales] = await Promise.all([
+  const [balance, ledger, tickets, refundable, reqRes, hookRes, passSales, adminSession] = await Promise.all([
     loadBalance(teamId, session.pid),
     loadLedger(teamId, session.pid),
     loadTickets(teamId, session.pid),
@@ -43,12 +44,15 @@ export async function GET(_req: Request, { params }: Ctx) {
     // 카카오뱅크 입금 알림이 연결돼 있으면 「입금만 하면 자동 충전」 화면(2026-11-10 운영진)
     sb.from('wallet_bank_hooks').select('team_id').eq('team_id', teamId).maybeSingle(),
     loadPassSales(sb, teamId),
+    getLeagueAdminSession(leagueId),
   ])
   if (reqRes.error) return NextResponse.json({ error: reqRes.error.message }, { status: 500 })
   return NextResponse.json({
     enabled: true, name: config.name, bank: config.bank, rules: config.rules, months: buyableMonths(),
     auto_charge: !!hookRes.data,
     pass_sales: passSales,
+    // 운영진(팀 어드민)은 정규권 무료(136) — 화면 표시용, 값은 서버가 살 때 다시 판정
+    pass_free: !!adminSession,
     me: { balance, refundable, ledger, tickets, requests: (reqRes.data ?? []) as ChargeRequestRow[] },
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
@@ -74,9 +78,12 @@ export async function POST(req: Request, { params }: Ctx) {
       month = typeof body.month === 'string' ? body.month : ''
       if (!/^\d{4}-\d{2}-01$/.test(month)) return NextResponse.json({ error: '정규권 달을 골라 주세요' }, { status: 400 })
       const useTickets = Math.max(0, Math.min(10, Math.floor(Number(body.useTickets) || 0)))
+      // 운영진(팀 어드민)은 정규권 무료(2026-11-11 운영진, 마이그레이션 136) — 매 요청 DB 로 다시 확인한다
+      const free = !!(await getLeagueAdminSession(leagueId))
       const { data, error } = await sb.rpc('wallet_buy_regular_pass', {
-        p_team_id: teamId, p_player_id: session.pid, p_month: month, p_use_tickets: useTickets,
+        p_team_id: teamId, p_player_id: session.pid, p_month: month, p_use_tickets: free ? 0 : useTickets,
         p_actor: `본인 ${session.loginId}`,
+        ...(free ? { p_free: true } : {}),
       })
       if (error) {
         const msg = walletErrorMessage(error.message)
@@ -85,7 +92,7 @@ export async function POST(req: Request, { params }: Ctx) {
       // 전 달 정규였으면 같은 팀으로 그 달 정규 자동 배정(2026-11-10 운영진)
       const assign = await autoAssignAfterPass(sb, leagueId, session.pid, month)
       const team_name = assign.team_id ? await teamNameInMonth(sb, leagueId, assign.team_id, month) : null
-      return NextResponse.json({ ok: true, qty: 1, discount_tickets: data ?? 0, team_name, assigned: assign.how }, { status: 201 })
+      return NextResponse.json({ ok: true, qty: 1, discount_tickets: data ?? 0, free, team_name, assigned: assign.how }, { status: 201 })
     }
     qty = Number(body.qty)
     if (!Number.isInteger(qty) || qty < 1 || qty > 10) return NextResponse.json({ error: '비정규 티켓은 한 번에 1~10장이에요' }, { status: 400 })

@@ -34,6 +34,8 @@ interface WalletRes {
   pass_sales?: PassSaleLite[]
   /** 카카오뱅크 입금 알림 연결 — 입금만 하면 자동 충전(129) */
   auto_charge?: boolean
+  /** 운영진(팀 어드민)은 정규권 무료(136) */
+  pass_free?: boolean
   me?: { balance: number; refundable: number; ledger: LedgerItem[]; requests: RequestItem[]; tickets: TicketItem[] } | null
 }
 
@@ -305,8 +307,9 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   const regPrice = rules?.regular_pass_price ?? 0
   const nrPrice = rules?.non_regular_price ?? 0
   // 남은 비정규 티켓으로 정규권 할인(2026-11-10 운영진) — 장당 비정규 값, 정규권 값을 넘지 않게
-  const discountN = buyKind === 'regular_pass' && useDiscount && nrPrice > 0 ? Math.min(nonRegularLeft, Math.floor(regPrice / nrPrice)) : 0
-  const buyPrice = buyKind === 'regular_pass' ? regPrice - discountN * nrPrice : nrPrice * qty
+  const passFree = !!data.pass_free
+  const discountN = buyKind === 'regular_pass' && !passFree && useDiscount && nrPrice > 0 ? Math.min(nonRegularLeft, Math.floor(regPrice / nrPrice)) : 0
+  const buyPrice = buyKind === 'regular_pass' ? (passFree ? 0 : regPrice - discountN * nrPrice) : nrPrice * qty
   const afterBuy = (me?.balance ?? 0) - buyPrice
   const buyable = buyKind === 'regular_pass' ? !!buyMonth && openMonths.includes(buyMonth) : qty >= 1
 
@@ -340,7 +343,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
         if (!res.ok) { toast.error(j.error ?? '사지 못했어요'); await load(); return }
         // 전 달 정규였으면 같은 팀으로 자동 배정(서버) — 결과를 그대로 알린다
         const team = j.team_name ? (j.assigned === 'auto' ? `지난달처럼 ${j.team_name}팀이에요` : `${j.team_name}팀이에요`) : '팀은 운영진이 정해요'
-        toast.success(`${monthLabel(buyMonth!)} 정규권을 샀어요 — ${team}`)
+        toast.success(`${monthLabel(buyMonth!)} 정규권을 ${j.free ? '받았어요(운영진 무료)' : '샀어요'} — ${team}`)
         await load()
         setSheet(null)
       } finally { setBusy(false) }
@@ -522,7 +525,12 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
                 })}
               </div>
               {buyMonth && saleOf(buyMonth) && <p className="text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>{whenKst(saleOf(buyMonth)!.closes_at)} 마감 · 선착순</p>}
-              {nonRegularLeft > 0 && nrPrice > 0 && (
+              {passFree && (
+                <p className="px-3 py-2 text-sm font-bold break-keep" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
+                  운영진은 정규권이 무료예요.
+                </p>
+              )}
+              {!passFree && nonRegularLeft > 0 && nrPrice > 0 && (
                 <label className="flex items-center gap-2 min-h-11 px-3 text-sm font-bold cursor-pointer" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
                   <input type="checkbox" checked={useDiscount} onChange={e => setUseDiscount(e.target.checked)} className="w-4 h-4" />
                   <span className="break-keep">남은 비정규 티켓 {Math.min(nonRegularLeft, Math.floor(regPrice / nrPrice))}장으로 할인</span>
@@ -556,7 +564,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
             </button>
           ) : (
             <button type="button" disabled={busy || !buyable} onClick={submitBuy} className="mm-press w-full min-h-12 font-black disabled:opacity-50" style={BTN_PRIMARY}>
-              {busy ? '사는 중' : `${fmtP(buyPrice)}로 사기`}
+              {busy ? '사는 중' : buyPrice === 0 && buyKind === 'regular_pass' ? '무료로 받기' : `${fmtP(buyPrice)}로 사기`}
             </button>
           )}
         </div>
