@@ -59,7 +59,7 @@ function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
   return (
     <span
       title={full}
-      className="inline-flex items-center gap-0.5 h-6 pl-1.5 pr-2 text-xs font-black whitespace-nowrap shrink-0 align-middle"
+      className="inline-flex items-center gap-0.5 h-5 pl-1 pr-1.5 text-[11px] font-black whitespace-nowrap shrink-0 align-middle"
       style={kind === 'TD'
         ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1.5px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)', letterSpacing: '-0.01em' }
         : { background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)', letterSpacing: '-0.01em' }}
@@ -189,11 +189,12 @@ function ClipLink({ row }: { row: PlayerRow | DailyStat }) {
   return (
     <Link
       href={`/league/${orgSlug}/${leagueId}/highlights?date=${date}&player=${encodeURIComponent(row.player_id)}`}
-      className="mm-press shrink-0 inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-bold active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-      style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
+      className="mm-press shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', }}
       aria-label={`${row.name} 그날 장면 보기`}
+      title="그날 장면 보기"
     >
-      <Play size={11} fill="currentColor" aria-hidden />장면
+      <Play size={11} fill="currentColor" className="ml-px" aria-hidden />
     </Link>
   )
 }
@@ -252,7 +253,6 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
   const COLS: ColDef[] = [
     ...(showGP ? [{ key: 'gp', label: '경기', sortKey: 'gp' }] : []),
     { key: 'pts',     label: '득점',  sortKey: 'pts'  },
-    { key: 'fb_pts',  label: '속공',  sortKey: 'fb_pts' },
     { key: 'reb',     label: '리바',  sortKey: 'reb'  },
     { key: 'oreb',    label: '공리',   sortKey: 'oreb' },
     { key: 'dreb',    label: '수리',   sortKey: 'dreb' },
@@ -367,9 +367,13 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                         {isMe && <MeTag />}
                         <ClipLink row={rr} />
                       </span>
-                      {rr.team_name && <p className="text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
-                      {/* 칩은 이름 아래 — 이름 칸이 좁아 「트리플더블」을 옆에 두면 이름이 잘린다 */}
-                      {ddKinds?.get(rr.player_id) && <span className="block mt-1"><DdChip kind={ddKinds.get(rr.player_id)!} /></span>}
+                      {/* 칩은 팀 이름 줄 오른쪽 — 따로 줄을 두면 행이 세로로 길어졌다(2026-11-11) */}
+                      {(rr.team_name || ddKinds?.get(rr.player_id)) && (
+                        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+                          {rr.team_name && <span className="whitespace-nowrap">{rr.team_name}</span>}
+                          {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </th>
@@ -450,7 +454,7 @@ function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
 function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort = false, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; hideSort?: boolean; total?: TotalLine; totalOpts?: TotalOpts }) {
   const myId = useContext(MyIdCtx)
   // 2026-10-31 운영진: 스틸·블록·3점도 정렬 — 같으면 득점 순
-  type MobileSortKey = 'pts' | 'fb_pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m'
+  type MobileSortKey = 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m'
   const [sortKey, setSortKey] = useState<MobileSortKey>('pts')
   const [view, setView] = useState<LineView>('basic')
   const flip = () => setView(v => (v === 'basic' ? 'shoot' : 'basic'))
@@ -458,7 +462,6 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
   const sorted = [...rows].sort((a, b) => num(b, sortKey) - num(a, sortKey) || num(b, 'pts') - num(a, 'pts'))
   const sortBtns: { key: MobileSortKey; label: string }[] = [
     { key: 'pts', label: '득점' },
-    { key: 'fb_pts', label: '속공' },
     { key: 'reb', label: '리바' },
     { key: 'ast', label: '어시' },
     { key: 'stl', label: '스틸' },
