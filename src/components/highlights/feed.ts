@@ -20,11 +20,12 @@ export const FEED_PLAYER_COL =
 
 export const FEED_LIST_COL = 'lg:col-span-5'
 
-/** 목록 — 모바일은 페이지 스크롤(현재 항목으로 스크롤할 때 고정 재생기에 가리지 않게 여백),
- *  PC 는 화면 높이에 맞춘 자체 스크롤. 날짜 머리줄의 sticky 는 모바일에서 끈다(페이지 맨 위에 붙어 버린다). */
+/** 목록 — 폰·PC 모두 상자 안에서만 넘긴다(2026-11-11 운영진 「페이지가 세로로 너무 길다」 —
+ *  폰은 클립 수만큼 페이지가 늘어 100개면 수천 px 였다). 폰 상자 높이 = 화면에서 재생기·상단 바·하단 메뉴를 뺀 만큼(최소 260px).
+ *  날짜 머리줄의 sticky 는 상자 안에서 그대로 붙는다. */
 export const FEED_LIST_SCROLL =
-  '[&_[data-clip-idx]]:scroll-mt-[340px] max-lg:[&_.sticky]:static ' +
-  'lg:max-h-[calc(100dvh-140px)] lg:overflow-y-auto lg:pr-1 lg:[&_[data-clip-idx]]:scroll-mt-0'
+  'overflow-y-auto overscroll-contain pr-1 [&_[data-clip-idx]]:scroll-mt-0 ' +
+  'max-h-[max(260px,calc(100dvh-460px))] lg:max-h-[calc(100dvh-140px)]'
 
 /** 피드 모드의 URL 동기화 — 보존 키는 현재 주소에서 가져오고, 브라우저 자기 키만 덮어쓴다. */
 export function replaceFeedUrl(own: URLSearchParams, preserve: string[]) {

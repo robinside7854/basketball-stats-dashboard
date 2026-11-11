@@ -25,7 +25,12 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
     const el = listRef.current?.querySelector<HTMLElement>(`[data-clip-idx="${currentIdx}"]`)
     if (!el) return
     const prefersReduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    el.scrollIntoView({ block: 'nearest', behavior: prefersReduced ? 'auto' : 'smooth' })
+    // 목록 상자 안에서만 넘긴다 — scrollIntoView 는 페이지까지 움직여 재생기가 밀려났다(2026-11-11)
+    const box = (el as HTMLElement).closest('.overflow-y-auto') as HTMLElement | null
+    if (!box) { el.scrollIntoView({ block: 'nearest', behavior: prefersReduced ? 'auto' : 'smooth' }); return }
+    const b = box.getBoundingClientRect(), r = (el as HTMLElement).getBoundingClientRect()
+    const top = r.top < b.top ? box.scrollTop + r.top - b.top : r.bottom > b.bottom ? box.scrollTop + r.bottom - b.bottom : null
+    if (top != null) box.scrollTo({ top, behavior: prefersReduced ? 'auto' : 'smooth' })
   }, [currentIdx])
 
   async function share(clip: HighlightClip) {

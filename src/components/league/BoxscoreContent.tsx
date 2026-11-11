@@ -72,8 +72,8 @@ function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
 
 function DdLegend() {
   return (
-    <p className="t-label" style={{ color: 'var(--mm-muted)' }}>
-      더블더블 = 득점·리바운드·어시스트·스틸·블록 중 2개가 두 자릿수 · 트리플더블 = 3개 이상
+    <p className="t-label break-keep" style={{ color: 'var(--mm-muted)' }}>
+      더블더블 = 득점·리바운드·어시스트·스틸·블록 중 2개가 두 자릿수<br />트리플더블 = 3개 이상
     </p>
   )
 }
@@ -483,8 +483,8 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
         style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
         <Hand size={14} className="shrink-0 mt-px" aria-hidden />
         {view === 'basic'
-          ? <span>기록 칸을 누르면 <b style={{ color: 'var(--mm-ink)' }}>야투·3점·자유투</b>(성공/시도·성공률)로 바뀌어요. 모든 선수가 같이 바뀌어요.</span>
-          : <span>지금은 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>이에요. 다시 누르면 득점·리바운드 같은 기본 기록으로 돌아와요.</span>}
+          ? <span className="break-keep">기록 칸을 누르면 <b style={{ color: 'var(--mm-ink)' }}>야투·3점·자유투</b> 성공 수와 성공률로 바뀌어요.<br />모든 선수가 같이 바뀌어요.</span>
+          : <span className="break-keep">지금은 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>이에요.<br />다시 누르면 득점·리바운드 같은 기본 기록으로 돌아와요.</span>}
       </p>
       {/* 선수마다 카드 한 장(2026-11-04) — 얇은 구분선만 있던 줄이 서로 섞여 보였다. 태블릿은 두 줄씩 */}
       <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">
