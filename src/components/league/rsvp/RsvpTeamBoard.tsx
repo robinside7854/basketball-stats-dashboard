@@ -25,8 +25,10 @@ function Dot({ uniform, size = 22 }: { uniform: Uni | null; size?: number }) {
 }
 
 export default function RsvpTeamBoard({
-  leagueId, gameDate, teams, yes, admin, onChanged, compact = false, entries = [], myGuestIds = [], canCancelGuests = false, adminVote = false,
+  leagueId, gameDate, teams, yes, admin, onChanged, compact = false, entries = [], myGuestIds = [], canCancelGuests = false, adminVote = false, closed = false,
 }: {
+  /** 마감됨 — 팀 카드에 「참」인 사람만(정규의 ? / ✕ 줄은 숨김, 2026-11-11 운영진 「누가 참여했는지가 중요」) */
+  closed?: boolean
   leagueId: string
   gameDate: string
   teams: Team[]
@@ -353,7 +355,7 @@ export default function RsvpTeamBoard({
                 const inTeam = new Set(members.map(m => m.player_id))
                 // 이번 달 이 팀 정규 중 아직 이 팀에 「참」으로 들어오지 않은 사람 — ? 답 안 함 · ✕ 불참
                 //   (「참」인데 다른 팀·대기명단에 있으면 거기서 보이므로 여기선 뺀다)
-                const rest = (t.regulars ?? []).filter(r => !inTeam.has(r.player_id) && answerOf.get(r.player_id) !== 'yes')
+                const rest = closed ? [] : (t.regulars ?? []).filter(r => !inTeam.has(r.player_id) && answerOf.get(r.player_id) !== 'yes')
                   .map(r => ({ ...r, mark: answerOf.get(r.player_id) === 'no' ? 'no' as const : 'unknown' as const }))
                   .sort((a, b) => (a.mark === b.mark ? a.name.localeCompare(b.name, 'ko') : a.mark === 'unknown' ? -1 : 1))
                 if (members.length === 0 && rest.length === 0) {

@@ -102,7 +102,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
 
           {/* 팀별 현황 — 단톡방 공지 캡처와 같은 모양(색 점 · 팀명 · 인원 · 이름 · 포지션). 어드민은 색 점으로 유니폼 색을 고른다. */}
           <RsvpTeamBoard leagueId={leagueId} gameDate={gameDate} teams={data.teams ?? []} yes={yes} entries={entries} admin={admin && !locked} onChanged={load}
-            myGuestIds={data.me?.my_guest_ids ?? []} canCancelGuests={data.window?.phase === 'open'} adminVote />
+            myGuestIds={data.me?.my_guest_ids ?? []} canCancelGuests={data.window?.phase === 'open'} adminVote closed={!!data.closure} />
 
           {/* 아래 한 줄 — 참가 인원 | 대신 「참」 넣기(어드민) 병렬(2026-11-09 운영진). 두 칸은 같은 틀(머리 한 줄 + 내용).
               종전의 「참 · 정규/비정규/게스트」 세로 목록과 불참·미응답 목록은 뺐다 — 팀 카드의 ✓ / ? / ✕ 와 대기명단이 같은 일을 한다. */}
