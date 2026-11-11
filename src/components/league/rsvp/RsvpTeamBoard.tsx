@@ -219,7 +219,7 @@ export default function RsvpTeamBoard({
     <li
       draggable={admin}
       onDragStart={admin ? (ev => { ev.dataTransfer.setData('text/plain', m.player_id); ev.dataTransfer.effectAllowed = 'move' }) : undefined}
-      className={`flex items-baseline gap-x-1.5 sm:gap-x-2 gap-y-1 flex-wrap ${m.kind === 'guest' ? '' : 'sm:flex-nowrap'} ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+      className={`flex items-baseline gap-x-1.5 sm:gap-x-2 gap-y-1 flex-wrap ${m.kind === 'guest' ? '' : '@[18rem]:flex-nowrap'} ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
       title={admin ? '끌어서 다른 팀이나 대기명단에 놓기' : undefined}
       // 게스트 줄은 PC 에서도 넘기게 둔다 — 「입금 · 배치 때 포인트」·「취소」가 카드 밖으로 삐져나왔다(2026-11-09 운영진)
     >
@@ -308,17 +308,18 @@ export default function RsvpTeamBoard({
   )
 
   return (
-    <div className="space-y-2">
+    // 칸 수는 화면 폭이 아니라 이 판이 들어간 칸의 폭으로 정한다(2026-11-11 운영진 — 일정 탭 날짜 카드 안에서 3칸이 겹쳤다)
+    <div className="space-y-2 @container">
       {admin && (
         <p className="text-xs hidden lg:block" style={{ color: 'var(--mm-muted)' }}>
           대기명단의 이름을 끌어 팀 카드에 놓으면 배치돼요(비정규는 그때 티켓 1장). 팀에서 대기명단으로 끌면 배치가 풀려요.
         </p>
       )}
-      <div className={`grid gap-2 ${compact ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
+      <div className={`grid gap-2 ${compact ? '@[40rem]:grid-cols-3' : '@[40rem]:grid-cols-2 @[52rem]:grid-cols-3'}`}>
         {teams.map(t => {
           const members = yes.filter(e => e.placed_team_id === t.id)
           return (
-            <div key={t.id} className={card} style={cardStyle(t.id)} {...dropProps(t.id)}>
+            <div key={t.id} className={`${card} @container`} style={cardStyle(t.id)} {...dropProps(t.id)}>
               <div className="flex items-center justify-between gap-2">
                 <span className="relative inline-flex items-center gap-2 min-w-0">
                   {admin ? (
@@ -402,7 +403,7 @@ export default function RsvpTeamBoard({
                 <b className="font-black text-lg" style={{ color: 'var(--mm-ink)' }}>대기명단 <span className="text-sm font-normal" style={{ color: 'var(--mm-muted)' }}>어드민이 팀 수요에 맞춰 배치해요</span></b>
                 <span className="text-sm tabular-nums" style={{ color: 'var(--mm-muted)' }}>{waiting.length}명</span>
               </div>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <div className="mt-2 grid gap-3 @[40rem]:grid-cols-2">
                 <Col title="비정규" rows={nonReg} />
                 <Col title="게스트" rows={guests} />
               </div>

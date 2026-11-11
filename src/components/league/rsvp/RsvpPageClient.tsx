@@ -82,7 +82,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   const counts = countByKind(yes)
 
   return (
-    <div className={embedded ? 'space-y-3' : 'space-y-3 lg:space-y-4 max-w-lg lg:max-w-4xl lg:mx-auto'}>
+    <div className={`@container ${embedded ? 'space-y-3' : 'space-y-3 lg:space-y-4 max-w-lg lg:max-w-4xl lg:mx-auto'}`}>
       {!embedded && <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="font-black text-[28px] lg:text-[32px] leading-none text-[color:var(--mm-ink)] tracking-tight">
           {admin ? '참가신청' : '신청 현황'}{gameDate ? ` · ${dateLabel(gameDate)}` : ''}
@@ -106,7 +106,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
 
           {/* 아래 한 줄 — 참가 인원 | 대신 「참」 넣기(어드민) 병렬(2026-11-09 운영진). 두 칸은 같은 틀(머리 한 줄 + 내용).
               종전의 「참 · 정규/비정규/게스트」 세로 목록과 불참·미응답 목록은 뺐다 — 팀 카드의 ✓ / ? / ✕ 와 대기명단이 같은 일을 한다. */}
-          <div className={`grid gap-3 lg:gap-4 ${admin && !locked ? 'sm:grid-cols-2' : ''} items-stretch`}>
+          <div className={`grid gap-3 lg:gap-4 ${admin && !locked ? '@[40rem]:grid-cols-2' : ''} items-stretch`}>
             <SectionCard variant="standalone">
               <BoxHead title="참가 인원" note={closed ? (data.closure?.closed_by_label ? `마감 · ${data.closure.closed_by_label}` : '마감') : '신청 중'} tone={closed ? 'muted' : 'live'} />
               <div className="mt-2 flex items-baseline gap-1.5 tabular-nums">
