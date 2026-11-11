@@ -43,6 +43,40 @@ function recordLine(s: Standing | null): string | null {
   return `${s.W}승 ${s.L}패 ${s.D}무 · 현재 ${s.rank}위`
 }
 
+const MEDAL: Record<number, { bg: string; fg: string; ring: string }> = {
+  1: { bg: '#fde68a', fg: '#78350f', ring: '#f59e0b' },
+  2: { bg: '#e5e7eb', fg: '#374151', ring: '#9ca3af' },
+  3: { bg: '#fed7aa', fg: '#7c2d12', ring: '#ea580c' },
+}
+function RankMedal({ rank }: { rank: number }) {
+  const m = MEDAL[rank] ?? { bg: '#f3f4f6', fg: '#4b5563', ring: '#d1d5db' }
+  return (
+    <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 1, padding: '3px 9px', borderRadius: 999, background: m.bg, color: m.fg, boxShadow: `inset 0 0 0 1.5px ${m.ring}`, fontWeight: 900 }}>
+      <span style={{ fontSize: 17 }}>{rank}</span><span style={{ fontSize: 11 }}>위</span>
+    </span>
+  )
+}
+function RecordTile({ n, label, fg, bg }: { n: number; label: string; fg: string; bg: string }) {
+  return (
+    <div style={{ background: bg, borderRadius: 8, padding: '5px 0', textAlign: 'center' }}>
+      <div style={{ fontSize: 20, fontWeight: 900, color: fg, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{n}</div>
+      <div style={{ fontSize: 11, fontWeight: 800, color: fg, opacity: 0.8 }}>{label}</div>
+    </div>
+  )
+}
+/** 승·무·패 비율 막대 — 숫자를 그림으로 한 번 더 */
+function WinBar({ w, l, d }: { w: number; l: number; d: number }) {
+  const t = w + l + d
+  if (t === 0) return null
+  return (
+    <div style={{ display: 'flex', height: 5, borderRadius: 999, overflow: 'hidden', marginTop: 6, background: '#f3f4f6' }}>
+      <span style={{ width: `${(w / t) * 100}%`, background: '#22c55e' }} />
+      <span style={{ width: `${(d / t) * 100}%`, background: '#9ca3af' }} />
+      <span style={{ width: `${(l / t) * 100}%`, background: '#ef4444' }} />
+    </div>
+  )
+}
+
 export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
   gameDate: string; teams: Team[]; entries: RsvpEntryView[]; standings: RsvpRes['standings']
 }) {
@@ -121,15 +155,32 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, Math.min(3, rows.length))}, 1fr)`, gap: 14, marginTop: 18 }}>
             {rows.map(t => (
-              <div key={t.id} style={{ border: '1.5px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
+              <div key={t.id} style={{ border: '1.5px solid #e5e7eb', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column' }}>
+                {/* 머리 = 색 점 · 팀 이름 · 순위 메달(2026-11-11 운영진 — 승무패 글줄이 읽기 어려웠다) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ width: 18, height: 18, borderRadius: 999, background: UNIFORM_FILL[t.uniform ?? 'yellow'], boxShadow: 'inset 0 0 0 1.5px #d1d5db', flex: 'none' }} />
-                  <span style={{ fontSize: 19, fontWeight: 900 }}>TEAM {t.name}</span>
+                  <span style={{ minWidth: 0, lineHeight: 1.1 }}>
+                    <span style={{ display: 'block', fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#9ca3af' }}>TEAM</span>
+                    <span style={{ display: 'block', fontSize: 19, fontWeight: 900, whiteSpace: 'nowrap' }}>{t.name}</span>
+                  </span>
                 </div>
-                <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#4b5563', minHeight: 18 }}>
-                  {recordLine(t.standing) ? <>{quarterWord(standings?.label) ? `${quarterWord(standings?.label)} ` : ''}{recordLine(t.standing)}</> : '이번 분기 첫 경기'}
-                </div>
-                <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color: '#111827' }}>{t.members.length}명</div>
+                {/* 전적 = 승·패·무 숫자 칸 셋 + 승률 막대 */}
+                {t.standing ? (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#9ca3af' }}>{quarterWord(standings?.label) || '이번 분기'} 전적</span>
+                      <RankMedal rank={t.standing.rank} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                      <RecordTile n={t.standing.W} label="승" fg="#15803d" bg="#ecfdf3" />
+                      <RecordTile n={t.standing.L} label="패" fg="#b91c1c" bg="#fef2f2" />
+                      <RecordTile n={t.standing.D} label="무" fg="#4b5563" bg="#f3f4f6" />
+                    </div>
+                    <WinBar w={t.standing.W} l={t.standing.L} d={t.standing.D} />
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: '#9ca3af' }}>이번 분기 첫 경기</div>
+                )}
                 <div style={{ height: 1, background: '#e5e7eb', margin: '10px 0' }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {t.members.map(m => {
@@ -145,6 +196,10 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
                   })}
                   {t.members.length === 0 && <div style={{ fontSize: 14, color: '#9ca3af' }}>아직 없어요</div>}
                 </div>
+                <div style={{ flex: 1, minHeight: 12 }} />
+                {t.members.length > 0 && (
+                  <div style={{ marginTop: 0, paddingTop: 8, borderTop: '1px dashed #e5e7eb', textAlign: 'right', fontSize: 12, fontWeight: 800, color: '#6b7280' }}>{t.members.length}명</div>
+                )}
               </div>
             ))}
           </div>
