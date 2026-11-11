@@ -37,6 +37,8 @@ export interface RsvpRes {
   me: { answer: 'yes' | 'no' | null; approved: boolean; placed_team_id: string | null; kind: RsvpKind | null; tickets_left: number; month_team_id?: string | null; my_guest_ids?: string[] } | null
   entries?: RsvpEntryView[]
   teams?: Array<{ id: string; name: string; color: string; uniform: 'yellow' | 'white' | 'black' | null; leader_id?: string | null; regulars?: Array<{ player_id: string; name: string; position: string | null }> }>
+  /** 경기일까지의 분기 성적(?standings=1) — 공유 카드의 팀 이름 아래 */
+  standings?: { label: string; teams: Array<{ team_id: string; W: number; L: number; D: number; rank: number }> } | null
   guest_price?: number | null
   my_balance?: number | null
   /** 비정규 티켓값 — 티켓이 없으면 배치 때 포인트에서 자동 발행 */

@@ -19,6 +19,8 @@ import { getApprovedSession } from '@/lib/auth/guard'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { currentWindow, loadRsvpRules, loadRsvpBoard, autoPlaceRegular, AUTO_LABEL, inviterLabel, isMyGuest, placeEntry, loadClosure, closeWeek, rosterLocked, SATURDAY_CLOSE_LABEL, loadGuestPool, reinviteGuest, releaseGuestFee, prebuyTicketOnYes, settleAtClose, type RsvpRules } from '@/lib/rsvp/weekly'
 import { loadWalletConfig, loadBalance } from '@/lib/wallet/wallet'
+import { computeQuarterStandings } from '@/lib/stats/quarterStandings'
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 
 type Ctx = { params: Promise<{ leagueId: string }> }
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } }
@@ -87,6 +89,10 @@ export async function GET(req: Request, { params }: Ctx) {
   }
 
   const locked = await rosterLocked(sb, leagueId, gameDate)
+  // 단톡방 공유 카드용 분기 성적(?standings=1 — 참가 명단 화면만. 홈 카드는 읽지 않는다)
+  const standings = new URL(req.url).searchParams.get('standings') === '1'
+    ? await loadIdentityResolver(sb, leagueId).then(r => computeQuarterStandings(sb, leagueId, gameDate, r)).catch(() => null)
+    : null
   const thisWeek = !!win && win.gameDate === gameDate
   // 어드민이 마감했으면 신청 기간 안이어도 「마감」 — 홈 카드가 사라지고 회원은 참/불을 못 바꾼다.
   const phase = thisWeek && win!.phase === 'open' && !closure ? 'open' : 'closed'
@@ -109,6 +115,7 @@ export async function GET(req: Request, { params }: Ctx) {
     // 회원도 「불」까지 받는다 — 팀 카드에서 정규 멤버의 ✕(불참)를 보여 주려고(2026-11-09 운영진).
     entries: board.entries,
     teams: board.teams,
+    standings: standings ? { label: standings.label, teams: standings.teams.map(t => ({ team_id: t.team_id, W: t.W, L: t.L, D: t.D, rank: t.rank })) } : null,
     unanswered: isAdmin ? board.unanswered : undefined,
     guest_pool: guestPool,
     guest_price: guestPrice,

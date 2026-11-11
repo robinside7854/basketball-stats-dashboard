@@ -12,6 +12,7 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import EmptyState from '@/components/league/ui/EmptyState'
 import { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import RsvpTeamBoard from './RsvpTeamBoard'
+import RsvpShareCard from './RsvpShareCard'
 import { countByKind, dateLabel, type RsvpRes } from './rsvpTypes'
 
 /** 아래 두 칸 공용 머리 — 제목 한 줄 + 오른쪽 작은 상태 글자 */
@@ -40,7 +41,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   const api = `/api/leagues/${leagueId}/rsvp`
 
   const load = useCallback(async () => {
-    const res = await fetch(date ? `${api}?date=${date}` : api, { cache: 'no-store' }).catch(() => null)
+    const res = await fetch(date ? `${api}?standings=1&date=${date}` : `${api}?standings=1`, { cache: 'no-store' }).catch(() => null)
     if (res?.ok) setData(await res.json())
     else setData({ enabled: false, window: null, capacity: 0, me: null })
   }, [api, date])
@@ -103,6 +104,9 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
           {/* 팀별 현황 — 단톡방 공지 캡처와 같은 모양(색 점 · 팀명 · 인원 · 이름 · 포지션). 어드민은 색 점으로 유니폼 색을 고른다. */}
           <RsvpTeamBoard leagueId={leagueId} gameDate={gameDate} teams={data.teams ?? []} yes={yes} entries={entries} admin={admin && !locked} onChanged={load}
             myGuestIds={data.me?.my_guest_ids ?? []} canCancelGuests={data.window?.phase === 'open'} adminVote closed={!!data.closure} />
+
+          {/* 단톡방 공유 — 팀은 분기 순위 순, 팀 이름 아래 분기 성적(2026-11-11 운영진). 어드민만. */}
+          {admin && <RsvpShareCard gameDate={gameDate} teams={data.teams ?? []} entries={entries} standings={data.standings ?? null} />}
 
           {/* 아래 한 줄 — 참가 인원 | 대신 「참」 넣기(어드민) 병렬(2026-11-09 운영진). 두 칸은 같은 틀(머리 한 줄 + 내용).
               종전의 「참 · 정규/비정규/게스트」 세로 목록과 불참·미응답 목록은 뺐다 — 팀 카드의 ✓ / ? / ✕ 와 대기명단이 같은 일을 한다. */}
@@ -174,7 +178,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                     </div>
                   </>
                 )}
-                <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)' }}>처음 오는 게스트는 부르는 회원이 홈 카드의 「게스트 신청」으로 넣어요.</p>
+                <p className="text-xs mt-2 break-keep" style={{ color: 'var(--mm-muted)' }}>처음 오는 게스트는 부르는 회원이 홈 카드의 <span className="whitespace-nowrap">「게스트 신청」으로</span> 넣어요.</p>
               </SectionCard>
             )}
           </div>
