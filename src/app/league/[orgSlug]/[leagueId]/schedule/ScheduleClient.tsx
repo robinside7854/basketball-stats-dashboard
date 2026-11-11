@@ -18,6 +18,7 @@ import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { tallyDayRecord, identityKeyOf, type DayRecord } from '@/lib/stats/dayRecord'
 import { swatchEdge } from '@/lib/util/contrastColor'
 import RsvpPageClient from '@/components/league/rsvp/RsvpPageClient'
+import Sheet from '@/components/league/ui/Sheet'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
@@ -834,10 +835,11 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                 </div>
               )}
 
+              {/* 참가 명단은 팝업 창으로(2026-11-11 운영진 — 카드 안에 펼치면 일정 목록이 세로로 너무 길어졌다) */}
               {isEditMode && rosterDate === sd.date && (
-                <div className="pt-1">
+                <Sheet open onClose={() => setRosterDate(null)} title={`참가 명단 · ${sd.date.slice(5).replace('-', '.')}`} width="wide">
                   <RsvpPageClient leagueId={leagueId} base={`/league/${orgSlug}/${leagueId}`} initialDate={sd.date} embedded />
-                </div>
+                </Sheet>
               )}
               {isEditMode && upcoming && editingDate === sd.date && (
                 <ScheduleDetailEditor

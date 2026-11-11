@@ -14,7 +14,7 @@ import { usePlayerCardOpen } from '@/contexts/PlayerCardContext'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 
-const WIDTH = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-xl' } as const
+const WIDTH = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-xl', wide: 'sm:max-w-5xl' } as const
 
 interface Props {
   open: boolean
