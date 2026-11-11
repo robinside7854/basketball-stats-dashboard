@@ -3,7 +3,10 @@
 // - 같은 game_date 클립을 한 그룹으로 묶어 헤더 표시 (예: "2026-07-11 (토) · 3 클립")
 // - 각 클립: 시각 · 상대팀 · 슛 유형 · 링크 복사
 // - 현재 재생 중 강조 (mm-yellow)
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Pager } from '@/components/league/wallet/walletParts'
+
+const CLIP_PAGE = 10
 import { Share2, Play, Link2, HeartCrack } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatTimestamp } from '@/lib/youtube/utils'
@@ -29,6 +32,12 @@ function formatDateHeader(date: string): string {
 
 export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, scrollClassName }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
+
+  // 쪽 나누기(2026-11-11 운영진 「목록이 세로로 너무 길다」) — 지금 재생 중인 클립이 든 쪽을 따라간다
+  const [page, setPage] = useState(0)
+  useEffect(() => { setPage(Math.max(0, Math.floor(currentIdx / CLIP_PAGE))) }, [currentIdx])
+  useEffect(() => { if (page * CLIP_PAGE >= clips.length) setPage(0) }, [clips.length, page])
+  const lo = page * CLIP_PAGE, hi = lo + CLIP_PAGE
 
   // 현재 재생 항목 뷰포트 스크롤
   useEffect(() => {
@@ -93,13 +102,14 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
   }
 
   return (
+    <div>
     <div
       ref={listRef}
       className={`${scrollClassName ?? 'max-h-[55dvh] overflow-y-auto pr-1 lg:max-h-[70dvh]'}`}
       role="listbox"
       aria-label="선수 하이라이트 플레이리스트"
     >
-      {groups.map((group) => (
+      {groups.filter(g => g.startIdx < hi && g.startIdx + g.items.length > lo).map((group) => (
         <div key={`${group.date}-${group.startIdx}`} className="mb-3 last:mb-0">
           <div
             className="sticky top-0 z-10 px-2 py-1.5 flex items-center justify-between gap-2"
@@ -121,7 +131,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
           </div>
 
           <div className="space-y-1.5 pt-1.5">
-            {group.items.map(({ clip: c, idx }) => {
+            {group.items.filter(({ idx }) => idx >= lo && idx < hi).map(({ clip: c, idx }) => {
               const active = idx === currentIdx
               const thumb = `https://i.ytimg.com/vi/${c.video_id}/mqdefault.jpg`
               const opponent = c.opponent_name
@@ -252,6 +262,8 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect, 
           </div>
         </div>
       ))}
+    </div>
+      <Pager page={page} total={clips.length} size={CLIP_PAGE} onChange={p => { setPage(p); listRef.current?.scrollTo({ top: 0 }) }} />
     </div>
   )
 }

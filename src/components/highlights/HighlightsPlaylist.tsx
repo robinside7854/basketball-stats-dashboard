@@ -1,7 +1,10 @@
 'use client'
 // HighlightsPlaylist — 좌측(모바일 하단) 플레이리스트 UI
 // 각 카드: 썸네일 · 선수 · 슛 유형 · 시각 · 공유 버튼 · 현재재생 강조
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Pager } from '@/components/league/wallet/walletParts'
+
+const CLIP_PAGE = 10
 import { Share2, Play, Link2, HeartCrack } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatTimestamp } from '@/lib/youtube/utils'
@@ -19,6 +22,12 @@ interface Props {
 
 export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scrollClassName }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
+
+  // 쪽 나누기(2026-11-11 운영진 「목록이 세로로 너무 길다」) — 지금 재생 중인 클립이 든 쪽을 따라간다
+  const [page, setPage] = useState(0)
+  useEffect(() => { setPage(Math.max(0, Math.floor(currentIdx / CLIP_PAGE))) }, [currentIdx])
+  useEffect(() => { if (page * CLIP_PAGE >= clips.length) setPage(0) }, [clips.length, page])
+  const lo = page * CLIP_PAGE, hi = lo + CLIP_PAGE
 
   // 현재 재생 항목을 뷰포트로 스크롤 (부드러움) — reduce-motion 시 즉시
   useEffect(() => {
@@ -70,6 +79,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
   }
 
   return (
+    <div>
     <div
       ref={listRef}
       className={`space-y-1.5 ${scrollClassName ?? 'max-h-[55dvh] overflow-y-auto pr-1 lg:max-h-[70dvh]'}`}
@@ -77,6 +87,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
       aria-label="하이라이트 플레이리스트"
     >
       {clips.map((c, idx) => {
+        if (idx < lo || idx >= hi) return null
         const active = idx === currentIdx
         const thumb = `https://i.ytimg.com/vi/${c.video_id}/mqdefault.jpg`
         return (
@@ -214,6 +225,8 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect, scroll
           </div>
         )
       })}
+    </div>
+      <Pager page={page} total={clips.length} size={CLIP_PAGE} onChange={p => { setPage(p); listRef.current?.scrollTo({ top: 0 }) }} />
     </div>
   )
 }
