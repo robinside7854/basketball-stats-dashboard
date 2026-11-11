@@ -28,6 +28,8 @@ const INK = '#0b1220'
 // 판 바탕 — 온볼 어두운 바탕(검정 계열)에 묻히지 않게 한 단계 밝은 남색 + 바깥 얇은 밝은 테(2026-11-11 운영진)
 const FRAME = '#1d2738'
 const FALLBACK = '#2a3346'
+// 점수 칸 = 남청색(2026-11-11 운영진 — 검정 유니폼 팀 칸과 같은 색이라 경계가 사라졌다. 노랑·흰색·검정 어느 팀 색과도 겹치지 않게)
+const SCORE_BG = '#2b3d66'
 
 function fmtDay(d?: string | null) {
   if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null
@@ -37,7 +39,7 @@ function fmtDay(d?: string | null) {
 function Team({ side }: { side: ScoreBugSide }) {
   const bg = side.color || FALLBACK
   return (
-    <div className="flex-1 sm:flex-none sm:min-w-[128px] min-w-0 flex items-center justify-center text-center px-1.5 sm:px-4"
+    <div className="flex-1 sm:flex-none sm:min-w-[168px] min-w-0 flex items-center justify-center text-center px-1.5 sm:px-6"
       style={{ background: bg, color: textOnBg(bg) }}>
       <span className="font-black text-sm min-[400px]:text-base sm:text-lg leading-tight break-keep">{side.name}</span>
     </div>
@@ -46,13 +48,12 @@ function Team({ side }: { side: ScoreBugSide }) {
 
 function Score({ side, dark, points }: { side: ScoreBugSide; dark: boolean; points?: number | null }) {
   return (
-    <div className="relative shrink-0 w-12 min-[400px]:w-14 sm:w-[72px] flex items-center justify-center font-jersey font-black tabular-nums leading-none text-[28px] sm:text-[36px]"
-      style={{ background: INK, color: '#fff', boxShadow: dark ? 'inset -1px 0 0 rgba(255,255,255,0.18)' : undefined }}>
+    <div className="relative shrink-0 w-[60px] min-[400px]:w-16 sm:w-[88px] flex items-center justify-center font-jersey font-black tabular-nums leading-none text-[26px] min-[400px]:text-[28px] sm:text-[36px] pt-1.5 sm:pt-1"
+      style={{ background: SCORE_BG, color: '#fff', boxShadow: dark ? 'inset -1px 0 0 rgba(255,255,255,0.25)' : undefined }}>
       {side.score}
-      {side.scored && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: 'var(--mm-yellow)' }} />}
       {side.scored && points ? (
-        <span className="absolute top-1 right-1 text-[10px] font-black leading-none px-1 py-0.5 rounded-sm mm-score-pop"
-          style={{ background: 'var(--mm-yellow)', color: INK }}>+{points}</span>
+        <span className="absolute top-0.5 right-0.5 text-[9px] sm:text-[10px] font-black leading-none px-1 py-0.5 rounded-sm mm-score-pop"
+          style={{ background: '#fff', color: SCORE_BG }}>+{points}</span>
       ) : null}
     </div>
   )
@@ -69,14 +70,8 @@ export default function ScoreBug(p: ScoreBugProps) {
         <Score side={p.left} dark points={p.points} />
         <Score side={p.right} dark={false} points={p.points} />
         <Team side={p.right} />
-        {(day || p.slot) && (
-          <div className="shrink-0 flex flex-col items-center justify-center px-2.5 sm:px-3 tabular-nums leading-tight">
-            {day && <span className="text-[10px] sm:text-xs font-bold" style={{ color: 'rgba(255,255,255,0.65)' }}>{day}</span>}
-            {p.slot && <span className="font-jersey text-base sm:text-xl font-black" style={{ color: 'var(--mm-yellow)' }}>{p.slot}경기</span>}
-          </div>
-        )}
       </div>
-      {(p.label || p.scorer || p.assist || p.clutch) && (
+      {(p.label || p.scorer || p.assist || p.clutch || day || p.slot) && (
         // 아랫줄 = 밝은 띠(윗줄과 색으로 나뉜다 — 노란 구분선은 노랑 팀 칸과 섞여 뺐다)
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 text-xs sm:text-sm font-bold break-keep" style={{ background: '#eef1f6', color: INK }}>
           {p.clutch && (
@@ -91,6 +86,12 @@ export default function ScoreBug(p: ScoreBugProps) {
             <span className="inline-flex items-center gap-1" aria-label={`${p.assist} 어시스트`}>
               <ArrowLeft size={14} strokeWidth={2.5} aria-hidden style={{ color: '#5b6577' }} />
               <span style={{ color: '#5b6577' }}>{p.assist}</span>
+            </span>
+          )}
+          {/* 날짜 · 경기 번호 = 아랫줄 오른쪽 끝(2026-11-11 운영진) */}
+          {(day || p.slot) && (
+            <span className="ml-auto tabular-nums text-xs font-bold whitespace-nowrap" style={{ color: '#5b6577' }}>
+              {day}{day && p.slot ? ' · ' : ''}{p.slot ? `${p.slot}경기` : ''}
             </span>
           )}
         </div>
