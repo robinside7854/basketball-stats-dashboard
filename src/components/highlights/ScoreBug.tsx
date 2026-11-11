@@ -8,7 +8,7 @@
 //   칸 사이 선·그림자 없음(튀어나온 선이 지저분했다). 둥근 모서리는 바깥 한 번.
 // 좌우 = 기록 화면과 같다(부르는 쪽이 정한다 — 홈 = 왼쪽, 그 쿼터에 좌우를 바꿨으면 반대).
 // 아랫줄: 장면 이름 · 득점 선수 · 어시스트 · 클러치. 경기 시계는 넣지 않는다(정확하지 않다).
-import { HeartCrack, ArrowRight } from 'lucide-react'
+import { HeartCrack, ArrowLeft } from 'lucide-react'
 import { textOnBg } from '@/lib/util/contrastColor'
 
 export interface ScoreBugSide { name: string; score: number; color?: string | null; scored: boolean }
@@ -85,14 +85,14 @@ export default function ScoreBug(p: ScoreBugProps) {
             </span>
           )}
           {p.label && <span className="px-1.5 py-0.5 rounded-sm text-xs" style={{ background: INK, color: 'var(--mm-yellow)' }}>{p.label}</span>}
-          {/* 어시스트는 「패스한 사람 → 득점한 사람」 화살표로(글자 줄이기 — 운영진) */}
+          {/* 장면 종류 바로 옆 = 득점한 사람, 그 뒤 「← 패스한 사람」(2026-11-11 운영진 — 종류 옆 이름이 득점자로 읽힌다) */}
+          {p.scorer && <span>{p.scorer}</span>}
           {p.assist && (
             <span className="inline-flex items-center gap-1" aria-label={`${p.assist} 어시스트`}>
+              <ArrowLeft size={14} strokeWidth={2.5} aria-hidden style={{ color: '#5b6577' }} />
               <span style={{ color: '#5b6577' }}>{p.assist}</span>
-              <ArrowRight size={14} strokeWidth={2.5} aria-hidden style={{ color: '#5b6577' }} />
             </span>
           )}
-          {p.scorer && <span>{p.scorer}</span>}
         </div>
       )}
     </div>
