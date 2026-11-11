@@ -1,4 +1,5 @@
 'use client'
+import ScrollAssist from '@/components/league/ScrollAssist'
 import { ClubProvider, useClub } from '@/contexts/ClubContext'
 import type { ClubFeatures, ClubSettings } from '@/lib/club/features'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
@@ -529,6 +530,7 @@ function LeagueLayout({
         카드 안 「로그인」 버튼은 카드를 닫은 뒤 로그인 모달을 열므로 둘이 겹치지 않는다. */}
     <PlayerCardProvider leagueId={leagueId}>
       <DraftProbe leagueId={leagueId} onChange={setShowDraft} />
+      <ScrollAssist />
       <div className="mm-shell min-h-dvh text-[color:var(--mm-ink-soft)]">
         {/* 키보드 사용자용 — Tab 첫 번째에 나타나 위 메뉴를 건너뛴다 */}
         <a
