@@ -95,7 +95,7 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
       if (rec) lines.push(`${quarterWord(standings?.label)} ${rec}`.trim())
       for (const m of t.members) {
         const pos = positionShortOf(m.position)
-        const tag = m.player_id === t.leader_id ? ' (팀장)' : m.kind === 'guest' ? ' (게스트)' : ''
+        const tag = m.player_id === t.leader_id ? ' (팀장)' : m.kind === 'guest' ? ' (게스트)' : m.kind === 'non_regular' ? ' (비정규)' : ''
         lines.push(`· ${m.name}${pos ? ` ${pos}` : ''}${tag}`)
       }
     }
@@ -190,6 +190,7 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
                         <span style={{ fontWeight: 800 }}>{m.name}</span>
                         {m.player_id === t.leader_id && <span style={{ fontSize: 12, fontWeight: 900, color: '#b45309' }}>팀장</span>}
                         {m.kind === 'guest' && <span style={{ fontSize: 12, fontWeight: 800, color: '#6b7280' }}>게스트</span>}
+                        {m.kind === 'non_regular' && <span style={{ fontSize: 12, fontWeight: 800, color: '#6b7280' }}>비정규</span>}
                         {pos && <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: '#6b7280' }}>{pos}</span>}
                       </div>
                     )
