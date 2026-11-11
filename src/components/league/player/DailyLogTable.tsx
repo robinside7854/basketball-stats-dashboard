@@ -2,6 +2,8 @@
 // 선수 카드 「기록 → 일별」 표 — 하루(라운드) 한 줄, 최근 → 과거. 같은 날 여러 경기는 합산.
 //   2026-10-24 운영진: 최근 5일만 보이던 것을 5일씩 쪽을 넘겨 과거까지 본다.
 import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export type DailyLogRow = {
@@ -11,7 +13,9 @@ export type DailyLogRow = {
 
 const PAGE = 5
 
-export default function DailyLogTable({ rows }: { rows: DailyLogRow[] }) {
+/** hrefOf 를 주면 줄을 눌러 그날 박스스코어로 간다(2026-11-11 운영진). onNavigate = 카드 닫기 */
+export default function DailyLogTable({ rows, hrefOf, onNavigate }: { rows: DailyLogRow[]; hrefOf?: (date: string) => string; onNavigate?: () => void }) {
+  const router = useRouter()
   const [page, setPage] = useState(0)
   const pages = Math.max(1, Math.ceil(rows.length / PAGE))
   const cur = Math.min(page, pages - 1)
@@ -49,8 +53,14 @@ export default function DailyLogTable({ rows }: { rows: DailyLogRow[] }) {
               const fgPct = g.fga > 0 ? Math.round(g.fgm / g.fga * 100) : null
               const fg3Pct = (g.fg3a ?? 0) > 0 ? Math.round((g.fg3m ?? 0) / (g.fg3a ?? 1) * 100) : null
               return (
-                <tr key={`${g.date ?? ''}-${i}`} style={{ borderBottom: '1px solid var(--mm-rule)' }} className="last:border-0">
-                  <td className="t-td text-left" style={{ color: 'var(--mm-ink-soft)' }}>{g.date?.slice(5) ?? '—'}</td>
+                <tr key={`${g.date ?? ''}-${i}`} style={{ borderBottom: '1px solid var(--mm-rule)' }}
+                  className={`last:border-0 ${hrefOf && g.date ? 'cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]' : ''}`}
+                  onClick={hrefOf && g.date ? () => { onNavigate?.(); router.push(hrefOf(g.date!)) } : undefined}>
+                  <td className="t-td text-left" style={{ color: 'var(--mm-ink-soft)' }}>
+                    {hrefOf && g.date
+                      ? <Link href={hrefOf(g.date)} onClick={e => { e.stopPropagation(); onNavigate?.() }} className="underline underline-offset-2 decoration-[color:var(--mm-rule)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]" aria-label={`${g.date} 박스스코어 보기`}>{g.date.slice(5)}</Link>
+                      : (g.date?.slice(5) ?? '—')}
+                  </td>
                   <td className="t-td-key text-right">{g.pts}</td>
                   <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{g.reb}</td>
                   <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{g.ast}</td>

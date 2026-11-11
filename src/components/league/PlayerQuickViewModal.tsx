@@ -1700,7 +1700,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       {/* 하루 기록 추세 — 최소 3일 이상일 때만 */}
                       {log.length >= 3 && <GameTrendChart log={log} />}
                       {/* 일별 기록 (하루 한 줄, 같은 날 여러 경기는 합산) — 최근 → 과거, 5일씩 쪽 넘김 */}
-                      {log.length > 0 && <DailyLogTable rows={[...log].reverse()} />}
+                      {log.length > 0 && <DailyLogTable rows={[...log].reverse()} hrefOf={d => `/league/${orgSlug}/${leagueId}/boxscore/${d}`} onNavigate={onClose} />}
                     </>
                   )}
                   {view === 'month' && (
