@@ -208,7 +208,7 @@ export default function RsvpTeamBoard({
   const MobilePlace = ({ m }: { m: RsvpEntryView }) => (!admin || m.kind === 'regular') ? null : (
     <select aria-label={`${m.name} 팀 배치`} value={m.placed_team_id ?? ''} disabled={busy}
       onChange={ev => { void move(m, ev.target.value || null) }}
-      className="lg:hidden ml-auto min-h-9 px-1.5 text-sm font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] self-center"
+      className="lg:hidden ml-auto min-h-9 max-w-[5rem] px-0.5 text-xs font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] self-center"
       style={{ color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
       <option value="">대기명단</option>
       {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -219,11 +219,11 @@ export default function RsvpTeamBoard({
     <li
       draggable={admin}
       onDragStart={admin ? (ev => { ev.dataTransfer.setData('text/plain', m.player_id); ev.dataTransfer.effectAllowed = 'move' }) : undefined}
-      className={`flex items-baseline gap-x-2 gap-y-1 flex-wrap ${m.kind === 'guest' ? '' : 'sm:flex-nowrap'} ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+      className={`flex items-baseline gap-x-1.5 sm:gap-x-2 gap-y-1 flex-wrap ${m.kind === 'guest' ? '' : 'sm:flex-nowrap'} ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
       title={admin ? '끌어서 다른 팀이나 대기명단에 놓기' : undefined}
       // 게스트 줄은 PC 에서도 넘기게 둔다 — 「입금 · 배치 때 포인트」·「취소」가 카드 밖으로 삐져나왔다(2026-11-09 운영진)
     >
-      {admin && <GripVertical size={14} aria-hidden className="self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />}
+      {admin && <GripVertical size={14} aria-hidden className="hidden lg:block self-center shrink-0" style={{ color: 'var(--mm-muted)' }} />}
       <Mark kind="yes" />
       {m.kind === 'guest' && m.placed_team_id ? (
         // 팀에 배치된 게스트는 정규와 같은 모양(이름 · 포지션) + 「게스트」 표시만(2026-11-09 운영진 —
@@ -245,6 +245,11 @@ export default function RsvpTeamBoard({
           {leader && <CrownMark />}
           {m.kind === 'non_regular' && <NonRegularMark />}
           {positionShortOf(m.position) && <span className="text-sm" style={{ color: 'var(--mm-muted)' }}>{positionShortOf(m.position)}</span>}
+          {/* 운영진이 「대신 참 넣기」로 넣은 비정규(2026-11-11 운영진) — 본인이 누르면 기록이 「본인」 */}
+          {m.kind === 'non_regular' && m.answered_by && m.answered_by !== '본인' && (
+            <span className="inline-flex items-center self-center px-1 text-[11px] font-bold whitespace-nowrap" title={`${m.answered_by.startsWith('CEO') ? 'CEO' : m.answered_by.replace(/^팀 어드민 /, '')} 님이 넣었어요`}
+              style={{ color: 'var(--mm-ink-soft)', border: '1px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>운영진</span>
+          )}
         </>
       )}
       {showKind && m.kind !== 'guest' && <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>{KIND_LABEL[m.kind]}</span>}
@@ -357,7 +362,7 @@ export default function RsvpTeamBoard({
                 const leaderId = t.leader_id ?? null
                 const restRow = (r: (typeof rest)[number]) => (
                   <li key={r.player_id} className="flex items-baseline gap-2 flex-wrap" style={{ opacity: r.mark === 'no' ? 0.55 : 0.8 }}>
-                    {admin && <span className="w-[14px] shrink-0" aria-hidden />}
+                    {admin && <span className="hidden lg:block w-[14px] shrink-0" aria-hidden />}
                     <Mark kind={r.mark} />
                     <span className="text-base" style={{ color: 'var(--mm-ink)', fontWeight: r.player_id === leaderId ? 800 : undefined, textDecoration: r.mark === 'no' ? 'line-through' : undefined }}>{r.name}</span>
                     {r.player_id === leaderId && <CrownMark />}
