@@ -26,7 +26,7 @@ import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import TeamDailyRecordGrid, { type GridGame } from '@/components/league/TeamDailyRecordGrid'
 import { RecordBar, VersusBar } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
-import { tovPct } from '@/lib/stats/advanced'
+import { tovPct, teamPossessions, teamRatings } from '@/lib/stats/advanced'
 import TeamFormLine from '@/components/league/nba/TeamFormLine'
 import type { TeamForm } from '@/lib/stats/standings'
 
@@ -511,6 +511,8 @@ function TeamDetailPanel({
     const fbPg   = totFb / gp
     const totTov = players.reduce((s, p) => s + p.tov, 0)
     const tovRate = tovPct({ fga: totFga, fta: totFta, tov: totTov }, 1)
+    const totOreb = players.reduce((s, p) => s + p.oreb, 0)
+    const possPg = teamPossessions({ fga: totFga, oreb: totOreb, tov: totTov, fta: totFta }) / gp
 
     // Top performers — 정규 명단만 후보 (비정규·게스트가 1경기로 1위 차지 방지)
     const byPpg   = pickTeamLeader(players, regularIds, p => p.ppg)
@@ -524,7 +526,7 @@ function TeamDetailPanel({
     const topScorer = byPpg
     const acePct = totPts > 0 && topScorer ? topScorer.pts / totPts * 100 : 0
 
-    return { ppg, fgPct, defPg, ftPct, threePct, fbPct, fbPg, tovRate, acePct, byPpg, byRpg, byApg, byDef, byEfg }
+    return { ppg, fgPct, defPg, ftPct, threePct, fbPct, fbPg, tovRate, possPg, acePct, byPpg, byRpg, byApg, byDef, byEfg }
   }, [players, regularIds, gp])
 
   const played = standing.w + standing.d + standing.l
@@ -533,6 +535,8 @@ function TeamDetailPanel({
   const avgPf = played > 0 ? standing.gf / played : 0
   const avgPa = played > 0 ? standing.ga / played : 0
   const ptsDiff = standing.gf - standing.ga
+  // 공격·수비 레이팅(2026-11-12 운영진) — 공격 100번당 득점·실점. 정본 lib/stats/advanced.ts
+  const ratings = computed && played > 0 ? teamRatings(avgPf, avgPa, computed.possPg) : null
 
   return (
     <SectionCard variant="standalone" pad="none" className="mt-3 relative">
@@ -587,6 +591,24 @@ function TeamDetailPanel({
                   ))}
                 </div>
                 </div>
+                {ratings && (
+                  <div className="mt-2.5 grid grid-cols-3 gap-2.5">
+                    {[
+                      { label: '공격 레이팅', value: ratings.ortg.toFixed(1), sub: '100번당 득점', color: 'var(--mm-positive)' },
+                      { label: '수비 레이팅', value: ratings.drtg.toFixed(1), sub: '낮을수록 좋음', color: 'var(--mm-negative)' },
+                      { label: '순 레이팅', value: (ratings.net >= 0 ? '+' : '') + ratings.net.toFixed(1), sub: '공격 − 수비', color: ratings.net >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
+                    ].map(card => (
+                      <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+                        <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '28px' }}>{card.value}</div>
+                        <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{card.label}</div>
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{card.sub}</div>
+                      </div>
+                    ))}
+                    <p className="col-span-3 text-xs leading-snug" style={{ color: 'var(--mm-muted)' }}>
+                      공격 한 번 = 슛·턴오버·자유투로 끝난 공격이에요.<br />우리 규칙(+1 등)으로 매긴 숫자라 팀끼리만 비교해요.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

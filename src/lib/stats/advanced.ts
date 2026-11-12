@@ -16,3 +16,18 @@ export function tovPct(p: { fga: number; fta: number; tov: number }, minPoss = T
   if (!(poss > 0) || poss < minPoss) return null
   return +((p.tov / poss) * 100).toFixed(1)
 }
+
+/** 팀 공격 횟수(포제션) — 야투 시도 − 공격 리바운드 + 턴오버 + 자유투 시도(2026-11-12 운영진).
+ *  NBA 는 자유투에 0.44 를 곱하지만(파울 한 번에 2구) 미라클은 1구로 끝나는 세트가 대부분이라 1 로 센다
+ *  (실측 시도 513 · 세트 493). */
+export function teamPossessions(p: { fga: number; oreb: number; tov: number; fta: number }): number {
+  return Math.max(0, p.fga - p.oreb + p.tov + p.fta)
+}
+
+/** 공격·수비 레이팅 = 경기당 득점·실점 ÷ 경기당 공격 횟수 × 100. 상대 공격 횟수는 같은 경기에서 거의 같아 우리 것으로 쓴다.
+ *  +1 보너스·1구 2점 규칙 때문에 NBA 숫자와 비교하지 않는다 — 미라클 팀끼리만. 공격 횟수가 없으면 null. */
+export function teamRatings(ptsPg: number, oppPtsPg: number, possPg: number): { ortg: number; drtg: number; net: number } | null {
+  if (!(possPg > 0)) return null
+  const ortg = ptsPg / possPg * 100, drtg = oppPtsPg / possPg * 100
+  return { ortg: +ortg.toFixed(1), drtg: +drtg.toFixed(1), net: +(ortg - drtg).toFixed(1) }
+}
