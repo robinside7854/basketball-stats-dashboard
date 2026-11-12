@@ -34,9 +34,11 @@ export function prefetchHeadToHead(leagueId: string, quarterId: string) {
 
 const hex = (c: string | null | undefined, fallback: string) => (c && /^#[0-9a-f]{3,8}$/i.test(c) ? c : fallback)
 
-export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = null }: {
+export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = null, focusKey = null }: {
   leagueId: string
   quarterId: string
+  /** 라커룸(2026-11-12) — 이 팀이 낀 대진만, 이 팀을 늘 왼쪽에. 고르기 칩은 상대 이름만 */
+  focusKey?: string | null
   /** 로그인한 회원의 팀 정체성 key — 있으면 그 팀이 낀 대진을 먼저 보여 준다(없으면 가장 최근 대진) */
   myTeamKey?: string | null
 }) {
@@ -49,32 +51,35 @@ export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = nul
       .then(list => {
         if (cancelled) return
         setPairs(list)
-        setActiveKey(null)
       })
       .catch(() => { if (!cancelled) setPairs([]) })
     return () => { cancelled = true }
   }, [leagueId, quarterId])
 
   const keyOf = (p: Pair) => `${p.a.key}|${p.b.key}`
+  // 라커룸이면 그 팀 대진만 남기고 그 팀을 a(왼쪽)로 돌린다
+  const shown = pairs && focusKey
+    ? pairs.filter(p => p.a.key === focusKey || p.b.key === focusKey).map(p => p.a.key === focusKey ? p : { ...p, a: p.b, b: p.a })
+    : pairs
   // 기본 선택: 내 팀이 낀 대진 중 가장 최근(목록이 최근순) → 없으면 가장 최근 대진. 고른 것이 있으면 그것.
-  const mine = myTeamKey ? pairs?.find(p => p.a.key === myTeamKey || p.b.key === myTeamKey) : undefined
-  const active = pairs?.find(p => keyOf(p) === activeKey) ?? mine ?? pairs?.[0] ?? null
+  const mine = myTeamKey ? shown?.find(p => p.a.key === myTeamKey || p.b.key === myTeamKey) : undefined
+  const active = shown?.find(p => keyOf(p) === activeKey) ?? mine ?? shown?.[0] ?? null
 
   return (
     <SectionCard variant="standalone" pad="none" ariaLabel="누적 맞대결">
       <SectionHeader
-        title="누적 맞대결"
-        description="두 팀이 실제로 맞붙은 경기만 모은 합계 · 친선전 제외"
+        title={focusKey ? '상대별 맞대결' : '누적 맞대결'}
+        description={focusKey ? '이 팀이 다른 팀과 맞붙은 경기만 모은 합계 · 친선전 제외' : '두 팀이 실제로 맞붙은 경기만 모은 합계 · 친선전 제외'}
       />
       <div className="px-4 py-4 lg:px-6 lg:py-5 space-y-4">
         {pairs === null ? (
           <ShimmerRows rows={4} height={40} />
-        ) : pairs.length === 0 || !active ? (
+        ) : !shown || shown.length === 0 || !active ? (
           <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 기간에 끝난 맞대결이 아직 없어요.</p>
         ) : (
           <>
             <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-              {pairs.map(p => {
+              {shown.map(p => {
                 const on = keyOf(p) === keyOf(active)
                 return (
                   <button
@@ -87,10 +92,13 @@ export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = nul
                       ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
                       : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                   >
+                    {!focusKey && <>
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex(p.a.color, '#C4362B'), boxShadow: swatchEdge(hex(p.a.color, '#C4362B')) }} />
                     <span className="truncate min-w-0">{p.a.name}</span>
+                    </>}
                     <span className="opacity-70 shrink-0">vs</span>
                     <span className="truncate min-w-0">{p.b.name}</span>
+                    {focusKey && <span className="shrink-0 tabular-nums tracking-normal">{p.a.wins}승{p.draws ? ` ${p.draws}무` : ''} {p.b.wins}패</span>}
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex(p.b.color, '#2563eb'), boxShadow: swatchEdge(hex(p.b.color, '#2563eb')) }} />
                   </button>
                 )
