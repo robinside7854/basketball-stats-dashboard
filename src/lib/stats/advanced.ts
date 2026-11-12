@@ -31,3 +31,14 @@ export function teamRatings(ptsPg: number, oppPtsPg: number, possPg: number): { 
   const ortg = ptsPg / possPg * 100, drtg = oppPtsPg / possPg * 100
   return { ortg: +ortg.toFixed(1), drtg: +drtg.toFixed(1), net: +(ortg - drtg).toFixed(1) }
 }
+
+/** 선수 줄 합계 + 경기 수·득실로 팀 레이팅 — 팀 상세 「팀 스탯」과 「팀 전적」 카드가 같이 쓴다(2026-11-12).
+ *  statGp = 선수 기록과 같은 경기 집합의 경기 수, played·gf·ga = 마감 경기 전적. */
+export function teamRatingsFromLines(
+  lines: Array<{ fga: number; oreb: number; tov: number; fta: number }>,
+  statGp: number, played: number, gf: number, ga: number,
+): { ortg: number; drtg: number; net: number } | null {
+  if (!(played > 0) || !(statGp > 0)) return null
+  const tot = lines.reduce((s, p) => ({ fga: s.fga + p.fga, oreb: s.oreb + p.oreb, tov: s.tov + p.tov, fta: s.fta + p.fta }), { fga: 0, oreb: 0, tov: 0, fta: 0 })
+  return teamRatings(gf / played, ga / played, teamPossessions(tot) / statGp)
+}

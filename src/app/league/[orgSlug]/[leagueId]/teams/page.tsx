@@ -26,7 +26,7 @@ import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import TeamDailyRecordGrid, { type GridGame } from '@/components/league/TeamDailyRecordGrid'
 import { RecordBar, VersusBar } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
-import { tovPct, teamPossessions, teamRatings } from '@/lib/stats/advanced'
+import { tovPct, teamRatingsFromLines } from '@/lib/stats/advanced'
 import TeamFormLine from '@/components/league/nba/TeamFormLine'
 import type { TeamForm } from '@/lib/stats/standings'
 
@@ -511,8 +511,6 @@ function TeamDetailPanel({
     const fbPg   = totFb / gp
     const totTov = players.reduce((s, p) => s + p.tov, 0)
     const tovRate = tovPct({ fga: totFga, fta: totFta, tov: totTov }, 1)
-    const totOreb = players.reduce((s, p) => s + p.oreb, 0)
-    const possPg = teamPossessions({ fga: totFga, oreb: totOreb, tov: totTov, fta: totFta }) / gp
 
     // Top performers — 정규 명단만 후보 (비정규·게스트가 1경기로 1위 차지 방지)
     const byPpg   = pickTeamLeader(players, regularIds, p => p.ppg)
@@ -526,7 +524,7 @@ function TeamDetailPanel({
     const topScorer = byPpg
     const acePct = totPts > 0 && topScorer ? topScorer.pts / totPts * 100 : 0
 
-    return { ppg, fgPct, defPg, ftPct, threePct, fbPct, fbPg, tovRate, possPg, acePct, byPpg, byRpg, byApg, byDef, byEfg }
+    return { ppg, fgPct, defPg, ftPct, threePct, fbPct, fbPg, tovRate, acePct, byPpg, byRpg, byApg, byDef, byEfg }
   }, [players, regularIds, gp])
 
   const played = standing.w + standing.d + standing.l
@@ -536,7 +534,7 @@ function TeamDetailPanel({
   const avgPa = played > 0 ? standing.ga / played : 0
   const ptsDiff = standing.gf - standing.ga
   // 공격·수비 레이팅(2026-11-12 운영진) — 공격 100번당 득점·실점. 정본 lib/stats/advanced.ts
-  const ratings = computed && played > 0 ? teamRatings(avgPf, avgPa, computed.possPg) : null
+  const ratings = players.length > 0 ? teamRatingsFromLines(players, gp, played, standing.gf, standing.ga) : null
 
   return (
     <SectionCard variant="standalone" pad="none" className="mt-3 relative">
@@ -1057,6 +1055,8 @@ function LeagueTeamsPageInner() {
             {standings.map((s, idx) => {
               const played = s.w + s.d + s.l
               const winPct = played > 0 ? (s.w / played * 100).toFixed(1) : '—'
+              // 순 레이팅(2026-11-12 운영진) — 팀 상세 「팀 스탯」과 같은 함수
+              const net = teamRatingsFromLines(teamStats[s.identityKey] ?? [], (s.statGp ?? played), played, s.gf, s.ga)?.net ?? null
               const isSelected = selectedTeamId === s.identityKey
               const isFirst = idx === 0
               // 바로가기 앵커 `#team-<team_id>` — 홈 순위표가 여기로 링크한다.
@@ -1105,6 +1105,12 @@ function LeagueTeamsPageInner() {
                     <div className="text-right shrink-0">
                       <p className="font-jersey font-black tabular-nums leading-none" style={{ color: isFirst ? 'var(--mm-panel)' : accentOrInk(s.color), fontSize: '28px' }}>{winPct}{played > 0 ? '%' : ''}</p>
                       <p className="text-xs font-bold mt-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>승률 · {played > 0 ? <>{s.w}승 {s.l}패{s.d > 0 ? ` ${s.d}무` : ''}</> : '0경기'}</p>
+                      {net != null && (
+                        <p className="text-xs font-bold mt-0.5 tabular-nums" title="공격 100번당 득점 − 실점">
+                          <span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>순 레이팅 </span>
+                          <span style={{ color: isFirst ? 'var(--mm-panel)' : net >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' }}>{net >= 0 ? '+' : ''}{net.toFixed(1)}</span>
+                        </p>
+                      )}
                     </div>
                   </button>
                   {/* 승·무·패 막대 — 헤더 바로 아래 전체 폭 (2026-10-12: w-16 미니바 → RecordBar) */}
