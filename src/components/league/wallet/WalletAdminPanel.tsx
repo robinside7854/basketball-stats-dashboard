@@ -7,7 +7,7 @@
 import { useClub } from '@/contexts/ClubContext'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, X, Search, Copy, Crown, Ticket, ChevronDown } from 'lucide-react'
+import { Check, X, Search, Copy, Ticket, ChevronDown } from 'lucide-react'
 import { refreshPendingCharges } from '@/lib/hooks/usePendingCharges'
 import SectionCard from '@/components/league/ui/SectionCard'
 import Sheet from '@/components/league/ui/Sheet'
@@ -358,7 +358,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
 
 /** 회원별 잔액(2026-11-11 운영진 「한눈에 안 보인다」)
  *  · 요약 세 칸: 총 잔액 · 잔액 있는 회원 · 부족(잔액이 비정규 한 번 값보다 적고 남은 티켓 0 — 누르면 그 사람만)
- *  · 한 줄 목록(잔액 많은 순 · PC 두 줄 나란히): 이름 · 이번 달 정규권 왕관 · 남은 비정규 티켓 · 잔액
+ *  · 한 줄 목록(잔액 많은 순 · PC 두 줄 나란히): 이름 · 이번 달 정규권(검정 표) · 남은 비정규 티켓(노란 표) · 잔액
  *  · 잔액 0P · 티켓 0 · 정규권 없음 = 맨 아래 「잔액 없음 N명」으로 접기(이름 칩, 누르면 내역)
  *  그림은 숫자를 대신할 때만 — 잔액 옆에 막대를 붙이지 않는다. */
 function MemberBalances({ data, query, setQuery, onlyShort, setOnlyShort, showEmpty, setShowEmpty, onOpen }: {
@@ -427,7 +427,8 @@ function MemberBalances({ data, query, setQuery, onlyShort, setOnlyShort, showEm
                 <button type="button" onClick={() => onOpen(m)} title={sh ? '부족 — 남은 티켓 없고 비정규 한 번 값보다 적어요' : undefined}
                   className="mm-press w-full flex flex-wrap items-center gap-x-1 min-h-10 px-1 py-1 text-left hover:bg-[color:var(--mm-panel-alt)]">
                   <span className="font-bold text-sm whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{m.name}</span>
-                  {m.pass && <span title="이번 달 정규권" aria-label="이번 달 정규권" className="inline-flex items-center justify-center w-4 h-4 rounded-full shrink-0" style={{ background: '#111', color: '#D4AF37' }}><Crown size={9} strokeWidth={2.5} aria-hidden /></span>}
+                  {/* 정규권 = 검정 표 + 금색 테(왕관은 팀장 표시라 쓰지 않는다 — 2026-11-12 운영진) · 비정규 = 노란 표 */}
+                  {m.pass && <span title="이번 달 정규권" aria-label="이번 달 정규권" className="inline-flex items-center justify-center px-0.5 h-4 shrink-0" style={{ background: '#111', color: '#D4AF37', boxShadow: 'inset 0 0 0 1px #D4AF37', borderRadius: 'var(--mm-radius-chip)' }}><Ticket size={11} strokeWidth={2.5} aria-hidden /></span>}
                   {(m.tickets ?? 0) > 0 && (
                     <span title={`남은 비정규 티켓 ${m.tickets}장`} className="inline-flex items-center gap-0.5 px-0.5 text-[11px] font-black whitespace-nowrap shrink-0"
                       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
