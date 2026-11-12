@@ -1,7 +1,6 @@
 'use client'
 import { quarterSpanLabel } from '@/lib/format/quarterSpan'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
-import HeadToHeadSection, { prefetchHeadToHead } from '@/components/league/HeadToHeadSection'
 import TeamInsightView, { useTeamInsights } from '@/components/league/TeamInsightsSection'
 import StatsGroupTabs from '@/components/league/StatsGroupTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
@@ -24,10 +23,10 @@ import SectionHeader from '@/components/league/ui/SectionHeader'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import { type GridGame } from '@/components/league/TeamDailyRecordGrid'
 import TeamRecordCalendar from '@/components/league/TeamRecordCalendar'
-import { RecordBar, VersusBar } from '@/components/league/ui/viz'
+import TeamBoard from '@/components/league/teams/TeamBoard'
+import { VersusBar } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
 import { tovPct, teamRatingsFromLines } from '@/lib/stats/advanced'
-import TeamFormLine from '@/components/league/nba/TeamFormLine'
 import type { TeamForm } from '@/lib/stats/standings'
 
 // 명단 로드 전 기본값 — 렌더마다 새 Set 을 만들면 TeamDetailPanel useMemo 가 매번 다시 돈다
@@ -782,8 +781,6 @@ function LeagueTeamsPageInner() {
     if (!selectedQId || !quarterCtxReady) return
     let cancelled = false
     setStatus('loading')
-    // 누적 맞대결도 같이 출발시킨다(본문을 기다렸다가 따로 나가지 않게)
-    prefetchHeadToHead(leagueId, selectedQId)
     const qs = new URLSearchParams({ withPlayers: '1' })
     if (selectedQId !== 'all') qs.set('quarterId', selectedQId)
     else if (currentQuarterId) qs.set('unassignedQuarterId', currentQuarterId)
@@ -958,10 +955,23 @@ function LeagueTeamsPageInner() {
     ?? (myIdentityKey && standings.some(s => s.identityKey === myIdentityKey) ? myIdentityKey : null)
     ?? (standings[0]?.identityKey ?? null)
   const activeStatsTeamKey = activeKey
-  const selectTeam = (key: string) => {
-    setSelectedTeamId(key)
-    requestAnimationFrame(() => document.getElementById('team-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }
+  // 순위판·레이더·라커룸 재료 — 순위 순서 그대로(standings)
+  const boardTeams = useMemo(() => standings.map(st => ({
+    key: st.identityKey, name: st.displayName, color: st.color,
+    w: st.w, d: st.d, l: st.l, gf: st.gf, ga: st.ga, statGp: st.statGp,
+    players: (teamStats[st.identityKey] ?? []).filter(p => !isGuest(p) && p.gp > 0),
+    leaderId: st.leaderId,
+  })), [standings, teamStats]) // eslint-disable-line react-hooks/exhaustive-deps
+  const boardGames = useMemo(() => {
+    const keyOf = (tid: string | null, qid: string | null | undefined) => {
+      if (!tid) return null
+      const id = identities.find(x => x.team_id === tid && (!qid || x.quarter_ids.includes(qid))) ?? identities.find(x => x.team_id === tid)
+      return id?.key ?? null
+    }
+    return games
+      .filter(g => g.is_complete !== false && !g.is_exhibition && g.home_score != null && g.away_score != null)
+      .map(g => ({ home: keyOf(g.home_team_id, g.quarter_id), away: keyOf(g.away_team_id, g.quarter_id), hs: g.home_score!, as: g.away_score! }))
+  }, [games, identities])
 
   // 팀별 선수 탭에 보일 행 — 게스트는 늘 빼고, 끔이면 정규 명단만
   // 팀 특성 비교 재료 — 지금 보이는 모든 팀(2026-11-09). 분모 gp 는 카드 승패와 같은 경기 집합
@@ -1043,129 +1053,14 @@ function LeagueTeamsPageInner() {
         <TeamsSkeleton />
       ) : (
         <>
-        {/* ── 섹션 1: 팀별 전적 (상대 전적은 섹션 4 「누적 맞대결」) ── */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
-            {/* 카드를 누르면 상세가 열린다는 걸 몰랐다(2026-11-04 운영진) — 제목 옆에 한 줄 */}
-            <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>팀을 누르면 아래에 그 팀 라커룸이 열려요</span>
-          </div>
-
-          {/* 팀 카드 그리드 — 정체성(identityKey) 기준. 전체 뷰에서 5팀 노출 */}
-          {/* xl 4칸은 팀이 4개 이상일 때만 — 3팀이면 오른쪽 한 칸이 통째로 비었다(2026-10-15) */}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${standings.length >= 4 ? 'xl:grid-cols-4' : ''} gap-3`}>
-            {standings.map((s, idx) => {
-              const played = s.w + s.d + s.l
-              const winPct = played > 0 ? (s.w / played * 100).toFixed(1) : '—'
-              // 순 레이팅(2026-11-12 운영진) — 팀 상세 「팀 스탯」과 같은 함수
-              const net = teamRatingsFromLines(teamStats[s.identityKey] ?? [], (s.statGp ?? played), played, s.gf, s.ga)?.net ?? null
-              const isSelected = activeKey === s.identityKey
-              const isFirst = idx === 0
-              // 바로가기 앵커 `#team-<team_id>` — 홈 순위표가 여기로 링크한다.
-              //   identityKey 는 팀명(공백·한글)이 들어가 id 로 쓰기 나빠 team_id 를 쓴다.
-              //   「전체」에서는 한 team_id 가 여러 정체성(분기별 팀명)으로 나올 수 있어 순위가 가장 높은 카드에만 단다.
-              const anchorId = standings.findIndex(o => o.teamId === s.teamId) === idx ? `team-${s.teamId}` : undefined
-              return (
-                <div
-                  key={s.identityKey}
-                  id={anchorId}
-                  className="overflow-hidden relative"
-                  style={{
-                    scrollMarginTop: '12px',
-                    background: isFirst ? 'var(--mm-ink)' : 'var(--mm-panel)',
-                    border: isSelected ? '2px solid var(--mm-ink)' : '1px solid var(--mm-rule)',
-                    borderRadius: 'var(--mm-radius-card)',
-                  }}
-                >
-                  {/* 팀 컬러 좌측 accent bar */}
-                  <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
-                  {/* 팀 헤더 — 클릭하면 상세 패널 토글 */}
-                  <button
-                    className="w-full px-4 py-3 pl-5 flex items-center justify-between transition-colors cursor-pointer"
-                    style={{ borderBottom: '1px solid var(--mm-rule)' }}
-                    onClick={() => selectTeam(s.identityKey)}
-                                        aria-label={`${s.displayName} 라커룸 열기`}
-                    aria-current={isSelected || undefined}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-jersey font-black tabular-nums w-8 shrink-0" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)', fontSize: '28px' }}>{idx + 1}</span>
-                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color, boxShadow: swatchEdge(s.color) }} />
-                      <div className="min-w-0">
-                        <span className="font-bold block break-keep text-base sm:text-xl" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', letterSpacing: '-0.005em', lineHeight: 1.15 }}>{s.displayName}</span>
-                        {s.quarterLabels.length > 0 && selectedQId === 'all' && (
-                          <span className="block text-xs font-bold mt-0.5" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>{quarterSpanLabel(s.quarterLabels)}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-jersey font-black tabular-nums leading-none" style={{ color: isFirst ? 'var(--mm-panel)' : accentOrInk(s.color), fontSize: '28px' }}>{winPct}{played > 0 ? '%' : ''}</p>
-                      <p className="text-xs font-bold mt-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>승률 · {played > 0 ? <>{s.w}승 {s.l}패{s.d > 0 ? ` ${s.d}무` : ''}</> : '0경기'}</p>
-                      {net != null && (
-                        <p className="text-xs font-bold mt-0.5 tabular-nums" title="공격 100번당 득점 − 실점">
-                          <span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>순 레이팅 </span>
-                          <span style={{ color: isFirst ? 'var(--mm-panel)' : net >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' }}>{net >= 0 ? '+' : ''}{net.toFixed(1)}</span>
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                  {/* 승·무·패 막대 — 헤더 바로 아래 전체 폭 (2026-10-12: w-16 미니바 → RecordBar) */}
-                  {played === 0 ? (
-                    <p className="px-4 py-3 pl-5 text-xs" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>아직 마감된 경기가 없어요</p>
-                  ) : (
-                    <div className="px-4 py-3 pl-5">
-                      <OnPanel>
-                        <RecordBar wins={s.w} losses={s.l} draws={s.d} height={26} />
-                      </OnPanel>
-                      {s.form && (
-                        <div className="mt-2">
-                          <TeamFormLine form={s.form} gamesBehind={s.gamesBehind} onDark={isFirst} />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {/* 카드 맨 아래 「팀 상세 보기」 — 누를 수 있다는 표시(2026-11-04). 머리 줄과 같은 동작 */}
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-hidden
-                    onClick={() => selectTeam(s.identityKey)}
-                    className="mm-press w-full flex items-center justify-center gap-1 min-h-11 text-sm font-bold cursor-pointer"
-                    style={{
-                      borderTop: `1px solid ${isFirst ? 'color-mix(in srgb, var(--mm-panel) 20%, transparent)' : 'var(--mm-rule)'}`,
-                      color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink-soft)',
-                    }}
-                  >
-                    {isSelected ? '라커룸 보는 중' : '라커룸 열기'}
-                    <ChevronDown size={16} aria-hidden />
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* 선택된 팀 상세 패널 (그리드 아래에 full-width) */}
-          {activeKey && (() => {
-            const selectedTeamId = activeKey
-            const selStanding = standings.find(s => s.identityKey === selectedTeamId)
-            if (!selStanding) return null
-            const teamForPanel = { id: selStanding.teamId, name: selStanding.displayName, color: selStanding.color }
-            return (
-              <div className="relative" id="team-detail-panel" style={{ scrollMarginTop: '12px' }}>
-                <TeamDetailPanel
-                  teamId={selStanding.teamId}
-                  team={teamForPanel}
-                  standing={{ w: selStanding.w, d: selStanding.d, l: selStanding.l, gf: selStanding.gf, ga: selStanding.ga, teamId: selStanding.teamId, statGp: selStanding.statGp }}
-                  players={teamStats[selectedTeamId] ?? []}
-                  regularIds={regularIdsByIdentity[selectedTeamId] ?? EMPTY_IDS}
-                  leagueId={leagueId}
-                  quarterId={selectedQId}
-                  peers={traitPeers}
-                  selfKey={selectedTeamId}
-                />
-              </div>
-            )
-          })()}
-        </div>
+        {/* ── 팀 탭 세 층(2026-11-12 운영진 개편) — 순위판 · 레이더 · 라커룸. 숫자는 teams/_lib/teamBoard.ts ── */}
+        <TeamBoard
+          teams={boardTeams}
+          games={boardGames}
+          activeKey={activeKey}
+          onSelect={key => setSelectedTeamId(key)}
+          locker={null}
+        />
 
         {/* 명단 편집 중에는 팀별 선수 이하(섹션 2~4)를 편집 화면(아래 RosterEditor)이 대신한다 */}
         {!editing && (<>
@@ -1190,8 +1085,8 @@ function LeagueTeamsPageInner() {
           {/* 제목 · 보기 토글 · 읽는 법 · 팀 탭 — 한 카드로 묶는다(배경 위에 글자만 떠 있지 않게, 2026-10-13) */}
           <SectionCard variant="standalone" pad="none" ariaLabel="팀별 선수">
           <SectionHeader
-            title="선수 기록"
-            description="위에서 고른 팀의 선수 기록이에요"
+            title="선수 표"
+            description="라커룸에서 고른 팀의 선수 기록이에요"
           />
           <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-3">
             {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
@@ -1289,25 +1184,15 @@ function LeagueTeamsPageInner() {
                       className="mm-press w-full min-h-11 px-3 flex items-center justify-center gap-1.5 text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
                       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
                     >
-                      {insightOpen ? '접기' : '더 보기 · 어시스트 · 공격 유형'}
+                      {insightOpen ? '접기' : '공격 유형 보기'}
                       <ChevronDown size={16} aria-hidden className={`transition-transform duration-200 ${insightOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {insightOpen && (
                       <div className="mt-3 space-y-3">
-                        <SegmentedTabs
-                          ariaLabel="더 보기 항목"
-                          value={teamView}
-                          onChange={setTeamView}
-                          fullWidth
-                          items={[
-                            { key: 'assist', label: '어시스트' },
-                            { key: 'shots', label: '공격 유형' },
-                          ] as const}
-                        />
                         <TeamInsightView
                           data={insights}
                           teamKey={s.identityKey}
-                          view={teamView}
+                          view="shots"
                           scopeText={selectedQId === 'all' ? '시즌 전체' : '이 분기'}
                         />
                       </div>
@@ -1339,8 +1224,6 @@ function LeagueTeamsPageInner() {
           </SectionCard>
         )}
 
-        {/* ── 라커룸 4: 맞대결 — 고른 팀과 다른 팀들(2026-11-12) ── */}
-        {activeKey && <HeadToHeadSection leagueId={leagueId} quarterId={selectedQId} focusKey={activeKey} />}
 
         {/* ── 섹션 2-1: 비정규 선수 스탯 ── */}
         {!data?.locked && showIrregular && irregularStats.length > 0 && (
