@@ -22,7 +22,6 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import SectionHeader from '@/components/league/ui/SectionHeader'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
 import { type GridGame } from '@/components/league/TeamDailyRecordGrid'
-import TeamRecordCalendar from '@/components/league/TeamRecordCalendar'
 import TeamBoard from '@/components/league/teams/TeamBoard'
 import { VersusBar } from '@/components/league/ui/viz'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
@@ -891,7 +890,7 @@ function LeagueTeamsPageInner() {
   // 「어시스트 · 공격 유형」은 「더 보기」로 접어 둔다(2026-10-26) — 열 때만 받는다
   const [teamView, setTeamView] = useState<'assist' | 'shots'>('assist')
   const [insightOpen, setInsightOpen] = useState(false)
-  const insights = useTeamInsights(leagueId, selectedQId, insightOpen)
+  const insights = useTeamInsights(leagueId, selectedQId, true)
 
 
   // 주소의 `#team-<team_id>` 로 들어오면(홈 순위표 링크) 그 팀 카드로 내려가 상세를 펼친다.
@@ -924,9 +923,9 @@ function LeagueTeamsPageInner() {
 
   // 「비정규 선수 보기」 — 기본 켬, 끈 상태만 브라우저에 기억(리그별)
   const showIrregularKey = `league:${leagueId}:teams:showIrregular`
-  const [showIrregular, setShowIrregular] = useState(true)
+  const [showIrregular, setShowIrregular] = useState(false)
   useEffect(() => {
-    try { setShowIrregular(localStorage.getItem(showIrregularKey) !== '0') } catch { /* private mode */ }
+    try { setShowIrregular(localStorage.getItem(showIrregularKey) === '1') } catch { /* private mode */ }
   }, [showIrregularKey])
   const toggleShowIrregular = (next: boolean) => {
     setShowIrregular(next)
@@ -962,6 +961,13 @@ function LeagueTeamsPageInner() {
     players: (teamStats[st.identityKey] ?? []).filter(p => !isGuest(p) && p.gp > 0),
     leaderId: st.leaderId,
   })), [standings, teamStats]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 슛 유형(팀 지표 대시보드) — team-insights 의 shot_types 를 팀 정체성별로
+  const shotMix = useMemo(() => {
+    if (!insights) return null
+    const out: Record<string, { type: string; fga: number; fgm: number }[]> = {}
+    for (const r of insights.shot_types) (out[r.team_key] ??= []).push({ type: r.type, fga: r.fga, fgm: r.fgm })
+    return out
+  }, [insights])
   const boardGames = useMemo(() => {
     const keyOf = (tid: string | null, qid: string | null | undefined) => {
       if (!tid) return null
@@ -970,7 +976,7 @@ function LeagueTeamsPageInner() {
     }
     return games
       .filter(g => g.is_complete !== false && !g.is_exhibition && g.home_score != null && g.away_score != null)
-      .map(g => ({ home: keyOf(g.home_team_id, g.quarter_id), away: keyOf(g.away_team_id, g.quarter_id), hs: g.home_score!, as: g.away_score! }))
+      .filter(g => g.date).map(g => ({ date: g.date!, slot: g.slot_num ?? 0, home: keyOf(g.home_team_id, g.quarter_id), away: keyOf(g.away_team_id, g.quarter_id), hs: g.home_score!, as: g.away_score! }))
   }, [games, identities])
 
   // 팀별 선수 탭에 보일 행 — 게스트는 늘 빼고, 끔이면 정규 명단만
@@ -1057,9 +1063,7 @@ function LeagueTeamsPageInner() {
         <TeamBoard
           teams={boardTeams}
           games={boardGames}
-          activeKey={activeKey}
-          onSelect={key => setSelectedTeamId(key)}
-          locker={null}
+          shots={shotMix}
         />
 
         {/* 명단 편집 중에는 팀별 선수 이하(섹션 2~4)를 편집 화면(아래 RosterEditor)이 대신한다 */}
@@ -1086,7 +1090,7 @@ function LeagueTeamsPageInner() {
           <SectionCard variant="standalone" pad="none" ariaLabel="팀별 선수">
           <SectionHeader
             title="선수 표"
-            description="라커룸에서 고른 팀의 선수 기록이에요"
+            description="팀을 골라 선수 기록을 봐요"
           />
           <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-3">
             {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
@@ -1158,13 +1162,20 @@ function LeagueTeamsPageInner() {
               <SectionCard variant="standalone" pad="none" className="relative">
                 {/* 팀 컬러 좌측 accent bar */}
                 <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
-                <div className="px-4 py-3 pl-5 lg:px-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color, boxShadow: swatchEdge(s.color) }} />
-                  <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}>{s.displayName}</span>
-                  {s.quarterLabels.length > 0 && selectedQId === 'all' && (
-                    <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>· {quarterSpanLabel(s.quarterLabels)}</span>
-                  )}
-                  <span className="text-xs font-bold tracking-wider ml-1" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
+                {/* 팀 고르기(2026-11-12 3차 — 라커룸을 없애 선수 표가 팀을 직접 고른다) */}
+                <div className="px-4 py-3 pl-5 lg:px-6 flex flex-wrap items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }} role="tablist" aria-label="선수 표 팀 고르기">
+                  {standings.map(o => {
+                    const on = o.identityKey === s.identityKey
+                    return (
+                      <button key={o.identityKey} type="button" role="tab" aria-selected={on} onClick={() => setSelectedTeamId(o.identityKey)}
+                        className="mm-press min-h-11 px-3 inline-flex items-center gap-2 text-sm cursor-pointer"
+                        style={{ border: `2px solid ${on ? 'var(--mm-ink)' : 'var(--mm-rule)'}`, borderRadius: 'var(--mm-radius-chip)', fontWeight: on ? 900 : 600, color: on ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
+                        <span aria-hidden className="w-2.5 h-2.5 rounded-full" style={{ background: o.color, boxShadow: swatchEdge(o.color) }} />
+                        {o.displayName}
+                        {on && <span className="text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>}
+                      </button>
+                    )
+                  })}
                 </div>
                 <div className="px-4 py-3 pl-5 lg:px-6 lg:py-4">
                   {/* 선수가 없는 팀도 탭은 남긴다(개수가 흔들리면 안 되므로). 빈 상태 문구는 StatsTable 이 갖고 있다. */}
@@ -1175,29 +1186,6 @@ function LeagueTeamsPageInner() {
                     viewMode={viewMode}
                     statMode={statMode}
                   />
-                  {/* 더 보기 — 시즌 어시스트 · 공격 유형(2026-10-18 이 칸에 합침 · 2026-10-26 접음). 열 때만 받는다 */}
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => setInsightOpen(o => !o)}
-                      aria-expanded={insightOpen}
-                      className="mm-press w-full min-h-11 px-3 flex items-center justify-center gap-1.5 text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}
-                    >
-                      {insightOpen ? '접기' : '공격 유형 보기'}
-                      <ChevronDown size={16} aria-hidden className={`transition-transform duration-200 ${insightOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {insightOpen && (
-                      <div className="mt-3 space-y-3">
-                        <TeamInsightView
-                          data={insights}
-                          teamKey={s.identityKey}
-                          view="shots"
-                          scopeText={selectedQId === 'all' ? '시즌 전체' : '이 분기'}
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
               </SectionCard>
               </div>
@@ -1207,22 +1195,6 @@ function LeagueTeamsPageInner() {
 
         </>)}
 
-        {/* ── 라커룸 3: 승패 달력 (2026-11-12 운영진 — 점 줄 대신 경기일 달력, 고른 팀만) ── */}
-        {activeKey && (
-          <SectionCard variant="standalone" pad="none" ariaLabel="승패 달력">
-            <SectionHeader
-              title="승패 달력"
-              description={`${selectedQId === 'all' ? '시즌 전체' : '이 분기'} 경기일마다 그날 성적 · 친선전 제외`}
-            />
-            <div className="px-4 py-3 lg:px-6 lg:py-4">
-              <TeamRecordCalendar
-                games={games}
-                teams={identities.map(id => ({ key: id.key, team_id: id.team_id, name: id.display_name, color: id.color, quarter_ids: id.quarter_ids }))}
-                focusKey={activeKey}
-              />
-            </div>
-          </SectionCard>
-        )}
 
 
         {/* ── 섹션 2-1: 비정규 선수 스탯 ── */}

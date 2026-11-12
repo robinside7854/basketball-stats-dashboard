@@ -11,28 +11,29 @@ export type BoardTeam = {
 
 /** 지표 하나 — better: 'high' 높을수록 좋음 / 'low' 낮을수록 좋음 */
 export type MetricDef = { key: MetricKey; label: string; hint: string; better: 'high' | 'low'; fmt: (v: number) => string }
-export type MetricKey = 'net' | 'ortg' | 'drtg' | 'efg' | 'rpg' | 'astRatio' | 'tovPct' | 'spg' | 'bpg' | 'fbpg'
+export type MetricKey = 'net' | 'ortg' | 'drtg' | 'ppg' | 'oppg' | 'efg' | 'rpg' | 'orpg' | 'drpg' | 'astRatio' | 'tovPct' | 'topg' | 'spg' | 'bpg' | 'fbpg'
 
 const f1 = (v: number) => v.toFixed(1)
 const pct = (v: number) => `${v.toFixed(1)}%`
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
 
-/** 순위판 박스 순서(8칸 — 폰 2칸·PC 4칸) */
-export const BOARD_METRICS: MetricDef[] = [
-  { key: 'net', label: '종합', hint: '순 레이팅 · 공격 100번당 득실', better: 'high', fmt: signed },
-  { key: 'ortg', label: '공격', hint: '공격 레이팅 · 100번당 득점', better: 'high', fmt: f1 },
-  { key: 'drtg', label: '수비', hint: '수비 레이팅 · 100번당 실점', better: 'low', fmt: f1 },
-  { key: 'efg', label: '슛 정확도', hint: '유효 야투율 · 3점은 1.5개로', better: 'high', fmt: pct },
-  { key: 'rpg', label: '리바운드', hint: '경기당 리바운드', better: 'high', fmt: f1 },
-  { key: 'astRatio', label: '팀플레이', hint: '넣은 슛 중 어시스트 비율', better: 'high', fmt: pct },
-  { key: 'tovPct', label: '볼 보호', hint: '턴오버율 · 낮을수록 좋음', better: 'low', fmt: pct },
-  { key: 'spg', label: '디플렉션', hint: '경기당 스틸', better: 'high', fmt: f1 },
-]
-
-/** 레이더 6축 */
-export const RADAR_METRICS: MetricKey[] = ['ortg', 'drtg', 'rpg', 'efg', 'tovPct', 'astRatio']
-export const RADAR_LABEL: Record<MetricKey, string> = {
-  net: '종합', ortg: '공격', drtg: '수비', efg: '슛', rpg: '리바운드', astRatio: '팀플레이', tovPct: '볼 보호', spg: '디플렉션', bpg: '블록', fbpg: '속공',
+/** 팀 탭 대시보드 지표 정의(2026-11-12 3차) — 화면은 이름으로 골라 쓴다 */
+export const METRIC: Record<MetricKey, MetricDef> = {
+  net: { key: 'net', label: '순 레이팅', hint: '공격 100번당 득실', better: 'high', fmt: signed },
+  ortg: { key: 'ortg', label: '공격 레이팅', hint: '공격 100번당 득점', better: 'high', fmt: f1 },
+  ppg: { key: 'ppg', label: '평균 득점', hint: '경기당', better: 'high', fmt: f1 },
+  efg: { key: 'efg', label: '유효 야투율', hint: '3점은 1.5개로', better: 'high', fmt: pct },
+  astRatio: { key: 'astRatio', label: '팀플레이', hint: '넣은 슛 중 어시스트', better: 'high', fmt: pct },
+  fbpg: { key: 'fbpg', label: '속공 득점', hint: '경기당', better: 'high', fmt: f1 },
+  drtg: { key: 'drtg', label: '수비 레이팅', hint: '100번당 실점 · 낮을수록 좋음', better: 'low', fmt: f1 },
+  oppg: { key: 'oppg', label: '평균 실점', hint: '경기당 · 낮을수록 좋음', better: 'low', fmt: f1 },
+  spg: { key: 'spg', label: '디플렉션', hint: '경기당 스틸', better: 'high', fmt: f1 },
+  bpg: { key: 'bpg', label: '블록', hint: '경기당', better: 'high', fmt: f1 },
+  drpg: { key: 'drpg', label: '수비 리바운드', hint: '경기당', better: 'high', fmt: f1 },
+  rpg: { key: 'rpg', label: '리바운드', hint: '경기당', better: 'high', fmt: f1 },
+  tovPct: { key: 'tovPct', label: '턴오버율', hint: '공격 기회 중 · 낮을수록 좋음', better: 'low', fmt: pct },
+  topg: { key: 'topg', label: '턴오버', hint: '경기당 · 낮을수록 좋음', better: 'low', fmt: f1 },
+  orpg: { key: 'orpg', label: '공격 리바운드', hint: '경기당 · 공을 한 번 더', better: 'high', fmt: f1 },
 }
 
 export function teamMetrics(t: BoardTeam): Partial<Record<MetricKey, number>> {
@@ -47,8 +48,12 @@ export function teamMetrics(t: BoardTeam): Partial<Record<MetricKey, number>> {
   if (fgm > 0) out.astRatio = ast / fgm * 100
   const tp = tovPct({ fga, fta, tov }, 1)
   if (tp != null) out.tovPct = tp
+  if (played > 0) { out.ppg = t.gf / played; out.oppg = t.ga / played }
   if (gp > 0) {
     out.rpg = sum('reb') / gp
+    out.orpg = sum('oreb') / gp
+    out.drpg = sum('dreb') / gp
+    out.topg = tov / gp
     out.spg = sum('stl') / gp
     out.bpg = sum('blk') / gp
     out.fbpg = t.players.reduce((s, p) => s + (p.fb_pts ?? 0), 0) / gp
@@ -72,11 +77,6 @@ export function rankTeams(teams: BoardTeam[], all: Map<string, Partial<Record<Me
   })
 }
 
-/** 레이더 축 값 0~100 — 고른 분기 팀 중 가장 좋은 팀 = 100(낮을수록 좋은 지표는 뒤집어 비율로) */
-export function radarScore(v: number | undefined, best: number | undefined, better: 'high' | 'low'): number {
-  if (v == null || best == null || v <= 0 || best <= 0) return 0
-  return Math.max(0, Math.min(100, better === 'high' ? v / best * 100 : best / v * 100))
-}
 
 /** 라커룸 기여도 — 선수가 팀 합계에서 차지한 몫(%). 수비 = 수비 리바운드 + 스틸 + 블록(운영진) */
 export type Contribution = { pts: number; reb: number; ast: number; def: number; avg: number }
