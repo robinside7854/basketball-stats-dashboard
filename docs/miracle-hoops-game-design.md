@@ -172,6 +172,23 @@
 
 **결론: 「NBA Jam 의 과장 + NBA Street 의 게이지 + Brawl Stars 의 폰 조작」** 조합이 목표에 가장 가깝다.
 
+### 4-1. 벤치마크 조사 보강 (2026-11-13 — 웹 조사)
+
+> 위 표는 처음엔 기억으로 썼다. 아래는 웹 조사로 확인·추가한 것이다.
+
+| 게임 | 확인한 사실 | 우리 게임에 주는 교훈 |
+|---|---|---|
+| **Dunk City Dynasty** (넷이즈, 2025, 폰 3대3) — **가장 가까운 비교 대상, 처음 표에서 빠졌다** | 3대3 · 빠른 판은 **11점 선승** · 선수마다 스킬 7개(자동 특성 6 + 필살기 1) · 필살기는 누르기 쉽고 특성은 조건이 맞으면 저절로 켜짐 · 리뷰의 가장 큰 불만 = **터치 조작이 예민하고 타이밍에 너무 의존** · 버튼 많음(패스·슛·드리블·덩크·수비) | 우리 「필살기 1 + 특성 1」 구조가 맞다(7개는 너무 많다). **버튼 수를 늘리지 않는다.** 슛 타이밍 판정을 너그럽게. 빠른 판 기본값 11점 |
+| **Basketball Stars · Basketball Legends** (웹 HTML5) | 1분짜리 짧은 판 · 누르고 떼는 슛 · **페이크가 실력 차를 만든다** · Legends 는 슛·수비로 차는 게이지가 꽉 차면 **막을 수 없는 슈퍼 슛** | 슛 버튼을 **짧게 톡 치면 페이크**(수비가 점프). 필살기 게이지를 「공격·수비 행동」으로 채우는 설계 그대로 |
+| **Hoop Land** (폰 2D 농구) | 깊이·애정이 높게 평가됨 · 불만 = 「컴퓨터가 3점을 못 막는다」·난이도 부족 | 컴퓨터 수비가 3점 슈터에게 붙게. 어려움 난이도를 진짜 어렵게 |
+| **NBA Jam** | 연속 득점 → 「불붙음」(터보 무제한·슛 강화) · 단순한데 역전 장면을 만든다 · 불꽃 그림 + 해설 한마디가 핵심 | 필살기와 별개로 **누구나 3연속 성공하면 불붙음**(상대가 넣으면 꺼짐) |
+| 폰 조작 일반 가이드 | 누른 자리에 생기는 조이스틱이 편하다 · 가운데 10~15% 는 무시(손 떨림) · 버튼은 크게 · 손가락이 조금 밀려도 눌림 유지 | 0단계가 이미 이렇게 돼 있다(가운데 약 11% 무시 · 누른 버튼 유지). 슛 버튼은 더 키울 여지 |
+
+**0단계에 넣을 후보 4가지** (운영진 확인 후): ① 기본 목표 점수 21 → **11** ② 슛 버튼 짧게 톡 = **페이크** ③ **3연속 성공 = 불붙음** ④ 컴퓨터 수비가 3점 선 밖 슈터에게도 붙기.
+
+출처: [GamesRadar — Dunk City Dynasty](https://www.gamesradar.com/games/dunk-city-dynasty-is-a-free-to-play-3v3-streetball-game-thats-officially-licensed-by-the-national-basketball-players-association) · [The Gaming Outsider 리뷰](https://thegamingoutsider.com/?p=20360) · [BlueStacks 초보 안내](https://www.bluestacks.com/blog/game-guides/dunk-city-dynasty/dcd-beginner-guide-en.html) · [Gamezebo — Basketball Stars](https://www.gamezebo.com/reviews/basketball-stars-review-shoot-to-thrill/) · [Poki — Basketball Legends 2020](https://poki.com/en/g/basketball-legends-2020) · [App Store — Hoop Land](https://apps.apple.com/us/app/hoop-land/id1605197976) · [NBA-Live — 불붙음](https://www.nba-live.com/ww-why-being-on-fire-was-so-cool-in-nba-jam/) · [조이스틱 조작감](https://bugnet.io/blog/how-to-fix-mobile-virtual-joystick-feeling-bad)
+
+
 ---
 
 ## 5. 만드는 도구 추천
