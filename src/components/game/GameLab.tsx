@@ -64,12 +64,12 @@ export default function GameLab() {
   const win = result ? result.score[0] > result.score[1] : false
 
   return (
-    <div className="fixed inset-0 select-none bg-[#0d1018] text-[#fff] [word-break:keep-all]" style={{ touchAction: 'none' }}>
+    <div className="fixed inset-0 select-none bg-[#0d1018] text-[#fff] [word-break:keep-all]" style={{ touchAction: phase === 'play' ? 'none' : 'pan-y' }}>
       {phase === 'play' && <canvas ref={canvasRef} className="block h-full w-full" style={{ touchAction: 'none' }} />}
 
       {phase === 'menu' && (
-        <div className="flex h-full items-center justify-center overflow-y-auto px-4 py-6">
-          <div className="grid w-full max-w-md gap-5">
+        <div className="flex h-full overflow-y-auto px-4 py-6">
+          <div className="m-auto grid w-full max-w-md gap-5">
             <div className="grid gap-1">
               <p className="text-xs font-bold tracking-[0.2em] text-[#ffd23f]">시험판 0단계</p>
               <h1 className="text-3xl font-black">미라클 후프스</h1>
@@ -87,24 +87,28 @@ export default function GameLab() {
             <button type="button" onClick={start} className="rounded-xl bg-[#ffd23f] py-3.5 text-lg font-black text-[#0d1018] active:scale-[0.98]">경기 시작</button>
             <ul className="grid gap-1 text-sm text-[#9aa3b5]">
               <li>왼쪽 화면을 누르고 끌면 움직여요.</li>
-              <li>슛 버튼을 누르고 있다가 초록 칸에서 떼세요.</li>
-              <li>수비 때 슛 버튼은 점프, 패스 버튼은 스틸이에요.</li>
-              <li>동료가 공을 들면 「줘!」를 눌러 받아요.</li>
-              <li>슛 버튼을 짧게 톡 누르면 페이크예요. 수비가 속아 뛰면 그때 쏘세요.</li>
-              <li>골대 가까이서 달리며 슛하면 덩크, 천천히 가면 레이업이에요.</li>
-              <li>공이 튀면 흰 동그라미가 떨어질 곳을 알려줘요.</li>
-              <li>상대 발밑에 파란 고리가 보이면 스틸할 수 있어요.</li>
-              <li>3번 연속으로 넣으면 핫핸드가 돼요. 상대가 넣으면 꺼져요.</li>
-              <li>공을 뺏으면 3점 선 밖으로 먼저 빼야 슛할 수 있어요.</li>
-              <li>PC 는 WASD 로 움직이고 J·K·L 키를 써요.</li>
+              <li>슛은 누르고 있다가 초록 칸에서 떼요.</li>
+              <li>슛을 짧게 톡 누르면 페이크예요.</li>
+              <li>수비가 속아 뛰면 그때 쏘세요.</li>
+              <li>골대 앞에서 달리며 슛하면 덩크예요.</li>
+              <li>천천히 다가가 슛하면 레이업이에요.</li>
+              <li>흰 동그라미는 공이 떨어질 곳이에요.</li>
+              <li>수비 때 슛 버튼은 점프예요.</li>
+              <li>수비 때 패스 버튼은 스틸이에요.</li>
+              <li>파란 고리가 보이면 스틸할 수 있어요.</li>
+              <li>동료가 공을 들면 「줘!」를 눌러요.</li>
+              <li>3번 연속 넣으면 핫핸드가 돼요.</li>
+              <li>상대가 넣으면 핫핸드가 꺼져요.</li>
+              <li>공을 뺏으면 3점 선 밖으로 먼저 빼요.</li>
+              <li>PC 는 WASD 와 J·K·L 키를 써요.</li>
             </ul>
           </div>
         </div>
       )}
 
       {phase === 'over' && result && (
-        <div className="flex h-full items-center justify-center overflow-y-auto px-4 py-6">
-          <div className="grid w-full max-w-sm gap-4 text-center">
+        <div className="flex h-full overflow-y-auto px-4 py-6">
+          <div className="m-auto grid w-full max-w-sm gap-4 text-center">
             <p className={`text-4xl font-black ${win ? 'text-[#ffd23f]' : 'text-[#9fb0d8]'}`}>{win ? '승리!' : '패배'}</p>
             <p className="text-5xl font-black tabular-nums">{result.score[0]} : {result.score[1]}</p>
             <div className="grid grid-cols-3 gap-2 text-sm">
