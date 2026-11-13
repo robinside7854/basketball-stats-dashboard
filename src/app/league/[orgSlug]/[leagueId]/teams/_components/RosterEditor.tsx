@@ -19,6 +19,7 @@ import { swatchEdge } from '@/lib/util/contrastColor'
 import MonthlyRosterPanel from './MonthlyRosterPanel'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
 import SignupRateCard from '@/components/league/auth/SignupRateCard'
+import HeightBulkCard from '@/components/league/HeightBulkCard'
 import type { LeaguePlayer, LeagueTeam, Quarter } from '@/types/league'
 import type { Team } from '../_types'
 import { POSITION_GROUPS, positionGroupLabel, positionGroupOf, type PositionGroupCode } from '@/lib/league/positionGroup'
@@ -841,6 +842,12 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
 
       {/* 회원 가입율 — 게스트 제외 등록 회원 중 로그인 계정 승인 비율 */}
       <SignupRateCard leagueId={leagueId} leagueHeaders={leagueHeaders} isEditMode={isEditMode} />
+
+      {/* 키 일괄 입력 — 편집 모드에서만 (미라클 후프스 캐릭터용) */}
+      {isEditMode && players.length > 0 && (
+        <HeightBulkCard leagueId={leagueId} leagueHeaders={leagueHeaders} players={players}
+          onSaved={ch => setPlayers(prev => prev.map(p => (p.id in ch ? { ...p, height_cm: ch[p.id] } : p)))} />
+      )}
 
       {/* 선수 추가 폼 */}
       {showForm && isEditMode && (
