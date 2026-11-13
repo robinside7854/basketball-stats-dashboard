@@ -23,7 +23,12 @@ const FULL_DAYS = 15
 const PROVISIONAL_DAYS = 8
 const LOW = 51, SPAN = 48 // 51 + 48×백분위 → 가운데 75, 맨 위 99
 const UNSURE = 70 // 출전이 적으면 이 쪽으로 당긴다(평균보다 조금 아래)
-const clamp = (v: number) => Math.max(40, Math.min(99, v))
+// 99 몰림 막기(2026-11-13): 종합을 끌어올리면 잘하는 선수의 능력치가 줄줄이 99 에 붙었다(막대가 다 꽉 참).
+//   88 위로는 부드럽게 눌러 99 에 다가가기만 하게 한다 → 진짜 압도적인 것만 97~99, 나머지는 90 언저리로 차이가 보인다.
+const KNEE = 88
+const clamp = (v: number) => Math.max(40, v <= KNEE ? v : KNEE + (99 - KNEE) * (1 - Math.exp(-(v - KNEE) / (99 - KNEE))))
+// 종합 목표 = 54 + 42×백분위 → 가운데 75, 맨 위 96, 35명 리그의 3등 ≈ 94 (「90 이상 최소 3명」)
+const OVR_LOW = 54, OVR_SPAN = 42
 /** 종합 — 게임 화면(players.ts ovr)과 같은 정의: 체력 뺀 나머지 평균 */
 export const gameOvr = (r: GameRatings) => { const { stamina: _s, ...rest } = r; const v = Object.values(rest); return v.reduce((a, b) => a + b, 0) / v.length }
 
@@ -95,10 +100,10 @@ export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
   const pull = (gp: number, s: number) => (gp < FULL_DAYS ? UNSURE + (s - UNSURE) * (gp / FULL_DAYS) : s)
   const raw = ps.map((p, i) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, pull(p.gp, LOW + SPAN * v[i])])) as unknown as GameRatings)
   // 종합을 순위로 다시 펴고, 각 선수의 능력치를 같은 만큼 옮긴다(장단점 모양은 그대로). 99·40 에 막히면 몇 번 더 옮긴다
-  const target = pctRank(raw.map(gameOvr)).map((v, i) => pull(ps[i].gp, LOW + SPAN * v))
+  const target = pctRank(raw.map(gameOvr)).map((v, i) => pull(ps[i].gp, OVR_LOW + OVR_SPAN * v))
   return ps.map((p, i) => {
     let d = 0, ratings = raw[i]
-    for (let t = 0; t < 4; t++) {
+    for (let t = 0; t < 8; t++) {
       ratings = Object.fromEntries(Object.entries(raw[i]).map(([k, v]) => [k, k === 'stamina' ? Math.round(v) : Math.round(clamp(v + d))])) as unknown as GameRatings
       d += target[i] - gameOvr(ratings)
     }
