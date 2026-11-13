@@ -15,6 +15,8 @@ export interface GameOptions {
   /** 먼저 도달하면 끝나는 점수 (0 = 없음) */
   target: number
   difficulty: Difficulty
+  /** 진동(안드로이드 브라우저만 — 아이폰 사파리는 웹 진동을 막는다) */
+  vibrate: boolean
 }
 
 export interface GameResult {
@@ -70,6 +72,10 @@ interface Player {
   spot: { x: number; y: number }
   aiT: number
   faceX: number; faceY: number
+  /** 연속 성공 수 — 3이면 핫핸드 */
+  streak: number
+  fire: boolean
+  fakeT: number; fakeCool: number
 }
 
 type BallState = 'held' | 'pass' | 'shot' | 'loose'
@@ -95,14 +101,34 @@ interface Ball {
 
 interface Pop { text: string; x: number; y: number; t: number; color: string; big?: boolean }
 
-interface Pointer { id: number; kind: 'stick' | 'shoot' | 'pass' | 'dash'; ox: number; oy: number; x: number; y: number }
+interface Pointer { id: number; kind: 'stick' | 'shoot' | 'pass' | 'dash' | 'fake'; ox: number; oy: number; x: number; y: number }
 
 
 const DIFF = {
-  easy: { qMin: 0.15, qMax: 0.75, stealRate: 0.15, stealChance: 0.12, blockReact: 0.25, speed: 0.86 },
-  normal: { qMin: 0.35, qMax: 0.95, stealRate: 0.3, stealChance: 0.2, blockReact: 0.45, speed: 0.95 },
-  hard: { qMin: 0.55, qMax: 1.0, stealRate: 0.5, stealChance: 0.28, blockReact: 0.65, speed: 1.0 },
+  // onBall·offBall = 수비가 상대에게서 떨어지는 거리(m, 작을수록 바짝) · fakeBite = 페이크에 속아 뛸 확률
+  easy: { qMin: 0.15, qMax: 0.75, stealRate: 0.15, stealChance: 0.12, blockReact: 0.3, speed: 0.86, onBall: 0.95, offBall: 1.6, help: false, fakeBite: 0.8, fakeUse: 0.1 },
+  normal: { qMin: 0.35, qMax: 0.95, stealRate: 0.3, stealChance: 0.2, blockReact: 0.5, speed: 0.95, onBall: 0.7, offBall: 1.15, help: true, fakeBite: 0.6, fakeUse: 0.25 },
+  hard: { qMin: 0.55, qMax: 1.0, stealRate: 0.5, stealChance: 0.28, blockReact: 0.7, speed: 1.0, onBall: 0.55, offBall: 0.9, help: true, fakeBite: 0.4, fakeUse: 0.4 },
 } as const
+
+/** 타격감 진동 — 이벤트마다 한 벌. 숫자 = 진동 ms, 쉼 ms, 진동 ms … */
+const HAPTIC = {
+  tap: 8,
+  release: 12,
+  perfect: [12, 30, 28],
+  dash: 10,
+  score2: 45,
+  score3: [40, 40, 75],
+  oppScore: 18,
+  block: 70,
+  blocked: [30, 25, 30],
+  steal: 38,
+  stolen: [25, 25, 25],
+  rim: 10,
+  fakeHit: 22,
+  fire: [30, 40, 30, 40, 110],
+  end: [80, 60, 160],
+} as const satisfies Record<string, number | readonly number[]>
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by)
@@ -151,6 +177,7 @@ export class HoopsGame {
   private shootWas = false
   private passEdge = false
   private dashEdge = false
+  private fakeEdge = false
   private meter = 0
   private metering = false
   private meterT = 0
@@ -181,6 +208,7 @@ export class HoopsGame {
     const mk = (id: number, team: 0 | 1, num: number, spot: { x: number; y: number }): Player => ({
       id, team, num, x: spot.x, y: spot.y, vx: 0, vy: 0, z: 0, vz: 0,
       dashT: 0, dashCool: 0, stealCool: 0, stunT: 0, spot, aiT: Math.random(), faceX: 0, faceY: -1,
+      streak: 0, fire: false, fakeT: 0, fakeCool: 0,
     })
     const spots = [{ x: 7.5, y: 8.4 }, { x: 2.6, y: 5.0 }, { x: 12.4, y: 5.0 }]
     this.players = [
@@ -245,6 +273,7 @@ export class HoopsGame {
       shoot: { x: R - 56, y: B - 64, r: 54 },
       pass: { x: R - 168, y: B - 34, r: 36 },
       dash: { x: R - 50, y: B - 192, r: 34 },
+      fake: { x: R - 168, y: B - 132, r: 32 },
     }
   }
 
@@ -257,9 +286,12 @@ export class HoopsGame {
     if (dist(x, y, BTN.shoot.x, BTN.shoot.y) < BTN.shoot.r + 14) kind = 'shoot'
     else if (dist(x, y, BTN.pass.x, BTN.pass.y) < BTN.pass.r + 12) kind = 'pass'
     else if (dist(x, y, BTN.dash.x, BTN.dash.y) < BTN.dash.r + 12) kind = 'dash'
+    else if (dist(x, y, BTN.fake.x, BTN.fake.y) < BTN.fake.r + 12) kind = 'fake'
     else if (x > (this.viewL + this.viewR) / 2) return
     if (kind === 'pass') this.passEdge = true
     if (kind === 'dash') this.dashEdge = true
+    if (kind === 'fake') this.fakeEdge = true
+    if (kind !== 'stick') this.haptic(HAPTIC.tap)
     this.pointers.set(e.pointerId, { id: e.pointerId, kind, ox: x, oy: y, x, y })
     e.preventDefault()
   }
@@ -272,12 +304,13 @@ export class HoopsGame {
   private onUp = (e: PointerEvent) => { this.pointers.delete(e.pointerId) }
   private onKey = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase()
-    const game = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', 'j', 'k', 'l', ' ', 'shift']
+    const game = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', 'j', 'k', 'l', 'h', ' ', 'shift']
     if (!game.includes(k)) return
     e.preventDefault()
     if (e.type === 'keydown') {
       if (!this.keys.has(k)) {
         if (k === 'k') this.passEdge = true
+        if (k === 'h') this.fakeEdge = true
         if (k === 'l' || k === 'shift') this.dashEdge = true
       }
       this.keys.add(k)
@@ -359,6 +392,7 @@ export class HoopsGame {
     this.render()
     this.passEdge = false
     this.dashEdge = false
+    this.fakeEdge = false
     this.raf = requestAnimationFrame(this.loop)
   }
 
@@ -413,6 +447,7 @@ export class HoopsGame {
 
   private finish() {
     this.over = true
+    this.haptic(HAPTIC.end)
     this.onOver({ score: [...this.score] as [number, number], stats: { ...this.result } })
   }
 
@@ -435,7 +470,7 @@ export class HoopsGame {
     const p = this.controlled
     const b = this.ball
     const hasBall = b.state === 'held' && b.holder === p
-    if (this.dashEdge && p.dashCool <= 0) { p.dashT = DASH_TIME; p.dashCool = DASH_COOL }
+    if (this.dashEdge && p.dashCool <= 0) { p.dashT = DASH_TIME; p.dashCool = p.fire ? DASH_COOL / 2 : DASH_COOL; this.haptic(HAPTIC.dash) }
 
     if (hasBall) {
       // 슛 게이지: 누르면 차오르고, 떼면 쏜다
@@ -450,8 +485,9 @@ export class HoopsGame {
         this.meter = this.meterT < 0.85 ? this.meterT / 0.85 : this.meter
         p.vx *= 0.8; p.vy *= 0.8
         if (!this.shootHeld || this.meterT > 2.4) {
-          const q = this.meterQuality(this.meter)
+          const q = this.meterQuality(this.meter, p.fire)
           this.metering = false
+          this.haptic(q === 1 ? HAPTIC.perfect : HAPTIC.release)
           this.shoot(p, q)
           return
         }
@@ -459,6 +495,7 @@ export class HoopsGame {
         return
       }
       if (this.passEdge) this.passFrom(p, this.stick.x, this.stick.y)
+      if (this.fakeEdge) this.pumpFake(p)
     } else {
       this.metering = false
       const handler = b.state === 'held' ? b.holder : null
@@ -478,10 +515,10 @@ export class HoopsGame {
   }
 
   /** 게이지 0~1 중 0.78~0.92 가 초록 칸 */
-  private meterQuality(m: number) {
+  private meterQuality(m: number, fire = false) {
     const sweet = 0.85
     const d = Math.abs(m - sweet)
-    if (d < 0.07) return 1
+    if (d < (fire ? 0.13 : 0.07)) return 1
     return clamp(1 - (d - 0.07) * 2.6, 0, 0.9)
   }
 
@@ -493,6 +530,10 @@ export class HoopsGame {
     const diffSpeed = p.team === 1 ? DIFF[this.opts.difficulty].speed : 1
     let max = (p.dashT > 0 ? DASH_SPEED : BASE_SPEED) * diffSpeed
     if (this.ball.holder === p) max *= 0.9
+    if (p.fire) max *= 1.1
+    p.fakeT = Math.max(0, p.fakeT - dt)
+    p.fakeCool = Math.max(0, p.fakeCool - dt)
+    if (p.fakeT > 0) max *= 0.3
     if (p.stunT > 0) max *= 0.35
     if (p.z > 0) { ix *= 0.2; iy *= 0.2 }
     const tx = ix * max, ty = iy * max
@@ -531,10 +572,11 @@ export class HoopsGame {
     // 가까운 수비
     let near = Infinity
     for (const o of this.players) if (o.team !== p.team) near = Math.min(near, dist(o.x, o.y, p.x, p.y))
-    if (near < 1.0) pct *= 0.55
-    else if (near < 2.0) pct *= 0.8
+    if (near < 1.0) pct *= p.fire ? 0.75 : 0.55
+    else if (near < 2.0) pct *= p.fire ? 0.92 : 0.8
     pct *= 0.5 + 0.75 * q
     if (q === 1) pct += 0.12
+    if (p.fire) pct += 0.15
     pct = clamp(pct, 0.03, 0.93)
 
     if (p.team === 0) { this.result.shots++; if (q === 1) this.pop('완벽!', sx(p.x), sy(p.y) - 92, '#7ee787') }
@@ -552,8 +594,10 @@ export class HoopsGame {
         this.pop('블록!', sx(o.x), sy(o.y) - 90, '#ff6b6b', true)
         this.shake = 0.6
         if (o.team === 0) this.result.blocks++
+        p.streak = 0
         this.needsClear = true
-        this.vibrate(40)
+        if (o.team === 0) this.haptic(HAPTIC.block)
+        else if (p.team === 0) this.haptic(HAPTIC.blocked)
         return
       }
     }
@@ -631,8 +675,8 @@ export class HoopsGame {
       b.lastTeam = p.team
       handler.stunT = 0.5
       this.pop('스틸!', sx(p.x), sy(p.y) - 80, '#4fc3f7', true)
-      if (p.team === 0) this.result.steals++
-      this.vibrate(30)
+      if (p.team === 0) { this.result.steals++; this.haptic(HAPTIC.steal) }
+      else if (handler.team === 0) this.haptic(HAPTIC.stolen)
     } else {
       p.stunT = 0.35
     }
@@ -646,7 +690,7 @@ export class HoopsGame {
       const bounce = Math.abs(Math.sin(performance.now() / 140)) * 0.7
       b.x = h.x + h.faceX * 0.35 + 0.2
       b.y = h.y + h.faceY * 0.25
-      b.z = this.metering && h === this.controlled ? 2.1 : 0.15 + bounce
+      b.z = (this.metering && h === this.controlled) || h.fakeT > 0 ? 2.1 : 0.15 + bounce
       return
     }
     if (b.state === 'pass' && b.target) {
@@ -663,7 +707,8 @@ export class HoopsGame {
           b.interceptTried.add(o.id)
           if (Math.random() < 0.5) {
             this.pop('가로채기!', sx(o.x), sy(o.y) - 80, '#4fc3f7', true)
-            if (o.team === 0) this.result.steals++
+            if (o.team === 0) { this.result.steals++; this.haptic(HAPTIC.steal) }
+            else this.haptic(HAPTIC.stolen)
             this.needsClear = true
             this.hold(o)
             return
@@ -727,7 +772,23 @@ export class HoopsGame {
       }
       this.pop(b.isThree ? '3점!' : '+2', sx(HOOP.x), sy(HOOP.y, RIM_Z) - 30, TEAM_COLOR[team] === '#2e3a59' ? '#9fb0d8' : TEAM_COLOR[team], true)
       this.shake = b.isThree ? 0.8 : 0.4
-      this.vibrate(team === 0 ? 60 : 20)
+      this.haptic(team === 0 ? (b.isThree ? HAPTIC.score3 : HAPTIC.score2) : HAPTIC.oppScore)
+      // 핫핸드: 3연속 성공이면 불붙음 · 상대가 넣으면 꺼짐
+      for (const o of this.players) {
+        if (o.team === team) continue
+        if (o.fire) this.pop('불이 꺼졌다', sx(o.x), sy(o.y) - 80, '#9aa3b5')
+        o.fire = false
+        o.streak = 0
+      }
+      if (shooter) {
+        shooter.streak++
+        if (shooter.streak >= 3 && !shooter.fire) {
+          shooter.fire = true
+          this.pop('핫핸드!', sx(shooter.x), sy(shooter.y) - 110, '#ff7a1a', true)
+          this.shake = 1
+          if (shooter.team === 0) this.haptic(HAPTIC.fire)
+        }
+      }
       b.state = 'loose'
       b.holder = null
       b.x = HOOP.x; b.y = HOOP.y + 0.1; b.z = 2.6; b.vx = 0; b.vy = 1; b.vz = -2
@@ -741,6 +802,8 @@ export class HoopsGame {
       return
     }
     // 실패 → 림에 맞고 튄다
+    if (shooter) shooter.streak = 0
+    if (team === 0) this.haptic(HAPTIC.rim)
     b.state = 'loose'
     b.holder = null
     const ang = rand(0, Math.PI) // 코트 쪽(아래)으로
@@ -802,11 +865,20 @@ export class HoopsGame {
       const ctrlIdx = mine.indexOf(this.controlled)
       if (idx !== ctrlIdx && handler && opp.indexOf(handler) === idx) man = opp[ctrlIdx]
     }
-    const tight = man === handler ? 0.95 : 1.8
+    // 붙는 거리 — 공 가진 사람은 바짝, 3점 선 밖 슈터도 놓치지 않는다
+    const dd = p.team === 1 ? diff : DIFF.normal
+    let tight: number = man === handler ? dd.onBall : dd.offBall
+    if (man !== handler && hoopDist(man) > ARC_R - 0.3) tight = Math.min(tight, dd.onBall + 0.35)
     const ddx = HOOP.x - man.x, ddy = HOOP.y - man.y
     const dm = Math.hypot(ddx, ddy) || 1
     tx = man.x + (ddx / dm) * tight
     ty = man.y + (ddy / dm) * tight
+    // 도움 수비: 공 가진 사람이 골밑까지 파고들면, 공에서 가장 가까운 다른 수비가 막으러 온다
+    if (handler && man !== handler && dd.help && hoopDist(handler) < 3.4) {
+      const helper = mine.filter(o => o !== this.controlled && o !== mine[opp.indexOf(handler)])
+        .sort((a, c) => dist(a.x, a.y, handler.x, handler.y) - dist(c.x, c.y, handler.x, handler.y))[0]
+      if (helper === p) { tx = (handler.x + HOOP.x) / 2; ty = (handler.y + HOOP.y) / 2 }
+    }
     this.steer(p, dt, tx, ty)
     if (handler && man === handler && this.holdT > 1.2 && dist(p.x, p.y, handler.x, handler.y) < STEAL_RANGE) {
       const rate = p.team === 1 ? diff.stealRate : 0.35
@@ -836,6 +908,7 @@ export class HoopsGame {
         this.shoot(p, q)
         return
       }
+      if (open < 1.3 && p.fakeCool <= 0 && Math.random() < (p.team === 1 ? diff.fakeUse : 0.2)) { this.pumpFake(p); p.aiT = 0.45; return }
       if (open < 1.1 && Math.random() < 0.45) { this.passFrom(p, 0, 0); return }
       // 드리블 목표: 골밑 쪽으로, 좌우로 흔들며
       p.spot = { x: clamp(HOOP.x + rand(-4, 4), 1.5, 13.5), y: clamp(HOOP.y + rand(0.8, 5.5), 1.8, 9.5) }
@@ -854,8 +927,29 @@ export class HoopsGame {
     this.pops.push({ text, x, y, t: 0, color, big })
   }
 
-  private vibrate(ms: number) {
-    try { navigator.vibrate?.(ms) } catch { /* 일부 기기는 지원하지 않는다 */ }
+  /** 페이크: 슛하는 척 — 가까운 수비가 속아서 뛰면, 내려올 때까지 노마크 */
+  private pumpFake(p: Player) {
+    if (p.fakeCool > 0 || p.z > 0) return
+    p.fakeT = 0.35
+    p.fakeCool = 0.9
+    let bit = false
+    for (const o of this.players) {
+      if (o.team === p.team || o.z > 0 || dist(o.x, o.y, p.x, p.y) > 2.0) continue
+      if (o === this.controlled) continue // 사람이 조종하는 수비는 스스로 판단한다
+      const bite = o.team === 1 ? DIFF[this.opts.difficulty].fakeBite : 0.5
+      if (Math.random() < bite) {
+        this.jump(o)
+        o.stunT = 0.5
+        bit = true
+        this.pop('속았다!', sx(o.x), sy(o.y) - 86, '#ffd23f')
+      }
+    }
+    if (bit && p.team === 0) this.haptic(HAPTIC.fakeHit)
+  }
+
+  private haptic(pattern: number | readonly number[]) {
+    if (!this.opts.vibrate) return
+    try { navigator.vibrate?.(pattern as number | number[]) } catch { /* 지원하지 않는 기기 */ }
   }
 
   // ───────────────────────── 그리기 ─────────────────────────
@@ -975,6 +1069,19 @@ export class HoopsGame {
       c.lineWidth = 3
       c.beginPath(); c.ellipse(x, y, 20, 8, 0, 0, Math.PI * 2); c.stroke()
     }
+    // 핫핸드 불꽃
+    if (p.fire) {
+      const t = performance.now() / 90
+      for (let i = 0; i < 7; i++) {
+        const fx = x + Math.sin(t + i * 1.7) * 14
+        const fh = 22 + Math.sin(t * 1.3 + i) * 8
+        c.fillStyle = i % 2 ? 'rgba(255,122,26,0.75)' : 'rgba(255,214,63,0.8)'
+        c.beginPath()
+        c.moveTo(fx - 7, top - 4)
+        c.quadraticCurveTo(fx, top - 30 - fh, fx + 7, top - 4)
+        c.fill()
+      }
+    }
     // 몸(큰 머리 · 작은 몸 — 0단계는 네모)
     c.fillStyle = TEAM_COLOR[p.team]
     c.strokeStyle = TEAM_EDGE[p.team]
@@ -1084,7 +1191,7 @@ export class HoopsGame {
       c.fillStyle = 'rgba(255,255,255,0.55)'
       c.font = '600 13px system-ui, sans-serif'
       c.textAlign = 'left'
-      c.fillText('이동 WASD · 방향키   슛·점프 J(누르고 떼기)   패스·스틸 K   대시 L', this.viewL + 16, this.viewB - 16)
+      c.fillText('이동 WASD · 방향키   슛·점프 J(누르고 떼기)   패스·스틸 K   대시 L   페이크 H', this.viewL + 16, this.viewB - 16)
       return
     }
     // 조이스틱
@@ -1123,6 +1230,7 @@ export class HoopsGame {
     btn(BTN.shoot, mineHas && b.holder === ctrl ? (this.needsClear ? '밖으로' : '슛') : '점프', '#ffd23f', pressed('shoot'))
     btn(BTN.pass, mineHas ? (b.holder === ctrl ? '패스' : '줘!') : '스틸', '#4fc3f7', pressed('pass'))
     btn(BTN.dash, '대시', '#7ee787', pressed('dash'), ctrl.dashCool > 0)
+    btn(BTN.fake, '페이크', '#ff9f43', pressed('fake'), !(mineHas && b.holder === ctrl) || ctrl.fakeCool > 0)
   }
 }
 

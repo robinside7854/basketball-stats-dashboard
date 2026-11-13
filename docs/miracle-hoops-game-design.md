@@ -186,6 +186,9 @@
 
 **0단계에 넣을 후보 4가지** (운영진 확인 후): ① 기본 목표 점수 21 → **11** ② 슛 버튼 짧게 톡 = **페이크** ③ **3연속 성공 = 불붙음** ④ 컴퓨터 수비가 3점 선 밖 슈터에게도 붙기.
 
+→ **2026-11-13 운영진 승인 · 시험판에 넣음**: 목표 11점 기본 · 「페이크」 버튼(PC H — 가까운 수비가 속아 뛴다, 어려움일수록 덜 속음, 컴퓨터도 페이크를 씀) · **핫핸드**(3연속 성공 → 불꽃 · 슛 +15% · 초록 칸 두 배 · 속도 +10% · 대시 대기 절반, 상대가 넣으면 꺼짐) · 수비 강화(난이도별 붙는 거리 · 3점 선 밖 슈터도 바짝 · 골밑 돌파에 도움 수비) · **진동 타격감**(엔진 `HAPTIC` 한 벌 — 버튼·슛·완벽·득점·3점·블록·스틸·뺏김·림·페이크 성공·핫핸드·경기 끝, 메뉴에서 끄기. 안드로이드만 — 아이폰 사파리는 웹 진동 미지원).
+
+
 출처: [GamesRadar — Dunk City Dynasty](https://www.gamesradar.com/games/dunk-city-dynasty-is-a-free-to-play-3v3-streetball-game-thats-officially-licensed-by-the-national-basketball-players-association) · [The Gaming Outsider 리뷰](https://thegamingoutsider.com/?p=20360) · [BlueStacks 초보 안내](https://www.bluestacks.com/blog/game-guides/dunk-city-dynasty/dcd-beginner-guide-en.html) · [Gamezebo — Basketball Stars](https://www.gamezebo.com/reviews/basketball-stars-review-shoot-to-thrill/) · [Poki — Basketball Legends 2020](https://poki.com/en/g/basketball-legends-2020) · [App Store — Hoop Land](https://apps.apple.com/us/app/hoop-land/id1605197976) · [NBA-Live — 불붙음](https://www.nba-live.com/ww-why-being-on-fire-was-so-cool-in-nba-jam/) · [조이스틱 조작감](https://bugnet.io/blog/how-to-fix-mobile-virtual-joystick-feeling-bad)
 
 

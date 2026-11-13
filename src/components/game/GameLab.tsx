@@ -30,16 +30,17 @@ export default function GameLab() {
   const gameRef = useRef<HoopsGame | null>(null)
   const [phase, setPhase] = useState<'menu' | 'play' | 'over'>('menu')
   const [seconds, setSeconds] = useState(300)
-  const [target, setTarget] = useState(21)
+  const [target, setTarget] = useState(11)
   const [difficulty, setDifficulty] = useState<Difficulty>('normal')
+  const [vibrate, setVibrate] = useState(true)
   const [result, setResult] = useState<GameResult | null>(null)
 
   useEffect(() => {
     if (phase !== 'play' || !canvasRef.current) return
-    const g = new HoopsGame(canvasRef.current, { seconds, target, difficulty }, r => { setResult(r); setPhase('over') })
+    const g = new HoopsGame(canvasRef.current, { seconds, target, difficulty, vibrate }, r => { setResult(r); setPhase('over') })
     gameRef.current = g
     return () => { g.destroy(); gameRef.current = null }
-  }, [phase, seconds, target, difficulty])
+  }, [phase, seconds, target, difficulty, vibrate])
 
   // 경기 중에는 화면을 끌어도 페이지가 움직이지 않게
   useEffect(() => {
@@ -78,14 +79,21 @@ export default function GameLab() {
             <Choice label="경기 시간" items={TIMES} value={seconds} onChange={setSeconds} />
             <Choice label="먼저 도달하면 끝나는 점수" items={TARGETS} value={target} onChange={setTarget} />
             <Choice label="컴퓨터 실력" items={DIFFS} value={difficulty} onChange={setDifficulty} />
+            <div className="grid gap-1">
+              <Choice label="진동" items={[{ v: 1, l: '켜기' }, { v: 0, l: '끄기' }]} value={vibrate ? 1 : 0} onChange={v => setVibrate(v === 1)} />
+              <p className="text-xs text-[#9aa3b5]">진동은 안드로이드 폰에서만 돼요.</p>
+              <p className="text-xs text-[#9aa3b5]">아이폰은 브라우저가 진동을 막아요.</p>
+            </div>
             <button type="button" onClick={start} className="rounded-xl bg-[#ffd23f] py-3.5 text-lg font-black text-[#0d1018] active:scale-[0.98]">경기 시작</button>
             <ul className="grid gap-1 text-sm text-[#9aa3b5]">
               <li>왼쪽 화면을 누르고 끌면 움직여요.</li>
               <li>슛 버튼을 누르고 있다가 초록 칸에서 떼세요.</li>
               <li>수비 때 슛 버튼은 점프, 패스 버튼은 스틸이에요.</li>
               <li>동료가 공을 들면 「줘!」를 눌러 받아요.</li>
+              <li>페이크를 누르면 슛하는 척해요. 수비가 속아 뛰면 그때 쏘세요.</li>
+              <li>3번 연속으로 넣으면 핫핸드가 돼요. 상대가 넣으면 꺼져요.</li>
               <li>공을 뺏으면 3점 선 밖으로 먼저 빼야 슛할 수 있어요.</li>
-              <li>PC 는 WASD 로 움직이고 J·K·L 키를 써요.</li>
+              <li>PC 는 WASD 로 움직이고 J·K·L·H 키를 써요.</li>
             </ul>
           </div>
         </div>
