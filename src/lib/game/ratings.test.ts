@@ -1,7 +1,7 @@
-﻿// 실행: node --test --import jiti/register src/lib/game/ratings.test.ts
+// 실행: node --test --import jiti/register src/lib/game/ratings.test.ts
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildGameRoster, pctRank } from './ratings'
+import { buildGameRoster, pctRank, gameOvr } from './ratings'
 import type { PlayerStat } from '@/types/league'
 
 const p = (id: string, over: Partial<PlayerStat>): PlayerStat => ({
@@ -17,22 +17,18 @@ test('pctRank: 동점은 평균, 범위 0~1', () => {
   assert.deepEqual(pctRank([1, 2, 2, 3]), [0, 0.5, 0.5, 1])
 })
 
-test('능력치: 범위·당기기·제외·포지션', () => {
-  const r = buildGameRoster([
-    p('shooter', { fg3m: 30, fg3a: 60, position: 'G' }),
-    p('mid', {}),
-    p('big', { fg3m: 0, fg3a: 30, reb: 120, blk: 30, position: 'C' }),
-    p('rookie', { gp: 5, fg3m: 2, fg3a: 10 }),
-    p('twoday', { gp: 2 }),
-  ])
-  assert.equal(r.length, 4, '3일 미만 제외')
-  const by = Object.fromEntries(r.map(c => [c.id, c]))
-  assert.equal(by.shooter.ratings.three, 99)
-  assert.equal(by.big.ratings.three, 40)
-  assert.equal(by.big.ratings.rebound, 99)
-  assert.equal(by.big.pos, 'C')
-  assert.ok(by.shooter.ratings.speed > by.big.ratings.speed, '가드가 더 빠름')
-  for (const v of Object.values(by.rookie.ratings)) assert.ok(Math.abs(v - 55) <= (99 - 55) * 5 / 15 + 0.5, '15일 미만은 55 쪽')
-  assert.equal(by.rookie.provisional, true)
+// 가짜 리그 30명 — 실력이 i 에 따라 고르게 다르다
+const league = Array.from({ length: 30 }, (_, i) => p(`p${i}`, {
+  gp: i % 6 === 0 ? 6 : 20, position: ['G', 'F', 'C'][i % 3],
+  fg3m: i, fg3a: 40, md_m: (i * 7) % 30, md_a: 30, lu_m: i, lu_a: 30, ast: i * 2, stl: (i * 3) % 40, blk: (i * 5) % 30, reb: i * 4, tov: 40 - i,
+}))
+
+test('능력치: 평균 ≈ 75 · 90 이상 3명 이상 · 범위 · 제외', () => {
+  const r = buildGameRoster([...league, p('twoday', { gp: 2 })])
+  assert.equal(r.length, 30, '3일 미만 제외')
+  const o = r.map(c => gameOvr(c.ratings)).sort((a, b) => a - b)
+  assert.ok(Math.abs(o[15] - 75) <= 3, `가운데 종합 ${o[15]}`)
+  assert.ok(o.filter(v => v >= 90).length >= 3, `90 이상 ${o.filter(v => v >= 90).length}명`)
   for (const c of r) for (const v of Object.values(c.ratings)) assert.ok(v >= 40 && v <= 99)
+  assert.equal(r.find(c => c.id === 'p0')!.provisional, true)
 })

@@ -1,7 +1,9 @@
 // 미라클 후프스(게임) 능력치 — 순수 함수. 숫자는 computeLeagueStats 결과(PlayerStat)만 받는다(이벤트를 다시 세지 않는다).
 // 식: 게임 저장소 docs/design.md 8-2.
 //   성공률은 리그 평균으로 당긴다 (성공 + 50×리그률) ÷ (시도 + 50) · 하루 평균은 (합계 + 12×리그 하루 평균) ÷ (출전일 + 12)
-//   → 순위 백분위 → 40 + 59×백분위 → 15일 미만 출전은 55 쪽으로 (× 출전일 ÷ 15).
+//   → 순위 백분위 → 51 + 48×백분위(가운데 75) → 15일 미만 출전은 70 쪽으로 (× 출전일 ÷ 15).
+//   → 종합(체력 뺀 9개 평균)을 다시 순위로 줄 세워 51 + 48×백분위 로 맞춘다(능력치 전체를 같은 만큼 올리고 내림).
+//     평균은 순위를 뭉개서 그대로 두면 90 넘는 선수가 안 나온다 — 운영진 기준(2026-11-13): 리그 평균 ≈ 75, 90 이상 최소 3명.
 // 결과 모양은 게임 저장소 src/roster.ts 의 PlayerCard 와 같다 — 바꾸면 두 저장소를 같이 바꾼다.
 import type { PlayerStat } from '@/types/league'
 
@@ -15,6 +17,11 @@ export interface GamePlayerCard { id: string; name: string; num: number; pos: Ga
 export const GAME_MIN_DAYS = 3
 const FULL_DAYS = 15
 const PROVISIONAL_DAYS = 8
+const LOW = 51, SPAN = 48 // 51 + 48×백분위 → 가운데 75, 맨 위 99
+const UNSURE = 70 // 출전이 적으면 이 쪽으로 당긴다(평균보다 조금 아래)
+const clamp = (v: number) => Math.max(40, Math.min(99, v))
+/** 종합 — 게임 화면(players.ts ovr)과 같은 정의: 체력 뺀 9개 평균 */
+export const gameOvr = (r: GameRatings) => { const { stamina: _s, ...rest } = r; const v = Object.values(rest); return v.reduce((a, b) => a + b, 0) / v.length }
 
 export function toGamePos(p: string | null | undefined): GamePos {
   const s = (p ?? '').toUpperCase()
@@ -81,12 +88,16 @@ export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
     stamina: pctRank(ps.map(p => p.gp)),
   }
 
+  const pull = (gp: number, s: number) => (gp < FULL_DAYS ? UNSURE + (s - UNSURE) * (gp / FULL_DAYS) : s)
+  const raw = ps.map((p, i) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, pull(p.gp, LOW + SPAN * v[i])])) as unknown as GameRatings)
+  // 종합을 순위로 다시 펴고, 각 선수의 능력치를 같은 만큼 옮긴다(장단점 모양은 그대로). 99·40 에 막히면 몇 번 더 옮긴다
+  const target = pctRank(raw.map(gameOvr)).map((v, i) => pull(ps[i].gp, LOW + SPAN * v))
   return ps.map((p, i) => {
-    const score = (pct: number) => {
-      const s = 40 + 59 * pct
-      return Math.round(p.gp < FULL_DAYS ? 55 + (s - 55) * (p.gp / FULL_DAYS) : s)
+    let d = 0, ratings = raw[i]
+    for (let t = 0; t < 4; t++) {
+      ratings = Object.fromEntries(Object.entries(raw[i]).map(([k, v]) => [k, k === 'stamina' ? Math.round(v) : Math.round(clamp(v + d))])) as unknown as GameRatings
+      d += target[i] - gameOvr(ratings)
     }
-    const ratings = Object.fromEntries(Object.entries(P).map(([k, v]) => [k, score(v[i])])) as unknown as GameRatings
     return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings, provisional: p.gp < PROVISIONAL_DAYS }
   })
 }
