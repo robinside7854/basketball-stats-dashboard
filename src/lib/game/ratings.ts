@@ -8,13 +8,13 @@
 import type { PlayerStat } from '@/types/league'
 
 export type GamePos = 'G' | 'F' | 'C'
-/** 능력치 15개(2026-11-13 세분화 — 골밑 → 레이업·포스트업, 리바운드 → 공격·수비, 속공·자유투·파울 관리 추가) */
+/** 능력치 12개(2026-11-13 세분화 — 골밑 → 레이업·포스트업, 리바운드 → 공격·수비. 3대3 이라 속공·자유투·파울은 없음) */
 export interface GameRatings {
-  three: number; mid: number; layup: number; post: number; pass: number; handle: number; fastbreak: number; ft: number
-  steal: number; block: number; oreb: number; dreb: number; foul: number; speed: number; stamina: number
+  three: number; mid: number; layup: number; post: number; pass: number; handle: number
+  steal: number; block: number; oreb: number; dreb: number; speed: number; stamina: number
 }
 /** 공격·수비 유형 — 기록이 가장 두드러진 쪽(자동). 게임은 유형에 맞는 플레이를 더 잘하게 한다 */
-export type OffType = 'shooter' | 'slasher' | 'post' | 'passer' | 'runner'
+export type OffType = 'shooter' | 'slasher' | 'post' | 'passer'
 export type DefType = 'thief' | 'rim' | 'boards'
 export interface GamePlayerCard { id: string; name: string; num: number; pos: GamePos; ratings: GameRatings; off: OffType; def: DefType; provisional: boolean }
 
@@ -73,7 +73,6 @@ export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
     pctRank(avg2(pctRank(rate(m, a)), pctRank(perDay(m))))
 
   const stealP = pctRank(perDay(p => p.stl))
-  const fbP = pctRank(perDay(p => p.fb_pts ?? 0))
   const posV = ps.map(p => ({ G: 1, F: 0.5, C: 0 })[toGamePos(p.position)])
   // 볼 지키기 = 턴오버율, 낮을수록 높게(부호를 뒤집어 순위)
   const tovRate = ps.map(p => { const d = p.fga + 0.44 * p.fta + p.tov; return d > 0 ? -p.tov / d : 0 })
@@ -85,14 +84,11 @@ export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
     post: shot(p => p.ds_m, p => p.ds_a),
     pass: pctRank(perDay(p => p.ast)),
     handle: pctRank(tovRate),
-    fastbreak: fbP,
-    ft: pctRank(rate(p => p.ftm, p => p.fta)),
     steal: stealP,
     block: pctRank(perDay(p => p.blk)),
     oreb: pctRank(perDay(p => p.oreb)),
     dreb: pctRank(perDay(p => p.dreb)),
-    foul: pctRank(perDay(p => -p.pf)), // 파울 관리 = 하루 파울, 적을수록 높게
-    speed: pctRank(avg2(avg2(stealP, fbP), posV)), // 스피드 = (스틸·속공) 과 포지션의 평균
+    speed: pctRank(avg2(stealP, posV)), // 스피드 = 스틸과 포지션의 평균
     stamina: pctRank(ps.map(p => p.gp)),
   }
 
@@ -107,7 +103,7 @@ export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
       d += target[i] - gameOvr(ratings)
     }
     // 유형은 리그 안 순위(백분위)로 고른다 — 종합을 올리고 내린 뒤의 숫자가 아니라 「이 사람이 상대적으로 뭘 잘하나」
-    const off = best<OffType>({ shooter: (P.three[i] + P.mid[i]) / 2, slasher: (P.layup[i] + P.speed[i]) / 2, post: (P.post[i] + P.oreb[i]) / 2, passer: P.pass[i], runner: P.fastbreak[i] })
+    const off = best<OffType>({ shooter: (P.three[i] + P.mid[i]) / 2, slasher: (P.layup[i] + P.speed[i]) / 2, post: (P.post[i] + P.oreb[i]) / 2, passer: P.pass[i] })
     const def = best<DefType>({ thief: P.steal[i], rim: P.block[i], boards: P.dreb[i] })
     return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings, off, def, provisional: p.gp < PROVISIONAL_DAYS }
   })
