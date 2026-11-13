@@ -41,3 +41,18 @@ test('종합 포지션 가중: 센터는 3점 낮아도 덜 깎이고, 3점 쏘�
   assert.ok(posScore('C', base) > posScore('G', base), '센터형 기록은 센터로 볼 때 더 높다')
   assert.ok(posScore('C', { ...base, three: 95 }) - posScore('C', base) > (95 - 50) * 0.3 / 11.2, '3점 센터 덤')
 })
+
+test('특성: 요즘 흐름 · 듀오 · 클러치', () => {
+  const recent = [p('p29', { gp: 3, pts: 300, reb: 60, ast: 60 }), p('p1', { gp: 3, pts: 0, reb: 0, ast: 0 })]
+  const extras = {
+    clutch: { p5: { gp: 10, pts: 60, fgm: 25, fga: 30, fg3m: 5 }, p6: { gp: 1, pts: 0, fgm: 0, fga: 2, fg3m: 0 } },
+    assists: { p3: { p4: 12, p7: 2 }, p4: { p3: 12 }, p8: { p9: 3 }, p10: { p11: 20 }, p11: { p12: 30, p10: 20 }, p12: { p11: 30 } },
+    outsideBlocks: {},
+  }
+  const by = Object.fromEntries(buildGameRoster(league, undefined, extras, recent).map(c => [c.id, c]))
+  assert.equal(by.p29.form, 'up'); assert.equal(by.p1.form, 'down'); assert.equal(by.p2.form, 'flat')
+  assert.equal(by.p3.duo, 'p4'); assert.equal(by.p3.duoCount, 12); assert.equal(by.p8.duo, null, '8번 미만은 듀오 아님')
+  assert.equal(by.p10.duo, null, '한쪽만 1등이면 듀오 아님'); assert.equal(by.p11.duo, 'p12')
+  assert.ok(by.p5.clutch >= 90, `접전 강자 ${by.p5.clutch}`)
+  assert.ok(Math.abs(by.p6.clutch - 70) <= 5, '접전 1경기는 70 근처')
+})

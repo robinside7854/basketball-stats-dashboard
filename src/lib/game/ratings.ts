@@ -17,14 +17,30 @@ export interface GameRatings {
 }
 /** 공격·수비 유형 — 기록이 가장 두드러진 쪽(자동). 게임은 유형에 맞는 플레이를 더 잘하게 한다 */
 export type OffType = 'shooter' | 'slasher' | 'post' | 'passer'
-export type DefType = 'thief' | 'rim' | 'boards'
+export type DefType = 'thief' | 'rim' | 'boards' | 'perimeter'
+export type Form = 'up' | 'flat' | 'down'
 export interface GamePlayerCard {
   id: string; name: string; num: number; pos: GamePos; ratings: GameRatings; off: OffType; def: DefType; provisional: boolean
   /** 종합(화면 표시용 — 경기 계산엔 안 씀) */
   ovr: number
   /** 키(cm) — 없으면 null */
   height: number | null
+  /** 클러치(접전 막판 2분) 40~99 — 접전 경기가 적으면 70 쪽으로 당긴다 */
+  clutch: number
+  /** 요즘 흐름 — 최근 4주 하루 기록(득점+리바+어시)이 시즌보다 15% 이상 위/아래 */
+  form: Form
+  /** 다이나믹 듀오 — 서로가 서로의 1등 어시스트 짝인 동료 id(8번 이상일 때만) */
+  duo: string | null
+  duoCount: number
 }
+export interface GameRosterExtras {
+  clutch: Record<string, { gp: number; pts: number; fgm: number; fga: number; fg3m: number }>
+  assists: Record<string, Record<string, number>>
+  outsideBlocks: Record<string, number>
+}
+const FORM_UP = 1.15, FORM_DOWN = 0.85, FORM_MIN_DAYS = 2
+const DUO_MIN = 8
+const CLUTCH_FULL_GP = 6
 
 export const GAME_MIN_DAYS = 3
 const FULL_DAYS = 15
@@ -81,7 +97,7 @@ export function pctRank(vals: number[]): number[] {
 
 const avg2 = (a: number[], b: number[]) => a.map((v, i) => (v + b[i]) / 2)
 
-export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, number | null>): GamePlayerCard[] {
+export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, number | null>, extras?: GameRosterExtras, recent?: PlayerStat[]): GamePlayerCard[] {
   const ps = stats.filter(p => p.gp >= GAME_MIN_DAYS)
   if (ps.length === 0) return []
   const sum = (f: (p: PlayerStat) => number) => ps.reduce((s, p) => s + f(p), 0)
@@ -126,11 +142,33 @@ export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, nu
   const pull = (gp: number, s: number) => (gp < FULL_DAYS ? UNSURE + (s - UNSURE) * (gp / FULL_DAYS) : s)
   const ratings = ps.map((p, i) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, Math.round(clamp(pull(p.gp, LOW + SPAN * v[i])))])) as unknown as GameRatings)
   const ovr = pctRank(ps.map((p, i) => posScore(toGamePos(p.position), ratings[i]))).map((v, i) => Math.round(pull(ps[i].gp, OVR_LOW + OVR_SPAN * v)))
+  // 클러치 = 접전 eFG(리그 접전 평균으로 15번 시도만큼 당김) 2 : 접전 경기당 득점 1 → 순위
+  const cl = ps.map(p => extras?.clutch[p.player_id] ?? { gp: 0, pts: 0, fgm: 0, fga: 0, fg3m: 0 })
+  const lgFga = cl.reduce((a, c) => a + c.fga, 0), lgEfg = lgFga ? cl.reduce((a, c) => a + c.fgm + 0.5 * c.fg3m, 0) / lgFga : 0
+  const lgGp = cl.reduce((a, c) => a + c.gp, 0), lgPpg = lgGp ? cl.reduce((a, c) => a + c.pts, 0) / lgGp : 0
+  const ce = pctRank(cl.map(c => (c.fgm + 0.5 * c.fg3m + 15 * lgEfg) / (c.fga + 15)))
+  const cp = pctRank(cl.map(c => (c.pts + 3 * lgPpg) / (c.gp + 3)))
+  const clutchP = pctRank(ce.map((v, i) => (2 * v + cp[i]) / 3))
+  const outsideP = pctRank(perDay(p => extras?.outsideBlocks[p.player_id] ?? 0))
+  const recentBy = Object.fromEntries((recent ?? []).map(r => [r.player_id, r]))
+  const prod = (p: PlayerStat) => (p.pts + p.reb + p.ast) / Math.max(1, p.gp)
+  const eligible = new Set(ps.map(p => p.player_id))
+  const topMate = (id: string): [string, number] | null => {
+    const m = Object.entries(extras?.assists[id] ?? {}).filter(([x]) => eligible.has(x)).sort((a, b) => b[1] - a[1])[0]
+    return m && m[1] >= DUO_MIN ? m : null
+  }
+
   return ps.map((p, i) => {
+    const rc = recentBy[p.player_id]
+    const ratio = rc && rc.gp >= FORM_MIN_DAYS && prod(p) > 0 ? prod(rc) / prod(p) : 1
+    const form: Form = ratio >= FORM_UP ? 'up' : ratio <= FORM_DOWN ? 'down' : 'flat'
+    // 듀오는 「서로가 서로의 1등 짝」일 때만 — 한쪽만 1등이면 득점원에게 모두 몰린다(실측 2026-11-13: 서로 1등 3쌍)
+    const [duo, duoCount] = topMate(p.player_id) && topMate(topMate(p.player_id)![0])?.[0] === p.player_id ? topMate(p.player_id)! : [null, 0]
+    const clutch = Math.round(clamp(70 + (LOW + SPAN * clutchP[i] - 70) * Math.min(1, cl[i].gp / CLUTCH_FULL_GP)))
     // 유형 = 리그 안 순위(백분위)로 「이 사람이 상대적으로 뭘 잘하나」
     const off = best<OffType>({ shooter: (P.three[i] + P.mid[i]) / 2, slasher: (P.layup[i] + P.speed[i]) / 2, post: (P.post[i] + P.oreb[i]) / 2, passer: P.pass[i] })
-    const def = best<DefType>({ thief: P.steal[i], rim: P.block[i], boards: P.dreb[i] })
-    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings: ratings[i], ovr: ovr[i], height: heights?.[p.player_id] ?? null, off, def, provisional: p.gp < PROVISIONAL_DAYS }
+    const def = best<DefType>({ thief: P.steal[i], rim: P.block[i], boards: P.dreb[i], perimeter: outsideP[i] })
+    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings: ratings[i], ovr: ovr[i], height: heights?.[p.player_id] ?? null, clutch, form, duo, duoCount, off, def, provisional: p.gp < PROVISIONAL_DAYS }
   })
 }
 

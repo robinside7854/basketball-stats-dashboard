@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
-import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
+import { getCachedLeagueStatsMany } from '@/lib/stats/cachedLeagueStats'
+import { getGameExtras } from '@/lib/game/extras'
 import { buildGameRoster } from '@/lib/game/ratings'
 import { canViewStats } from '@/lib/auth/guard'
 import { createClient } from '@/lib/supabase/admin'
@@ -30,12 +31,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
     return NextResponse.json({ error: 'login_required' }, { status: 401, headers: CORS })
   }
   try {
-    const { players } = await getCachedLeagueStats(leagueId, { unit: 'round' })
+    // 시즌 전체 + 최근 4주(요즘 흐름) 를 캐시 한 번에(getCachedLeagueStatsMany). 4주 경계는 날짜 단위라 하루 한 번 키가 바뀐다
+    const from = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10)
+    const [[{ players }, { players: recent }], extras] = await Promise.all([
+      getCachedLeagueStatsMany(leagueId, [{ unit: 'round' }, { unit: 'round', from }]),
+      getGameExtras(leagueId),
+    ])
     // 키는 집계에 없어 선수 표에서 한 번 더 읽는다(읽기만)
     const { data: hs } = await createClient().from('league_players').select('id, height_cm').in('id', players.map(p => p.player_id))
     const heights = Object.fromEntries((hs ?? []).map(h => [h.id, h.height_cm as number | null]))
     return NextResponse.json(
-      { players: buildGameRoster(players, heights) },
+      { players: buildGameRoster(players, heights, extras, recent) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {
