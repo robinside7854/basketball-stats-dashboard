@@ -133,7 +133,7 @@ export async function GET(
     quartersP,
     // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
     //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다. 핀(pinned_event_ids)도 이 조회에서 같이 읽는다.
-    teamIdP.then(tid => supabase.from('league_players').select('id, name, number, position, photo_url, plus_one, pinned_event_ids, birth_date').eq('team_id', tid)),
+    teamIdP.then(tid => supabase.from('league_players').select('id, name, number, position, photo_url, plus_one, pinned_event_ids, birth_date, height_cm').eq('team_id', tid)),
     supabase
       .from('league_games')
       .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, is_exhibition, is_complete')

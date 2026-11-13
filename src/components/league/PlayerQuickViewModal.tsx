@@ -45,6 +45,7 @@ import { MonthlyStatsChart, GameTrendChart, PlayerHexRadar, PlayerShotDonut } fr
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
   birth_date: string | null; plus_one: boolean
+  height_cm?: number | null
   photo_url?: string | null
   has_account?: boolean  // 로그인 계정 등록·승인(인증) 회원 여부
 }
@@ -251,7 +252,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', position: '' })
+  const [editForm, setEditForm] = useState({ name: '', position: '', height: '' })
   const [savingEdit, setSavingEdit] = useState(false)
   // 사진 업로드 state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -356,7 +357,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const [syncedPlayerId, setSyncedPlayerId] = useState<string | null>(null)
   if (player && player.id !== syncedPlayerId) {
     setSyncedPlayerId(player.id)
-    setEditForm({ name: player.name, position: player.position ?? '' })
+    setEditForm({ name: player.name, position: player.position ?? '', height: player.height_cm ? String(player.height_cm) : '' })
     setPhotoUrl(player.photo_url ?? null)
   }
 
@@ -848,6 +849,17 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                 />
               </div>
               <div>
+                <label htmlFor={`${nameId}-h`} className="text-xs block mb-1 font-bold" style={{ color: 'var(--mm-muted)' }}>키 (cm)</label>
+                <input
+                  id={`${nameId}-h`}
+                  type="number" inputMode="numeric" min={120} max={230} placeholder="예: 178"
+                  value={editForm.height}
+                  onChange={e => setEditForm(f => ({...f, height: e.target.value}))}
+                  className="w-full rounded-sm px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
+                />
+              </div>
+              <div>
                 <label id={positionId} className="text-xs block mb-1 font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--mm-muted)' }}>포지션</label>
                 <div role="group" aria-labelledby={positionId} className="flex flex-wrap gap-1.5">
                   {POSITION_GROUPS.map(({ code, label }) => {
@@ -878,7 +890,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   setSavingEdit(true)
                   const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
                     method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
-                    body: JSON.stringify({ name: editForm.name, position: positionGroupOf(editForm.position) ?? null }),
+                    body: JSON.stringify({ name: editForm.name, position: positionGroupOf(editForm.position) ?? null, height_cm: editForm.height || null }),
                   })
                   setSavingEdit(false)
                   if (!res.ok) {
@@ -887,7 +899,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     return
                   }
                   // 머리의 이름·포지션도 바로 바뀌게 — 명단을 다시 받기 전까지 화면이 옛 값으로 남지 않도록
-                  setPlayer(p => p ? { ...p, name: editForm.name, position: positionGroupOf(editForm.position) ?? null } : p)
+                  setPlayer(p => p ? { ...p, name: editForm.name, position: positionGroupOf(editForm.position) ?? null, height_cm: editForm.height ? Math.round(Number(editForm.height)) : null } : p)
                   onSaved?.(); setShowEditPanel(false)
                 }} disabled={savingEdit}
                   className="w-full py-2 rounded-sm text-xs font-black uppercase tracking-[0.16em] cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"

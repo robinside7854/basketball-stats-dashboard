@@ -116,18 +116,22 @@ export async function PATCH(
   const playerId = searchParams.get('playerId')
   if (!playerId) return NextResponse.json({ error: 'playerId is required' }, { status: 400 })
   const body = await req.json()
-  const { name, position, birth_date, plus_one, is_guest } = body
+  const { name, position, birth_date, plus_one, is_guest, height_cm } = body
+  // 키(cm) — 미라클 후프스 캐릭터 크기·리바운드 손 높이에 쓴다(2026-11-13). 빈칸이면 지운다
+  const height = height_cm === undefined ? undefined : height_cm === null || height_cm === '' ? null : Math.round(Number(height_cm))
+  if (height != null && !(height >= 120 && height <= 230)) return NextResponse.json({ error: '키는 120~230cm 로 넣어 주세요' }, { status: 400 })
   if (name !== undefined && !String(name).trim()) return NextResponse.json({ error: '이름은 필수입니다' }, { status: 400 })
   // position may be an array → join to comma-separated string
   const positionStr = Array.isArray(position)
     ? position.join(',')
     : (position ?? null)
-  const updatePayload: Record<string, string | null | boolean> = {}
+  const updatePayload: Record<string, string | number | null | boolean> = {}
   if (name !== undefined) updatePayload.name = String(name).trim()
   if (position !== undefined) updatePayload.position = positionStr
   if (birth_date !== undefined) updatePayload.birth_date = birth_date ?? null
   if (plus_one !== undefined) updatePayload.plus_one = Boolean(plus_one)
   if (is_guest !== undefined) updatePayload.is_guest = Boolean(is_guest)
+  if (height !== undefined) updatePayload.height_cm = height
   if (Object.keys(updatePayload).length === 0) return NextResponse.json({ error: '수정할 값이 없습니다' }, { status: 400 })
   const supabase = createClient()
   // league_id 대신 team_id 로 소유를 확인한다 — 명단이 공유되므로 대회 화면에서
