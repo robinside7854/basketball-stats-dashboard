@@ -336,3 +336,6 @@
 - Phaser vs Defold(2026): https://app.cinevva.com/ko/guides/phaser-vs-defold
 - AI 픽셀 그림 도구 비교(2026): https://app.cinevva.com/ko/guides/ai-pixel-art-generators
 - PixelLab 가격(공식 아님 — 결제 전 공식 사이트 확인): https://ai.g2.com/marketplace/tools/pixellab
+
+
+→ **2026-11-13 2차 피드백**: 페이크 버튼은 헷갈려서 없앴다 → **슛 버튼을 짧게 톡 = 페이크**. 추가: 덩크·레이업(골대 2m 안에서 달리면 덩크), 튄 공 착지 표시(흰 동그라미), 사람 쪽 스틸 거리·블록 확률 상향, 공이 올라가는 동안에도 블록, 컴퓨터 슛 준비 동작, 리바운드·점프 더 높게, 점수판 위 가운데, 픽셀 그림체(진짜 픽셀 그림은 PixelLab 으로 2단계). **게임은 새 저장소 `miracle-hoops` 로 분리**(대시보드 `/game-lab` 은 시험용으로 남김).
