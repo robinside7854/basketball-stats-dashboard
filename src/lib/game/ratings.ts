@@ -1,9 +1,11 @@
 // 미라클 후프스(게임) 능력치 — 순수 함수. 숫자는 computeLeagueStats 결과(PlayerStat)만 받는다(이벤트를 다시 세지 않는다).
 // 식: 게임 저장소 docs/design.md 8-2.
 //   성공률은 리그 평균으로 당긴다 (성공 + 50×리그률) ÷ (시도 + 50) · 하루 평균은 (합계 + 12×리그 하루 평균) ÷ (출전일 + 12)
-//   → 순위 백분위 → 51 + 48×백분위(가운데 75) → 15일 미만 출전은 70 쪽으로 (× 출전일 ÷ 15).
-//   → 종합(체력 뺀 14개 평균)을 다시 순위로 줄 세워 51 + 48×백분위 로 맞춘다(능력치 전체를 같은 만큼 올리고 내림).
-//     평균은 순위를 뭉개서 그대로 두면 90 넘는 선수가 안 나온다 — 운영진 기준(2026-11-13): 리그 평균 ≈ 75, 90 이상 최소 3명.
+//   → 순위 백분위 → 51 + 48×백분위(가운데 75) → 15일 미만 출전은 70 쪽으로 (× 출전일 ÷ 15). 능력치는 이 값 그대로(올리고 내리지 않는다).
+//   슛 능력치 = 성공률 순위 2 : 하루 성공 수 순위 1 — 많이 던지기만 해서 슈터가 되지 않게(2026-11-13 운영진 피드백).
+// 종합(ovr)은 능력치 평균이 아니라 **포지션 가중 점수의 순위** → 54 + 42×백분위(가운데 75, 90 이상 3명 이상).
+//   가드는 블록·리바운드가 낮아도 덜 깎이고, 센터는 3점이 낮아도 괜찮고 리바운드·블록·포스트업이 더 값지다.
+//   포지션에 안 맞는 능력치가 80 을 넘으면(3점 쏘는 센터 등) 그 넘은 만큼 덤을 준다.
 // 결과 모양은 게임 저장소 src/roster.ts 의 PlayerCard 와 같다 — 바꾸면 두 저장소를 같이 바꾼다.
 import type { PlayerStat } from '@/types/league'
 
@@ -16,20 +18,42 @@ export interface GameRatings {
 /** 공격·수비 유형 — 기록이 가장 두드러진 쪽(자동). 게임은 유형에 맞는 플레이를 더 잘하게 한다 */
 export type OffType = 'shooter' | 'slasher' | 'post' | 'passer'
 export type DefType = 'thief' | 'rim' | 'boards'
-export interface GamePlayerCard { id: string; name: string; num: number; pos: GamePos; ratings: GameRatings; off: OffType; def: DefType; provisional: boolean }
+export interface GamePlayerCard {
+  id: string; name: string; num: number; pos: GamePos; ratings: GameRatings; off: OffType; def: DefType; provisional: boolean
+  /** 종합(화면 표시용 — 경기 계산엔 안 씀) */
+  ovr: number
+  /** 키(cm) — 없으면 null */
+  height: number | null
+}
 
 export const GAME_MIN_DAYS = 3
 const FULL_DAYS = 15
 const PROVISIONAL_DAYS = 8
 const LOW = 51, SPAN = 48 // 51 + 48×백분위 → 가운데 75, 맨 위 99
 const UNSURE = 70 // 출전이 적으면 이 쪽으로 당긴다(평균보다 조금 아래)
-// 99 몰림 막기(2026-11-13): 종합을 끌어올리면 잘하는 선수의 능력치가 줄줄이 99 에 붙었다(막대가 다 꽉 참).
-//   88 위로는 부드럽게 눌러 99 에 다가가기만 하게 한다 → 진짜 압도적인 것만 97~99, 나머지는 90 언저리로 차이가 보인다.
-const KNEE = 88
-const clamp = (v: number) => Math.max(40, v <= KNEE ? v : KNEE + (99 - KNEE) * (1 - Math.exp(-(v - KNEE) / (99 - KNEE))))
-// 종합 목표 = 54 + 42×백분위 → 가운데 75, 맨 위 96, 35명 리그의 3등 ≈ 94 (「90 이상 최소 3명」)
+const clamp = (v: number) => Math.max(40, Math.min(99, v))
 const OVR_LOW = 54, OVR_SPAN = 42
-/** 종합 — 게임 화면(players.ts ovr)과 같은 정의: 체력 뺀 나머지 평균 */
+
+type K = Exclude<keyof GameRatings, 'stamina'>
+/** 포지션별 종합 가중치 — 1 = 보통. 1 보다 작은 칸은 「그 포지션엔 덜 중요」 */
+const OVR_W: Record<GamePos, Record<K, number>> = {
+  G: { three: 1.5, mid: 1.2, layup: 1, post: 0.4, pass: 1.5, handle: 1.5, steal: 1.2, block: 0.3, oreb: 0.4, dreb: 0.6, speed: 1.3 },
+  F: { three: 1, mid: 1, layup: 1, post: 0.9, pass: 1, handle: 1, steal: 1, block: 0.9, oreb: 1, dreb: 1, speed: 1 },
+  C: { three: 0.3, mid: 0.6, layup: 1, post: 1.5, pass: 0.7, handle: 0.5, steal: 0.6, block: 1.5, oreb: 1.5, dreb: 1.5, speed: 0.5 },
+}
+const UNIQUE_FROM = 80, UNIQUE_K = 0.3
+/** 포지션 가중 점수(순위 매기기 전) — 가중 평균 + 포지션에 안 맞는 강점 덤 */
+export function posScore(pos: GamePos, r: GameRatings): number {
+  const w = OVR_W[pos]
+  let sw = 0, sv = 0, bonus = 0
+  for (const k of Object.keys(w) as K[]) {
+    sw += w[k]; sv += w[k] * r[k]
+    if (w[k] < 1) bonus += (1 - w[k]) * Math.max(0, r[k] - UNIQUE_FROM) * UNIQUE_K
+  }
+  return sv / sw + bonus
+}
+
+/** 능력치 단순 평균(체력 뺌) — 점검용 */
 export const gameOvr = (r: GameRatings) => { const { stamina: _s, ...rest } = r; const v = Object.values(rest); return v.reduce((a, b) => a + b, 0) / v.length }
 
 export function toGamePos(p: string | null | undefined): GamePos {
@@ -57,7 +81,7 @@ export function pctRank(vals: number[]): number[] {
 
 const avg2 = (a: number[], b: number[]) => a.map((v, i) => (v + b[i]) / 2)
 
-export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
+export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, number | null>): GamePlayerCard[] {
   const ps = stats.filter(p => p.gp >= GAME_MIN_DAYS)
   if (ps.length === 0) return []
   const sum = (f: (p: PlayerStat) => number) => ps.reduce((s, p) => s + f(p), 0)
@@ -74,8 +98,10 @@ export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
     return ps.map(p => (f(p) + 12 * lg) / (p.gp + 12))
   }
   // 슛 능력치 = 성공률 순위와 하루 성공 수 순위의 평균을 다시 순위로
-  const shot = (m: (p: PlayerStat) => number, a: (p: PlayerStat) => number) =>
-    pctRank(avg2(pctRank(rate(m, a)), pctRank(perDay(m))))
+  const shot = (m: (p: PlayerStat) => number, a: (p: PlayerStat) => number) => {
+    const pr = pctRank(rate(m, a)), vr = pctRank(perDay(m))
+    return pctRank(pr.map((v, i) => (2 * v + vr[i]) / 3))
+  }
 
   const stealP = pctRank(perDay(p => p.stl))
   const posV = ps.map(p => ({ G: 1, F: 0.5, C: 0 })[toGamePos(p.position)])
@@ -98,19 +124,13 @@ export function buildGameRoster(stats: PlayerStat[]): GamePlayerCard[] {
   }
 
   const pull = (gp: number, s: number) => (gp < FULL_DAYS ? UNSURE + (s - UNSURE) * (gp / FULL_DAYS) : s)
-  const raw = ps.map((p, i) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, pull(p.gp, LOW + SPAN * v[i])])) as unknown as GameRatings)
-  // 종합을 순위로 다시 펴고, 각 선수의 능력치를 같은 만큼 옮긴다(장단점 모양은 그대로). 99·40 에 막히면 몇 번 더 옮긴다
-  const target = pctRank(raw.map(gameOvr)).map((v, i) => pull(ps[i].gp, OVR_LOW + OVR_SPAN * v))
+  const ratings = ps.map((p, i) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, Math.round(clamp(pull(p.gp, LOW + SPAN * v[i])))])) as unknown as GameRatings)
+  const ovr = pctRank(ps.map((p, i) => posScore(toGamePos(p.position), ratings[i]))).map((v, i) => Math.round(pull(ps[i].gp, OVR_LOW + OVR_SPAN * v)))
   return ps.map((p, i) => {
-    let d = 0, ratings = raw[i]
-    for (let t = 0; t < 8; t++) {
-      ratings = Object.fromEntries(Object.entries(raw[i]).map(([k, v]) => [k, k === 'stamina' ? Math.round(v) : Math.round(clamp(v + d))])) as unknown as GameRatings
-      d += target[i] - gameOvr(ratings)
-    }
-    // 유형은 리그 안 순위(백분위)로 고른다 — 종합을 올리고 내린 뒤의 숫자가 아니라 「이 사람이 상대적으로 뭘 잘하나」
+    // 유형 = 리그 안 순위(백분위)로 「이 사람이 상대적으로 뭘 잘하나」
     const off = best<OffType>({ shooter: (P.three[i] + P.mid[i]) / 2, slasher: (P.layup[i] + P.speed[i]) / 2, post: (P.post[i] + P.oreb[i]) / 2, passer: P.pass[i] })
     const def = best<DefType>({ thief: P.steal[i], rim: P.block[i], boards: P.dreb[i] })
-    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings, off, def, provisional: p.gp < PROVISIONAL_DAYS }
+    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings: ratings[i], ovr: ovr[i], height: heights?.[p.player_id] ?? null, off, def, provisional: p.gp < PROVISIONAL_DAYS }
   })
 }
 

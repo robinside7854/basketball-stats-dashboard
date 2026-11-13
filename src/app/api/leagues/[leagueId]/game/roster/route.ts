@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
 import { buildGameRoster } from '@/lib/game/ratings'
 import { canViewStats } from '@/lib/auth/guard'
+import { createClient } from '@/lib/supabase/admin'
 
 // GET /api/leagues/[leagueId]/game/roster?t=<열쇠>  — 미라클 후프스(게임 저장소) 전용, 읽기만.
 // 숫자는 스탯 탭과 같은 캐시(getCachedLeagueStats) 한 번 읽기 → 능력치 식(lib/game/ratings.ts).
@@ -30,8 +31,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
   }
   try {
     const { players } = await getCachedLeagueStats(leagueId, { unit: 'round' })
+    // 키는 집계에 없어 선수 표에서 한 번 더 읽는다(읽기만)
+    const { data: hs } = await createClient().from('league_players').select('id, height_cm').in('id', players.map(p => p.player_id))
+    const heights = Object.fromEntries((hs ?? []).map(h => [h.id, h.height_cm as number | null]))
     return NextResponse.json(
-      { players: buildGameRoster(players) },
+      { players: buildGameRoster(players, heights) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {

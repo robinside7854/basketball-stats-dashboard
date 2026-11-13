@@ -1,7 +1,7 @@
 // 실행: node --test --import jiti/register src/lib/game/ratings.test.ts
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildGameRoster, pctRank, gameOvr } from './ratings'
+import { buildGameRoster, pctRank, posScore } from './ratings'
 import type { PlayerStat } from '@/types/league'
 
 const p = (id: string, over: Partial<PlayerStat>): PlayerStat => ({
@@ -26,13 +26,18 @@ const league = Array.from({ length: 30 }, (_, i) => p(`p${i}`, {
 test('능력치: 평균 ≈ 75 · 90 이상 3명 이상 · 범위 · 제외', () => {
   const r = buildGameRoster([...league, p('twoday', { gp: 2 })])
   assert.equal(r.length, 30, '3일 미만 제외')
-  const o = r.map(c => gameOvr(c.ratings)).sort((a, b) => a - b)
+  const o = r.map(c => c.ovr).sort((a, b) => a - b)
   assert.ok(Math.abs(o[15] - 75) <= 3, `가운데 종합 ${o[15]}`)
   assert.ok(o.filter(v => v >= 90).length >= 3, `90 이상 ${o.filter(v => v >= 90).length}명`)
   for (const c of r) for (const v of Object.values(c.ratings)) assert.ok(v >= 40 && v <= 99)
-  const all = r.flatMap(c => Object.entries(c.ratings).filter(([k]) => k !== 'stamina').map(([, v]) => v))
-  assert.ok(all.filter(v => v === 99).length <= r.length / 3, `99 몰림 ${all.filter(v => v === 99).length}개`)
+  assert.ok(r.every(c => c.height === null), '키 없으면 null')
   assert.equal(r.find(c => c.id === 'p0')!.provisional, true)
   assert.equal(Object.keys(r[0].ratings).length, 12)
   assert.ok(new Set(r.map(c => c.off)).size >= 2, '공격 유형이 한 가지로 몰리지 않음')
+})
+
+test('종합 포지션 가중: 센터는 3점 낮아도 덜 깎이고, 3점 쏘는 센터는 덤', () => {
+  const base = { three: 50, mid: 70, layup: 75, post: 90, pass: 70, handle: 70, steal: 70, block: 90, oreb: 90, dreb: 90, speed: 60, stamina: 75 }
+  assert.ok(posScore('C', base) > posScore('G', base), '센터형 기록은 센터로 볼 때 더 높다')
+  assert.ok(posScore('C', { ...base, three: 95 }) - posScore('C', base) > (95 - 50) * 0.3 / 11.2, '3점 센터 덤')
 })
