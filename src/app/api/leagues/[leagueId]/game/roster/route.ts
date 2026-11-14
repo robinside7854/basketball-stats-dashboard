@@ -42,11 +42,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
     const heights = Object.fromEntries((hs ?? []).map(h => [h.id, h.height_cm as number | null]))
     // 외모(픽셀 캐릭터용, 프로필 사진에서 뽑은 특징 — 마이그레이션 137). 없으면 null → 게임 기본 캐릭터
     const looks = Object.fromEntries((hs ?? []).map(h => [h.id, (h as { appearance?: unknown }).appearance ?? null]))
+    const teams = await currentQuarterTeams(leagueId)
     return NextResponse.json(
-      { players: buildGameRoster(players, heights, extras, recent).map(c => ({ ...c, look: looks[c.id] ?? null })) },
+      { players: buildGameRoster(players, heights, extras, recent).map(c => ({ ...c, look: looks[c.id] ?? null, team: teams[c.id] ?? null })) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500, headers: CORS })
   }
+}
+
+/**
+ * 지금 분기(is_current, 없으면 가장 최근) 정규팀 소속 — 운영진 기준(2026-11-14): 4분기 정규팀으로 팀을 나누고 나머지는 비정규.
+ * 팀 이름·색은 분기 덮어쓰기(league_team_quarter_overrides)가 있으면 그것을 쓴다(팀 탭과 같은 규칙).
+ */
+async function currentQuarterTeams(leagueId: string): Promise<Record<string, { id: string; name: string; color: string }>> {
+  const sb = createClient()
+  const { data: qs } = await sb.from('league_quarters').select('id, is_current, year, quarter')
+    .eq('league_id', leagueId).order('year', { ascending: false }).order('quarter', { ascending: false })
+  const q = (qs ?? []).find(x => x.is_current) ?? qs?.[0]
+  if (!q) return {}
+  const [{ data: rows }, { data: ovs }] = await Promise.all([
+    sb.from('league_player_quarters').select('league_player_id, team_id, is_regular').eq('quarter_id', q.id).eq('is_regular', true),
+    sb.from('league_team_quarter_overrides').select('team_id, name, color').eq('quarter_id', q.id),
+  ])
+  const ids = [...new Set((rows ?? []).map(r => r.team_id).filter(Boolean))] as string[]
+  const { data: ts } = ids.length ? await sb.from('league_teams').select('id, name, color').in('id', ids) : { data: [] }
+  const ov = Object.fromEntries((ovs ?? []).map(o => [o.team_id, o]))
+  const team = Object.fromEntries((ts ?? []).map(t => [t.id, { id: t.id as string, name: (ov[t.id]?.name ?? t.name) as string, color: (ov[t.id]?.color ?? t.color ?? '#888888') as string }]))
+  return Object.fromEntries((rows ?? []).filter(r => r.team_id && team[r.team_id]).map(r => [r.league_player_id, team[r.team_id]]))
 }
