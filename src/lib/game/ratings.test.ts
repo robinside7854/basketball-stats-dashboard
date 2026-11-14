@@ -56,3 +56,12 @@ test('특성: 요즘 흐름 · 듀오 · 클러치', () => {
   assert.ok(by.p5.clutch >= 90, `접전 강자 ${by.p5.clutch}`)
   assert.ok(Math.abs(by.p6.clutch - 70) <= 5, '접전 1경기는 70 근처')
 })
+
+test('실제 슛 비중: 합 1 · 3점 많이 쏜 선수는 3점 비중이 높다', () => {
+  const r = buildGameRoster([...league, p('bomber', { fg3a: 200, md_a: 10, lu_a: 10, ds_a: 0 })])
+  const b = r.find(c => c.id === 'bomber')!
+  const sum = b.shotMix.three + b.shotMix.mid + b.shotMix.layup + b.shotMix.post
+  assert.ok(Math.abs(sum - 1) < 0.01)
+  assert.ok(b.shotMix.three > 0.8, `3점 비중 ${b.shotMix.three}`)
+  assert.ok(b.passRate > 0 && b.passRate < 1)
+})

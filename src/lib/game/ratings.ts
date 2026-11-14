@@ -32,6 +32,10 @@ export interface GamePlayerCard {
   /** 다이나믹 듀오 — 서로가 서로의 1등 어시스트 짝인 동료 id(8번 이상일 때만) */
   duo: string | null
   duoCount: number
+  /** 실제 슛 비중(합 1) — 컴퓨터가 이 선수를 움직일 때 이 비율로 공격을 고른다. 시도가 적으면 리그 평균 쪽으로 당긴다 */
+  shotMix: { three: number; mid: number; layup: number; post: number }
+  /** 공을 잡았을 때 슛 대신 패스하는 성향 0~1 — 어시스트 ÷ (어시스트 + 야투 시도), 리그 평균 쪽으로 당김 */
+  passRate: number
 }
 export interface GameRosterExtras {
   clutch: Record<string, { gp: number; pts: number; fgm: number; fga: number; fg3m: number }>
@@ -153,12 +157,22 @@ export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, nu
   const recentBy = Object.fromEntries((recent ?? []).map(r => [r.player_id, r]))
   const prod = (p: PlayerStat) => (p.pts + p.reb + p.ast) / Math.max(1, p.gp)
   const eligible = new Set(ps.map(p => p.player_id))
+  const MIX_K = 20
+  const mixOf = (p: PlayerStat) => [p.fg3a, p.md_a, p.lu_a, p.ds_a]
+  const lgMix = [0, 1, 2, 3].map(j => ps.reduce((a, p) => a + mixOf(p)[j], 0))
+  const lgMixSum = lgMix.reduce((a, b) => a + b, 0) || 1
+  const lgPass = (() => { const a = ps.reduce((s, p) => s + p.ast, 0), f = ps.reduce((s, p) => s + p.fga, 0); return a + f ? a / (a + f) : 0.2 })()
+  const r3 = (v: number) => Math.round(v * 1000) / 1000
   const topMate = (id: string): [string, number] | null => {
     const m = Object.entries(extras?.assists[id] ?? {}).filter(([x]) => eligible.has(x)).sort((a, b) => b[1] - a[1])[0]
     return m && m[1] >= DUO_MIN ? m : null
   }
 
   return ps.map((p, i) => {
+    const m = mixOf(p), tot = m.reduce((a, b) => a + b, 0)
+    const mix = m.map((v, j) => (v + MIX_K * lgMix[j] / lgMixSum) / (tot + MIX_K))
+    const shotMix = { three: r3(mix[0]), mid: r3(mix[1]), layup: r3(mix[2]), post: r3(mix[3]) }
+    const passRate = r3((p.ast + 10 * lgPass) / (p.ast + p.fga + 10))
     const rc = recentBy[p.player_id]
     const ratio = rc && rc.gp >= FORM_MIN_DAYS && prod(p) > 0 ? prod(rc) / prod(p) : 1
     const form: Form = ratio >= FORM_UP ? 'up' : ratio <= FORM_DOWN ? 'down' : 'flat'
@@ -168,7 +182,7 @@ export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, nu
     // 유형 = 리그 안 순위(백분위)로 「이 사람이 상대적으로 뭘 잘하나」
     const off = best<OffType>({ shooter: (P.three[i] + P.mid[i]) / 2, slasher: (P.layup[i] + P.speed[i]) / 2, post: (P.post[i] + P.oreb[i]) / 2, passer: P.pass[i] })
     const def = best<DefType>({ thief: P.steal[i], rim: P.block[i], boards: P.dreb[i], perimeter: outsideP[i] })
-    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings: ratings[i], ovr: ovr[i], height: heights?.[p.player_id] ?? null, clutch, form, duo, duoCount, off, def, provisional: p.gp < PROVISIONAL_DAYS }
+    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings: ratings[i], ovr: ovr[i], height: heights?.[p.player_id] ?? null, clutch, form, duo, duoCount, shotMix, passRate, off, def, provisional: p.gp < PROVISIONAL_DAYS }
   })
 }
 
