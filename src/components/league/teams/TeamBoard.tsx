@@ -1,6 +1,6 @@
 'use client'
 // 팀 탭(2026-11-12 운영진 3차) — 두 칸.
-//   ① 팀 성적: 순위 줄(승률·순 레이팅 · 최다 연승/연패 한 줄) + 상대 우위(대진마다 한 줄 막대)
+//   ① 팀 성적: 순위 줄(승률 · 최다 연승/연패 한 줄 — 「순 레이팅」은 회원이 알기 어려워 뺐다, 2026-11-14) + 상대 우위(대진마다 한 줄 막대)
 //   ② 팀 지표 대시보드: 공격 · 슛 유형 · 수비 · 턴오버(볼 보호) — 지표마다 세 팀 막대 + 그 지표 순위
 // 순위 번호는 팀 색과 섞이지 않게 무채색(1위만 진한 칸). 팀 색은 막대·점에만.
 // 숫자는 teams/_lib/teamBoard.ts 한 벌, 연승·연패는 lib/stats/teamStreaks.ts.
@@ -83,7 +83,6 @@ function Standings({ teams, metrics, games }: { teams: BoardTeam[]; metrics: Map
     <ol className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
       {teams.map((t, i) => {
         const played = t.w + t.d + t.l
-        const net = metrics.get(t.key)?.net
         const s = streaks.get(t.key)
         return (
           <li key={t.key} className="px-3 py-2.5 break-keep" style={card}>
@@ -94,7 +93,6 @@ function Standings({ teams, metrics, games }: { teams: BoardTeam[]; metrics: Map
                 <span className="block font-black whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
                 <span className="block text-xs font-bold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
                   승률 {played ? `${(t.w / played * 100).toFixed(0)}%` : '—'}
-                  {net != null && <> · <span style={{ color: net >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' }}>순 {net >= 0 ? '+' : ''}{net.toFixed(1)}</span></>}
                 </span>
               </span>
               {/* 승·패·무가 주인공(2026-11-14 운영진) — 승률은 이름 아래 작게 */}
@@ -244,12 +242,13 @@ function ShotGroup({ teams, shots }: { teams: BoardTeam[]; shots: ShotMix | null
   )
 }
 
-/** 승리 흐름(2026-11-14 운영진) — 경기일마다 그날까지 쌓인 승수 하나만(승률·전환 버튼 없음) */
+/** 승리 흐름(2026-11-14 운영진) — 경기일마다 **그날 하루의 승수**만(누적·승률 없음) */
 function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) {
   const data = useMemo(() => {
     const dates = [...new Set(games.map(g => g.date))].sort()
     const acc = new Map(teams.map(t => [t.key, { w: 0, n: 0 }]))
     return dates.map(d => {
+      for (const a of acc.values()) { a.w = 0; a.n = 0 }
       for (const g of games) {
         if (g.date !== d) continue
         for (const [k, mine, opp] of [[g.home, g.hs, g.as], [g.away, g.as, g.hs]] as const) {
@@ -266,7 +265,7 @@ function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
   if (data.length < 2) return null
   return (
     <div className="p-3" style={card}>
-      <p className="text-sm font-black mb-2 break-keep" style={{ color: 'var(--mm-ink)' }}>승리 흐름 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>· 경기일마다 쌓인 승수</span></p>
+      <p className="text-sm font-black mb-2 break-keep" style={{ color: 'var(--mm-ink)' }}>승리 흐름 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>· 경기일마다 그날 이긴 경기 수</span></p>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -18 }}>
