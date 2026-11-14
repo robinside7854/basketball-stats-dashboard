@@ -86,17 +86,18 @@ function Standings({ teams, metrics, games }: { teams: BoardTeam[]; metrics: Map
         const s = streaks.get(t.key)
         return (
           <li key={t.key} className="px-3 py-2.5 break-keep" style={card}>
-            <div className="flex items-center gap-2.5">
+            {/* 좁으면(전체 시즌 5팀) 승·패·무가 다음 줄로 내려간다 — 이름 위에 숫자가 겹쳤다(2026-11-14) */}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <span className="font-jersey font-black text-2xl w-6 tabular-nums" style={{ color: i === 0 ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{i + 1}</span>
               <Dot color={t.color} />
-              <span className="flex-1 min-w-0">
+              <span className="flex-1 shrink-0">
                 <span className="block font-black whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
                 <span className="block text-xs font-bold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
                   승률 {played ? `${(t.w / played * 100).toFixed(0)}%` : '—'}
                 </span>
               </span>
               {/* 승·패·무가 주인공(2026-11-14 운영진) — 승률은 이름 아래 작게 */}
-              <span className="flex items-baseline gap-1.5 tabular-nums whitespace-nowrap">
+              <span className="ml-auto flex items-baseline gap-1.5 tabular-nums whitespace-nowrap">
                 <span className="font-jersey font-black text-2xl" style={{ color: 'var(--mm-positive)' }}>{t.w}<span className="text-xs font-bold ml-0.5">승</span></span>
                 <span className="font-jersey font-black text-2xl" style={{ color: 'var(--mm-negative)' }}>{t.l}<span className="text-xs font-bold ml-0.5">패</span></span>
                 {t.d > 0 && <span className="font-jersey font-black text-2xl" style={{ color: 'var(--mm-muted)' }}>{t.d}<span className="text-xs font-bold ml-0.5">무</span></span>}
@@ -147,7 +148,8 @@ function Matchups({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
             </div>
             <div className="mt-1.5 flex h-3 rounded-full overflow-hidden" style={{ background: 'var(--mm-panel-alt)' }}>
               <span style={{ width: `${aw / n * 100}%`, background: a.color, boxShadow: swatchEdge(a.color), opacity: lead === b ? 0.45 : 1 }} />
-              <span style={{ width: `${d / n * 100}%` }} />
+              {/* 무승부 = 옅은 회색 빗금(2026-11-14 — 비어 있어 다크 모드에서 안 보였다 · 흰 팀과 겹치지 않게 빗금) */}
+              <span title={`${d}무`} style={{ width: `${d / n * 100}%`, background: 'repeating-linear-gradient(135deg, #9ca3af 0 3px, #6b7280 3px 6px)' }} />
               <span style={{ width: `${bw / n * 100}%`, background: b.color, boxShadow: swatchEdge(b.color), opacity: lead === a ? 0.45 : 1 }} />
             </div>
           </div>
@@ -258,7 +260,7 @@ function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
         }
       }
       const row: Record<string, string | number | null> = { date: `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` }
-      for (const t of teams) { const a = acc.get(t.key)!; row[t.key] = a.w }
+      for (const t of teams) { const a = acc.get(t.key)!; row[t.key] = a.n ? a.w : null }
       return row
     })
   }, [teams, games])
@@ -277,11 +279,11 @@ function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
             {/* 밑에 얇은 진한 테두리 선을 깔아 흰색 팀 선도 보이게(팀 색 면 규칙과 같은 생각) */}
             {teams.map(t => (
               <Line key={`edge-${t.key}`} type="linear" dataKey={t.key} stroke="var(--mm-ink)" strokeOpacity={0.35} strokeWidth={4.5}
-                dot={false} activeDot={false} connectNulls isAnimationActive={false} legendType="none" tooltipType="none" />
+                dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} legendType="none" tooltipType="none" />
             ))}
             {teams.map(t => (
               <Line key={t.key} type="linear" dataKey={t.key} name={t.name} stroke={t.color} strokeWidth={2.5}
-                dot={{ r: 3.5, fill: t.color, stroke: 'var(--mm-ink)', strokeOpacity: 0.5 }} connectNulls isAnimationActive={false} />
+                dot={{ r: 3.5, fill: t.color, stroke: 'var(--mm-ink)', strokeOpacity: 0.5 }} connectNulls={false} isAnimationActive={false} />
             ))}
           </LineChart>
         </ResponsiveContainer>
