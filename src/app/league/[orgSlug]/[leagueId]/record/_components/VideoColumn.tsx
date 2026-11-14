@@ -34,7 +34,7 @@ export default function VideoColumn({
 }) {
   return (
     <div
-      className="contents lg:block lg:sticky lg:space-y-2"
+      className="mm-rec-video contents lg:block lg:sticky lg:space-y-2"
       style={{ ['--record-header-offset' as string]: '56px', top: 'var(--record-header-offset)' } as React.CSSProperties}
     >
 

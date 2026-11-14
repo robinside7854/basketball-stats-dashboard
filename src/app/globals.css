@@ -1067,3 +1067,19 @@
   html.mm-rec-focus [data-sonner-toaster] { pointer-events: none; }
   html.mm-rec-focus [data-sonner-toast] { pointer-events: auto; }
 }
+
+/* 폰 가로 기록(2026-11-14 운영진) — 기록 집중 화면에서 폰을 눕히면 왼쪽 영상 · 오른쪽 기록기.
+   세로가 낮은 가로 화면(폰)에서만. 각 칸이 화면 높이에 맞고 기록기만 안에서 넘긴다. */
+@media (orientation: landscape) and (max-height: 600px) {
+  html.mm-rec-focus .mm-rec-hide { display: none !important; }
+  html.mm-rec-focus .mm-rec-main { padding-top: 0 !important; }
+  html.mm-rec-focus .mm-rec-nopad { padding-bottom: 0 !important; }
+  html.mm-rec-focus .mm-rec-grid {
+    display: grid !important; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 8px;
+    height: 100dvh; align-items: start;
+  }
+  html.mm-rec-focus .mm-rec-grid > * { margin: 0 !important; }
+  html.mm-rec-focus .mm-rec-video { display: block !important; position: sticky; top: 0; max-height: 100dvh; overflow: hidden; }
+  html.mm-rec-focus .mm-rec-video [data-rec-sticky] { position: relative !important; top: 0 !important; margin: 0 !important; }
+  html.mm-rec-focus .mm-rec-panel { height: 100dvh; overflow-y: auto; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom, 8px); }
+}

@@ -85,7 +85,13 @@ export default function RecordingTools({
       />
       {/* 폰 기록 집중 화면의 맨 아래 — 마감(경기당 한 번이라 스크롤해서 누른다)과 집중 화면 켜고 끄기.
           「경기 진행 중 · 마감」 상자는 집중 화면에서 숨겨지므로 마감은 여기서 한다. PC 는 영상 위 상자 그대로. */}
-      <div className="lg:hidden grid grid-cols-2 gap-2 pt-1">
+      <div className="lg:hidden grid grid-cols-3 gap-2 pt-1">
+        {/* 가로 전체화면(2026-11-14 운영진) — 폰을 눕히면 왼쪽 영상 · 오른쪽 기록기. 안드로이드는 화면 방향도 가로로 고정한다
+            (아이폰 브라우저는 고정을 막아 두어 폰을 직접 눕히면 된다 — 눕히기만 해도 같은 배치가 된다). */}
+        <button type="button" onClick={() => { void toggleLandscape() }}
+          className="min-h-11 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] cursor-pointer break-keep">
+          가로 전체화면
+        </button>
         <button type="button" onClick={toggleFocus}
           className="min-h-11 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] cursor-pointer">
           {focusOn ? '전체 화면 보기' : '기록 집중 화면으로'}
@@ -98,4 +104,16 @@ export default function RecordingTools({
       </div>
     </>
   )
+}
+
+async function toggleLandscape() {
+  try {
+    if (document.fullscreenElement) {
+      try { (screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.() } catch {}
+      await document.exitFullscreen()
+      return
+    }
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+    try { await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape') } catch {}
+  } catch { /* 전체화면을 막은 브라우저(아이폰) — 폰을 눕히면 같은 배치가 된다 */ }
 }

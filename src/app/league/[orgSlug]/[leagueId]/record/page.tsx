@@ -411,7 +411,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           {/* 팀이 지정된 경우: 비디오(좌) + 기록(우) 2열 레이아웃 */}
           {selectedSlot.home_team_id && selectedSlot.away_team_id ? (
             <>
-            <div className="lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 space-y-4 lg:space-y-0">
+            <div className="mm-rec-grid lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 space-y-4 lg:space-y-0">
 
               {/* ── 좌측: 비디오 + 경기 제어 (sticky) ── */}
               <VideoColumn
@@ -433,7 +433,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               />
 
               {/* ── 우측: 기록 패널 ── */}
-              <div className="space-y-3">
+              <div className="mm-rec-panel space-y-3">
                 {/* 모바일 탭 */}
                 <div className="mm-rec-hide flex gap-1 lg:hidden">
                   {(['record', 'stats'] as const).map(tab => (
