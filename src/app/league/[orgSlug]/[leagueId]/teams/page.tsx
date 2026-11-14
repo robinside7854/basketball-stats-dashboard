@@ -701,7 +701,11 @@ function LeagueTeamsPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-  const editing = isEditMode && searchParams.get('edit') === '1'
+  // 명단 편집은 2026-11-14 운영진 지시로 「명단」 탭(/players?edit=1)으로 옮겼다 — 옛 주소는 그리로 보낸다
+  const editing = false
+  useEffect(() => {
+    if (searchParams.get('edit') === '1') router.replace(`/league/${orgSlug}/${leagueId}/players?edit=1`)
+  }, [searchParams, router, orgSlug, leagueId])
   // 편집기에서 바꾼 명단·분기·팀은 이 페이지 로드 effect 의 의존성에 안 걸리므로, 편집을 닫을 때 재조회를 건다
   const [reloadKey, setReloadKey] = useState(0)
   function toggleEditing() {
@@ -994,7 +998,7 @@ function LeagueTeamsPageInner() {
   // 첫 진입 — 분기 목록·팀 데이터가 오기 전에는 화면 모양 자리만 깐다
   if (!quarterCtxReady || (status === 'loading' && !data)) return <div className="mm-brand"><TeamsSkeleton /></div>
 
-  const editToggle = isEditMode && (
+  const editToggle = false && (
     <button
       type="button"
       onClick={toggleEditing}

@@ -352,7 +352,7 @@ export default function LeagueSettingsPage() {
       {/* 바로가기 — 명단·월렛은 이 화면 밖에 있다. PC 는 두 칸 나란히(세로 길이 줄이기, 2026-11-09) */}
       <div className="grid gap-2 sm:grid-cols-2">
         <Link
-          href={`/league/${orgSlug}/${leagueId}/teams?edit=1`}
+          href={`/league/${orgSlug}/${leagueId}/players?edit=1`}
           className="mm-press flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)]"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
         >

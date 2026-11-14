@@ -305,7 +305,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       lines: [
         `뽑힌 ${draft.total_picks}명이 이 분기 정규 소속이 돼요.`,
         '반영한 뒤에는 드래프트를 리셋할 수 없어요.',
-        '소속을 고칠 때는 팀 탭 「명단 편집」에서 해요.',
+        '소속을 고칠 때는 명단 탭 「편집」에서 해요.',
       ],
       confirmLabel: '리그에 반영',
       run: applyToLeague,

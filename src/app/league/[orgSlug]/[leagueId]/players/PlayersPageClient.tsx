@@ -6,9 +6,11 @@
 //   사용자 피드백(2026-10-16): 등번호·출석 막대·게스트는 보이지 않는다. 얼굴을 크게.
 //   2026-11-08 운영진: 소속팀(그 분기 · 지금 분기면 이 달 정규)·+1 을 보이고, 기본 정렬 = 출석순,
 //   팀·포지션 필터 칩(여러 개 고르기 — 같은 묶음 안은 「또는」, 팀과 포지션 사이는 「그리고」).
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { BadgeCheck, ChevronRight, Loader2, Plus, Search, UserX, Users } from 'lucide-react'
+import { BadgeCheck, ChevronRight, Loader2, Pencil, Plus, Search, UserX, Users } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Avatar from '@/components/league/ui/Avatar'
 import { toast } from 'sonner'
@@ -51,6 +53,9 @@ function useIsPhone() {
   return phone
 }
 
+// 명단 편집(선수 정보·키·+1·가입률·달별 정규·분기 관리) — 2026-11-14 운영진: 팀 탭에서 「명단」 탭 「편집」으로 옮김. ?edit=1 일 때만 받는다.
+const RosterEditor = dynamic(() => import('../teams/_components/RosterEditor'), { ssr: false })
+
 export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const isPhone = useIsPhone()
   const openCard = useOpenPlayerCard()
@@ -66,6 +71,26 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const resetFilters = () => { setTeamSel(new Set()); setPosSel(new Set()) }
   const { orgSlug } = useParams<{ orgSlug: string }>()
   const [addOpen, setAddOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const editing = isEditMode && searchParams.get('edit') === '1'
+  const { selectedQuarterId: editQId, quarters: editQuarters, reloadQuarters } = useLeagueQuarter()
+  const [editTeams, setEditTeams] = useState<React.ComponentProps<typeof RosterEditor>['teams']>([])
+  useEffect(() => {
+    if (!editing || !editQId) return
+    let cancelled = false
+    const url = editQId === 'all' ? `/api/leagues/${leagueId}/teams` : `/api/leagues/${leagueId}/teams?quarterId=${editQId}`
+    fetch(url).then(r => (r.ok ? r.json() : null)).then(ts => { if (!cancelled && Array.isArray(ts)) setEditTeams(ts) }).catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId, editQId, editing])
+  function toggleEditing() {
+    const qs = new URLSearchParams(searchParams.toString())
+    if (editing) { qs.delete('edit'); void reloadQuarters(); refetchRef.current?.() } else qs.set('edit', '1')
+    const q = qs.toString()
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+  }
+  const refetchRef = useRef<(() => void) | null>(null)
 
   // 특정 분기 보기(2026-11 운영진) — null 이면 서버가 고른 지금 분기. 다른 분기를 고르면 그 분기로 다시 받는다.
   const [askedQ, setAskedQ] = useState<string | null>(null)
@@ -93,6 +118,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
   const refetch = useCallback(() => {
     load().then(d => { setData(d); setError(false) }).catch(() => {})
   }, [load])
+  useEffect(() => { refetchRef.current = refetch }, [refetch])
 
   // 기본 기간 = 이번 분기. 분기에 열린 날이 아직 0일이면(분기 첫 주 전) 전체로 시작한다.
   const effPeriod: Period = period ?? (data?.quarter && data.quarter.total_rounds > 0 ? 'quarter' : 'all')
@@ -151,6 +177,19 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
                     if (k !== data.quarter?.id) setAskedQ(k)
                   }}
                 />
+              )}
+              {isEditMode && (
+                <button
+                  type="button"
+                  onClick={toggleEditing}
+                  aria-pressed={editing}
+                  className="inline-flex items-center gap-1 px-3 min-h-11 text-sm font-black whitespace-nowrap cursor-pointer"
+                  style={editing
+                    ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)' }
+                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
+                >
+                  <Pencil size={15} aria-hidden />{editing ? '편집 닫기' : '편집'}
+                </button>
               )}
               {isEditMode && (
                 <button
@@ -275,6 +314,8 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
           ))}
         </CardGrid>
       )}
+
+      {editing && editQId && <RosterEditor leagueId={leagueId} quarterId={editQId} teams={editTeams} quarters={editQuarters} />}
 
       {isEditMode && (
         <AddPlayerSheet

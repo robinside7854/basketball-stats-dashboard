@@ -197,6 +197,9 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 누르는 것은 `mm-press`, 눌러서 여는 카드는 `mm-lift`, 로딩 자리는 `mm-shimmer`. 정의는 `globals.css` 끝.
 - `.mm-shell`(리그 레이아웃)에만 건다 — 파란날개는 그대로. 질감은 배경 안에 넣는다(겹 금지 — 팝업 순서).
 
+### 명단 편집은 「명단」 탭에 (2026-11-14 운영진)
+- 선수 정보 고치기(키·포지션·사진·+1·삭제)·가입률·달별 정규 멤버·분기 관리 = `RosterEditor` 를 **명단 탭(/players) 「편집」 버튼(?edit=1)** 에서 연다. 팀 탭의 「명단 편집」 버튼은 없앴고 옛 `teams?edit=1` 은 `players?edit=1` 로 보낸다. 아래 글의 「팀 탭 명단 편집」은 이 자리를 뜻한다.
+
 ### 달별 정규 멤버 (2026-11-07 운영진, 마이그레이션 120)
 - 미라클은 달마다 정규가 정해지기도 한다 → 분기 소속(`league_player_quarters`) 위에 **「이 달만 다르게」** 층 `league_player_months(league_id, month=YYYY-MM-01, league_player_id, team_id, is_regular)`.
 - 판정: 경기 날짜의 달에 행이 있으면 그 행, 없으면 분기 소속. 정본 `lib/league/monthlyRoster.ts`(`monthOf`·`loadMonthRoster` — 표가 없거나 실패하면 빈 값 = 분기 소속 그대로).

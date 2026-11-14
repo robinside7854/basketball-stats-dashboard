@@ -162,7 +162,7 @@ export default function PassSaleBox({ leagueId }: { leagueId: string }) {
               )}
               {noTeam.length > 0 && (
                 <p className="mt-2 text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
-                  지난달 정규가 아니었던 {noTeam.length}명은 「팀 → 명단 편집 → 달별 정규 멤버」에서 팀을 정해 주세요.
+                  지난달 정규가 아니었던 {noTeam.length}명은 「명단 → 편집 → 달별 정규 멤버」에서 팀을 정해 주세요.
                 </p>
               )}
             </li>
