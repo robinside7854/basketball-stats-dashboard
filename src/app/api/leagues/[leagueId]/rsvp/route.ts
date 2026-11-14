@@ -273,7 +273,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   if (!win) return NextResponse.json({ error: '신청이 마감돼 어드민에게 말해 주세요' }, { status: 409 })
   const [{ data: me }, { data: row }] = await Promise.all([
     sb.from('league_players').select('name').eq('id', session.pid).maybeSingle(),
-    sb.from('weekly_rsvp').select('id, answered_by_label, invited_by_player_id, ticket_id, league_players!inner(is_guest)')
+    sb.from('weekly_rsvp').select('id, answered_by_label, invited_by_player_id, ticket_id, league_players!weekly_rsvp_league_player_id_fkey!inner(is_guest)')
       .eq('league_id', leagueId).eq('game_date', win.gameDate).eq('league_player_id', guestId).maybeSingle(),
   ])
   const r = row as unknown as { id: string; answered_by_label: string | null; invited_by_player_id?: string | null; ticket_id: string | null; league_players: { is_guest: boolean } } | null

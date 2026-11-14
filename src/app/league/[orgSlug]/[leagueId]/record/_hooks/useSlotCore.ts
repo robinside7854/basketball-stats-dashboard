@@ -34,6 +34,8 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
     // 서버에서 date 매칭으로 자동 유추 후 반환 (그리고 백필). 이 값으로 미배정 풀도 조회해야
     // 게스트/비정규 선수 추가가 정상 동작.
     let effectiveQuarterId: string | null = slot.quarter_id ?? null
+    // 참가 신청 기록이 있는 날 = 그날 「참」인 사람만 추가·임대 후보(2026-11-14 운영진)
+    let attending: Set<string> | null = null
     const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
     if (rRes.ok) {
       const rd = await rRes.json()
@@ -42,6 +44,7 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
       setHomeRoster(home)
       setAwayRoster(away)
       assignedIrregularIds = rd.assigned_irregular_ids ?? []
+      attending = Array.isArray(rd.attending_ids) ? new Set<string>(rd.attending_ids) : null
       if (rd.quarter_id) effectiveQuarterId = rd.quarter_id
       // 친선전 = 스팟 구성. 서버가 "이 팀 명단 전체 − 이미 배정된 사람"을 후보로 내려준다.
       //   분기 명단(quarters/[id]/players)을 부르지 않는 게 핵심이다 — 부르는 순간
@@ -81,6 +84,7 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
           // homeRoster/awayRoster 쪽(roster API)이 과거 기록 보존 책임을 진다.
           if (p.is_active === false) return false
           if (assignedSet.has(p.id)) return false
+          if (attending && !attending.has(p.id)) return false
           // 비정규/미배정 → 포함 (기존 동작)
           if (p.is_regular !== true) return true
           // 다른 팀 정규선수 → 임대 후보로 포함

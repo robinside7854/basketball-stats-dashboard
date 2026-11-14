@@ -194,6 +194,8 @@ export async function GET(
   //   ② 팀에 배치된 사람 → 그 팀으로(비정규·게스트도 자동으로 들어온다). 분기·달 소속보다 우선,
   //      이 경기 한정 배정(league_game_players)보다는 뒤 — 기록원이 경기 중에 옮긴 것이 마지막 말이다.
   //   신청 기록이 없는 날(옛 경기 · 참가신청을 안 쓰는 리그)은 아무것도 바뀌지 않는다.
+  // 참석 명단(2026-11-14 운영진): 신청 기록이 있는 날은 「참」인 사람(+ 이미 이 경기에 기록이 있는 사람)만 명단·교체·임대 후보다.
+  let attendingIds: string[] | null = null
   if (!isExhibition && game.date) {
     const rules = await loadRsvpRules(supabase, leagueId)
     if (rules) {
@@ -204,7 +206,7 @@ export async function GET(
       // 마감 자동 배치는 어드민(기록원)이 열 때만 — 회원·방문자의 조회가 신청 데이터를 바꾸지 않게(2026-11-10)
       if ((unplacedYes.count ?? 0) > 0 && closed && await canEditLeague(req, leagueId)) await autoPlaceAtClose(supabase, leagueId, game.date)
       const { data: rsvp } = await supabase.from('weekly_rsvp')
-        .select('league_player_id, answer, placed_team_id, league_players!inner(id, name, number, position, birth_date, plus_one, is_active)')
+        .select('league_player_id, answer, placed_team_id, league_players!weekly_rsvp_league_player_id_fkey!inner(id, name, number, position, birth_date, plus_one, is_active)')
         .eq('league_id', leagueId).eq('game_date', game.date)
       const rows = (rsvp ?? []) as unknown as Array<{ league_player_id: string; answer: string; placed_team_id: string | null; league_players: unknown }>
       if (rows.length > 0) {
@@ -212,8 +214,11 @@ export async function GET(
         const placed = rows.filter(r => r.answer === 'yes' && r.placed_team_id)
         const placedIds = new Set(placed.map(r => r.league_player_id))
         const wasRegular = new Set(memberships.filter(m => m.is_regular !== false).map(m => m.league_player_id))
+        void absent
+        attendingIds = [...new Set([...rows.filter(r => r.answer === 'yes').map(r => r.league_player_id), ...playedIds])]
         memberships = [
-          ...memberships.filter(m => !absent.has(m.league_player_id) && !placedIds.has(m.league_player_id)),
+          // 답을 안 했거나 「불」인 사람은 빼고(이 경기에 이미 기록이 있으면 남김), 배치된 사람은 아래에서 배치 팀으로
+          ...memberships.filter(m => playedIds.has(m.league_player_id) && !placedIds.has(m.league_player_id)),
           ...placed.filter(r => teamIds.includes(r.placed_team_id!)).map(r => ({
             team_id: r.placed_team_id!, is_regular: wasRegular.has(r.league_player_id) ? true : (null as unknown as boolean),
             league_player_id: r.league_player_id, league_players: r.league_players,
@@ -390,5 +395,6 @@ export async function GET(
     quarter_id: resolvedQuarterId,
     assigned_irregular_ids: assignedIrregularIds,
     is_exhibition: isExhibition,
+    attending_ids: attendingIds,
   })
 }
