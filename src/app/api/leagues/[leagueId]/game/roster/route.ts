@@ -38,10 +38,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
       getGameExtras(leagueId),
     ])
     // 키는 집계에 없어 선수 표에서 한 번 더 읽는다(읽기만)
-    const { data: hs } = await createClient().from('league_players').select('id, height_cm').in('id', players.map(p => p.player_id))
+    const { data: hs } = await createClient().from('league_players').select('id, height_cm, appearance').in('id', players.map(p => p.player_id))
     const heights = Object.fromEntries((hs ?? []).map(h => [h.id, h.height_cm as number | null]))
+    // 외모(픽셀 캐릭터용, 프로필 사진에서 뽑은 특징 — 마이그레이션 137). 없으면 null → 게임 기본 캐릭터
+    const looks = Object.fromEntries((hs ?? []).map(h => [h.id, (h as { appearance?: unknown }).appearance ?? null]))
     return NextResponse.json(
-      { players: buildGameRoster(players, heights, extras, recent) },
+      { players: buildGameRoster(players, heights, extras, recent).map(c => ({ ...c, look: looks[c.id] ?? null })) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {
