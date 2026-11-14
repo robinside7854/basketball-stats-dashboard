@@ -6,6 +6,7 @@
 // 숫자는 teams/_lib/teamBoard.ts 한 벌, 연승·연패는 lib/stats/teamStreaks.ts.
 import { useMemo, type ReactNode } from 'react'
 import { swatchEdge } from '@/lib/util/contrastColor'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { teamMarks, summarizeStreaks } from '@/lib/stats/teamStreaks'
 import {
   METRIC, teamMetrics, rankTeams, type BoardTeam, type MetricKey, type MetricDef,
@@ -45,6 +46,7 @@ export default function TeamBoard({ teams, games, shots }: { teams: BoardTeam[];
     <div className="space-y-6">
       <Block title="팀 성적">
         <Standings teams={teams} metrics={metrics} games={games} />
+        <WinTrend teams={teams} games={games} />
         <Matchups teams={teams} games={games} />
       </Block>
 
@@ -53,7 +55,7 @@ export default function TeamBoard({ teams, games, shots }: { teams: BoardTeam[];
           <Group title="공격" keys={['ortg', 'ppg', 'efg', 'astRatio', 'fbpg']} teams={teams} metrics={metrics} />
           <ShotGroup teams={teams} shots={shots} />
           <Group title="수비" keys={['drtg', 'oppg', 'spg', 'bpg', 'drpg']} teams={teams} metrics={metrics} />
-          <Group title="턴오버 · 볼 보호" keys={['tovPct', 'topg', 'orpg']} teams={teams} metrics={metrics} />
+          <Group title="턴오버 · 볼 보호" keys={['topg', 'orpg']} teams={teams} metrics={metrics} />
         </div>
       </Block>
     </div>
@@ -90,11 +92,16 @@ function Standings({ teams, metrics, games }: { teams: BoardTeam[]; metrics: Map
               <Dot color={t.color} />
               <span className="flex-1 min-w-0">
                 <span className="block font-black whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{t.name}</span>
-                <span className="block text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{t.w}승 {t.l}패{t.d ? ` ${t.d}무` : ''}</span>
+                <span className="block text-xs font-bold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+                  승률 {played ? `${(t.w / played * 100).toFixed(0)}%` : '—'}
+                  {net != null && <> · <span style={{ color: net >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' }}>순 {net >= 0 ? '+' : ''}{net.toFixed(1)}</span></>}
+                </span>
               </span>
-              <span className="text-right">
-                <span className="block font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{played ? `${(t.w / played * 100).toFixed(0)}%` : '—'}</span>
-                {net != null && <span className="block text-xs font-bold tabular-nums" style={{ color: net >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' }}>순 {net >= 0 ? '+' : ''}{net.toFixed(1)}</span>}
+              {/* 승·패·무가 주인공(2026-11-14 운영진) — 승률은 이름 아래 작게 */}
+              <span className="flex items-baseline gap-1.5 tabular-nums whitespace-nowrap">
+                <span className="font-jersey font-black text-2xl" style={{ color: 'var(--mm-positive)' }}>{t.w}<span className="text-xs font-bold ml-0.5">승</span></span>
+                <span className="font-jersey font-black text-2xl" style={{ color: 'var(--mm-negative)' }}>{t.l}<span className="text-xs font-bold ml-0.5">패</span></span>
+                {t.d > 0 && <span className="font-jersey font-black text-2xl" style={{ color: 'var(--mm-muted)' }}>{t.d}<span className="text-xs font-bold ml-0.5">무</span></span>}
               </span>
             </div>
             {s && s.marks.length > 0 && (
@@ -233,6 +240,56 @@ function ShotGroup({ teams, shots }: { teams: BoardTeam[]; shots: ShotMix | null
           </ul>
         </div>
       </>)}
+    </div>
+  )
+}
+
+/** 일별 승률 꺾은선(2026-11-14 운영진) — 경기일이 끝날 때마다 그날까지의 누적 승률. 무승부는 분모에만 */
+function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) {
+  const data = useMemo(() => {
+    const dates = [...new Set(games.map(g => g.date))].sort()
+    const acc = new Map(teams.map(t => [t.key, { w: 0, n: 0 }]))
+    return dates.map(d => {
+      for (const g of games) {
+        if (g.date !== d) continue
+        for (const [k, mine, opp] of [[g.home, g.hs, g.as], [g.away, g.as, g.hs]] as const) {
+          const a = k ? acc.get(k) : undefined
+          if (!a) continue
+          a.n++; if (mine > opp) a.w++
+        }
+      }
+      const row: Record<string, string | number | null> = { date: `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` }
+      for (const t of teams) { const a = acc.get(t.key)!; row[t.key] = a.n ? Math.round(a.w / a.n * 1000) / 10 : null }
+      return row
+    })
+  }, [teams, games])
+  if (data.length < 2) return null
+  return (
+    <div className="p-3" style={card}>
+      <p className="text-sm font-black mb-2" style={{ color: 'var(--mm-ink)' }}>승률 흐름 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>· 경기일마다 그날까지 누적</span></p>
+      <div className="h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -18 }}>
+            <CartesianGrid stroke="var(--mm-rule)" vertical={false} />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--mm-muted)' }} tickLine={false} axisLine={{ stroke: 'var(--mm-rule)' }} />
+            <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 11, fill: 'var(--mm-muted)' }} tickLine={false} axisLine={false} unit="%" />
+            <Tooltip formatter={(v, k) => [`${v}%`, teams.find(t => t.key === k)?.name ?? k]}
+              contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 8, fontSize: 12 }} />
+            {/* 밑에 얇은 진한 테두리 선을 깔아 흰색 팀 선도 보이게(팀 색 면 규칙과 같은 생각) */}
+            {teams.map(t => (
+              <Line key={`edge-${t.key}`} type="monotone" dataKey={t.key} stroke="var(--mm-ink)" strokeOpacity={0.35} strokeWidth={4.5}
+                dot={false} activeDot={false} connectNulls isAnimationActive={false} legendType="none" tooltipType="none" />
+            ))}
+            {teams.map(t => (
+              <Line key={t.key} type="monotone" dataKey={t.key} name={t.name} stroke={t.color} strokeWidth={2.5}
+                dot={{ r: 3.5, fill: t.color, stroke: 'var(--mm-ink)', strokeOpacity: 0.5 }} connectNulls isAnimationActive={false} />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
+        {teams.map(t => <li key={t.key} className="inline-flex items-center gap-1.5"><Dot color={t.color} size={8} />{t.name}</li>)}
+      </ul>
     </div>
   )
 }
