@@ -19,7 +19,7 @@ import { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import { HomeMeProvider } from '@/components/league/home/HomeMeContext'
 import { LastRoundTimeline } from '@/components/league/home/LastRound'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, BookOpen } from 'lucide-react'
 import DraftInProgressBanner from '@/components/league/home/DraftInProgressBanner'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { fetchLeagueMode } from '@/lib/league/competitions'
@@ -407,14 +407,22 @@ export default async function LeagueDetailPage({
           그 자리에 회원 본인의 「지난 토요일 나」(MyLastDay)를 둔다. 공유 버튼은 맨 아래 줄로. */}
       {/* 동호회 로고 + 이름 한 줄(2026-11-08 운영진 — 미라클 로고). 10/26 에 뺀 큰 헤더 카드와 달리 한 줄(약 56px)만 쓴다.
           로고가 없는 리그는 종전처럼 제목을 화면 읽기용으로만 둔다. */}
-      {logo ? (
-        <div className="flex items-center gap-3 px-1">
-          <Image src={logo} alt="" width={56} height={56} priority className="shrink-0 w-12 h-12 lg:w-14 lg:h-14" />
-          <h1 className="font-black break-keep leading-tight" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5.5vw, 26px)', letterSpacing: '-0.01em' }}>{l.name}</h1>
-        </div>
-      ) : (
-        <h1 className="sr-only">{l.name}</h1>
-      )}
+      {/* 이용 가이드는 홈 오른쪽 위에서 바로(2026-11-14 운영진) */}
+      <div className="flex items-center gap-3 px-1">
+        {logo ? (
+          <>
+            <Image src={logo} alt="" width={56} height={56} priority className="shrink-0 w-12 h-12 lg:w-14 lg:h-14" />
+            <h1 className="font-black break-keep leading-tight" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5.5vw, 26px)', letterSpacing: '-0.01em' }}>{l.name}</h1>
+          </>
+        ) : (
+          <h1 className="sr-only">{l.name}</h1>
+        )}
+        <Link href={`/league/${orgSlug}/${leagueId}/guide`}
+          className="mm-press ml-auto shrink-0 inline-flex items-center gap-1.5 min-h-10 px-3 text-sm font-bold whitespace-nowrap"
+          style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
+          <BookOpen className="w-4 h-4" aria-hidden />이용 가이드
+        </Link>
+      </div>
 
       {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
           지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,

@@ -958,6 +958,8 @@
   --font-weight-heavy: 700;
 }
 .dark {
+  /* 위 :root 가 --mm-neutral-bg 를 밝은 값으로 덮어 다크에서 「무」 칸이 흰 바탕+회색 글자가 됐다(2026-11-14) */
+  --mm-neutral-bg: rgba(255, 255, 255, 0.10);
   --mm-ground: #111317;
   --mm-panel: #1A1D22;
   --mm-panel-alt: #16191D;
