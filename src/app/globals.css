@@ -1058,3 +1058,12 @@
 /* 누른 순간은 호버보다 진하게 — 호버 규칙 뒤에 다시 적어 이긴다 */
 :where(button, [role="button"], [role="tab"], summary, a[href]):not(:disabled):not([aria-disabled="true"]):not([data-no-press]):active:active { filter: brightness(0.88); }
 .dark :where(button, [role="button"], [role="tab"], summary, a[href]):not(:disabled):not([aria-disabled="true"]):not([data-no-press]):active:active { filter: brightness(1.25); }
+
+/* 폰 기록 집중 화면에서는 초록 「완료」 알림을 띄우지 않는다(2026-11-14 운영진 — 영상·점수줄을 가렸다).
+   빨간 오류·경고는 그대로 보인다. 알림 자리가 눌림을 막지 않게 한다. */
+@media (max-width: 1023.98px) {
+  html.mm-rec-focus [data-sonner-toast][data-type="success"],
+  html.mm-rec-focus [data-sonner-toast][data-type="info"] { display: none !important; }
+  html.mm-rec-focus [data-sonner-toaster] { pointer-events: none; }
+  html.mm-rec-focus [data-sonner-toast] { pointer-events: auto; }
+}
