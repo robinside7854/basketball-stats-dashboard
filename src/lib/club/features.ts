@@ -31,6 +31,8 @@ export interface ClubSettings {
   roster_mode: Array<'quarter_draft' | 'monthly_regular' | 'fixed'>
   /** 입금자명에 쓸 수 없는 낱말(입금 알림 글에 늘 들어 있는 통장 이름 등) */
   bank_reserved_words: string[]
+  /** 동호회 인스타그램 주소(https://www.instagram.com/…) — 있으면 홈·「나」에 바로가기 버튼 */
+  instagram_url: string | null
 }
 
 /** 지금 미라클 동작 = 기본값 */
@@ -42,6 +44,7 @@ export const DEFAULT_SETTINGS: ClubSettings = {
   record_fouls: false,
   roster_mode: ['quarter_draft', 'monthly_regular'],
   bank_reserved_words: ['모임통장'],
+  instagram_url: null,
 }
 
 /** 동호회를 모를 때(화면 기본값) — 종전처럼 전부 켬 */

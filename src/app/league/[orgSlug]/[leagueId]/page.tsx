@@ -1,5 +1,7 @@
 ﻿import Image from 'next/image'
 import { clubLogoOf } from '@/lib/league/leagueLogo'
+import { loadClub } from '@/lib/club/settings'
+import { InstagramIcon } from '@/components/league/InstagramLink'
 import RsvpHomeCard from '@/components/league/rsvp/RsvpHomeCard'
 import AdminPassAlert from '@/components/league/wallet/AdminPassAlert'
 import { createClient } from '@/lib/supabase/admin'
@@ -396,6 +398,7 @@ export default async function LeagueDetailPage({
 
   const l = league as League
   const logo = await clubLogoOf(leagueId)
+  const instagram = await resolveTeamId(leagueId).then(t => (t ? loadClub(t) : null)).then(c => c?.settings.instagram_url ?? null).catch(() => null)
   // 스탯 게이팅 — 승인 회원만 리더보드·마일스톤·하이라이트 열람 (순위표·라운드는 공개)
   const isMember = !!approvedSession
   // 「지난 토요일」 = 기록이 있는 최근 경기일(최근 라운드 첫 카드와 같은 날)
@@ -417,8 +420,15 @@ export default async function LeagueDetailPage({
         ) : (
           <h1 className="sr-only">{l.name}</h1>
         )}
+        {instagram && (
+          <a href={instagram} target="_blank" rel="noopener noreferrer" aria-label="동호회 인스타그램" title="동호회 인스타그램"
+            className="mm-press ml-auto shrink-0 inline-flex items-center justify-center w-10 h-10"
+            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
+            <InstagramIcon className="w-5 h-5" />
+          </a>
+        )}
         <Link href={`/league/${orgSlug}/${leagueId}/guide`}
-          className="mm-press ml-auto shrink-0 inline-flex items-center gap-1.5 min-h-10 px-3 text-sm font-bold whitespace-nowrap"
+          className={`mm-press ${instagram ? '' : 'ml-auto'} shrink-0 inline-flex items-center gap-1.5 min-h-10 px-3 text-sm font-bold whitespace-nowrap`}
           style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
           <BookOpen className="w-4 h-4" aria-hidden />이용 가이드
         </Link>

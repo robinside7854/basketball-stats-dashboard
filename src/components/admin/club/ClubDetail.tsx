@@ -8,7 +8,7 @@ import { ArrowLeft, ExternalLink, Loader2, Save } from 'lucide-react'
 import { FEATURE_KEYS, FEATURE_LABELS, type ClubFeatures } from '@/lib/club/features'
 
 const WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
-type Settings = { game_weekday: number; capacity: number | null; team_count: number; rotation: 'winner_stays' | 'none'; record_fouls: boolean; roster_mode: string[]; bank_reserved_words: string[] }
+type Settings = { game_weekday: number; capacity: number | null; team_count: number; rotation: 'winner_stays' | 'none'; record_fouls: boolean; roster_mode: string[]; bank_reserved_words: string[]; instagram_url?: string | null }
 type Season = { id: string; name: string; slug: string | null; org_slug: string; mode: string | null; season_year: number | null; status: string | null; games_per_round: number | null; youtube_channel: string | null }
 type Detail = {
   club: { id: string; name: string; org_slug: string; sub_slug: string | null; logo_url: string | null; accent_color: string | null; is_public: boolean | null; wallet_name: string | null; wallet_bank: string | null; wallet_rules: Record<string, number> | null; settings: Settings; features: ClubFeatures; system: 'league' | 'legacy'; configurable: boolean }
@@ -117,6 +117,8 @@ export default function ClubDetail({ teamId }: { teamId: string }) {
             <span className="text-sm text-[var(--mm-ink)]">파울 기록</span></label>
           <label className="block space-y-1"><span className={label}>입금자명에 못 쓰는 낱말 (쉼표로)</span>
             <input className={input} disabled={readOnly} value={st.bank_reserved_words.join(', ')} onChange={e => setSt({ ...st, bank_reserved_words: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></label>
+          <label className="block space-y-1"><span className={label}>인스타그램 주소 (홈 · 「나」 바로가기)</span>
+            <input className={input} disabled={readOnly} inputMode="url" placeholder="https://www.instagram.com/아이디/" value={st.instagram_url ?? ''} onChange={e => setSt({ ...st, instagram_url: e.target.value })} /></label>
           <div className="text-xs text-[var(--mm-muted)] space-y-1 break-keep">
             <p>시즌별 값(시즌 화면에서 바꿈): {d.seasons.map(s => `${s.name} 하루 ${s.games_per_round ?? '-'}경기`).join(' · ') || '없음'}</p>
             {c.wallet_rules && <p>월렛 가격: 정규권 {c.wallet_rules.regular_pass_price?.toLocaleString()}P · 비정규 {c.wallet_rules.non_regular_price?.toLocaleString()}P · 게스트 {c.wallet_rules.guest_price?.toLocaleString() ?? '-'}P · {c.wallet_rules.bonus_min?.toLocaleString()}원 이상 {c.wallet_rules.bonus_pct}% 보너스</p>}

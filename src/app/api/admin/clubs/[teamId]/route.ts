@@ -62,6 +62,12 @@ function cleanSettings(raw: unknown): Partial<ClubSettings> | string {
     if (!Array.isArray(r.bank_reserved_words)) return '입금자명 금지어 형식이 맞지 않아요'
     out.bank_reserved_words = r.bank_reserved_words.map(v => String(v).trim()).filter(v => v.length >= 2).slice(0, 10)
   }
+  if ('instagram_url' in r) {
+    const v = String(r.instagram_url ?? '').trim()
+    if (!v) out.instagram_url = null
+    else if (/^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9._]{1,30}\/?$/.test(v)) out.instagram_url = v
+    else return '인스타그램 주소는 https://www.instagram.com/아이디/ 모양이어야 해요'
+  }
   return out
 }
 

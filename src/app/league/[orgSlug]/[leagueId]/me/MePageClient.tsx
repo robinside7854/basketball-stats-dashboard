@@ -9,6 +9,8 @@
 //   계정: 아이디 · 비밀번호 변경 · 앱 설치 · 로그아웃을 AccountCard 한 장으로(2026-10-17 — 종전엔 프로필 카드
 //     아래와 페이지 맨 아래로 갈라져 있었다). 둘러보기 버튼은 기능 자체가 삭제되어 함께 제거했다(Task 4-A).
 import { useClub } from '@/contexts/ClubContext'
+import { InstagramIcon } from '@/components/league/InstagramLink'
+const InstaLucide = ({ size = 20 }: { size?: number }) => <InstagramIcon className="" size={size} />
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
@@ -39,7 +41,9 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // 드래프트 바로가기 — 드래프트는 주장·어드민 전용이 됐다(2026-10-12) → 편집 모드(어드민 ∥ CEO)에게만,
   //   그리고 현재 분기에 진행 중인 세션이 있을 때만. 레이아웃 드래프트 탭과 같은 훅(useActiveDraft)으로 판정한다.
   const showDraft = useActiveDraft(leagueId)
-  const clubFeatures = useClub().features
+  const club = useClub()
+  const clubFeatures = club.features
+  const instagram = club.settings.instagram_url ?? null
   const { isEditMode } = useLeagueEditMode()
 
   // 미라클 월렛(2026-11-09) — 월렛을 켠 팀에서 로그인한 회원에게 잔액과 함께 바로가기를 보인다.
@@ -68,6 +72,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         />
       )}
       {showDraft && clubFeatures.draft && <ShortcutRow href={`${base}/draft`} Icon={ClipboardList} label="드래프트" sub="진행 중인 드래프트 세션" />}
+      {instagram && <ShortcutRow href={instagram} external Icon={InstaLucide} label="인스타그램" sub="우리 동호회 계정 보러 가기" />}
       <ShortcutRow href={`${base}/guide`} Icon={BookOpen} label="이용 가이드" sub="가입 · 참가신청 · 월렛 · 기록 보는 법" last={!isEditMode} />
       {/* 어드민 가이드 — 운영진에게만(2026-11-10) */}
       {isEditMode && <ShortcutRow href={`${base}/guide/admin`} Icon={BookOpen} label="어드민 가이드" sub="배치 · 월렛 · 매달 준비 · 입금 자동 확인" last />}
@@ -102,11 +107,12 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
 }
 
 function ShortcutRow({
-  href, Icon, label, sub, last = false, right, accent = false,
-}: { href: string; Icon: LucideIcon; label: string; sub: string; last?: boolean; right?: React.ReactNode; accent?: boolean }) {
+  href, external = false, Icon, label, sub, last = false, right, accent = false,
+}: { href: string; external?: boolean; Icon: LucideIcon | ((p: { size?: number }) => React.ReactElement); label: string; sub: string; last?: boolean; right?: React.ReactNode; accent?: boolean }) {
   return (
     <Link
       href={href}
+      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className="mm-press flex items-center gap-3 px-4 md:px-5 py-3.5 min-h-[44px] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--mm-yellow-strong)]"
       style={last ? undefined : { borderBottom: '1px solid var(--mm-rule)' }}
     >
