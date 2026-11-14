@@ -185,6 +185,11 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - 루트 layout 의 `ThemedToaster` 와 리그·CEO 콘솔 레이아웃의 `<Toaster>` 가 같이 떠 **모든 알림이 두 개씩** 떴다(운영진 신고).
   `ThemedToaster` 는 `/league`·`/admin` 에서 그리지 않고, `(main)` 레이아웃의 Toaster 는 지웠다. **레이아웃에 Toaster 를 새로 달지 말 것.**
 
+### 누르는 손맛 · 마우스 반응 — 사이트 전체 (2026-11-14 운영진)
+- `globals.css` 끝 블록이 모든 버튼·링크·탭·summary 에 건다: 마우스 기기에서 올리면 살짝 어둡게(다크는 밝게) · 누르면 `scale` 0.96(링크 0.985) + 더 진하게 · 키보드 초점 노란 테.
+  `transform` 대신 `scale` 속성이라 위치 transform 과 안 겹친다. 빼려면 `data-no-press`. 안드로이드는 누를 때 8ms 진동(`ScrollAssist`, 클릭 때만 — 스크롤 중엔 안 떨림).
+- 새 버튼에 따로 hover·active 효과를 만들 필요 없다(`mm-press` 도 그대로 둬도 된다).
+
 ### 리그 화면 질감·깊이 (2026-10-16 Taste 리디자인)
 - 그림자는 `--mm-shadow-sm/md/lg` 만(바탕색 기운). `shadow-lg`·`rgba(0,0,0,…)` 그림자를 새로 쓰지 말 것.
 - 누르는 것은 `mm-press`, 눌러서 여는 카드는 `mm-lift`, 로딩 자리는 `mm-shimmer`. 정의는 `globals.css` 끝.

@@ -30,6 +30,19 @@ export default function ScrollAssist() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // 누르는 손맛 — 안드로이드 폰에서 버튼을 누르면 아주 짧게 떨린다(아이폰 브라우저는 진동을 막아 둔다). 2026-11-14 운영진
+  useEffect(() => {
+    if (!('vibrate' in navigator) || !window.matchMedia('(pointer: coarse)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const onDown = (e: MouseEvent) => {
+      const t = (e.target as HTMLElement | null)?.closest('button,[role="button"],[role="tab"],a[href]') as HTMLElement | null
+      if (!t || t.matches(':disabled,[aria-disabled="true"],[data-no-press]')) return
+      try { navigator.vibrate(8) } catch {}
+    }
+    document.addEventListener('click', onDown, { passive: true })
+    return () => document.removeEventListener('click', onDown)
+  }, [])
+
   useEffect(() => {
     if (off) return
     const mq = window.matchMedia('(hover: hover) and (pointer: fine)')

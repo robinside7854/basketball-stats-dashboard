@@ -1024,3 +1024,37 @@
 @keyframes mm-score-pop { 0% { transform: translateY(4px) scale(0.6); opacity: 0; } 60% { transform: translateY(-2px) scale(1.1); opacity: 1; } 100% { transform: none; } }
 .mm-score-pop { animation: mm-score-pop 420ms cubic-bezier(.2,.8,.2,1.2) both; }
 @media (prefers-reduced-motion: reduce) { .mm-score-pop { animation: none; } }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   누르는 손맛 · 마우스 반응 — 사이트 전체 (2026-11-14 운영진 「버튼 반응성 개선」)
+   버튼 673곳 중 mm-press 가 붙은 건 일부뿐이라 하나씩 달지 않고 여기 한 블록으로 건다.
+   · 크기 줄이기는 transform 대신 `scale` 속성 — 위치를 transform 으로 잡은 요소(가운데 정렬 등)와 겹치지 않는다.
+   · 마우스가 있는 기기에서만 호버 색 변화(폰은 호버가 없어 눌린 채 남는 일을 막는다).
+   · 빼고 싶은 요소는 data-no-press. 움직임 줄이기 설정이면 크기 변화 없음.
+   ══════════════════════════════════════════════════════════════════════════════ */
+:where(button, a[href], [role="button"], [role="tab"], summary, label:has(> input[type="checkbox"], > input[type="radio"])) {
+  -webkit-tap-highlight-color: transparent;
+  transition-property: color, background-color, border-color, box-shadow, filter, scale, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+}
+:where(button, [role="button"], [role="tab"], summary):not(:disabled):not([aria-disabled="true"]):not([data-no-press]):active {
+  scale: 0.96;
+  filter: brightness(0.92);
+  transition-duration: 60ms;
+}
+:where(a[href]):not([data-no-press]):active { scale: 0.985; filter: brightness(0.94); transition-duration: 60ms; }
+.dark :where(button, [role="button"], [role="tab"], summary, a[href]):not(:disabled):not([data-no-press]):active { filter: brightness(1.18); }
+@media (hover: hover) and (pointer: fine) {
+  :where(button, [role="button"], [role="tab"], summary):not(:disabled):not([aria-disabled="true"]):not([data-no-press]):hover { filter: brightness(0.95); cursor: pointer; }
+  .dark :where(button, [role="button"], [role="tab"], summary):not(:disabled):not([data-no-press]):hover { filter: brightness(1.15); }
+  :where(a[href]):not([data-no-press]):hover { filter: brightness(0.96); }
+  .dark :where(a[href]):not([data-no-press]):hover { filter: brightness(1.12); }
+}
+:where(button, [role="button"], [role="tab"], summary, a[href]):focus-visible { outline: 2px solid var(--mm-yellow-strong, #e0b100); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a[href], [role="button"], [role="tab"], summary):active { scale: none; }
+}
+/* 누른 순간은 호버보다 진하게 — 호버 규칙 뒤에 다시 적어 이긴다 */
+:where(button, [role="button"], [role="tab"], summary, a[href]):not(:disabled):not([aria-disabled="true"]):not([data-no-press]):active:active { filter: brightness(0.88); }
+.dark :where(button, [role="button"], [role="tab"], summary, a[href]):not(:disabled):not([aria-disabled="true"]):not([data-no-press]):active:active { filter: brightness(1.25); }
