@@ -39,7 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       >
         {children}
       </AdminShell>
-      <Toaster richColors theme="dark" />
+      <Toaster richColors closeButton theme="dark" swipeDirections={['top', 'left', 'right', 'bottom']} />
     </>
   )
 }

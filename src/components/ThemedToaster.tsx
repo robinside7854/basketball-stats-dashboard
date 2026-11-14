@@ -27,6 +27,7 @@ export default function ThemedToaster() {
       closeButton
       expand={false}
       offset="72px"
+      swipeDirections={['top', 'left', 'right', 'bottom']}
       theme={theme}
     />
   )

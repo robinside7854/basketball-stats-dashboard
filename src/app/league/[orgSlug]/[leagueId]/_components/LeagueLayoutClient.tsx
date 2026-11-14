@@ -563,7 +563,7 @@ function LeagueLayout({
       {loginOpen && (
         <LoginModal leagueId={leagueId} onClose={() => setLoginOpen(false)} />
       )}
-      <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} position="top-center" />
+      <Toaster richColors closeButton theme={theme === 'light' ? 'light' : 'dark'} position="top-center" swipeDirections={['top', 'left', 'right', 'bottom']} />
     </PlayerCardProvider>
     </LeagueQuarterProvider>
     </LeagueEditModeProvider>
