@@ -4,7 +4,7 @@
 //   ② 팀 지표 대시보드: 공격 · 슛 유형 · 수비 · 턴오버(볼 보호) — 지표마다 세 팀 막대 + 그 지표 순위
 // 순위 번호는 팀 색과 섞이지 않게 무채색(1위만 진한 칸). 팀 색은 막대·점에만.
 // 숫자는 teams/_lib/teamBoard.ts 한 벌, 연승·연패는 lib/stats/teamStreaks.ts.
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { swatchEdge } from '@/lib/util/contrastColor'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { teamMarks, summarizeStreaks } from '@/lib/stats/teamStreaks'
@@ -246,10 +246,13 @@ function ShotGroup({ teams, shots }: { teams: BoardTeam[]; shots: ShotMix | null
 
 /** 일별 승률 꺾은선(2026-11-14 운영진) — 경기일이 끝날 때마다 그날까지의 누적 승률. 무승부는 분모에만 */
 function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) {
+  // 그날 승률이 기본(2026-11-14 운영진 — 누적은 앞날 성적이 끌어내려 「전승한 날인데 왜 100% 가 아니냐」였다)
+  const [mode, setMode] = useState<'day' | 'cum'>('day')
   const data = useMemo(() => {
     const dates = [...new Set(games.map(g => g.date))].sort()
     const acc = new Map(teams.map(t => [t.key, { w: 0, n: 0 }]))
     return dates.map(d => {
+      if (mode === 'day') for (const a of acc.values()) { a.w = 0; a.n = 0 }
       for (const g of games) {
         if (g.date !== d) continue
         for (const [k, mine, opp] of [[g.home, g.hs, g.as], [g.away, g.as, g.hs]] as const) {
@@ -262,11 +265,19 @@ function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
       for (const t of teams) { const a = acc.get(t.key)!; row[t.key] = a.n ? Math.round(a.w / a.n * 1000) / 10 : null }
       return row
     })
-  }, [teams, games])
+  }, [teams, games, mode])
   if (data.length < 2) return null
   return (
     <div className="p-3" style={card}>
-      <p className="text-sm font-black mb-2" style={{ color: 'var(--mm-ink)' }}>승률 흐름 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>· 경기일마다 그날까지 누적</span></p>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <p className="text-sm font-black break-keep" style={{ color: 'var(--mm-ink)' }}>승률 흐름 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>· {mode === 'day' ? '그날 경기만' : '그날까지 쌓인 전적'}</span></p>
+        <div className="flex overflow-hidden text-xs font-bold" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>
+          {([['day', '그날'], ['cum', '누적']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setMode(k)} aria-pressed={mode === k} className="min-h-9 px-3 cursor-pointer"
+              style={mode === k ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)' } : { color: 'var(--mm-muted)' }}>{l}</button>
+          ))}
+        </div>
+      </div>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -18 }}>
