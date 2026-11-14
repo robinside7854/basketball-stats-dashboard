@@ -15,7 +15,7 @@ export type UseGameSessionCtx = Pick<RecordState,
   leagueId: string
   loadRoster: (slot: GameSlot) => Promise<void>
   refreshFoulEvents: () => void
-  refreshSlots: () => Promise<GameSlot[] | null>
+  refreshSlots: (targetId?: string) => Promise<GameSlot[] | null>
   resumeSnapRef: React.MutableRefObject<ResumeSnap>
   selectSlot: (slot: GameSlot) => Promise<void>
   selectedSlot: GameSlot | null
@@ -198,7 +198,7 @@ export function useGameSession(ctx: UseGameSessionCtx) {
       } else {
         toast.success('경기 완료 처리됨 · 이날 마지막 경기예요')
       }
-      refreshSlots()
+      refreshSlots(next?.id ?? selectedSlotId)
     } catch (e) {
       toast.error(`마감 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
     } finally {

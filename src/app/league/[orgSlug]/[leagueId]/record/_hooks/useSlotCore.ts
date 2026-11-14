@@ -234,14 +234,17 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
     }
   }
 
-  async function refreshSlots(): Promise<GameSlot[] | null> {
+  // targetId = 지금 열려 있는 경기(마감 직후 다음 경기를 연 경우 그 id). 안 넘기면 화면이 기억하는 id —
+  //   마감 → 다음 경기 자동 열기 때 옛 id(이미 시작된 경기)로 「진행 중」이 다시 켜져 명단이 사라졌다(2026-11-14).
+  async function refreshSlots(targetId?: string): Promise<GameSlot[] | null> {
     if (!selectedDate) return null
     const res = await fetch(`/api/leagues/${leagueId}/games?date=${selectedDate}`, { cache: 'no-store' })
     if (res.ok) {
       const updated: GameSlot[] = await res.json()
       setSlots(updated)
-      if (selectedSlotId) {
-        const s = updated.find(x => x.id === selectedSlotId)
+      const sid = targetId ?? selectedSlotId
+      if (sid) {
+        const s = updated.find(x => x.id === sid)
         if (s) {
           setPendingHome(s.home_team_id ?? '')
           setPendingAway(s.away_team_id ?? '')
