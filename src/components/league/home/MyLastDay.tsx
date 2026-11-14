@@ -29,7 +29,7 @@ export default function MyLastDay({ base, embedded = false }: { base: string; em
 
   const line = day.line
   const cardStyle = {
-    background: 'radial-gradient(80% 160% at 100% 0%, var(--mm-yellow-soft), transparent 62%), var(--mm-panel)',
+    background: 'var(--mm-panel)',
     border: '1px solid var(--mm-rule)',
     borderRadius: 'var(--mm-radius-card)',
     boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',
@@ -70,7 +70,7 @@ export default function MyLastDay({ base, embedded = false }: { base: string; em
   if (embedded) {
     return (
       <div className="mt-3 px-3 pt-2.5 pb-3" aria-label="이날 내 기록"
-        style={{ background: 'radial-gradient(80% 160% at 100% 0%, var(--mm-yellow-soft), transparent 62%), var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
+        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
         <p className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>나</p>
         <div className="mt-1 flex items-center gap-3">{stats}</div>
         {games > 0 && <div className="mt-2"><RecordBar wins={w} losses={l} draws={d} height={20} /></div>}

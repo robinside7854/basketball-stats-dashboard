@@ -88,9 +88,8 @@ function RegularPassCard({ month, owned, onBuy, sale }: { month: string; owned: 
   }
   return (
     <div className="relative flex flex-col justify-between p-3 min-h-[84px] overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #141414 0%, #2a2a2a 55%, #3b3115 100%)', border: `1.5px solid ${GOLD}`, borderRadius: 'var(--mm-radius-card)', color: '#fff' }}
+      style={{ background: '#1a1a1a', border: `1.5px solid ${GOLD}`, borderRadius: 'var(--mm-radius-card)', color: '#fff' }}
       aria-label={`${monthLabel(month)} 정규권 있음`}>
-      <span aria-hidden className="absolute -right-3 -top-3 w-16 h-16 rounded-full" style={{ background: `radial-gradient(circle, ${GOLD}55, transparent 70%)` }} />
       <span className="inline-flex items-center gap-1 text-xs font-black" style={{ color: GOLD }}><Crown size={14} strokeWidth={2.5} aria-hidden />정규권</span>
       <span className="text-xl font-black leading-none">{mon(month)}</span>
     </div>
@@ -485,7 +484,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
             <button type="button" role="radio" aria-checked={buyKind === 'regular_pass'} onClick={() => { setBuyKind('regular_pass'); if (!buyMonth || !openMonths.includes(buyMonth)) setBuyMonth(openMonths[0] ?? null) }}
               className="mm-press p-3 text-left"
               style={buyKind === 'regular_pass'
-                ? { background: 'linear-gradient(135deg, #141414, #3b3115)', border: `2px solid ${GOLD}`, color: '#fff', borderRadius: 'var(--mm-radius-card)' }
+                ? { background: '#1a1a1a', border: `2px solid ${GOLD}`, color: '#fff', borderRadius: 'var(--mm-radius-card)' }
                 : { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-card)' }}>
               <span className="inline-flex items-center gap-1 text-sm font-black" style={{ color: buyKind === 'regular_pass' ? GOLD : 'var(--mm-ink)' }}><Crown size={15} aria-hidden />정규권</span>
               <span className="block mt-1 font-black tabular-nums">{fmtP(regPrice)}<span className="text-xs font-bold"> / 한 달</span></span>

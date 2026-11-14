@@ -242,7 +242,7 @@ function LeaderCard({ label, unit, top, wide, selected, onSelect }: {
         // 큰 카드(첫 부문)는 오른쪽 위 노랑 빛으로 한 번 더 무게를 준다 — 홈 맨 위 카드와 같은 어휘
         background: selected
           ? 'var(--mm-yellow-soft)'
-          : wide ? 'radial-gradient(70% 180% at 100% 0%, var(--mm-yellow-soft), transparent 60%), var(--mm-panel)' : 'var(--mm-panel)',
+          : 'var(--mm-panel)',
         border: `1px solid ${selected ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
         borderRadius: 'var(--mm-radius-card)',
         boxShadow: 'var(--mm-edge-light), var(--mm-shadow-sm)',

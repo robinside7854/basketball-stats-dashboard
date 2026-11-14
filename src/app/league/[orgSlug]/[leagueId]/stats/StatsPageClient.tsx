@@ -49,7 +49,7 @@ const AVG_TO_TOTAL: Partial<Record<SortKey, SortKey>> = {
 }
 const TOTAL_TO_AVG: Partial<Record<SortKey, SortKey>> = Object.fromEntries(Object.entries(AVG_TO_TOTAL).map(([a, t]) => [t, a]))
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'|'fbpg'|'fb_pts'|'tov_pct'
-type AdvKey = 'at_ratio'|'a1_total'|'dd2_total'|'td3_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'
+type AdvKey = 'at_ratio'|'a1_total'|'dd2_total'|'td3_total'|'trb_pct'|'usg_pct'|'ts_pct'|'fg2_pct'|'efg_pct'|'fb_pg'|'fb_total'
 type StatMode = 'basic'|'advanced'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
@@ -442,8 +442,6 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'topg', label: '턴오버', term: '턴오버' },
     // 턴오버율(2026-11-08 운영진) — 공격 기회 중 턴오버 비중. 정본 lib/stats/advanced.ts tovPct
     { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
-    // 속공(2026-11-04) — 명단 탭에서 순위를 걷어내며 이리로 옮겼다(fastBreak.ts 정의 그대로)
-    { key: 'fbpg', label: '속공', term: '속공' },
     // (2026-11-03 운영진) 공리·수리·턴오버는 기본으로 보이고, 유효야투(eFG)는 「고급」으로. 「더 보기」 접힘 열은 없다.
   ]
   const TOTAL_COLS: BasicCol[] = [
@@ -456,12 +454,14 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
     { key: 'tov', label: '턴오버', term: 'TOV' },
     { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
-    { key: 'fb_pts', label: '속공', term: '속공' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
   const ADV_COLS: { key: AdvKey; label: string; term: string; desc: string }[] = [
     { key: 'at_ratio',  label: '어시/턴오버', term: 'A/T',  desc: '어시스트/턴오버 비율' },
+    // 속공(2026-11-14 운영진 — 메인 지표가 아니라 고급으로). 정의 fastBreak.ts
+    { key: 'fb_pg',     label: '속공 득점',   term: '속공', desc: '하루 평균 속공 득점 · 수비 리바·스틸·상대 득점 뒤 7초 안에 넣은 득점' },
+    { key: 'fb_total',  label: '속공 누적',   term: '속공', desc: '속공 득점 누적' },
     { key: 'a1_total',  label: '앤드원',      term: 'A1',   desc: '성공한 앤드원(And-One) 횟수 (누적)' },
     // 2026-11-04 운영진 — 하루 합계 기준 「그런 날」 수(트리플더블인 날은 더블더블에 안 셈)
     { key: 'dd2_total', label: '더블더블',    term: '더블더블', desc: '더블더블 날 수 · 하루 합계로 득점·리바·어시·스틸·블록 중 2개가 두 자릿수' },
@@ -480,6 +480,8 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     return {
       // 턴오버 0 이면 나눌 수 없다 — 「99」로 1위에 앉히지 않고 null(화면 「—」, 정렬 맨 뒤, TOP 5 제외)
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : null,
+      fb_pg:     p.fbpg ?? (p.gp > 0 ? +((p.fb_pts ?? 0) / p.gp).toFixed(1) : 0),
+      fb_total:  p.fb_pts ?? 0,
       a1_total:  a1,
       dd2_total: p.dd2 ?? 0,
       td3_total: p.td3 ?? 0,
@@ -589,7 +591,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       .filter((x): x is { p: PlayerStat; val: number } => x.val != null)
     const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
     const isRatio = advSortKey === 'at_ratio'
-    const isCount = advSortKey === 'a1_total' || advSortKey === 'dd2_total' || advSortKey === 'td3_total'
+    const isCount = advSortKey === 'a1_total' || advSortKey === 'dd2_total' || advSortKey === 'td3_total' || advSortKey === 'fb_total'
     return {
       key: `advanced:${advSortKey}`,
       label,
@@ -598,7 +600,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
         id: p.player_id,
         name: p.name,
         photo_url: p.photo_url,
-        value: isCount ? String(val) : isRatio ? val.toFixed(2) : `${fmt1(val)}%`,
+        value: isCount ? String(val) : isRatio ? val.toFixed(2) : advSortKey === 'fb_pg' ? fmt1(val) : `${fmt1(val)}%`,
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -677,7 +679,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     )
   }
   const fmtAdv = (k: AdvKey, v: number | null) =>
-    v == null ? '—' : (k === 'a1_total' || k === 'dd2_total' || k === 'td3_total') ? String(v) : k === 'at_ratio' ? v.toFixed(2) : `${fmt1(v)}%`
+    v == null ? '—' : (k === 'a1_total' || k === 'dd2_total' || k === 'td3_total' || k === 'fb_total') ? String(v) : k === 'fb_pg' ? fmt1(v) : k === 'at_ratio' ? v.toFixed(2) : `${fmt1(v)}%`
   function advCard(p: PlayerStat, adv: Record<AdvKey, number | null>, rank: number | null, opts: { pinned?: boolean; key?: string } = {}) {
     const sortCol = ADV_COLS.find(c => c.key === advSortKey)
     const items: CardItem[] = ADV_COLS
