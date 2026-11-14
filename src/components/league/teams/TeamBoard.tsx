@@ -4,9 +4,9 @@
 //   ② 팀 지표 대시보드: 공격 · 슛 유형 · 수비 · 턴오버(볼 보호) — 지표마다 세 팀 막대 + 그 지표 순위
 // 순위 번호는 팀 색과 섞이지 않게 무채색(1위만 진한 칸). 팀 색은 막대·점에만.
 // 숫자는 teams/_lib/teamBoard.ts 한 벌, 연승·연패는 lib/stats/teamStreaks.ts.
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { swatchEdge } from '@/lib/util/contrastColor'
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { teamMarks, summarizeStreaks } from '@/lib/stats/teamStreaks'
 import {
   METRIC, teamMetrics, rankTeams, type BoardTeam, type MetricKey, type MetricDef,
@@ -159,11 +159,21 @@ function Matchups({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
   )
 }
 
+/** 첫 지표만 먼저, 나머지는 「더 보기」(2026-11-14 운영진) */
 function Group({ title, keys, teams, metrics }: { title: string; keys: MetricKey[]; teams: BoardTeam[]; metrics: Map<string, Partial<Record<MetricKey, number>>> }) {
+  const [open, setOpen] = useState(false)
+  const shown = open ? keys : keys.slice(0, 1)
   return (
-    <div className="p-3 space-y-3" style={card}>
+    <div className="p-3 space-y-3 self-start" style={card}>
       <p className="text-base font-black" style={{ color: 'var(--mm-ink)' }}>{title}</p>
-      {keys.map(k => <MetricBars key={k} m={METRIC[k]} teams={teams} metrics={metrics} />)}
+      {shown.map(k => <MetricBars key={k} m={METRIC[k]} teams={teams} metrics={metrics} />)}
+      {keys.length > 1 && (
+        <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+          className="mm-press w-full min-h-10 text-xs font-bold cursor-pointer break-keep"
+          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}>
+          {open ? '접기' : `더 보기 · ${keys.slice(1).map(k => METRIC[k].label).join(' · ')}`}
+        </button>
+      )}
     </div>
   )
 }
@@ -205,21 +215,36 @@ function ShotGroup({ teams, shots }: { teams: BoardTeam[]; shots: ShotMix | null
     <div className="p-3 space-y-3" style={card}>
       <p className="text-base font-black" style={{ color: 'var(--mm-ink)' }}>슛 유형</p>
       {shots === null ? <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>불러오는 중</p> : (<>
-        <div className="space-y-2">
-          <p className="text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>시도 비중</p>
-          {rows.map(({ team, by, total }) => (
-            <div key={team.key} className="flex items-center gap-2">
-              <span className="w-[5.25rem] sm:w-24 shrink-0 inline-flex items-center gap-1.5 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}><Dot color={team.color} size={8} />{team.name}</span>
-              <span className="flex-1 flex h-4 rounded overflow-hidden" style={{ background: 'var(--mm-panel-alt)' }}>
-                {total > 0 && SHOTS.map(s => {
-                  const w = by.get(s.type)!.fga / total * 100
-                  return w > 0 ? <span key={s.type} title={`${s.label} ${w.toFixed(0)}%`} className="grid place-items-center text-[10px] font-black" style={{ width: `${w}%`, background: s.color, color: 'var(--mm-black)' }}>{w >= 14 ? `${w.toFixed(0)}` : ''}</span> : null
-                })}
-              </span>
-            </div>
-          ))}
-          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
-            {SHOTS.map(s => <li key={s.type} className="inline-flex items-center gap-1"><span aria-hidden className="w-2.5 h-2.5 rounded-sm" style={{ background: s.color }} />{s.label}</li>)}
+        {/* 팀마다 원형 차트 하나(2026-11-14 운영진 — 쌓은 막대 대신) */}
+        <div>
+          <p className="text-xs font-bold mb-1" style={{ color: 'var(--mm-ink-soft)' }}>시도 비중</p>
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(rows.length, 3)}, minmax(0, 1fr))` }}>
+            {rows.map(({ team, by, total }) => {
+              const data = SHOTS.map(sh => ({ name: sh.label, value: by.get(sh.type)!.fga, color: sh.color })).filter(d => d.value > 0)
+              return (
+                <div key={team.key} className="text-center">
+                  <div className="flex justify-center h-28">
+                    {total > 0 && (
+                        <PieChart width={112} height={112}>
+                          <Pie data={data} dataKey="value" innerRadius="52%" outerRadius="92%" stroke="var(--mm-panel)" strokeWidth={1.5} isAnimationActive={false}
+                            label={({ percent, cx, cy, midAngle, innerRadius, outerRadius }) => {
+                              const p = (percent ?? 0) * 100; if (p < 12) return null
+                              const r = ((innerRadius as number) + (outerRadius as number)) / 2, rad = -(midAngle ?? 0) * Math.PI / 180
+                              return <text x={(cx as number) + r * Math.cos(rad)} y={(cy as number) + r * Math.sin(rad)} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={900} fill="#111">{p.toFixed(0)}</text>
+                            }} labelLine={false}>
+                            {data.map(d => <Cell key={d.name} fill={d.color} />)}
+                          </Pie>
+                          <Tooltip formatter={(v, n) => [`${(Number(v) / total * 100).toFixed(0)}% · ${v}개`, n]} contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 8, fontSize: 12 }} />
+                        </PieChart>
+                    )}
+                  </div>
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}><Dot color={team.color} size={8} />{team.name}</p>
+                </div>
+              )
+            })}
+          </div>
+          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+            {SHOTS.map(sh => <li key={sh.type} className="inline-flex items-center gap-1"><span aria-hidden className="w-2.5 h-2.5 rounded-sm" style={{ background: sh.color }} />{sh.label}</li>)}
             <li>· 숫자 = 시도 중 %</li>
           </ul>
         </div>
@@ -246,6 +271,8 @@ function ShotGroup({ teams, shots }: { teams: BoardTeam[]; shots: ShotMix | null
 
 /** 승리 흐름(2026-11-14 운영진) — 경기일마다 **그날 하루의 승수**만(누적·승률 없음) */
 function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) {
+  // 범례 팀을 누르면 그 팀만 진하게(다시 누르면 전체)
+  const [focus, setFocus] = useState<string | null>(null)
   const data = useMemo(() => {
     const dates = [...new Set(games.map(g => g.date))].sort()
     const acc = new Map(teams.map(t => [t.key, { w: 0, n: 0 }]))
@@ -260,14 +287,18 @@ function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
         }
       }
       const row: Record<string, string | number | null> = { date: `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` }
-      for (const t of teams) { const a = acc.get(t.key)!; row[t.key] = a.n ? a.w : null }
+      for (const t of teams) {
+        const a = acc.get(t.key)!
+        row[t.key] = a.n ? a.w : null
+        row[`${t.key}__perfect`] = a.n > 0 && a.w === a.n ? 1 : 0   // 그날 전승 = 별
+      }
       return row
     })
   }, [teams, games])
   if (data.length < 2) return null
   return (
     <div className="p-3" style={card}>
-      <p className="text-sm font-black mb-2 break-keep" style={{ color: 'var(--mm-ink)' }}>승리 흐름 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>· 경기일마다 그날 이긴 경기 수</span></p>
+      <p className="text-sm font-black mb-2 break-keep" style={{ color: 'var(--mm-ink)' }}>승리 흐름 <span className="text-xs font-semibold" style={{ color: 'var(--mm-muted)' }}>· 경기일마다 그날 이긴 경기 수 · ★ 전승한 날</span></p>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -18 }}>
@@ -278,18 +309,37 @@ function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
               contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 8, fontSize: 12 }} />
             {/* 밑에 얇은 진한 테두리 선을 깔아 흰색 팀 선도 보이게(팀 색 면 규칙과 같은 생각) */}
             {teams.map(t => (
-              <Line key={`edge-${t.key}`} type="linear" dataKey={t.key} stroke="var(--mm-ink)" strokeOpacity={0.35} strokeWidth={4.5}
+              <Line key={`edge-${t.key}`} type="linear" dataKey={t.key} stroke="var(--mm-ink)" strokeOpacity={focus && focus !== t.key ? 0.05 : 0.35} strokeWidth={4.5}
                 dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} legendType="none" tooltipType="none" />
             ))}
             {teams.map(t => (
-              <Line key={t.key} type="linear" dataKey={t.key} name={t.name} stroke={t.color} strokeWidth={2.5}
-                dot={{ r: 3.5, fill: t.color, stroke: 'var(--mm-ink)', strokeOpacity: 0.5 }} connectNulls={false} isAnimationActive={false} />
+              <Line key={t.key} type="linear" dataKey={t.key} name={t.name} stroke={t.color} strokeWidth={focus === t.key ? 3.5 : 2.5}
+                strokeOpacity={focus && focus !== t.key ? 0.15 : 1}
+                dot={(p: { cx?: number; cy?: number; payload?: Record<string, unknown>; index?: number }) => {
+                  const dim = focus && focus !== t.key ? 0.15 : 1
+                  if (p.cx == null || p.cy == null || p.payload?.[t.key] == null) return <g key={`${t.key}-${p.index}`} />
+                  if (p.payload[`${t.key}__perfect`]) {
+                    const r = 7, pts = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; return `${p.cx! + rr * Math.cos(a)},${p.cy! + rr * Math.sin(a)}` }).join(' ')
+                    return <polygon key={`${t.key}-${p.index}`} points={pts} fill={t.color} stroke="var(--mm-ink)" strokeWidth={1} opacity={dim} />
+                  }
+                  return <circle key={`${t.key}-${p.index}`} cx={p.cx} cy={p.cy} r={3.5} fill={t.color} stroke="var(--mm-ink)" strokeOpacity={0.5} opacity={dim} />
+                }}
+                connectNulls={false} isAnimationActive={false} />
             ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
       <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
-        {teams.map(t => <li key={t.key} className="inline-flex items-center gap-1.5"><Dot color={t.color} size={8} />{t.name}</li>)}
+        {teams.map(t => (
+          <li key={t.key}>
+            <button type="button" onClick={() => setFocus(f => f === t.key ? null : t.key)} aria-pressed={focus === t.key}
+              className="mm-press inline-flex items-center gap-1.5 min-h-8 px-2 cursor-pointer"
+              style={{ borderRadius: 'var(--mm-radius-chip)', border: `1px solid ${focus === t.key ? 'var(--mm-ink)' : 'transparent'}`, opacity: focus && focus !== t.key ? 0.45 : 1 }}>
+              <Dot color={t.color} size={8} />{t.name}
+            </button>
+          </li>
+        ))}
+        <li className="self-center font-semibold" style={{ color: 'var(--mm-muted)' }}>팀을 누르면 그 팀만 보여요</li>
       </ul>
     </div>
   )
