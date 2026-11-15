@@ -29,6 +29,7 @@ import { parseMimoText, previewMimo, applyMimo } from '@/lib/wallet/mimoImport'
 import { loadPassStatus } from '@/lib/wallet/passStatus'
 import { hashToken, newToken, parseSenderName, type BankEvent } from '@/lib/wallet/bankAuto'
 import { loadPassSales, loadPassBuyers } from '@/lib/wallet/passSales'
+import { testPlayerIds } from '@/lib/wallet/testAccount'
 
 /** 충전 요청이 이만큼 기다리는데 그 뒤로 입금 알림이 하나도 없으면 「폰을 확인해 주세요」 */
 const STALE_HOURS = 2
@@ -165,7 +166,10 @@ export async function GET(req: Request, { params }: Ctx) {
   const withName = (r: ChargeRequestRow) => ({ ...r, name: nameOf.get(r.league_player_id) ?? '알 수 없음' })
 
   // 게스트는 포인트 계정이 없다(운영진 — 게스트비는 통장으로 따로) → 잔액이 있을 때만 보인다.
+  // 시험 계정은 회원별 잔액·합계에서 뺀다(2026-11-15 CEO)
+  const testIds = await testPlayerIds(teamId)
   const members = players
+    .filter(p => !testIds.has(p.id))
     .filter(p => balOf.has(p.id) || (!p.is_guest && p.is_active !== false))
     .map(p => ({ player_id: p.id, name: p.name, balance: balOf.get(p.id) ?? 0, tickets: ticketsOf.get(p.id) ?? 0, pass: passOf.has(p.id) }))
     .sort((a, b) => b.balance - a.balance || a.name.localeCompare(b.name, 'ko'))

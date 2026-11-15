@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { loadPassSales, autoAssignAfterPass, teamNameInMonth } from '@/lib/wallet/passSales'
 import { getApprovedSession } from '@/lib/auth/guard'
 import { getLeagueAdminSession } from '@/lib/auth/leagueAdmin'
+import { testPlayerIds, TEST_FREE_MEMO } from '@/lib/wallet/testAccount'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import {
   loadWalletConfig, loadBalance, loadLedger, loadTickets, loadRefundable, buyableMonths,
@@ -46,6 +47,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     loadPassSales(sb, teamId),
     getLeagueAdminSession(leagueId),
   ])
+  const isTest = (await testPlayerIds(teamId)).has(session.pid)
   if (reqRes.error) return NextResponse.json({ error: reqRes.error.message }, { status: 500 })
   return NextResponse.json({
     enabled: true, name: config.name, bank: config.bank, rules: config.rules, months: buyableMonths(),
@@ -53,7 +55,9 @@ export async function GET(_req: Request, { params }: Ctx) {
     pass_sales: passSales,
     // 운영진(팀 어드민)은 정규권 무료(136) — 화면 표시용, 값은 서버가 살 때 다시 판정
     pass_free: !!adminSession,
-    me: { balance, refundable, ledger, tickets, requests: (reqRes.data ?? []) as ChargeRequestRow[] },
+    // 시험 계정(2026-11-15 CEO) — 충전 창이 「무료 충전」, 그 충전은 내역에 안 보인다
+    test_free: isTest,
+    me: { balance, refundable, ledger: ledger.filter(l => l.memo !== TEST_FREE_MEMO), tickets, requests: (reqRes.data ?? []) as ChargeRequestRow[] },
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
@@ -127,6 +131,15 @@ export async function POST(req: Request, { params }: Ctx) {
   if (action !== 'charge') return NextResponse.json({ error: 'action 은 charge · refund · buy' }, { status: 400 })
   const amount = parseAmount(body.amount)
   if (!amount) return NextResponse.json({ error: `금액은 1 ~ ${MAX_CHARGE.toLocaleString()}원 사이로 적어 주세요` }, { status: 400 })
+  // 시험 계정은 입금 없이 바로 충전(2026-11-15 CEO) — 요청 행을 만들지 않아 처리 내역에도 안 남는다
+  if ((await testPlayerIds(teamId)).has(session.pid)) {
+    const { error } = await sb.rpc('wallet_apply', {
+      p_team_id: teamId, p_player_id: session.pid, p_kind: 'adjust', p_amount: amount,
+      p_memo: TEST_FREE_MEMO, p_ref_type: null, p_ref_id: null, p_actor: `시험 계정 ${session.loginId}`,
+    })
+    if (error) return NextResponse.json({ error: walletErrorMessage(error.message) ?? error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, free: true, amount }, { status: 201 })
+  }
   const depositor = str(body.depositor_name, 40)
   if (!depositor) return NextResponse.json({ error: '입금자명을 적어 주세요' }, { status: 400 })
   const reserved = (await loadClub(teamId))?.settings.bank_reserved_words

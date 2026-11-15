@@ -61,7 +61,7 @@ export const MEMBER_GUIDE: GuideSection[] = [
           { t: '매주 월요일 홈 맨 위에 참 / 불이 열려요.', icon: 'bell', auto: true },
           { t: '금요일 밤까지 누를 수 있어요.', icon: 'clock' },
           { t: '정규 멤버는 「참」이면 바로 배정돼요.', icon: 'crown', auto: true },
-          { t: '정규 멤버는 못 나오면 「불」을 눌러요.', icon: 'x' },
+          { t: '정규 멤버는 참·불을 꼭 눌러요.', icon: 'x' },
           { t: '비정규는 나올 때만 「참」을 눌러요.', icon: 'ticket' },
           { t: '취소해도 쓴 티켓은 내 월렛에 남아요.', icon: 'ticket', tip: true },
         ],

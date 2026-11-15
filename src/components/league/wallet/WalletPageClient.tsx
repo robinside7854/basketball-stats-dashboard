@@ -36,6 +36,8 @@ interface WalletRes {
   auto_charge?: boolean
   /** 운영진(팀 어드민)은 정규권 무료(136) */
   pass_free?: boolean
+  /** 시험 계정 — 충전 창이 「무료 충전」(2026-11-15 CEO) */
+  test_free?: boolean
   me?: { balance: number; refundable: number; ledger: LedgerItem[]; requests: RequestItem[]; tickets: TicketItem[] } | null
 }
 
@@ -49,10 +51,11 @@ function whenKst(iso: string): string {
   return `${md}(${wd}) ${hm}`
 }
 /** 정규권 판매 상태 한 줄 */
-function saleLine(s: PassSaleLite | undefined): string {
-  if (!s) return '판매 전'
+function saleLine(s: PassSaleLite | undefined, month?: string): string {
+  // 판매를 따로 열지 않은 달 — 이미 시작한 달이면 「판매 종료」(판매 기능 전에 이미 다 팔린 11월 등, 2026-11-15 CEO)
+  if (!s) return month && month <= `${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 7)}-01` ? '판매 종료' : '판매 전'
   if (s.state === 'upcoming') return `${whenKst(s.opens_at)} 판매 시작`
-  if (s.state === 'closed' || s.sold >= s.capacity) return '판매 마감'
+  if (s.state === 'closed' || s.sold >= s.capacity) return '판매 종료'
   return `판매 중 · 남은 자리 ${s.capacity - s.sold}`
 }
 
@@ -82,7 +85,7 @@ function RegularPassCard({ month, owned, onBuy, sale }: { month: string; owned: 
         className="mm-press flex flex-col items-start justify-between p-3 min-h-[84px] text-left disabled:cursor-default"
         style={{ border: `1.5px dashed ${open ? GOLD : 'var(--mm-rule)'}`, borderRadius: 'var(--mm-radius-card)', color: 'var(--mm-muted)' }}>
         <span className="inline-flex items-center gap-1 text-xs font-bold"><Ticket size={14} aria-hidden />{mon(month)} 정규권</span>
-        <span className="text-sm font-black break-keep" style={{ color: open ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>{open ? `${saleLine(sale)} · 사기` : saleLine(sale)}</span>
+        <span className="text-sm font-black break-keep" style={{ color: open ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>{open ? `${saleLine(sale, month)} · 사기` : saleLine(sale, month)}</span>
       </button>
     )
   }
@@ -572,7 +575,26 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
       {/* ── 창: 충전 ── */}
       {/* 입금 알림이 연결돼 있으면 「입금만 하면 자동 충전」이 먼저, 충전 요청은 「다른 이름으로 입금했어요」 뒤로(2026-11-10 운영진) */}
       <Sheet open={sheet === 'charge'} onClose={() => { setSheet(null); setOtherName(false) }} title="충전하기" width="md">
-        {data.auto_charge && !otherName ? (
+        {data.test_free ? (
+          // 시험 계정(2026-11-15 CEO) — 입금 없이 바로 충전, 내역에도 안 남는다
+          <div className="space-y-3">
+            <p className="px-3 py-2 text-sm font-bold break-keep" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
+              시험 계정이에요. 입금 없이 바로 충전돼요.
+            </p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {QUICK.map(q => (
+                <button key={q} type="button" onClick={() => setAmount(String(q))} className="mm-press min-h-11 px-1 text-sm font-bold border whitespace-nowrap" style={chip(typedAmount === q)}>
+                  {(q / 10000).toLocaleString()}만
+                </button>
+              ))}
+            </div>
+            <button type="button" disabled={busy || !(typedAmount > 0)}
+              onClick={async () => { if (await post({ action: 'charge', amount: typedAmount }, `${fmtP(typedAmount)} 충전했어요(시험 계정)`)) { setAmount(''); setSheet(null) } }}
+              className="mm-press w-full min-h-12 font-black disabled:opacity-50" style={BTN_PRIMARY}>
+              {typedAmount > 0 ? `${fmtP(typedAmount)} 무료 충전` : '금액을 골라 주세요'}
+            </button>
+          </div>
+        ) : data.auto_charge && !otherName ? (
           <div className="space-y-3">
             <div className="px-4 py-4 text-center" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', borderRadius: 'var(--mm-radius-card)' }}>
               <div className="text-lg font-black break-keep" style={{ color: 'var(--mm-ink)' }}>모임통장으로 입금만 하면<br />1분 안에 자동 충전돼요</div>

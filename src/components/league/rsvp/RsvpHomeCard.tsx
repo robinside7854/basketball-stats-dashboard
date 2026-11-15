@@ -106,7 +106,7 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
                       : canPayByPoints ? `비정규 참가 — 대기명단에 들어갔어요. 포인트로 티켓 1장(${(data.ticket_price ?? 0).toLocaleString()}P)이 자동으로 준비돼요.`
                         : null)
                 : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
-                  : open ? (me.kind === 'regular' ? '아직 답하지 않았어요.' : '나올 때만 「참」을 눌러 주세요.') : '이번 주는 답하지 않았어요.'}
+                  : open ? (me.kind === 'regular' ? '정규 멤버는 참·불 중 하나를 꼭 눌러 주세요.' : '비정규는 나올 때만 「참」을 누르면 돼요.') : '이번 주는 답하지 않았어요.'}
           </p>
           {me.kind === 'non_regular' && me.month_team_id && (() => {
             // 정규권은 운영진이 판매를 열 때만(130, 2026-11-10 운영진)
@@ -123,11 +123,11 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
           {/* 포인트 부족은 「참」을 누르기 전에 미리 — 입금만 하면 자동 충전(2026-11-10 운영진) */}
           {me.kind === 'non_regular' && !me.month_team_id && me.tickets_left === 0 && !canPayByPoints && !myTeam && me.answer !== 'no' && (
             <div className="text-sm mt-1 px-3 py-2 break-keep space-y-1" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)' }}>
-              <div className="font-bold">포인트가 모자라요.</div>
-              <div>비정규로 나오려면 {(data.ticket_price ?? 0).toLocaleString()}P가 필요해요.</div>
+              {/* 핵심만 두 줄(2026-11-15 CEO) — 「모임통장」 같은 통장 이름은 화면에 박지 않는다 */}
+              <div className="font-bold">포인트 부족 · {(data.ticket_price ?? 0).toLocaleString()}P 필요</div>
               {data.auto_charge ? (
                 <>
-                  <div>모임통장으로 입금만 하면 1분 안에 충전돼요.</div>
+                  <div>본인 이름으로 입금하면 1분 안에 자동 충전돼요.</div>
                   {data.wallet_bank && (
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="font-bold">{data.wallet_bank}</span>
