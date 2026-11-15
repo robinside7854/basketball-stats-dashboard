@@ -63,7 +63,7 @@ function Steps({ lines }: { lines: GuideLine[] }) {
 }
 
 // 그림 가로·세로(px) — 불러오기 전에도 틀 크기를 잡는다(지연 로딩 때 틀이 0 폭으로 접혔다). 그림을 바꾸면 같이 고친다.
-const IMG_SIZE: Record<string, [number, number]> = { 'boxscore': [780, 2200], 'guest-sheet': [780, 1600], 'highlights': [780, 1696], 'last-day': [780, 424], 'leaderboard': [780, 2300], 'me': [780, 1240], 'player-card': [780, 1800], 'rsvp-board': [780, 1998], 'rsvp-card': [780, 730], 'signup': [780, 1020], 'teams': [780, 1800], 'wallet-charge': [780, 970], 'wallet-ticket': [780, 1000], 'wallet': [780, 864] }
+const IMG_SIZE: Record<string, [number, number]> = { 'boxscore': [780, 2200], 'guest-sheet': [780, 1600], 'highlights': [780, 1696], 'last-day': [780, 424], 'leaderboard': [780, 2300], 'me': [780, 1240], 'player-card': [780, 1800], 'rsvp-board': [780, 1998], 'rsvp-card': [780, 704], 'signup': [780, 1020], 'teams': [780, 1800], 'wallet-charge': [780, 970], 'wallet-ticket': [780, 1000], 'wallet': [780, 864] }
 
 /** 폰 화면 그림 — 둥근 테두리 액자 + 설명 한 줄. 세로로 긴 그림은 높이(폰 600 · PC 520)에 맞춰 폭을 줄인다 */
 function Shot({ image, caption }: { image: string; caption?: string }) {
