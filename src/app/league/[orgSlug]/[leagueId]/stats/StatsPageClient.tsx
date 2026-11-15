@@ -236,7 +236,23 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // 페이지 간 분기 선택 공유 + 분기 목록의 단일 출처 (LeagueQuarterContext).
   //   목록·기본 분기(지금 분기) 판정은 컨텍스트가 한다 — 여기서 /quarters 를 다시 부르지 않는다.
   const { selectedQuarterId, setSelectedQuarterId, quarters, ready: quarterReady } = useLeagueQuarter()
-  const [players, setPlayers] = useState<PlayerStat[]>(initial?.players ?? [])
+  const [rawPlayers, setPlayers] = useState<PlayerStat[]>(initial?.players ?? [])
+  // 「소속」(2026-11-15 운영진) = 그 분기 정규 팀(이번 분기면 이 달 정규 먼저 — roster-cards 의 team), 없으면 「비정규」.
+  //   기록은 어느 팀에서 뛰었든 합친 그대로다. 전체 기간이면 지금 분기 소속.
+  const [affMap, setAffMap] = useState<Map<string, { name: string; color: string } | null> | null>(null)
+  useEffect(() => {
+    if (!quarterReady) return
+    const q = selectedQuarterId && selectedQuarterId !== 'all' ? `?quarterId=${selectedQuarterId}` : ''
+    let off = false
+    fetch(`/api/leagues/${leagueId}/roster-cards${q}`).then(r => r.ok ? r.json() : null).then(d => {
+      if (off || !d?.players) return
+      setAffMap(new Map((d.players as { id: string; team: { name: string; color: string } | null }[]).map(p => [p.id, p.team])))
+    }).catch(() => {})
+    return () => { off = true }
+  }, [leagueId, selectedQuarterId, quarterReady])
+  const players = useMemo(() => affMap
+    ? rawPlayers.map(p => { const t = affMap.get(p.player_id); return { ...p, team_name: t?.name ?? '비정규', team_color: t?.color ?? null } })
+    : rawPlayers, [rawPlayers, affMap])
   const [totalRounds, setTotalRounds] = useState(initial?.totalRounds ?? 0)  // 기간 내 열린 라운드 수 (자격 커트라인 분모)
   const [loading, setLoading] = useState(!initial)
   // 서버가 실어 보낸 분기 — 기억해 둔 분기가 같으면 첫 조회를 건너뛴다(한 번만)
@@ -708,6 +724,17 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       </td>
     )
   }
+  function affCell(p: PlayerStat) {
+    const irr = !p.team_name || p.team_name === '비정규'
+    return (
+      <td className="px-1 py-3 text-left align-middle">
+        <span className="inline-flex items-center gap-1.5 text-sm font-semibold break-keep" style={{ color: irr ? 'var(--mm-muted)' : 'var(--mm-ink)' }}>
+          {!irr && <span className="inline-block shrink-0 rounded-full" style={{ width: 8, height: 8, background: p.team_color ?? 'var(--mm-rule)', boxShadow: swatchEdge(p.team_color) ?? 'inset 0 0 0 1px var(--mm-rule)' }} />}
+          {irr ? '비정규' : p.team_name}
+        </span>
+      </td>
+    )
+  }
   function nameCell(p: PlayerStat, pinned = false) {
     const mine = isMe(p)
     return (
@@ -763,6 +790,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
         style={rowStyle(p, pinned)}>
         {rankCell(rank, lowAttempts(p, basicPctKey) ? '시도 부족 — 순위 없음' : undefined)}
         {nameCell(p, pinned)}
+        {affCell(p)}
         {COLS.map(({ key }) => {
           const leader = isLeader(p, key as string)
           // 성공률 칸은 시도 기준 미달이면 흐린 글자(순위 대상 아님) — 정렬 중인 칸엔 「시도 부족」도 붙인다
@@ -813,6 +841,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
         style={rowStyle(p, pinned)}>
         {rankCell(rank)}
         {nameCell(p, pinned)}
+        {affCell(p)}
         <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && !pinned && <IneligibleTag />}</td>
         {ADV_COLS.map(({ key }) => {
           const active = advSortKey === key
@@ -1083,6 +1112,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   <tr style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
+                    <th scope="col" className="t-th text-left px-1 w-[5.5rem]" style={{ color: 'var(--mm-ink)' }}>소속</th>
                     {COLS.map(({ key, label, term }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
                         // 누적 보기의 성공/시도 세 칸(「329/794」)은 다른 칸보다 넓게 — 똑같이 나누면 옆 칸과 겹쳤다(2026-11-04)
@@ -1157,6 +1187,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                           </span>
                           <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>자격자 {eligible.length}명</div>
                         </td>
+                        <td></td>
                         {COLS.map(({ key }) => (
                           <td key={key} className={`t-td-key ${colHide(key)}`}>
                             {slashBreak(fmtCell(key))}
@@ -1188,6 +1219,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   <tr style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
+                    <th scope="col" className="t-th text-left px-1 w-[5.5rem]" style={{ color: 'var(--mm-ink)' }}>소속</th>
                     <th scope="col" className="t-th"><StatHeader term="R" label="출전" /></th>
                     {ADV_COLS.map(({ key, label, term, desc }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(advSortKey === key, advSortDir)} title={desc}
