@@ -139,9 +139,10 @@ export default function HexRadar({
         </div>
       )}
 
-      <p className="mt-2 text-xs" style={{ color: 'var(--mm-muted)' }}>
-        축 값 = 구성 요소 백분위의 평균을 다시 리그 안에서 백분위로 매긴 것(100 = 1위). 성공률은 시도가 적으면 빠집니다.
-        TS%는 +1 보너스·자유투 2점 규칙 때문에 득점이 부풀어 쓰지 않고, 효율은 eFG%로 봅니다.
+      {/* 쉬운 말 두 줄(2026-11-15 운영진 — 영어 약어·어려운 설명 뺌) */}
+      <p className="mt-2 text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>
+        숫자가 클수록 리그에서 잘하는 편이에요(100 = 1위).
+        <br />슛을 너무 적게 던졌으면 그 칸은 빠져요.
       </p>
     </section>
   )

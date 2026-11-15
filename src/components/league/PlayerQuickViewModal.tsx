@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ArrowLeftRight, ChevronDown, Sparkles } from 'lucide-react'
+import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ChevronDown, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -654,18 +654,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     <Film size={14} aria-hidden /> 하이라이트
                   </Link>
                 )}
-                {/* 나와 비교 (2026-10-15) — 로그인 회원이 남의 카드를 볼 때만. 비교 시트는 카드를 닫고 프로바이더가 띄운다 */}
-                {onCompare && me && me.player_id && me.player_id !== playerId && !gated && (
-                  <button
-                    type="button"
-                    onClick={() => onCompare([me.player_id, playerId], selectedQuarterId)}
-                    className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-sm cursor-pointer transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] hover:bg-[color:var(--mm-yellow-soft)]"
-                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
-                    aria-label={`나와 ${displayName} 비교하기`}
-                  >
-                    <ArrowLeftRight size={14} aria-hidden /> 나와 비교
-                  </button>
-                )}
+                {/* 「나와 비교」 단추는 2026-11-15 뺐다 — 선수 비교는 11-02 운영진 결정으로 없앤 기능 */}
                 {/* 베스트샷 재생 — 포지션 옆 · 핀 있을 때만 노출 */}
                 {meta.pinned_event_ids && meta.pinned_event_ids.length > 0 && (
                   <PlayerBestShotBanner
