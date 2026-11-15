@@ -225,10 +225,10 @@ function History({ rows, fill = false }: { rows: Row[]; fill?: boolean }) {
                 <RowIcon tone={r.tone} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{r.title}</span>
-                    {r.chip && <span className="inline-flex items-center px-1.5 text-[11px] font-black" style={{ background: r.chip.bg, color: r.chip.fg, borderRadius: 'var(--mm-radius-chip)' }}>{r.chip.label}</span>}
+                    <span className="font-bold text-sm break-keep" style={{ color: 'var(--mm-ink)' }}>{r.title}</span>
+                    {r.chip && <span className="inline-flex items-center px-1.5 text-[12px] whitespace-nowrap font-black" style={{ background: r.chip.bg, color: r.chip.fg, borderRadius: 'var(--mm-radius-chip)' }}>{r.chip.label}</span>}
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{kstTime(r.at)}{r.sub ? ` · ${r.sub}` : ''}</div>
+                  <div className="text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>{kstTime(r.at)}{r.sub ? ` · ${r.sub}` : ''}</div>
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="font-black tabular-nums text-sm" style={{ color: r.rightColor }}>{r.right}</div>

@@ -104,7 +104,7 @@ export default function QuarterTable({ rows, total }: { rows: QuarterTableRow[];
                   합계<span className="sr-only"> (누적)</span>
                 </th>
                 {COLS.map(c => (
-                  <td key={c.key} className={`t-td text-right tabular-nums ${c.wide ? 'hidden sm:table-cell' : ''} ${c.pct ? 'text-[11px]' : ''}`} style={{ color: 'var(--mm-ink-soft)' }}>
+                  <td key={c.key} className={`t-td text-right tabular-nums ${c.wide ? 'hidden sm:table-cell' : ''} ${c.pct ? 'text-[12px]' : ''}`} style={{ color: 'var(--mm-ink-soft)' }}>
                     {/* 성공/시도는 「/」 뒤에서 줄을 넘길 수 있게 — 폰 폭에서 「104/170」 이 칸을 넘치지 않게 */}
                     {c.pct ? sumCells[c.key].split('/').map((x, i) => i === 0 ? <span key={i}>{x}/<wbr /></span> : <span key={i}>{x}</span>) : sumCells[c.key]}
                   </td>

@@ -78,7 +78,7 @@ export default function HeadToHeadBars({ a, b, centerSub }: { a: H2HSide; b: H2H
         const valueLabel = (v: number, m: number | undefined, t: number | undefined, align: 'end' | 'start') => item.fraction
           ? <span className={`flex flex-col leading-tight ${align === 'end' ? 'items-end' : 'items-start'}`}>
               <span>{v}%</span>
-              <span className="text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{m}/{t}</span>
+              <span className="text-[12px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{m}/{t}</span>
             </span>
           : `${v}${item.suffix ?? ''}`
         const labelA = valueLabel(item.a, item.fraction?.[0], item.fraction?.[1], 'end')

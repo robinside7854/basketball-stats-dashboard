@@ -430,14 +430,14 @@ function MemberBalances({ data, query, setQuery, onlyShort, setOnlyShort, showEm
                   {/* 정규권 = 검정 표 + 금색 테(왕관은 팀장 표시라 쓰지 않는다 — 2026-11-12 운영진) · 비정규 = 노란 표 */}
                   {m.pass && <span title="이번 달 정규권" aria-label="이번 달 정규권" className="inline-flex items-center justify-center px-0.5 h-4 shrink-0" style={{ background: '#111', color: '#D4AF37', boxShadow: 'inset 0 0 0 1px #D4AF37', borderRadius: 'var(--mm-radius-chip)' }}><Ticket size={11} strokeWidth={2.5} aria-hidden /></span>}
                   {(m.tickets ?? 0) > 0 && (
-                    <span title={`남은 비정규 티켓 ${m.tickets}장`} className="inline-flex items-center gap-0.5 px-0.5 text-[11px] font-black whitespace-nowrap shrink-0"
+                    <span title={`남은 비정규 티켓 ${m.tickets}장`} className="inline-flex items-center gap-0.5 px-0.5 text-[12px] font-black whitespace-nowrap shrink-0"
                       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
                       <Ticket size={10} aria-hidden />{m.tickets}
                     </span>
                   )}
                   <span className="ml-auto font-black text-sm tabular-nums whitespace-nowrap shrink-0"
                     style={{ color: m.balance > 0 ? (sh ? 'var(--mm-live-bg)' : 'var(--mm-ink)') : 'var(--mm-muted)' }}>
-                    {m.balance.toLocaleString()}<span className="text-[11px] font-bold">P</span>
+                    {m.balance.toLocaleString()}<span className="text-[12px] font-bold">P</span>
                   </span>
                 </button>
               </li>

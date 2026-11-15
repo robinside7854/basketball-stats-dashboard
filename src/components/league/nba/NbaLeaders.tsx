@@ -153,7 +153,7 @@ export default function NbaLeaders({ leagueId, minGP, quarterLabel, quarterId, i
                           className="mm-press flex items-center gap-1 min-h-[36px] min-w-0 cursor-pointer" title={`${i + 2}위 ${p.name} ${cat.format(valueOf(cat, p))}`}>
                           <span className="t-label tabular-nums">{i + 2}</span>
                           <span className="relative w-7 h-7 rounded-full overflow-hidden shrink-0 flex items-center justify-center" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                            {ph ? <Image src={ph} alt={p.name} fill sizes="28px" className="object-cover object-top" /> : <span className="text-[10px] font-black">{initials(p.name)}</span>}
+                            {ph ? <Image src={ph} alt={p.name} fill sizes="28px" className="object-cover object-top" /> : <span className="text-[12px] font-black">{initials(p.name)}</span>}
                           </span>
                         </button>
                       )

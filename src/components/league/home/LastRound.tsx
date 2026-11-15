@@ -197,7 +197,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
                     {isMine && (
                       <span
                         aria-hidden
-                        className="text-[10px] font-black px-1.5 leading-[16px] whitespace-nowrap"
+                        className="text-[12px] font-black px-1.5 leading-[16px] whitespace-nowrap"
                         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}
                       >
                         내 경기

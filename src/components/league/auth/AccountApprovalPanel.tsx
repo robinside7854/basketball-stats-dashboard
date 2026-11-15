@@ -347,18 +347,18 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>{nameOf(r)}</span>
                     {r.role === 'admin' && isApproved && (
-                      <span className="inline-flex items-center gap-0.5 text-[11px] font-black px-1 py-px" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}>
+                      <span className="inline-flex items-center gap-0.5 text-[12px] font-black px-1 py-px" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}>
                         <ShieldCheck size={12} aria-hidden />어드민
                       </span>
                     )}
                     {!isApproved && (
-                      <span className="inline-flex items-center text-[11px] font-black px-1 py-px" style={{ background: STATUS_COLOR[r.status].bg, color: STATUS_COLOR[r.status].fg, borderRadius: '2px' }}>
+                      <span className="inline-flex items-center text-[12px] font-black px-1 py-px" style={{ background: STATUS_COLOR[r.status].bg, color: STATUS_COLOR[r.status].fg, borderRadius: '2px' }}>
                         {STATUS_LABEL[r.status]}
                       </span>
                     )}
                     {isApproved && !r.password_changed_at && (
                       <span
-                        className="inline-flex items-center gap-0.5 text-[11px] font-bold px-1 py-px"
+                        className="inline-flex items-center gap-0.5 text-[12px] font-bold px-1 py-px"
                         style={{ color: 'var(--mm-ink-soft)', border: '1px dashed var(--mm-ink-soft)', borderRadius: '2px' }}
                         title="아직 비밀번호를 바꾸지 않았어요 — 가입 때 넣은 생년월일 6자리(초기화했다면 123456) 그대로예요"
                       >

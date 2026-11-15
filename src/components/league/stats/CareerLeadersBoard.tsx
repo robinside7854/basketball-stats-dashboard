@@ -282,7 +282,7 @@ function LeaderCard({ label, unit, top, wide, selected, onSelect }: {
           ) : (
             <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>—</span>
           )}
-          {tied && <span className="text-[11px] font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>공동 1위</span>}
+          {tied && <span className="text-[12px] font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>공동 1위</span>}
         </>
       )}
     </button>

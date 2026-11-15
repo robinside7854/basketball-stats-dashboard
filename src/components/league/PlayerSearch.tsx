@@ -148,7 +148,7 @@ export default function PlayerSearch({ leagueId }: { leagueId: string }) {
       >
         <Search size={20} aria-hidden className="lg:w-4 lg:h-4" />
         <span className="hidden lg:inline text-sm">선수 검색</span>
-        <kbd className="hidden xl:inline text-[10px] font-mono px-1.5 py-0.5 rounded border border-[color:var(--mm-rule)]">/</kbd>
+        <kbd className="hidden xl:inline text-[12px] font-mono px-1.5 py-0.5 rounded border border-[color:var(--mm-rule)]">/</kbd>
       </button>
 
       {open && (

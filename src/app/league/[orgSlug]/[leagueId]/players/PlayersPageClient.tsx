@@ -349,19 +349,19 @@ function PlayerRow({ p, rank, label, main, sub, onOpen }: {
         <span className="font-black text-base leading-tight truncate" style={{ color: 'var(--mm-ink)' }}>{p.name}</span>
         <span className="flex flex-wrap gap-1">
           {group && (
-            <span className="inline-flex items-center h-5 px-1.5 text-[11px] font-bold"
+            <span className="inline-flex items-center h-5 px-1.5 text-[12px] font-bold"
               style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-chip)' }}>
               {positionGroupLabel(group)}
             </span>
           )}
           <TeamBadge p={p} small />
-          {!p.has_account && <span className="inline-flex items-center h-5 text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>미가입</span>}
+          {!p.has_account && <span className="inline-flex items-center h-5 text-[12px] font-semibold" style={{ color: 'var(--mm-muted)' }}>미가입</span>}
         </span>
       </span>
       {/* 순위 밖(출전일·시도 부족)은 흐리게 — 카드 보기와 같은 규칙 */}
       <span className="flex flex-col items-end shrink-0 leading-tight" style={{ opacity: rank == null ? 0.5 : 1 }}>
         <span className="font-jersey font-black text-2xl tabular-nums" style={{ color: 'var(--mm-ink)' }}>{main}</span>
-        <span className="text-[11px] font-semibold tabular-nums mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sub ?? label}</span>
+        <span className="text-[12px] font-semibold tabular-nums mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sub ?? label}</span>
       </span>
     </button>
   )
@@ -369,7 +369,7 @@ function PlayerRow({ p, rank, label, main, sub, onOpen }: {
 
 /** 소속팀(색 점 + 이름) · +1 — 정규가 아니면 「비정규」 */
 function TeamBadge({ p, small = false }: { p: RosterCard; small?: boolean }) {
-  const h = small ? 'h-5 text-[11px]' : 'h-6 text-[11px]'
+  const h = small ? 'h-5 text-[12px]' : 'h-6 text-[12px]'
   return (
     <>
       <span className={`inline-flex items-center gap-1 px-1.5 font-bold whitespace-nowrap ${h}`}
@@ -448,7 +448,7 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen, stat }: {
         <div className="flex flex-wrap gap-1 min-h-6">
           {groupOfCard(p) && (
             <span
-              className="inline-flex items-center h-6 px-1.5 text-[11px] font-bold"
+              className="inline-flex items-center h-6 px-1.5 text-[12px] font-bold"
               style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
             >
               {positionGroupLabel(groupOfCard(p))}

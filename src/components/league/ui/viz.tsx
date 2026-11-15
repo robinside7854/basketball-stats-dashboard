@@ -163,7 +163,7 @@ export function MarginFigure({
       >
         {diff > 0 ? `+${diff}` : diff}
       </span>
-      <span className="text-[11px] tabular-nums mt-1" style={{ color: 'var(--mm-muted)' }} title="득점-실점">
+      <span className="text-[12px] tabular-nums mt-1" style={{ color: 'var(--mm-muted)' }} title="득점-실점">
         {ptsFor}-{ptsAgainst}
       </span>
     </div>

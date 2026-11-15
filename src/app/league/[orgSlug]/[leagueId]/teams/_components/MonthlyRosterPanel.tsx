@@ -318,7 +318,7 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
                           </button>
                         )
                       })}
-                      {!uniforms[c.key] && <span className="text-[11px] text-[var(--mm-muted)]">안 고르면 노랑</span>}
+                      {!uniforms[c.key] && <span className="text-[12px] text-[var(--mm-muted)]">안 고르면 노랑</span>}
                     </div>
                   )}
                   {c.players.length === 0

@@ -215,7 +215,7 @@ function MobileStatCard({
               ) : (
                 <div className="t-num text-sm font-black mt-0.5 truncate" style={{ color: 'var(--mm-ink)' }}>{it.value}</div>
               )}
-              {it.sub && <div className="text-[11px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{it.sub}</div>}
+              {it.sub && <div className="text-[12px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{it.sub}</div>}
             </div>
           ))}
         </div>
@@ -813,18 +813,18 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                 </button>
               ) : slashBreak(cellVal(p, key))}
               {(key === 'rpg' || key === 'reb') && rebOpen && (
-                <span className="block text-[11px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+                <span className="block text-[12px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
                   {rebSplit(p, key)}
                 </span>
               )}
               {/* 하루 평균 보기의 성공률 칸 아래에 성공/시도(누적 합) — 시도가 몇 번인지 늘 보이게(2026-11-09 운영진) */}
               {viewMode === 'avg' && (key === 'fg_pct' || key === 'fg3_pct' || key === 'ft_pct') && (
-                <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{slashBreak(shotMadeAtt(p, key))}</span>
+                <span className="block text-[12px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{slashBreak(shotMadeAtt(p, key))}</span>
               )}
               {/* 누적 보기의 야투·3점·자유투(성공/시도) 아래에 성공률 % (2026-11 운영진) */}
               {viewMode === 'total' && (key === 'fgm' || key === 'fg3m' || key === 'ftm') && (() => {
                 const [m, a] = key === 'fgm' ? [p.fgm, p.fga] : key === 'fg3m' ? [p.fg3m, p.fg3a] : [p.ftm, p.fta]
-                return <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{a > 0 ? `${fmt1((m / a) * 100)}%` : '—'}</span>
+                return <span className="block text-[12px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{a > 0 ? `${fmt1((m / a) * 100)}%` : '—'}</span>
               })()}
               {key === 'gp' && isIneligible(p) && !pinned && <IneligibleTag />}
               {key === sortKey && low && <LowAttemptTag />}

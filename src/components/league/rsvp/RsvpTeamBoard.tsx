@@ -250,7 +250,7 @@ export default function RsvpTeamBoard({
           {/* 운영진이 「대신 참 넣기」로 넣은 비정규(2026-11-11 운영진) — 본인이 누르면 기록이 「본인」.
               대기명단에서만 보인다 — 팀에 배치되면 떼어 정규와 같은 모양(2026-11-11 운영진). */}
           {m.kind === 'non_regular' && !m.placed_team_id && m.answered_by && m.answered_by !== '본인' && (
-            <span className="inline-flex items-center self-center px-1 text-[11px] font-bold whitespace-nowrap" title={`${m.answered_by.startsWith('CEO') ? 'CEO' : m.answered_by.replace(/^팀 어드민 /, '')} 님이 넣었어요`}
+            <span className="inline-flex items-center self-center px-1 text-[12px] font-bold whitespace-nowrap" title={`${m.answered_by.startsWith('CEO') ? 'CEO' : m.answered_by.replace(/^팀 어드민 /, '')} 님이 넣었어요`}
               style={{ color: 'var(--mm-ink-soft)', border: '1px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>운영진</span>
           )}
         </>

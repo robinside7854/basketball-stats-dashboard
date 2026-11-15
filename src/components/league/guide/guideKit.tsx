@@ -28,7 +28,7 @@ export const WHO: Record<Who, { label: string; Icon: LucideIcon; fg: string; bg:
 export function WhoBadge({ who, small = false }: { who: Who; small?: boolean }) {
   const w = WHO[who]
   return (
-    <span className={`inline-flex items-center gap-1 font-black whitespace-nowrap ${small ? 'text-[11px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'}`}
+    <span className={`inline-flex items-center gap-1 font-black whitespace-nowrap ${small ? 'text-[12px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'}`}
       style={{ background: w.dot, color: w.dotFg, borderRadius: 999 }}>
       <w.Icon size={small ? 11 : 12} strokeWidth={3} aria-hidden />{w.label}
     </span>

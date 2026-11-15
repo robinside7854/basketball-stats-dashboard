@@ -52,7 +52,7 @@ function Score({ side, dark, points }: { side: ScoreBugSide; dark: boolean; poin
       style={{ background: SCORE_BG, color: '#fff', boxShadow: dark ? 'inset -1px 0 0 rgba(255,255,255,0.25)' : undefined }}>
       {side.score}
       {side.scored && points ? (
-        <span className="absolute top-0.5 right-0.5 text-[9px] sm:text-[10px] font-black leading-none px-1 py-0.5 rounded-sm mm-score-pop"
+        <span className="absolute top-0.5 right-0.5 text-[9px] sm:text-[12px] font-black leading-none px-1 py-0.5 rounded-sm mm-score-pop"
           style={{ background: '#fff', color: SCORE_BG }}>+{points}</span>
       ) : null}
     </div>

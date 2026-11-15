@@ -21,7 +21,7 @@ function Dot({ color, size = 10 }: { color: string; size?: number }) {
 function RankNum({ rank }: { rank: number | null }) {
   const first = rank === 1
   return (
-    <span className="w-5 h-5 shrink-0 grid place-items-center text-[11px] font-black tabular-nums rounded"
+    <span className="w-5 h-5 shrink-0 grid place-items-center text-[12px] font-black tabular-nums rounded"
       style={first ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)' } : { border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}>
       {rank ?? '—'}
     </span>
@@ -104,7 +104,7 @@ function Standings({ teams, metrics, games }: { teams: BoardTeam[]; metrics: Map
               </span>
             </div>
             {s && s.marks.length > 0 && (
-              <p className="mt-1.5 text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+              <p className="mt-1.5 text-[12px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                 최다 {s.longestWin}연승 · 최다 {s.longestLoss}연패
               </p>
             )}
@@ -243,7 +243,7 @@ function ShotGroup({ teams, shots }: { teams: BoardTeam[]; shots: ShotMix | null
               )
             })}
           </div>
-          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] font-bold" style={{ color: 'var(--mm-muted)' }}>
             {SHOTS.map(sh => <li key={sh.type} className="inline-flex items-center gap-1"><span aria-hidden className="w-2.5 h-2.5 rounded-sm" style={{ background: sh.color }} />{sh.label}</li>)}
             <li>· 숫자 = 시도 중 %</li>
           </ul>

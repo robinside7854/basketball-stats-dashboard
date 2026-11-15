@@ -441,7 +441,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 )}
                 {/* 긴 이름이 5분할 탭(375px÷5=75px)을 깨뜨리지 않도록 내 기록 탭 라벨만 truncate.
                     나머지 탭은 고정 짧은 한글 라벨이라 그대로 둔다. */}
-                <span className={`text-[11px] sm:text-xs leading-tight max-w-full whitespace-nowrap ${isMeTab ? 'truncate px-0.5' : ''} ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                <span className={`text-[12px] sm:text-xs leading-tight max-w-full whitespace-nowrap ${isMeTab ? 'truncate px-0.5' : ''} ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
               </Link>
             )
           })}

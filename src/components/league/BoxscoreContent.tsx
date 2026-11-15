@@ -59,7 +59,7 @@ function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
   return (
     <span
       title={full}
-      className="inline-flex items-center gap-0.5 h-5 pl-1 pr-1.5 text-[11px] font-black whitespace-nowrap shrink-0 align-middle"
+      className="inline-flex items-center gap-0.5 h-5 pl-1 pr-1.5 text-[12px] font-black whitespace-nowrap shrink-0 align-middle"
       style={kind === 'TD'
         ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1.5px solid var(--mm-black)', borderRadius: 'var(--mm-radius-chip)', letterSpacing: '-0.01em' }
         : { background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-chip)', letterSpacing: '-0.01em' }}
@@ -163,7 +163,7 @@ const MyIdCtx = createContext<string | null>(null)
 //   표 줄 · 폰 카드 · 맨 위 「나」 요약 줄 모두 같다.
 const MINE_OUTLINE = '2px solid var(--mm-yellow-strong)'
 function MeTag() {
-  return <span className="shrink-0 px-1 text-[11px] font-black leading-4" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 3 }}>나</span>
+  return <span className="shrink-0 px-1 text-[12px] font-black leading-4" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 3 }}>나</span>
 }
 
 // 선수명. 누르면 선수 카드 모달이 열린다 — 글자 크기·굵기·색은 기존 그대로 두고
@@ -243,7 +243,7 @@ function RankBadge({ rank }: { rank: number }) {
 
 /** 리바 아래 「공 x · 수 y」 한 줄 */
 function RebSplit({ r }: { r: TotalLine }) {
-  return <span className="block text-[11px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공 {r.oreb ?? 0} · 수 {r.dreb ?? 0}</span>
+  return <span className="block text-[12px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공 {r.oreb ?? 0} · 수 {r.dreb ?? 0}</span>
 }
 
 // 성공/시도 칸 아래 성공률 한 줄 — 표에서 「~율」 칸을 따로 두지 않으려고(2026-11-03)
@@ -251,7 +251,7 @@ function PctUnder({ rr, k }: { rr: TotalLine; k: string }) {
   const pair = k === 'fgm_fga' ? [rr.fgm, rr.fga] : k === 'fg3m_fg3a' ? [rr.fg3m, rr.fg3a] : k === 'ftm_fta' ? [rr.ftm, rr.fta] : null
   if (!pair) return null
   const [m, a] = pair
-  return <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{a > 0 ? `${Math.round((m / a) * 1000) / 10}%` : '—'}</span>
+  return <span className="block text-[12px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{a > 0 ? `${Math.round((m / a) * 1000) / 10}%` : '—'}</span>
 }
 
 /** 슛 종류 넷 — 레이업·골밑·미들·3점 (2026-11-15 운영진 — 「야투」를 누르면 펼친다) */
@@ -296,14 +296,14 @@ function ShotBreakdown({ r }: { r: TotalLine }) {
       <div className="grid grid-cols-4 gap-1 flex-1 min-w-0">
         {types.map((t, i) => (
           <div key={t.label} className="text-center py-1" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
-            <div className="flex items-center justify-center gap-1 text-[11px] font-semibold break-keep" style={{ color: 'var(--mm-muted)' }}>
+            <div className="flex items-center justify-center gap-1 text-[12px] font-semibold break-keep" style={{ color: 'var(--mm-muted)' }}>
               <span className="w-2 h-2 shrink-0" style={{ background: SHOT_COLORS[i], borderRadius: 999 }} aria-hidden />{t.label}
             </div>
             <div className="t-num text-sm font-bold leading-tight" style={{ color: 'var(--mm-ink)' }}>{t.m}/{t.a}</div>
-            <div className="t-num text-[11px] font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>
+            <div className="t-num text-[12px] font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>
               {t.a > 0 ? `${Math.round(t.m / t.a * 100)}%` : '—'}
             </div>
-            <div className="t-num text-[10px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>비중 {Math.round(t.a / total * 100)}%</div>
+            <div className="t-num text-[12px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>비중 {Math.round(t.a / total * 100)}%</div>
           </div>
         ))}
       </div>
@@ -519,7 +519,7 @@ function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
       <div className="grid grid-cols-3 gap-1.5">
         {cells.map(([label, m, a]) => (
           <div key={label} className="text-center py-1.5" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
-            <div className="text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
+            <div className="text-[12px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
             <div className="t-num text-base font-bold leading-tight" style={{ color: 'var(--mm-ink)' }}>{m}/{a}</div>
             <div className="t-num text-xs font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>{a > 0 ? `${Math.round((m / a) * 1000) / 10}%` : '—'}</div>
           </div>
@@ -534,9 +534,9 @@ function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
     <div className="grid grid-cols-6 gap-1">
       {cells.map(([label, v], i) => (
         <div key={label} className="text-center py-1.5" style={{ background: i === 0 ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
-          <div className="text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
+          <div className="text-[12px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
           <div className={`t-num leading-tight ${i === 0 ? 'text-lg font-bold' : 'text-base font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{v}</div>
-          {label === '리바' && <div className="t-num text-[10px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공{r.oreb ?? 0}·수{r.dreb ?? 0}</div>}
+          {label === '리바' && <div className="t-num text-[12px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공{r.oreb ?? 0}·수{r.dreb ?? 0}</div>}
         </div>
       ))}
     </div>
@@ -1103,7 +1103,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                     const row = (team: GameData['home_team'], score: number, win: boolean) => (
                       <span className="flex items-center gap-1 min-w-0">
                         <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: team?.color ?? 'var(--mm-rule)', boxShadow: swatchEdge(team?.color ?? 'var(--mm-rule)') }} />
-                        <span className={`min-w-0 flex-1 truncate text-[11px] sm:text-xs ${win ? 'font-black' : 'font-semibold'}`}
+                        <span className={`min-w-0 flex-1 truncate text-[12px] sm:text-xs ${win ? 'font-black' : 'font-semibold'}`}
                           style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)', wordBreak: 'keep-all' }} title={team?.name ?? '미정'}>{team?.name ?? '미정'}</span>
                         <span className="font-jersey font-black tabular-nums leading-none text-lg sm:text-xl shrink-0"
                           style={{ color: win ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{score}</span>
@@ -1125,9 +1125,9 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                             borderRadius: 'var(--mm-radius-ctl)',
                           }}>
                           <span className="flex items-center justify-between gap-1">
-                            <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{gameNumLabel(g)}</span>
-                            {live && <span className="text-[10px] font-bold" style={{ color: 'var(--mm-live)' }}>진행 중</span>}
-                            {!g.is_started && <span className="text-[10px] font-semibold" style={{ color: 'var(--mm-muted)' }}>예정</span>}
+                            <span className="text-[12px] font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{gameNumLabel(g)}</span>
+                            {live && <span className="text-[12px] font-bold" style={{ color: 'var(--mm-live)' }}>진행 중</span>}
+                            {!g.is_started && <span className="text-[12px] font-semibold" style={{ color: 'var(--mm-muted)' }}>예정</span>}
                           </span>
                           {row(g.home_team, g.home_score, hw)}
                           {row(g.away_team, g.away_score, aw)}

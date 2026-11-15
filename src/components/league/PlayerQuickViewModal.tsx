@@ -1111,7 +1111,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                           {st.label}
                           <span className="tabular-nums font-black">{st.value}</span>
                           {st.rank != null
-                            ? <span className="px-1.5 text-[11px] font-black" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 999 }}>{st.rank}위</span>
+                            ? <span className="px-1.5 text-[12px] font-black" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 999 }}>{st.rank}위</span>
                             : <span className="w-0.5" />}
                         </span>
                       ))}

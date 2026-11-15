@@ -68,7 +68,7 @@ export default function DailyLogTable({ rows, hrefOf, onNavigate }: { rows: Dail
                   <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{g.blk ?? 0}</td>
                   <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>
                     {g.fgm}/{g.fga}
-                    <span className="block text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{fgPct != null ? `${fgPct}%` : '—'}</span>
+                    <span className="block text-[12px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{fgPct != null ? `${fgPct}%` : '—'}</span>
                   </td>
                   <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
                 </tr>

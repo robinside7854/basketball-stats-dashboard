@@ -798,7 +798,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                                 <span className={`min-w-0 flex-1 truncate text-right ${hw ? 'font-black' : ''}`} style={{ color: hw ? 'var(--mm-ink)' : undefined }}>{g.home}</span>
                                 <span className="shrink-0 font-black" style={{ color: 'var(--mm-ink)' }}>{g.home_score}:{g.away_score}</span>
                                 <span className={`min-w-0 flex-1 truncate ${aw ? 'font-black' : ''}`} style={{ color: aw ? 'var(--mm-ink)' : undefined }}>{g.away}</span>
-                                {g.is_exhibition && <span className="shrink-0 text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>친선</span>}
+                                {g.is_exhibition && <span className="shrink-0 text-[12px] font-bold" style={{ color: 'var(--mm-muted)' }}>친선</span>}
                               </Link>
                             </li>
                           )

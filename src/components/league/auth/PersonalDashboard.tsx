@@ -463,7 +463,7 @@ function AttendanceCard({ attendance }: {
                   />
                 ))}
               </ul>
-              <div className="flex items-center gap-3 mt-2 text-[11px] font-medium" style={{ color: 'var(--mm-muted)' }}>
+              <div className="flex items-center gap-3 mt-2 text-[12px] font-medium" style={{ color: 'var(--mm-muted)' }}>
                 <span className="inline-flex items-center gap-1">
                   <span aria-hidden className="inline-block w-2.5 h-2.5" style={{ borderRadius: 2, background: 'var(--mm-yellow-strong)' }} />출전
                 </span>
@@ -541,7 +541,7 @@ function BestShotsCard({ clips, playerName, allHref, weekly, recentHref }: {
                       </span>
                     </span>
                     <span
-                      className="absolute top-1 left-1 text-[11px] font-black tabular-nums px-1.5 leading-[18px]"
+                      className="absolute top-1 left-1 text-[12px] font-black tabular-nums px-1.5 leading-[18px]"
                       style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', borderRadius: 3 }}
                       aria-hidden
                     >
@@ -552,7 +552,7 @@ function BestShotsCard({ clips, playerName, allHref, weekly, recentHref }: {
                     {SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type}{c.points ? ` · ${c.points}점` : ''}
                   </span>
                   {c.game_date && (
-                    <span className="block text-[11px] font-bold truncate tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+                    <span className="block text-[12px] font-bold truncate tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                       {formatDate(c.game_date)}
                     </span>
                   )}
