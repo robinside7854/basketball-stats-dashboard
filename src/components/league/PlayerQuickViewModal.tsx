@@ -19,7 +19,6 @@ import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import { shouldShowLastPlayed, type LastPlayedData } from '@/lib/format/lastPlayed'
-import PercentileBars from '@/components/league/player/PercentileBars'
 import QuarterTable from '@/components/league/player/QuarterTable'
 import PlayerTeamLine, { PlayerTeamHistory, type CurrentTeam, type TeamHistoryEntry } from '@/components/league/player/PlayerTeamLine'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
@@ -389,7 +388,6 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
   const posRanks = viewDetail?.position_ranks ?? null
   const rankScopeOn = rankScope === 'pos' && !!posRanks
   const rk: Rankings | undefined = rankScopeOn ? posRanks!.rankings : viewDetail?.rankings
-  const shownBars = rankScopeOn ? posRanks!.percentile_bars : viewDetail?.percentile_bars
 
   // 커리어 하이·다이나믹 듀오는 **전체 기간** 값이다 — 분기를 보고 있으면 전체 기간 상세를 따로(필요할 때만) 받는다.
   const careerHigh = (allDetail ?? (detailKey === 'all' ? activeDetail : null))?.career_high ?? null
@@ -1096,6 +1094,32 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                     <PlayerHexRadar data={viewDetail.hex_radar} accent={{ stroke: accent.stroke, fillA: accent.fillA, fillB: accent.fillB }} />
                   </div>
                 )}
+                {/* 나의 강점 TOP 3 (2026-11-15 운영진) — 내 기록 중 가장 돋보이는 셋. 약점은 보이지 않는다.
+                    리그 5위 안에 든 부문은 「리그 N위」 표시. */}
+                {(() => {
+                  const strengths = pickStrengths(viewDetail.percentile_bars, viewDetail.rankings)
+                  if (strengths.length === 0) return null
+                  return (
+                    <div className="mb-3">
+                      <p className="text-xs font-bold mb-1.5 break-keep" style={{ color: 'var(--mm-muted)' }}>나의 강점</p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {strengths.map(st => (
+                          <div key={st.key} className="rounded-sm p-2 text-center"
+                            style={{ background: 'var(--mm-panel-alt)', border: `1px solid ${st.rank ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}` }}>
+                            <p className="text-xs font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>{st.label}</p>
+                            <p className="font-jersey text-lg font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{st.value}</p>
+                            {st.rank != null && (
+                              <span className="inline-block mt-0.5 px-1.5 text-[11px] font-black whitespace-nowrap"
+                                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
+                                리그 {st.rank}위
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
                 <div className="grid grid-cols-3 gap-1.5 mb-3">
                   {statTiles.filter(t => FIRST_TILES.has(t.label)).map(({ label, value, decimals, rank, total }) => {
                     const isChamp = rank === 1
@@ -1414,7 +1438,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
 
 
                     {/* 세부 능력치 — 묶음별 백분위 (선택한 기간 기준) */}
-                    {shownBars && <PercentileBars data={shownBars} scopeLabel={rankScopeOn ? `${posRanks!.label} 백분위` : undefined} />}
+                    {/* 세부 능력치(백분위 막대)는 2026-11-15 운영진 결정으로 뺐다 — 레이더와 같은 말을 했다 */}
 
                     {/* ── 리그 통산 · 대회 기록 (2026-10-14 「선수 숫자는 한 벌」) ──────────────
                         위 누적은 지금 보고 있는 묶음 기준. 아래는 같은 정의(그 묶음 스탯 탭의 그 선수 행)로
@@ -1681,7 +1705,6 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               const months = viewDetail?.monthly_stats ?? []
               const views = ([
                 ['daily', '일별', log.length > 0],
-                ['month', '월별', months.length > 0],
                 // 분기가 있는 리그만 — 표는 열 때 받는다(분기마다 집계라 무겁다)
                 ['quarter', '분기별', quarters.length > 0],
               ] as const).filter(([, , ok]) => ok)
@@ -1886,4 +1909,23 @@ function DetailRetry({ onRetry }: { onRetry: () => void }) {
       </button>
     </div>
   )
+}
+
+// 나의 강점 고르기(2026-11-15 운영진) — 내 기록 부문 가운데 가장 돋보이는 셋.
+//   부문마다 단위가 달라(득점 vs 블록) 그대로 비교할 수 없어, 각 부문에서 내가 서 있는 자리로 줄 세워 위 셋만 고른다.
+//   약점(낮은 쪽)은 보이지 않는다. 리그 5위 안이면 순위를 붙인다.
+const STRENGTH_KEYS: Record<string, keyof Rankings | null> = {
+  ppg: 'ppg', rpg: 'rpg', apg: 'apg', spg: 'spg', bpg: 'bpg',
+  fg_pct: 'fg_pct', fg3_pct: 'fg3_pct', ft_pct: 'ft_pct', fg3m: null,
+}
+function pickStrengths(bars: PercentileBarsResult | undefined, rankings: Rankings | undefined) {
+  if (!bars?.qualified) return []
+  const rows = bars.groups.flatMap(g => g.rows).filter(r => r.key in STRENGTH_KEYS && r.pct != null)
+  rows.sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0))
+  return rows.slice(0, 3).map(r => {
+    const rk = STRENGTH_KEYS[r.key]
+    const raw = rk && rankings ? rankings[rk] : null
+    const rank = typeof raw === 'number' ? raw : raw && typeof raw === 'object' ? (raw as RankTotal).rank : null
+    return { key: r.key, label: r.label, value: r.valueText, rank: rank != null && rank >= 1 && rank <= 5 ? rank : null }
+  })
 }

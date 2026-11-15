@@ -131,7 +131,7 @@ function rankTier(rank: number | null): { color: string; bg: string; accent: str
 // 폰(<md)에서는 넓은 표 대신 카드 한 장에 한 사람. 정렬 지표를 크게, 보조 숫자 3~4개는 아래 한 줄에.
 // (1위 대비 막대는 2026-10-25 운영진 결정으로 걷어냈다 — 막대 계산·범례도 2026-10-26 정리)
 // 카드 전체가 선수 상세(퀵뷰) 열기. 안에 용어 툴팁 버튼이 있어 <button> 대신 role="button" div.
-type CardItem = { key: string; label: string; value: string; active?: boolean }
+type CardItem = { key: string; label: string; value: string; active?: boolean; sub?: string; onTap?: () => void }
 
 // 「내 기록」 강조 — 2026-11-08 운영진: 바탕을 칠하지 않고 노란 테두리만. 목록 안 원래 자리와 맨 위 고정 줄이 같은 모양.
 const MINE_OUTLINE = '2px solid var(--mm-yellow-strong)'
@@ -209,7 +209,13 @@ function MobileStatCard({
           {items.map(it => (
             <div key={it.key} className="min-w-0 flex flex-col justify-end">
               <div className="text-xs font-medium leading-tight break-keep" style={{ color: it.active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{it.label}</div>
-              <div className="t-num text-sm font-black mt-0.5 truncate" style={{ color: 'var(--mm-ink)' }}>{it.value}</div>
+              {it.onTap ? (
+                <button type="button" onClick={e => { e.stopPropagation(); it.onTap!() }} data-no-press
+                  className="t-num text-sm font-black mt-0.5 text-left underline decoration-dotted underline-offset-4 cursor-pointer" style={{ color: 'var(--mm-ink)' }}>{it.value}</button>
+              ) : (
+                <div className="t-num text-sm font-black mt-0.5 truncate" style={{ color: 'var(--mm-ink)' }}>{it.value}</div>
+              )}
+              {it.sub && <div className="text-[11px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{it.sub}</div>}
             </div>
           ))}
         </div>
@@ -289,6 +295,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   }
   // 기본 모드의 덜 보는 열(공리·수리·턴오버)은 접어 둔다 — 데이터·정렬은 그대로(2026-10-26)
   const [showMoreCols, setShowMoreCols] = useState(false)
+  const [rebOpen, setRebOpen] = useState(false)
   // 로그인 회원 본인 — 표·카드 맨 위에 「내 기록」으로 고정한다(프로바이더 밖이면 null → 아무것도 안 그림)
   const myPlayerId = useOptionalCurrentUser()?.user?.player_id ?? null
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
@@ -438,10 +445,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'rpg', label: '리바', term: '리바' }, { key: 'apg', label: '어시', term: '어시' },
     { key: 'spg', label: '스틸', term: '스틸' }, { key: 'bpg', label: '블록', term: '블록' },
     { key: 'fg_pct', label: '야투율', term: 'FG%' }, { key: 'fg3_pct', label: '3점률', term: '3P%' }, { key: 'ft_pct', label: '자유투율', term: 'FT%' },
-    { key: 'orp', label: '공리', term: '공리' }, { key: 'drp', label: '수리', term: '수리' },
     { key: 'topg', label: '턴오버', term: '턴오버' },
-    // 턴오버율(2026-11-08 운영진) — 공격 기회 중 턴오버 비중. 정본 lib/stats/advanced.ts tovPct
-    { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
     // (2026-11-03 운영진) 공리·수리·턴오버는 기본으로 보이고, 유효야투(eFG)는 「고급」으로. 「더 보기」 접힘 열은 없다.
   ]
   const TOTAL_COLS: BasicCol[] = [
@@ -451,9 +455,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     { key: 'fgm', label: '야투', term: 'FGM' }, { key: 'fg3m', label: '3점', term: '3PM' }, { key: 'ftm', label: '자유투', term: 'FTM' },
     // MIN 은 누적 뷰에만 둔다 — 교체 기록이 거의 없어 이벤트 시각으로 추정한 값이라
     // 하루 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
-    { key: 'oreb', label: '공리', term: 'OREB' }, { key: 'dreb', label: '수리', term: 'DREB' },
     { key: 'tov', label: '턴오버', term: 'TOV' },
-    { key: 'tov_pct', label: '턴오버율', term: 'TOV%' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
@@ -462,15 +464,10 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
     // 속공(2026-11-14 운영진 — 메인 지표가 아니라 고급으로). 정의 fastBreak.ts
     { key: 'fb_pg',     label: '속공 득점',   term: '속공', desc: '하루 평균 속공 득점 · 수비 리바·스틸·상대 득점 뒤 7초 안에 넣은 득점' },
     { key: 'fb_total',  label: '속공 누적',   term: '속공', desc: '속공 득점 누적' },
-    { key: 'a1_total',  label: '앤드원',      term: 'A1',   desc: '성공한 앤드원(And-One) 횟수 (누적)' },
     // 2026-11-04 운영진 — 하루 합계 기준 「그런 날」 수(트리플더블인 날은 더블더블에 안 셈)
     { key: 'dd2_total', label: '더블더블',    term: '더블더블', desc: '더블더블 날 수 · 하루 합계로 득점·리바·어시·스틸·블록 중 2개가 두 자릿수' },
     { key: 'td3_total', label: '트리플더블',  term: '트리플더블', desc: '트리플더블 날 수 · 하루 합계로 3개 이상이 두 자릿수' },
-    { key: 'trb_pct',   label: '리바 비중',   term: 'TRB%', desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
-    { key: 'usg_pct',   label: '공격 점유',   term: 'USG%', desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
-    { key: 'ts_pct',    label: '진실야투',    term: 'TS%',  desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
     { key: 'efg_pct',   label: '유효야투',    term: 'eFG%', desc: '유효 야투율 · (FGM+0.5×3PM)/FGA' },
-    { key: 'fg2_pct',   label: '2점률',       term: '2P%',  desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
   ]
 
   // usg_pct·at_ratio 는 null 가능(분모 0) — 0% 로 찍으면 "공격을 안 했다"로 읽혀 거짓이 된다
@@ -523,6 +520,10 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   const COLS = moreOpen ? ALL_COLS : ALL_COLS.filter(c => !c.more)
   const moreLabels = ALL_COLS.filter(c => c.more).map(c => c.label).join('·')
 
+  // 리바운드 = 하나로 보이고, 누르면 공격·수비(2026-11-15 운영진)
+  function rebSplit(p: PlayerStat, key: SortKey): string {
+    return key === 'rpg' ? `공 ${fmt1(avg(p, 'oreb'))} · 수 ${fmt1(avg(p, 'dreb'))}` : `공 ${p.oreb} · 수 ${p.dreb}`
+  }
   function cellVal(p: PlayerStat, key: SortKey): string {
     if (key === 'tov_pct') return p.tov_pct != null ? `${fmt1(p.tov_pct)}%` : '—'
     if (viewMode === 'avg') {
@@ -666,11 +667,14 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
       .slice(0, 4)
       .map(k => ALL_COLS.find(c => c.key === k))
       .filter((c): c is BasicCol => !!c)
-      .map(c => ({ key: c.key, label: c.label, value: cellVal(p, c.key) }))
+      .map(c => (c.key === 'rpg' || c.key === 'reb')
+        ? { key: c.key, label: c.label, value: cellVal(p, c.key), onTap: () => setRebOpen(o => !o), sub: rebOpen ? rebSplit(p, c.key) : undefined }
+        : { key: c.key, label: c.label, value: cellVal(p, c.key) })
     const low = lowAttempts(p, basicPctKey)
     // 성공률로 정렬하면 큰 숫자 아래에 성공/시도, 누적의 성공/시도로 정렬하면 아래에 성공률(2026-11-09)
     const bigSub = (sortKey === 'fg_pct' || sortKey === 'fg3_pct' || sortKey === 'ft_pct') ? shotMadeAtt(p, sortKey)
-      : (sortKey === 'fgm' || sortKey === 'fg3m' || sortKey === 'ftm') ? shotPct(p, sortKey) : undefined
+      : (sortKey === 'fgm' || sortKey === 'fg3m' || sortKey === 'ftm') ? shotPct(p, sortKey)
+      : (sortKey === 'rpg' || sortKey === 'reb') ? rebSplit(p, sortKey) : undefined
     return (
       <MobileStatCard key={opts.key ?? p.player_id} rank={low ? null : rank} p={p} ineligible={isIneligible(p)} lowAttempts={low}
         bigLabel={sortCol?.label ?? ''} bigTerm={sortCol?.term ?? ''} bigValue={cellVal(p, sortKey)} bigSub={bigSub}
@@ -773,7 +777,18 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                 className={`${(sortKey === key || leader) && !low ? 't-td-key' : 't-td'} ${colHide(key)}`}
                 style={{ color: cellColor }}
                 title={leader ? '리그 리더' : low ? '시도 부족 — 순위 대상 아님' : undefined}>
-              {slashBreak(cellVal(p, key))}
+              {(key === 'rpg' || key === 'reb') ? (
+                // 리바운드 하나로 합치고, 누르면 모든 줄에 공격·수비가 펼쳐진다(2026-11-15 운영진)
+                <button type="button" onClick={() => setRebOpen(o => !o)} aria-expanded={rebOpen}
+                  className="cursor-pointer underline decoration-dotted underline-offset-4" title="눌러서 공격·수비 리바운드 보기">
+                  {cellVal(p, key)}
+                </button>
+              ) : slashBreak(cellVal(p, key))}
+              {(key === 'rpg' || key === 'reb') && rebOpen && (
+                <span className="block text-[11px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+                  {rebSplit(p, key)}
+                </span>
+              )}
               {/* 하루 평균 보기의 성공률 칸 아래에 성공/시도(누적 합) — 시도가 몇 번인지 늘 보이게(2026-11-09 운영진) */}
               {viewMode === 'avg' && (key === 'fg_pct' || key === 'fg3_pct' || key === 'ft_pct') && (
                 <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{slashBreak(shotMadeAtt(p, key))}</span>

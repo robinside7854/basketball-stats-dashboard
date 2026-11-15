@@ -95,11 +95,9 @@ const TOTAL_COLS: Col[] = [
 ]
 const SHOOTING_COLS: Col[] = [
   { key: 'fg_pct',      label: '야투율',     term: 'FG%',  desc: '전체 야투 성공률' },
-  { key: 'fg2_pct',     label: '2점률',      term: '2P%',  desc: '2점슛 성공률' },
   { key: 'fg3_pct',     label: '3점률',      term: '3P%',  desc: '3점슛 성공률' },
   { key: 'efg_pct',     label: '유효야투',   term: 'eFG%', desc: '3점을 1.5개로 쳐 준 야투율' },
   { key: 'ft_pct',      label: '자유투율',   term: 'FT%',  desc: '자유투 성공률' },
-  { key: 'ts_pct',      label: '진실야투',   term: 'TS%',  desc: '자유투까지 합친 슛 효율' },
   { key: 'ft_rate',     label: '자유투 유도', term: 'FTr', desc: '야투 시도 대비 자유투 시도' },
   // 골밑·레이업·미드·3점 비중 4칸 → 「슛 분포」 한 칸(정렬은 3점 비중, 아래 줄에 나머지 셋) — 2026-10-25
   { key: 'three_share', label: '슛 분포',    term: '3P share', desc: '야투 시도 비중 · 3점 / 골밑 · 레이업 · 미드 (정렬은 3점 비중)' },
@@ -107,18 +105,15 @@ const SHOOTING_COLS: Col[] = [
 const ADV_COLS: Col[] = [
   { key: 'at_ratio', label: '어시/턴오버', term: 'A/T',  desc: '턴오버 하나당 어시스트' },
   { key: 'ast_pct',  label: '어시 비중',   term: 'AST%', desc: '공격 기회 중 어시스트 비중' },
-  { key: 'tov_pct',  label: '턴오버율', term: 'TOV%', desc: '공격 기회 중 턴오버 비중' },
-  { key: 'a1_total', label: '앤드원',      term: 'A1',   desc: '성공한 앤드원 횟수 (누적)' },
   // 수비 리바 비중은 100 − 공격 리바 비중이라 뺐다(2026-10-25 — 같은 정보가 두 칸)
   { key: 'orb_pct',  label: '공리 비중',   term: 'ORB%', desc: '내 리바운드 중 공격 리바운드 비중' },
-  { key: 'trb_pct',  label: '리바 비중',   term: 'TRB%', desc: '내가 뛴 경기의 팀 리바운드 중 내 몫' },
 ]
 
 const COLS_OF = (mode: StatMode, viewMode: 'avg'|'total'): Col[] =>
   mode === 'shooting' ? SHOOTING_COLS : mode === 'advanced' ? ADV_COLS : viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
 const DEFAULT_SORT = (mode: StatMode, viewMode: 'avg'|'total') =>
-  // 슈팅 기본 정렬은 스탯 탭과 같은 진실야투(ts_pct)
-  mode === 'shooting' ? 'ts_pct' : mode === 'advanced' ? 'at_ratio' : viewMode === 'avg' ? 'ppg' : 'pts'
+  // 슈팅 기본 정렬 = 야투율(진실야투는 2026-11-15 운영진 결정으로 뺐다)
+  mode === 'shooting' ? 'fg_pct' : mode === 'advanced' ? 'at_ratio' : viewMode === 'avg' ? 'ppg' : 'pts'
 
 const INT_KEYS = new Set(['gp','pts','reb','ast','stl','blk','tov','a1_total','fb_pts'])
 const PCT_KEYS = new Set(['fg_pct','fg2_pct','fg3_pct','efg_pct','ft_pct','ts_pct','ft_rate','ast_pct','tov_pct','orb_pct','trb_pct'])
