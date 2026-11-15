@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { cleanProfile } from '@/lib/game/profile'
 
 export async function POST(
   req: Request,
@@ -40,28 +41,32 @@ export async function POST(
   return NextResponse.json({ inserted: data?.length ?? 0 }, { status: 201 })
 }
 
-// PATCH { heights: [{ id, height_cm }] } — 키 일괄 입력(2026-11-13, 미라클 후프스 캐릭터용). 빈 값(null)이면 지운다.
-//   한 명씩 「선수 정보 수정」을 여는 게 오래 걸려서 명단 화면에서 한 번에 저장한다.
-export async function PATCH(
+// PUT { profiles: [{ id, height_cm?, appearance? }] } — 후프스 게임 설정 화면(settings/hoops) 저장(2026-11-16).
+//   appearance = 외모·체형·스피드·운동능력(lib/game/profile.ts 표에 있는 값만 남긴다). 보낸 칸만 바꾼다.
+export async function PUT(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { heights } = await req.json()
-  if (!Array.isArray(heights) || heights.length === 0) return NextResponse.json({ error: '바꿀 키가 없습니다' }, { status: 400 })
-  const rows: { id: string; h: number | null }[] = []
-  for (const r of heights as { id?: unknown; height_cm?: unknown }[]) {
+  const { profiles } = await req.json()
+  if (!Array.isArray(profiles) || profiles.length === 0) return NextResponse.json({ error: '바꿀 선수가 없습니다' }, { status: 400 })
+  const rows: { id: string; patch: Record<string, unknown> }[] = []
+  for (const r of profiles as { id?: unknown; height_cm?: unknown; appearance?: unknown }[]) {
     if (typeof r.id !== 'string') return NextResponse.json({ error: '선수 id 가 없습니다' }, { status: 400 })
-    const h = r.height_cm === null || r.height_cm === '' ? null : Math.round(Number(r.height_cm))
-    if (h !== null && !(h >= 120 && h <= 230)) return NextResponse.json({ error: '키는 120~230cm 로 넣어 주세요' }, { status: 400 })
-    rows.push({ id: r.id, h })
+    const patch: Record<string, unknown> = {}
+    if (r.height_cm !== undefined) {
+      const h = r.height_cm === null || r.height_cm === '' ? null : Math.round(Number(r.height_cm))
+      if (h !== null && !(h >= 120 && h <= 230)) return NextResponse.json({ error: '키는 120~230cm 로 넣어 주세요' }, { status: 400 })
+      patch.height_cm = h
+    }
+    if (r.appearance !== undefined) patch.appearance = cleanProfile(r.appearance)
+    if (Object.keys(patch).length) rows.push({ id: r.id, patch })
   }
   const teamId = await resolveTeamId(leagueId)
   const supabase = createClient()
-  // 같은 팀 명단만 고친다(다른 팀 선수 id 는 조용히 빠진다)
   const results = await Promise.all(rows.map(r =>
-    supabase.from('league_players').update({ height_cm: r.h }).eq('id', r.id).eq('team_id', teamId).select('id'),
+    supabase.from('league_players').update(r.patch).eq('id', r.id).eq('team_id', teamId).select('id'),
   ))
   const failed = results.find(x => x.error)
   if (failed?.error) return NextResponse.json({ error: failed.error.message }, { status: 500 })

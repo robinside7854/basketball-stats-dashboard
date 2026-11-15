@@ -8,7 +8,7 @@ import { usePendingCharges } from '@/lib/hooks/usePendingCharges'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Youtube, Calendar, ChevronRight, Globe, MapPin, Users, Wallet, BookOpen } from 'lucide-react'
+import { Loader2, Lock, Youtube, Calendar, ChevronRight, Globe, MapPin, Users, Wallet, BookOpen, Gamepad2 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import InfoTip from '@/components/league/ui/InfoTip'
@@ -374,6 +374,16 @@ export default function LeagueSettingsPage() {
             <ChevronRight size={16} aria-hidden />
           </span>
         </Link></>)}
+        {/* 후프스 게임 설정(2026-11-16) — 게임이 공개된 미라클 리그만 */}
+        {leagueId === '8eda8257-8907-4bf3-a7de-e5e7fde54a89' && (
+          <Link
+            href={`/league/${orgSlug}/${leagueId}/settings/hoops`}
+            className="mm-press sm:col-span-2 flex items-center justify-between gap-2 min-h-12 px-4 text-sm font-black border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]"
+          >
+            <span className="inline-flex items-center gap-2"><Gamepad2 size={16} aria-hidden />후프스 게임 설정 (키 · 체형 · 스피드 · 외모)</span>
+            <ChevronRight size={16} aria-hidden />
+          </Link>
+        )}
         {/* 어드민 가이드(2026-11-10 운영진) — 운영진이 하는 일만 모은 안내 */}
         <Link
           href={`/league/${orgSlug}/${leagueId}/guide/admin`}
