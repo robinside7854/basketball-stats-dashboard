@@ -89,7 +89,10 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
               className="mm-press min-h-14 text-lg font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-60" style={btn('yes')}>
               <Check size={20} aria-hidden />참
             </button>
-            <button type="button" disabled={busy || !open} onClick={() => answer('no')}
+            {/* 정규권이 없는 사람(비정규)은 「불」을 누를 일이 없다 — 나올 때만 「참」(2026-11-15 운영진).
+                「참」을 눌러 둔 뒤 취소할 때만 「불」이 살아난다. */}
+            <button type="button" disabled={busy || !open || (me.kind !== 'regular' && me.answer !== 'yes')} onClick={() => answer('no')}
+              title={me.kind !== 'regular' && me.answer !== 'yes' ? '비정규는 나올 때만 「참」을 눌러요' : undefined}
               className="mm-press min-h-14 text-lg font-black inline-flex items-center justify-center gap-1.5 disabled:opacity-60" style={btn('no')}>
               <X size={20} aria-hidden />불
             </button>
@@ -103,7 +106,7 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
                       : canPayByPoints ? `비정규 참가 — 대기명단에 들어갔어요. 포인트로 티켓 1장(${(data.ticket_price ?? 0).toLocaleString()}P)이 자동으로 준비돼요.`
                         : null)
                 : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
-                  : open ? '아직 답하지 않았어요.' : '이번 주는 답하지 않았어요.'}
+                  : open ? (me.kind === 'regular' ? '아직 답하지 않았어요.' : '나올 때만 「참」을 눌러 주세요.') : '이번 주는 답하지 않았어요.'}
           </p>
           {me.kind === 'non_regular' && me.month_team_id && (() => {
             // 정규권은 운영진이 판매를 열 때만(130, 2026-11-10 운영진)

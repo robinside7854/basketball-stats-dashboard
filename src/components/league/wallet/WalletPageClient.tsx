@@ -7,7 +7,7 @@
 import { stripReservedDepositor } from '@/lib/wallet/depositorName'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Wallet, Copy, Loader2, X, Minus, Plus, Ticket, Crown, ArrowDownLeft, ArrowUpRight, Clock, RotateCcw } from 'lucide-react'
+import { Wallet, Copy, Loader2, X, Minus, Plus, Ticket, ArrowDownLeft, ArrowUpRight, Clock, RotateCcw } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { usePendingCharges } from '@/lib/hooks/usePendingCharges'
@@ -72,7 +72,7 @@ const INPUT = 'mt-1 w-full min-h-11 px-3 border border-[color:var(--mm-rule)] bg
 const mon = (m: string) => `${Number(m.slice(5, 7))}월`
 
 // ── 티켓 그림 ────────────────────────────────────────────────
-/** 정규권 — 검정 바탕 + 금색 테두리·왕관(비정규보다 고급스럽게, 2026-11-09 운영진) */
+/** 정규권 — 검정 바탕 + 금색 테두리·금색 표(비정규보다 고급스럽게, 2026-11-09 운영진 · 왕관은 팀장 표시라 표로 바꿈 2026-11-15) */
 function RegularPassCard({ month, owned, onBuy, sale }: { month: string; owned: boolean; onBuy?: () => void; sale?: PassSaleLite }) {
   if (!owned) {
     // 정규권은 운영진이 판매를 열 때만(2026-11-10) — 판매 중일 때만 누를 수 있다
@@ -81,7 +81,7 @@ function RegularPassCard({ month, owned, onBuy, sale }: { month: string; owned: 
       <button type="button" onClick={open ? onBuy : undefined} disabled={!open}
         className="mm-press flex flex-col items-start justify-between p-3 min-h-[84px] text-left disabled:cursor-default"
         style={{ border: `1.5px dashed ${open ? GOLD : 'var(--mm-rule)'}`, borderRadius: 'var(--mm-radius-card)', color: 'var(--mm-muted)' }}>
-        <span className="inline-flex items-center gap-1 text-xs font-bold"><Crown size={14} aria-hidden />{mon(month)} 정규권</span>
+        <span className="inline-flex items-center gap-1 text-xs font-bold"><Ticket size={14} aria-hidden />{mon(month)} 정규권</span>
         <span className="text-sm font-black break-keep" style={{ color: open ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>{open ? `${saleLine(sale)} · 사기` : saleLine(sale)}</span>
       </button>
     )
@@ -90,7 +90,7 @@ function RegularPassCard({ month, owned, onBuy, sale }: { month: string; owned: 
     <div className="relative flex flex-col justify-between p-3 min-h-[84px] overflow-hidden"
       style={{ background: '#1a1a1a', border: `1.5px solid ${GOLD}`, borderRadius: 'var(--mm-radius-card)', color: '#fff' }}
       aria-label={`${monthLabel(month)} 정규권 있음`}>
-      <span className="inline-flex items-center gap-1 text-xs font-black" style={{ color: GOLD }}><Crown size={14} strokeWidth={2.5} aria-hidden />정규권</span>
+      <span className="inline-flex items-center gap-1 text-xs font-black" style={{ color: GOLD }}><Ticket size={14} strokeWidth={2.5} aria-hidden />정규권</span>
       <span className="text-xl font-black leading-none">{mon(month)}</span>
     </div>
   )
@@ -177,7 +177,7 @@ function RowIcon({ tone }: { tone: Row['tone'] }) {
     in: { Icon: ArrowDownLeft, bg: '#05966918', fg: GREEN },
     out: { Icon: ArrowUpRight, bg: 'var(--mm-panel-alt)', fg: 'var(--mm-ink-soft)' },
     ticket: { Icon: Ticket, bg: 'var(--mm-yellow-soft)', fg: 'var(--mm-ink)' },
-    pass: { Icon: Crown, bg: '#1a1a1a', fg: GOLD },
+    pass: { Icon: Ticket, bg: '#1a1a1a', fg: GOLD },
     wait: { Icon: Clock, bg: 'var(--mm-panel-alt)', fg: 'var(--mm-muted)' },
   }[tone]
   return (
@@ -486,7 +486,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
               style={buyKind === 'regular_pass'
                 ? { background: '#1a1a1a', border: `2px solid ${GOLD}`, color: '#fff', borderRadius: 'var(--mm-radius-card)' }
                 : { background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-card)' }}>
-              <span className="inline-flex items-center gap-1 text-sm font-black" style={{ color: buyKind === 'regular_pass' ? GOLD : 'var(--mm-ink)' }}><Crown size={15} aria-hidden />정규권</span>
+              <span className="inline-flex items-center gap-1 text-sm font-black" style={{ color: buyKind === 'regular_pass' ? GOLD : 'var(--mm-ink)' }}><Ticket size={15} aria-hidden />정규권</span>
               <span className="block mt-1 font-black tabular-nums">{fmtP(regPrice)}<span className="text-xs font-bold"> / 한 달</span></span>
               <span className="block text-xs mt-0.5" style={{ opacity: 0.75 }}>그 달 경기 모두</span>
             </button>
