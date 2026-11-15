@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ArrowLeftRight, ChevronDown } from 'lucide-react'
+import { Loader2, X, Crown, Pencil, Camera, Flame, Medal, Film, ShieldCheck, Lock, LogIn, ArrowLeftRight, ChevronDown, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -1100,23 +1100,21 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   const strengths = pickStrengths(viewDetail.percentile_bars, viewDetail.rankings)
                   if (strengths.length === 0) return null
                   return (
-                    <div className="mb-3">
-                      <p className="text-xs font-bold mb-1.5 break-keep" style={{ color: 'var(--mm-muted)' }}>나의 강점</p>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {strengths.map(st => (
-                          <div key={st.key} className="rounded-sm p-2 text-center"
-                            style={{ background: 'var(--mm-panel-alt)', border: `1px solid ${st.rank ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}` }}>
-                            <p className="text-xs font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>{st.label}</p>
-                            <p className="font-jersey text-lg font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{st.value}</p>
-                            {st.rank != null && (
-                              <span className="inline-block mt-0.5 px-1.5 text-[11px] font-black whitespace-nowrap"
-                                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-chip)' }}>
-                                리그 {st.rank}위
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                    // 아래 숫자 칸(득점·리바·어시)과 겹쳐 보이지 않게 칸이 아니라 한 줄 알약 모양(2026-11-15 운영진)
+                    <div className="mb-3 flex flex-wrap items-center gap-1.5 break-keep">
+                      <span className="inline-flex items-center gap-1 text-xs font-black mr-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+                        <Sparkles size={13} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />나의 강점
+                      </span>
+                      {strengths.map(st => (
+                        <span key={st.key} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 min-h-8 text-xs font-bold whitespace-nowrap"
+                          style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 999, color: 'var(--mm-ink)' }}>
+                          {st.label}
+                          <span className="tabular-nums font-black">{st.value}</span>
+                          {st.rank != null
+                            ? <span className="px-1.5 text-[11px] font-black" style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 999 }}>{st.rank}위</span>
+                            : <span className="w-0.5" />}
+                        </span>
+                      ))}
                     </div>
                   )
                 })()}
