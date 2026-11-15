@@ -14,6 +14,8 @@ export type GamePos = 'G' | 'F' | 'C'
 export interface GameRatings {
   three: number; mid: number; layup: number; post: number; pass: number; handle: number
   steal: number; block: number; oreb: number; dreb: number; speed: number; stamina: number
+  /** 운동능력(2026-11-16 신설 — 앨리웁 받기 등 기술 조건) = 스피드·블록·공격 리바 평균 순위 + 키 조금. 종합엔 안 넣음 */
+  athletic: number
 }
 /** 공격·수비 유형 — 기록이 가장 두드러진 쪽(자동). 게임은 유형에 맞는 플레이를 더 잘하게 한다 */
 export type OffType = 'shooter' | 'slasher' | 'post' | 'passer'
@@ -54,13 +56,15 @@ const UNSURE = 70 // 출전이 적으면 이 쪽으로 당긴다(평균보다 �
 const clamp = (v: number) => Math.max(40, Math.min(99, v))
 const OVR_LOW = 54, OVR_SPAN = 42
 
-type K = Exclude<keyof GameRatings, 'stamina'>
+type K = Exclude<keyof GameRatings, 'stamina' | 'athletic'>
 /** 포지션별 종합 가중치 — 1 = 보통. 1 보다 작은 칸은 「그 포지션엔 덜 중요」 */
 const OVR_W: Record<GamePos, Record<K, number>> = {
   G: { three: 1.5, mid: 1.2, layup: 1, post: 0.4, pass: 1.5, handle: 1.5, steal: 1.2, block: 0.3, oreb: 0.4, dreb: 0.6, speed: 1.3 },
   F: { three: 1, mid: 1, layup: 1, post: 0.9, pass: 1, handle: 1, steal: 1, block: 0.9, oreb: 1, dreb: 1, speed: 1 },
   C: { three: 0.3, mid: 0.6, layup: 1, post: 1.5, pass: 0.7, handle: 0.5, steal: 0.6, block: 1.5, oreb: 1.5, dreb: 1.5, speed: 0.5 },
 }
+const ATH_HEIGHT_K = 0.5
+const SHOT_TRUST = 30
 const UNIQUE_FROM = 80, UNIQUE_K = 0.3
 /** 포지션 가중 점수(순위 매기기 전) — 가중 평균 + 포지션에 안 맞는 강점 덤 */
 export function posScore(pos: GamePos, r: GameRatings): number {
@@ -120,7 +124,9 @@ export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, nu
   // 슛 능력치 = 성공률 순위와 하루 성공 수 순위의 평균을 다시 순위로
   const shot = (m: (p: PlayerStat) => number, a: (p: PlayerStat) => number) => {
     const pr = pctRank(rate(m, a)), vr = pctRank(perDay(m))
-    return pctRank(pr.map((v, i) => (2 * v + vr[i]) / 3))
+    // 거의 안 쏘는 슛은 「평균」이 아니라 「못하는 것」으로 본다(2026-11-16 운영진: 3점 시도가 거의 없는 선수가 3점 68)
+    //   시도 SHOT_TRUST 번까지는 그만큼만 믿는다 — 시도 0 이면 바닥, 30 번 넘게 던졌으면 그대로
+    return pctRank(pr.map((v, i) => ((2 * v + vr[i]) / 3) * Math.min(1, a(ps[i]) / SHOT_TRUST)))
   }
 
   const stealP = pctRank(perDay(p => p.stl))
@@ -145,6 +151,12 @@ export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, nu
 
   const pull = (gp: number, s: number) => (gp < FULL_DAYS ? UNSURE + (s - UNSURE) * (gp / FULL_DAYS) : s)
   const ratings = ps.map((p, i) => Object.fromEntries(Object.entries(P).map(([k, v]) => [k, Math.round(clamp(pull(p.gp, LOW + SPAN * v[i])))])) as unknown as GameRatings)
+  // 운동능력 = (스피드·블록·공격 리바 순위 평균)을 다시 순위로 + (키−180)×0.5. 키가 없으면 키 몫은 0
+  const athP = pctRank(ps.map((_, i) => (P.speed[i] + P.block[i] + P.oreb[i]) / 3))
+  ps.forEach((p, i) => {
+    const h = heights?.[p.player_id]
+    ratings[i].athletic = Math.round(clamp(pull(p.gp, LOW + SPAN * athP[i]) + (h ? (h - 180) * ATH_HEIGHT_K : 0)))
+  })
   const ovr = pctRank(ps.map((p, i) => posScore(toGamePos(p.position), ratings[i]))).map((v, i) => Math.round(pull(ps[i].gp, OVR_LOW + OVR_SPAN * v)))
   // 클러치 = 접전 eFG(리그 접전 평균으로 15번 시도만큼 당김) 2 : 접전 경기당 득점 1 → 순위
   const cl = ps.map(p => extras?.clutch[p.player_id] ?? { gp: 0, pts: 0, fgm: 0, fga: 0, fg3m: 0 })

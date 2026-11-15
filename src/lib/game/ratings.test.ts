@@ -32,12 +32,12 @@ test('능력치: 평균 ≈ 75 · 90 이상 3명 이상 · 범위 · 제외', ()
   for (const c of r) for (const v of Object.values(c.ratings)) assert.ok(v >= 40 && v <= 99)
   assert.ok(r.every(c => c.height === null), '키 없으면 null')
   assert.equal(r.find(c => c.id === 'p0')!.provisional, true)
-  assert.equal(Object.keys(r[0].ratings).length, 12)
+  assert.equal(Object.keys(r[0].ratings).length, 13)
   assert.ok(new Set(r.map(c => c.off)).size >= 2, '공격 유형이 한 가지로 몰리지 않음')
 })
 
 test('종합 포지션 가중: 센터는 3점 낮아도 덜 깎이고, 3점 쏘는 센터는 덤', () => {
-  const base = { three: 50, mid: 70, layup: 75, post: 90, pass: 70, handle: 70, steal: 70, block: 90, oreb: 90, dreb: 90, speed: 60, stamina: 75 }
+  const base = { three: 50, mid: 70, layup: 75, post: 90, pass: 70, handle: 70, steal: 70, block: 90, oreb: 90, dreb: 90, speed: 60, stamina: 75, athletic: 75 }
   assert.ok(posScore('C', base) > posScore('G', base), '센터형 기록은 센터로 볼 때 더 높다')
   assert.ok(posScore('C', { ...base, three: 95 }) - posScore('C', base) > (95 - 50) * 0.3 / 11.2, '3점 센터 덤')
 })
@@ -64,4 +64,17 @@ test('실제 슛 비중: 합 1 · 3점 많이 쏜 선수는 3점 비중이 높�
   assert.ok(Math.abs(sum - 1) < 0.01)
   assert.ok(b.shotMix.three > 0.8, `3점 비중 ${b.shotMix.three}`)
   assert.ok(b.passRate > 0 && b.passRate < 1)
+})
+
+test('운동능력: 키 큰 쪽이 조금 높다', () => {
+  const h = Object.fromEntries(league.map(c => [c.player_id, 180]))
+  const a = buildGameRoster(league, h).find(c => c.id === 'p20')!.ratings.athletic
+  const b = buildGameRoster(league, { ...h, p20: 190 }).find(c => c.id === 'p20')!.ratings.athletic
+  assert.ok(b > a && b - a <= 5, `${a} → ${b}`)
+})
+
+test('거의 안 쏘는 3점은 낮다', () => {
+  const r = buildGameRoster([...league, p('nonshooter', { fg3m: 1, fg3a: 2 })])
+  const v = r.find(c => c.id === 'nonshooter')!.ratings.three
+  assert.ok(v <= 60, `3점 ${v}`)
 })
