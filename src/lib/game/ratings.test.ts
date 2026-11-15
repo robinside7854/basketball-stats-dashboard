@@ -78,3 +78,10 @@ test('거의 안 쏘는 3점은 낮다', () => {
   const v = r.find(c => c.id === 'nonshooter')!.ratings.three
   assert.ok(v <= 60, `3점 ${v}`)
 })
+
+test('실제 성공률 비율: 잘 넣는 선수 > 1 > 거의 안 던진 선수', () => {
+  const r = buildGameRoster([...league, p('sniper', { fg3m: 60, fg3a: 120 }), p('rare', { fg3m: 0, fg3a: 1 })])
+  const by = Object.fromEntries(r.map(c => [c.id, c.shotRel.three]))
+  assert.ok(by.sniper > 1.2, `sniper ${by.sniper}`)
+  assert.ok(by.rare < 0.8, `rare ${by.rare}`)
+})
