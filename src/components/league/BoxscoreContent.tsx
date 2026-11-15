@@ -265,17 +265,35 @@ function shotTypesOf(r: TotalLine) {
 }
 const SHOT_COLORS = ['var(--mm-yellow-strong)', 'var(--mm-or)', 'var(--mm-dr)', 'var(--mm-ink-soft)']
 
+/** 시도 비중 도넛 — 가운데 = 야투 시도 수 (2026-11-15 운영진: 막대 대신 원형) */
+function ShotDonut({ parts, total }: { parts: { v: number; color: string }[]; total: number }) {
+  const R = 22, C = 2 * Math.PI * R
+  let off = 0
+  return (
+    <svg width={56} height={56} viewBox="0 0 56 56" className="shrink-0" role="img" aria-label={`야투 시도 ${total}개 비중`}>
+      <circle cx={28} cy={28} r={R} fill="none" stroke="var(--mm-panel-alt)" strokeWidth={9} />
+      {parts.map((p, i) => {
+        if (p.v <= 0) return null
+        const len = p.v / total * C
+        const el = <circle key={i} cx={28} cy={28} r={R} fill="none" stroke={p.color} strokeWidth={9}
+          strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-off} transform="rotate(-90 28 28)" />
+        off += len
+        return el
+      })}
+      <text x={28} y={31} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--mm-ink)">{total}</text>
+    </svg>
+  )
+}
+
 /** 슛 종류별 성공/시도·성공률·시도 비중 — 위 막대 = 시도 비중, 아래 칸 넷 */
 function ShotBreakdown({ r }: { r: TotalLine }) {
   const types = shotTypesOf(r)
   const total = types.reduce((n, t) => n + t.a, 0)
   if (total === 0) return <p className="text-xs py-1" style={{ color: 'var(--mm-muted)' }}>야투 시도가 없어요</p>
   return (
-    <div className="space-y-1.5">
-      <div className="flex h-2 overflow-hidden" style={{ borderRadius: 999, background: 'var(--mm-panel-alt)' }} aria-hidden>
-        {types.map((t, i) => t.a > 0 && <span key={t.label} style={{ width: `${t.a / total * 100}%`, background: SHOT_COLORS[i] }} />)}
-      </div>
-      <div className="grid grid-cols-4 gap-1">
+    <div className="flex items-center gap-2">
+      <ShotDonut parts={types.map((t, i) => ({ v: t.a, color: SHOT_COLORS[i] }))} total={total} />
+      <div className="grid grid-cols-4 gap-1 flex-1 min-w-0">
         {types.map((t, i) => (
           <div key={t.label} className="text-center py-1" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
             <div className="flex items-center justify-center gap-1 text-[11px] font-semibold break-keep" style={{ color: 'var(--mm-muted)' }}>
@@ -456,7 +474,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                 })}
               </tr>
               {shotOpen && (
-                <tr style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { outline: MINE_OUTLINE, outlineOffset: -2 } : null) }}>
+                <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <td colSpan={COLS.length + 1} className="px-3 py-2" style={{ background: 'var(--mm-panel)' }}>
                     <ShotBreakdown r={rr} />
                   </td>
