@@ -10,7 +10,11 @@ import { createClient } from '@/lib/supabase/admin'
 // 숫자는 스탯 탭과 같은 캐시(getCachedLeagueStats) 한 번 읽기 → 능력치 식(lib/game/ratings.ts).
 // 접근: 승인 회원·편집 권한, 또는 시험 기간 열쇠(환경변수 GAME_ROSTER_TOKEN — 새 표 없이).
 //   ponytail: 열쇠 하나·기한 없음. 기한이 필요하면 league_upload_tokens 방식의 표로 옮긴다(사용자 확인 후).
-// 게임은 다른 주소(별도 Vercel 프로젝트)에서 부르므로 CORS 를 연다 — 열쇠 없이는 401 이라 이름이 새지 않는다.
+// 게임은 다른 주소(별도 Vercel 프로젝트)에서 부르므로 CORS 를 연다.
+// 2026-11-15 사용자 결정: 미라클 리그는 열쇠 없이 공개(실명 그대로). ⚠ 다른 리그는 여전히 열쇠·로그인 필요 —
+//   이 라우트는 리그 id 를 받으므로, 공개를 리그 전체로 풀면 다른 동호회 비공개 명단까지 열린다.
+//   응답엔 사진 주소·연락처가 없다(이름·능력치·키·외모 특징·소속만).
+const PUBLIC_LEAGUES = new Set(['8eda8257-8907-4bf3-a7de-e5e7fde54a89']) // 미라클모닝농구단
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'x-game-token' }
 
@@ -27,7 +31,7 @@ export function OPTIONS() {
 
 export async function GET(req: Request, { params }: { params: Promise<{ leagueId: string }> }) {
   const { leagueId } = await params
-  if (!tokenOk(req) && !(await canViewStats(req, leagueId))) {
+  if (!PUBLIC_LEAGUES.has(leagueId) && !tokenOk(req) && !(await canViewStats(req, leagueId))) {
     return NextResponse.json({ error: 'login_required' }, { status: 401, headers: CORS })
   }
   try {
