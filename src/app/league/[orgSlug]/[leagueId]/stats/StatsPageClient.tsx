@@ -18,7 +18,7 @@ import EmptyState from '@/components/league/ui/EmptyState'
 import Avatar from '@/components/league/ui/Avatar'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
-import { POSITION_GROUPS, positionGroupOf, positionGroupLabel, positionLabelOf, type PositionGroupCode } from '@/lib/league/positionGroup'
+import { COURT_GROUPS as POSITION_GROUPS, courtGroupOf as positionGroupOf, courtGroupLabel as positionGroupLabel, positionLabelOf, type CourtGroupCode as PositionGroupCode } from '@/lib/league/positionGroup'
 import type { PlayerStat } from '@/types/league'
 import { swatchEdge } from '@/lib/util/contrastColor'
 import StatGate from '@/components/league/auth/StatGate'
@@ -276,7 +276,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   // 「전체 순위 | 같은 포지션」 (2026-10-17) — 같은 포지션이면 그 그룹 선수만 모아 같은 규칙으로 순위를 다시 센다.
   //   자격 커트라인(leagueMinRounds)은 리그 전체 기준 그대로 — 그룹마다 기준이 달라지면 「가드 1위」가 다른 잣대가 된다.
   const [rankScope, setRankScope] = useState<'all' | 'pos'>('all')
-  const [posGroup, setPosGroup] = useState<PositionGroupCode>('G')
+  const [posGroup, setPosGroup] = useState<PositionGroupCode>('B')
   // 팀 필터(2026-11-08 운영진) — 여러 팀 고르기. 고른 팀 선수들 안에서 순위를 다시 매긴다(포지션 범위와 같은 방식).
   //   팀 = 스탯 행의 team_name(그 기간 마지막 경기의 팀 · 분기 팀명) 그대로.
   const [teamSel, setTeamSel] = useState<Set<string>>(new Set())

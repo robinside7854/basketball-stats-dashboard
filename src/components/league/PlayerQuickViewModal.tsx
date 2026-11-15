@@ -928,7 +928,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                   {/* 순위 범위 (2026-10-17) — 같은 포지션끼리의 순위. 포지션이 없는 선수에게는 안 보인다 */}
                   {posRanks && (
                     <div role="group" aria-label="순위 범위" className="inline-flex rounded-sm overflow-hidden" style={{ border: '1px solid var(--mm-rule)' }}>
-                      {([['all', '전체'], ['pos', `같은 포지션(${posRanks.label})`]] as const).map(([key, label]) => {
+                      {([['all', '전체'], ['pos', `${posRanks.label} 순위`]] as const).map(([key, label]) => {
                         const on = (key === 'pos') === rankScopeOn
                         return (
                           <button

@@ -12,7 +12,7 @@
 import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import Chip from '@/components/league/ui/Chip'
 import SegmentedTabs from '@/components/league/ui/SegmentedTabs'
-import { POSITION_GROUPS, positionGroupOf, positionGroupLabel, type PositionGroupCode } from '@/lib/league/positionGroup'
+import { COURT_GROUPS as POSITION_GROUPS, courtGroupOf as positionGroupOf, courtGroupLabel as positionGroupLabel, type CourtGroupCode as PositionGroupCode } from '@/lib/league/positionGroup'
 import Avatar from '@/components/league/ui/Avatar'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
@@ -48,7 +48,7 @@ export default function CareerLeadersBoard({ players, loading }: Props) {
   // 「전체 순위 | 같은 포지션」 (2026-10-17) — 같은 포지션이면 그 그룹만 모아 같은 규칙(careerTop)으로 다시 센다.
   //   포지션이 없는 선수는 이 모드에서만 빠진다.
   const [scope, setScope] = useState<'all' | 'pos'>('all')
-  const [posGroup, setPosGroup] = useState<PositionGroupCode>('G')
+  const [posGroup, setPosGroup] = useState<PositionGroupCode>('B')
   const pool = useMemo(
     () => scope === 'pos' ? players.filter(p => positionGroupOf(p.position) === posGroup) : players,
     [players, scope, posGroup],

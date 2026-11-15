@@ -18,7 +18,7 @@ import { getCachedDashboardBase, ongoingStreaksFor, type OngoingStreak } from '@
 import { getCachedLeagueEventIndex } from '@/lib/stats/leagueEventIndex'
 import { makeIdentityResolver, type TeamBase, type QuarterOverride } from '@/lib/stats/teamIdentity'
 import { pickCurrentQuarter } from '@/lib/league/currentQuarter'
-import { positionGroupOf, positionGroupLabel, type PositionGroupCode } from '@/lib/league/positionGroup'
+import { courtGroupOf as positionGroupOf, courtGroupLabel as positionGroupLabel, type CourtGroupCode as PositionGroupCode } from '@/lib/league/positionGroup'
 import type { PlayerStat } from '@/types/league'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { tovPct } from '@/lib/stats/advanced'

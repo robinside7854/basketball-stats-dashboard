@@ -49,3 +49,19 @@ export function positionShortOf(raw: string | null | undefined): string {
   }
   return out.join('/')
 }
+
+// ── 포지션별 순위용 두 묶음 (2026-11-15 운영진) ──
+//   센터가 너무 적어 순위가 의미 없었다 → 순위를 볼 때만 「백코트(가드) · 프론트코트(포워드+센터)」로 묶는다.
+//   ⚠ 선수 카드·명단의 포지션 표시는 그대로 가드·포워드·센터다(positionGroupOf). 순위 모집단에만 이걸 쓴다.
+export type CourtGroupCode = 'B' | 'F'
+export const COURT_GROUPS: readonly { code: CourtGroupCode; label: string }[] = [
+  { code: 'B', label: '백코트' },
+  { code: 'F', label: '프론트코트' },
+] as const
+export function courtGroupOf(raw: string | null | undefined): CourtGroupCode | null {
+  const g = positionGroupOf(raw)
+  return g === 'G' ? 'B' : g ? 'F' : null
+}
+export function courtGroupLabel(code: CourtGroupCode | null | undefined): string {
+  return COURT_GROUPS.find(p => p.code === code)?.label ?? ''
+}

@@ -42,7 +42,7 @@ export type DayLog = {
 export type Detail = {
   rankings: Rankings
   /** (2026-10-17) 같은 포지션(가드·포워드·센터) 안 순위 — 자격·기간·공동 순위 규칙은 rankings 와 같다. 포지션 없으면 null */
-  position_ranks?: { group: 'G' | 'F' | 'C'; label: string; rankings: Rankings; percentile_bars: PercentileBarsResult } | null
+  position_ranks?: { group: 'B' | 'F'; label: string; rankings: Rankings; percentile_bars: PercentileBarsResult } | null
   /** 진행 중 연속 기록 — /me 와 같은 판정(lib/stats/dashboardBase.ts). 첫 요청(profile=1)·전체 기간 응답에만 실린다. 단위는 「일」 */
   active_streaks?: Array<{ key: string; label: string; count: number; unit: string }>
   dynamic_duo?: DuoEntry[]
