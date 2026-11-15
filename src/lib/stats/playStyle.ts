@@ -156,7 +156,7 @@ export function buildPlayStyle(
       lean: defLean, blocked, rim_share,
     },
     rebound: {
-      oreb_per_day: per(me.oreb, me.gp), oreb_pct, oreb_rank: rankFor('oreb'), dreb_per_day: per(me.dreb, me.gp), dreb_pct, dreb_rank: rankFor('dreb'),
+      oreb_per_day: per(me.oreb, me.gp), oreb_pct, oreb_rank: rankFor('oreb'), dreb_per_day: Math.max(0, +(per(me.oreb + me.dreb, me.gp) - per(me.oreb, me.gp)).toFixed(1)), /* 공+수 = 하루 평균 리바와 꼭 같게(2026-11-15) */ dreb_pct, dreb_rank: rankFor('dreb'),
       oreb_share, league_oreb_share, lean: rebLean,
     },
     offense: { lean: offLean, playmaker },
