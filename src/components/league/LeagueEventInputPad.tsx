@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Handshake, CircleDashed, Crosshair, UserPlus } from 'lucide-react'
+import { Handshake, CircleDashed, Crosshair, UserPlus, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
@@ -115,7 +115,7 @@ const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 // ── PC 단축키 (2026-11-03) — 숙련 기록원이 영상에서 눈을 떼지 않게 ─────────
 //   선수: 왼쪽 팀 1~5 · 오른쪽 팀 6~9,0 (코트 격자 순서). 피커(어시스트·리바운드·턴오버)에서도 같은 번호.
 //   슛 종류: Q 3점 · W 미들 · E 레이업 · R 골밑 → 그 뒤 A 성공 / S 실패(기존).
-//   그 외: D 리바운드(공격/수비 자동) · F 스틸 · G 턴오버 · B 블록 · T 자유투(종류 고르기).
+//   그 외: D 리바운드(공격/수비 자동) · F 스틸 · G 턴오버 · B 블록 · T 자유투(종류 고르기) · V 방금 장면 다시 보기.
 //   힌트 글자는 PC(lg↑)에서만 보인다. 입력칸에 커서가 있으면 무시.
 const SHOT_HOTKEYS: Record<string, string> = { shot_3p: 'Q', shot_2p_mid: 'W', shot_layup: 'E', shot_post: 'R' }
 const EVENT_HOTKEYS: Record<string, string> = { reb_auto: 'D', steal: 'F', turnover: 'G', block: 'B', ft_menu: 'T' }
@@ -139,6 +139,8 @@ function playerHotkey(side: 'home' | 'away', index: number): string | null {
 }
 const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 
+const REPLAY_LEAD_SEC = 4
+
 type LastEventDetails = {
   id: string
   type: string
@@ -158,6 +160,20 @@ export default function LeagueEventInputPad({
   currentQuarter = 1,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
+  const ytPlayer = useGameStore(st => st.ytPlayer)
+  // ── 방금 장면 다시 보기 (2026-11-15 운영진) ─────────────────────────
+  //   폰에서는 정확도 때문에 기록할 때마다 장면을 되감아 확인한다 — −5·−10 을 여러 번 눌러 찾아가던 것을
+  //   한 번에. 「장면」 = 마지막으로 기록한 슛·스틸·턴오버 등의 영상 시각(첫 터치 순간). 슛에 이어 붙는
+  //   리바운드·블록·어시스트는 같은 장면이라 시각을 바꾸지 않는다. 그 4초 전부터 재생한다.
+  const [sceneTs, setSceneTs] = useState<number | null>(null)
+  function replayScene() {
+    if (sceneTs == null || !ytPlayer) return
+    try {
+      ytPlayer.seekTo(Math.max(0, sceneTs - REPLAY_LEAD_SEC), true)
+      ytPlayer.unMute()
+      ytPlayer.playVideo()
+    } catch { /* 플레이어가 준비 전이면 무시 */ }
+  }
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
   const [possessionPlayerId, setPossessionPlayerId] = useState<string | null>(null)
@@ -355,6 +371,7 @@ export default function LeagueEventInputPad({
     // ── 즉시 UI 반영 (Optimistic) ──
     const tempId = `opt-${crypto.randomUUID()}`
     setLastEvent({ id: tempId, type: shotType, result, playerId: selectedPlayer, label: lbl })
+    setSceneTs(body.video_timestamp)
     setLastReboundId(null)
     setLastBlockId(null)
     setLastTovId(null)
@@ -455,6 +472,7 @@ export default function LeagueEventInputPad({
     // ── 즉시 UI 반영 ──
     const tempId = `opt-${crypto.randomUUID()}`
     setLastEvent({ id: tempId, type: btn.type, result: isAndOne ? 'made' : 'missed', playerId: selectedPlayer, label: lbl })
+    setSceneTs(body.video_timestamp)
     setLastReboundId(null)
     setLastBlockId(null)
     setLastTovId(null)
@@ -636,7 +654,8 @@ export default function LeagueEventInputPad({
   async function finishAssistForLast(assistId?: string) {
     if (!lastEvent || !pendingShot) return
     const id = await saveEvent({
-      league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
+      // 지우고 다시 넣는 보정이라도 장면 시각은 원래 것으로(종전엔 「지금」 시각으로 밀렸다)
+      league_game_id: gameId, quarter: currentQuarter, video_timestamp: sceneTs ?? getCurrentTimestamp(),
       type: lastEvent.type, league_player_id: lastEvent.playerId, team_id: allPlayers.find(p => p.id === lastEvent.playerId)?.team_id ?? null,
       result: 'made', related_player_id: assistId ?? null,
     })
@@ -661,6 +680,7 @@ export default function LeagueEventInputPad({
     const tag = t?.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+    if (e.key === 'v' || e.key === 'V') { if (sceneTs != null) { e.preventDefault(); replayScene() } return }
     const k = e.key
     // 선수 번호
     const hi = HOME_KEYS.indexOf(k), ai = AWAY_KEYS.indexOf(k)
@@ -889,6 +909,14 @@ export default function LeagueEventInputPad({
             {lastEvent.label}
           </button>
         )}
+
+        {/* 방금 장면 다시 보기 — 마지막 기록 4초 전부터 재생(PC 단축키 V) */}
+        <button onClick={replayScene} disabled={sceneTs == null || !ytPlayer}
+          aria-label="방금 장면 다시 보기"
+          className="relative shrink-0 inline-flex items-center gap-1 px-3 py-1.5 min-h-11 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] cursor-pointer transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
+          <RotateCcw size={14} aria-hidden /> 다시 보기
+          <Kbd k="V" />
+        </button>
 
         {/* Phase 1-D: Undo — lastEvent 있으면 오렌지로 강조 */}
         <button onClick={undoLast} disabled={!lastEvent}
@@ -1142,7 +1170,7 @@ export default function LeagueEventInputPad({
       {awaitingAssist && (
         <div className="pt-1 space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-[color:var(--mm-ink-soft)]">누가 어시스트? <span className="text-[color:var(--mm-muted)]">· 상대 선수를 누르면 어시스트 없이 넘어갑니다</span></p>
+            <p className="text-xs break-keep text-[color:var(--mm-ink-soft)]">누가 어시스트? <span className="text-[color:var(--mm-muted)]">· 상대 선수를 누르면 어시스트 없이 넘어갑니다</span></p>
             <button onClick={() => { setAwaitingAssist(false); saveShot(pendingResult ?? 'made') }}
               className="shrink-0 px-3 min-h-11 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] cursor-pointer">없음</button>
           </div>
