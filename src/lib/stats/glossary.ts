@@ -22,7 +22,7 @@ export interface StatDef {
 export const GLOSSARY: Record<string, StatDef> = {
   // ── 기본 카운팅 ────────────────────────────
   GP:   { short: 'GP',   long: '경기 수',        description: '해당 시즌/분기 참가 경기 수' },
-  R:    { short: 'R',    long: '출전일 수',      description: '경기한 날 수 (하루 = 1R). 하루 평균 스탯의 분모' },
+  R:    { short: 'R',    long: '출전일 수',      description: '경기한 날 수. 하루 평균 기록을 낼 때 나누는 수' },
   G:    { short: 'G',    long: '게임 슬롯 수',   description: '개별 경기 슬롯 기준 참가 수 (하루 여러 경기면 별개)' },
   PTS:  { short: 'PTS',  long: '득점 (누적)',    description: '해당 기간 누적 득점' },
   // 교체가 기록된 경기가 11%뿐이라 대부분 "경기 끝까지 뛴 것으로 본" 값이다 —
@@ -66,7 +66,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   '3P%': { short: '3P%', long: '3점 성공률',    formula: '3PM / 3PA', description: '3점 야투 성공률' },
   'FT%': { short: 'FT%', long: '자유투 성공률', formula: 'FTM / FTA', description: '자유투 성공률' },
   'eFG%': { short: 'eFG%', long: '유효 야투율', formula: '(FGM + 0.5 × 3PM) / FGA',
-            description: '3점은 2점보다 1.5배 값지다는 점을 반영한 야투 성공률. 3점을 많이 넣는 선수는 FG% 보다 높게 나온다. 넣은 슛 개수로만 계산해 +1 가산점·자유투 룰의 영향을 받지 않는다' },
+            description: '3점은 2점보다 1.5배 값지다는 점을 반영한 야투 성공률. 3점을 많이 넣는 선수는 보통 야투율보다 높게 나온다. 넣은 슛 개수로만 계산해 +1 가산점·자유투 룰의 영향을 받지 않는다' },
   'TS%': { short: 'TS%', long: '진실 야투율',   formula: 'PTS / (2 × (FGA + 0.44 × FTA))',
            description: '2점·3점·자유투를 전부 합쳐, 슛 기회 한 번에 점수를 얼마나 뽑았는지 보는 성공률. 슈팅 효율을 숫자 하나로 볼 때 쓴다. 득점으로 계산하므로 +1 가산점·자유투 1구 2점이 들어가 프로 기준보다 높게 나온다' },
   FTr:   { short: 'FTr', long: '자유투 유도율', formula: 'FTA / FGA',

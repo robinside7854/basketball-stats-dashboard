@@ -117,8 +117,8 @@ export default function StatHelpTooltip({ statKey, size = 14, className, ariaLab
         }}
         onFocus={() => { focusOpenedAt.current = Date.now(); setOpen(true) }}
         onBlur={() => setOpen(false)}
-        aria-label={ariaLabel ?? `${def.long} 설명`}
-        title={def.long}
+        aria-label={ariaLabel ?? `${koOnly(def.long)} 설명`}
+        title={koOnly(def.long)}
         className={className}
         style={{
           display: 'inline-flex',
@@ -165,26 +165,11 @@ export default function StatHelpTooltip({ statKey, size = 14, className, ariaLab
           }}
         >
           <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--mm-ink)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span>{def.long}</span>
-            <span style={{ fontSize: 10, opacity: 0.7, fontFamily: 'monospace' }}>({def.short})</span>
+            {/* 영어 약어(「eFG%」·「(PPG)」)·영어 계산식은 보이지 않는다(2026-11-15 운영진 — 영어 약어 0) */}
+            <span>{koOnly(def.long)}</span>
           </div>
-          {def.formula && (
-            <div style={{
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontSize: 11,
-              color: 'var(--mm-yellow-strong)',
-              background: 'var(--mm-panel-alt)',
-              padding: '5px 8px',
-              borderRadius: 4,
-              marginBottom: 6,
-              wordBreak: 'break-word',
-              border: '1px solid var(--mm-rule)',
-            }}>
-              {def.formula}
-            </div>
-          )}
           <div style={{ color: 'var(--mm-ink-soft)', fontSize: 12, lineHeight: 1.55 }}>
-            {def.description}
+            {koOnly(def.description)}
           </div>
         </div>,
         document.body
@@ -198,4 +183,9 @@ export default function StatHelpTooltip({ statKey, size = 14, className, ariaLab
       `}</style>
     </>
   )
+}
+
+/** 「(PPG)」 같은 괄호 속 영어 약어를 지운다 */
+function koOnly(t: string): string {
+  return t.replace(/\s*\([A-Za-z0-9%/ .+-]+\)/g, '').trim()
 }
