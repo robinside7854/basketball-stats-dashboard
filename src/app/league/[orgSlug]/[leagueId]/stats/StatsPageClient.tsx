@@ -538,7 +538,12 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
 
   // 리바운드 = 하나로 보이고, 누르면 공격·수비(2026-11-15 운영진)
   function rebSplit(p: PlayerStat, key: SortKey): string {
-    return key === 'rpg' ? `공 ${fmt1(avg(p, 'oreb'))} · 수 ${fmt1(avg(p, 'dreb'))}` : `공 ${p.oreb} · 수 ${p.dreb}`
+    if (key !== 'rpg') return `공 ${p.oreb} · 수 ${p.dreb}`
+    // 하루 평균 = 누적 ÷ 출전일. 둘이 위 리바 숫자와 꼭 맞게 — 공격을 반올림하고 수비는 그 나머지(2026-11-15: 누적을 그대로 보여 합이 안 맞았다)
+    const gp = p.gp > 0 ? p.gp : 1
+    const total = avg(p, 'rpg')
+    const o = +(p.oreb / gp).toFixed(1)
+    return `공 ${fmt1(o)} · 수 ${fmt1(Math.max(0, +(total - o).toFixed(1)))}`
   }
   function cellVal(p: PlayerStat, key: SortKey): string {
     if (key === 'tov_pct') return p.tov_pct != null ? `${fmt1(p.tov_pct)}%` : '—'
