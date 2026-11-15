@@ -32,7 +32,7 @@ export async function GET(
   //   요청마다 따로 한다 — 캐시에는 로그인과 무관한 리그 공용 데이터만 들어간다.
   const body = await unstable_cache(
     () => computeDailyBoxscore(leagueId, date),
-    ['daily-boxscore', leagueId, date, 'v5'],
+    ['daily-boxscore', leagueId, date, 'v6'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )()
   return NextResponse.json(body, { headers: { 'Cache-Control': 'private, no-store' } })
@@ -224,6 +224,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
         ast: s.ast, stl: s.stl, blk: s.blk, tov: s.tov, pf: s.pf,
         fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a, ftm: s.ftm, fta: s.fta,
         fb_pts: s.fb_pts,
+        lay_m: s.lay_m, lay_a: s.lay_a, post_m: s.post_m, post_a: s.post_a, mid_m: s.mid_m, mid_a: s.mid_a,
         fg_pct: pct(s.fgm, s.fga),
         fg3_pct: pct(s.fg3m, s.fg3a),
       }
@@ -349,6 +350,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
       cur.ast += r.ast; cur.stl += r.stl; cur.blk += r.blk; cur.tov += r.tov; cur.pf += r.pf
       cur.fgm += r.fgm; cur.fga += r.fga; cur.fg3m += r.fg3m; cur.fg3a += r.fg3a
       cur.ftm += r.ftm; cur.fta += r.fta; cur.fb_pts += r.fb_pts
+      cur.lay_m += r.lay_m; cur.lay_a += r.lay_a; cur.post_m += r.post_m; cur.post_a += r.post_a; cur.mid_m += r.mid_m; cur.mid_a += r.mid_a
     }
   }
 
@@ -393,6 +395,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
       d.gp++; d.pts+=row.pts; d.reb+=row.reb; d.oreb+=row.oreb; d.dreb+=row.dreb
       d.ast+=row.ast; d.stl+=row.stl; d.blk+=row.blk; d.tov+=row.tov; d.pf+=row.pf
       d.fgm+=row.fgm; d.fga+=row.fga; d.fg3m+=row.fg3m; d.fg3a+=row.fg3a; d.ftm+=row.ftm; d.fta+=row.fta; d.fb_pts+=row.fb_pts
+      d.lay_m+=row.lay_m; d.lay_a+=row.lay_a; d.post_m+=row.post_m; d.post_a+=row.post_a; d.mid_m+=row.mid_m; d.mid_a+=row.mid_a
     }
   }
   const dailyStats = Object.entries(dailyMap)
@@ -401,6 +404,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
       team_id: d.team_id, team_name: d.team_name, team_color: d.team_color, photo_url: d.photo_url,
       pts: d.pts, reb: d.reb, oreb: d.oreb, dreb: d.dreb, ast: d.ast, stl: d.stl, blk: d.blk, tov: d.tov, pf: d.pf,
       fgm: d.fgm, fga: d.fga, fg3m: d.fg3m, fg3a: d.fg3a, ftm: d.ftm, fta: d.fta, fb_pts: d.fb_pts,
+      lay_m: d.lay_m, lay_a: d.lay_a, post_m: d.post_m, post_a: d.post_a, mid_m: d.mid_m, mid_a: d.mid_a,
       fg_pct: pct(d.fgm, d.fga), fg3_pct: pct(d.fg3m, d.fg3a),
     }))
     .sort((a, b) => b.pts - a.pts)

@@ -8,7 +8,7 @@ import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 //
 // 탭 구조 (2026-10-12 재구성): 경기결과(팀 전적 · 스탯 리더 · 경기 카드) · 선수 기록(하루 합산표)
 //   · 팀별 비교 · 어시스트(네트워크). 공격 유형 탭은 2026-10-31 운영진 결정으로 뺐다(팀 탭 인사이트에는 남음). 경기별 박스스코어는 경기 카드를 펼친 안에서 팀별로 나눠 본다.
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext, Fragment } from 'react'
 import { useOptionalCurrentUser } from '@/contexts/LeagueAuthContext'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Flame, FastForward, Hand, Handshake, Shield, Zap, Target, Sparkles, ExternalLink, CalendarX, AlertTriangle, CloudOff, UserX, Swords } from 'lucide-react'
 import { textOnBg, accentOrInk, swatchEdge } from '@/lib/util/contrastColor'
@@ -88,6 +88,8 @@ type PlayerRow = {
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
   /** 속공 득점(2026-11) — 옛 캐시 응답엔 없을 수 있다 */
   fb_pts?: number
+  /** 슛 종류별 성공·시도(2026-11-15) — 옛 캐시 응답엔 없을 수 있다 */
+  lay_m?: number; lay_a?: number; post_m?: number; post_a?: number; mid_m?: number; mid_a?: number
   fg_pct: number | null; fg3_pct: number | null
 }
 
@@ -122,6 +124,8 @@ type DailyStat = {
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
   /** 속공 득점 — 옛 캐시 응답엔 없을 수 있다 */
   fb_pts?: number
+  /** 슛 종류별 성공·시도(2026-11-15) — 옛 캐시 응답엔 없을 수 있다 */
+  lay_m?: number; lay_a?: number; post_m?: number; post_a?: number; mid_m?: number; mid_a?: number
   fg_pct: number | null; fg3_pct: number | null
 }
 
@@ -208,7 +212,7 @@ const ftPct = (r: { ftm: number; fta: number }) => r.fta > 0 ? Math.round(r.ftm 
 type TotalLine = Omit<PlayerRow, 'player_id' | 'name' | 'number' | 'photo_url' | 'team_id' | 'team_name' | 'team_color'>
 
 function sumLine(rows: PlayerRow[]): TotalLine {
-  const t = { pts: 0, fb_pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0 }
+  const t = { pts: 0, fb_pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, lay_m: 0, lay_a: 0, post_m: 0, post_a: 0, mid_m: 0, mid_a: 0 }
   for (const r of rows) for (const k of Object.keys(t) as (keyof typeof t)[]) t[k] += r[k] ?? 0
   const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 1000) / 10 : null
   return { ...t, fg_pct: pct(t.fgm, t.fga), fg3_pct: pct(t.fg3m, t.fg3a) }
@@ -237,6 +241,11 @@ function RankBadge({ rank }: { rank: number }) {
   )
 }
 
+/** 리바 아래 「공 x · 수 y」 한 줄 */
+function RebSplit({ r }: { r: TotalLine }) {
+  return <span className="block text-[11px] font-semibold tabular-nums whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공 {r.oreb ?? 0} · 수 {r.dreb ?? 0}</span>
+}
+
 // 성공/시도 칸 아래 성공률 한 줄 — 표에서 「~율」 칸을 따로 두지 않으려고(2026-11-03)
 function PctUnder({ rr, k }: { rr: TotalLine; k: string }) {
   const pair = k === 'fgm_fga' ? [rr.fgm, rr.fga] : k === 'fg3m_fg3a' ? [rr.fg3m, rr.fg3a] : k === 'ftm_fta' ? [rr.ftm, rr.fta] : null
@@ -245,17 +254,57 @@ function PctUnder({ rr, k }: { rr: TotalLine; k: string }) {
   return <span className="block text-[11px] font-semibold tabular-nums" style={{ color: 'var(--mm-muted)' }}>{a > 0 ? `${Math.round((m / a) * 1000) / 10}%` : '—'}</span>
 }
 
+/** 슛 종류 넷 — 레이업·골밑·미들·3점 (2026-11-15 운영진 — 「야투」를 누르면 펼친다) */
+function shotTypesOf(r: TotalLine) {
+  return [
+    { label: '레이업', m: r.lay_m ?? 0, a: r.lay_a ?? 0 },
+    { label: '골밑', m: r.post_m ?? 0, a: r.post_a ?? 0 },
+    { label: '미들', m: r.mid_m ?? 0, a: r.mid_a ?? 0 },
+    { label: '3점', m: r.fg3m, a: r.fg3a },
+  ]
+}
+const SHOT_COLORS = ['var(--mm-yellow-strong)', 'var(--mm-or)', 'var(--mm-dr)', 'var(--mm-ink-soft)']
+
+/** 슛 종류별 성공/시도·성공률·시도 비중 — 위 막대 = 시도 비중, 아래 칸 넷 */
+function ShotBreakdown({ r }: { r: TotalLine }) {
+  const types = shotTypesOf(r)
+  const total = types.reduce((n, t) => n + t.a, 0)
+  if (total === 0) return <p className="text-xs py-1" style={{ color: 'var(--mm-muted)' }}>야투 시도가 없어요</p>
+  return (
+    <div className="space-y-1.5">
+      <div className="flex h-2 overflow-hidden" style={{ borderRadius: 999, background: 'var(--mm-panel-alt)' }} aria-hidden>
+        {types.map((t, i) => t.a > 0 && <span key={t.label} style={{ width: `${t.a / total * 100}%`, background: SHOT_COLORS[i] }} />)}
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {types.map((t, i) => (
+          <div key={t.label} className="text-center py-1" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+            <div className="flex items-center justify-center gap-1 text-[11px] font-semibold break-keep" style={{ color: 'var(--mm-muted)' }}>
+              <span className="w-2 h-2 shrink-0" style={{ background: SHOT_COLORS[i], borderRadius: 999 }} aria-hidden />{t.label}
+            </div>
+            <div className="t-num text-sm font-bold leading-tight" style={{ color: 'var(--mm-ink)' }}>{t.m}/{t.a}</div>
+            <div className="t-num text-[11px] font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>
+              {t.a > 0 ? `${Math.round(t.m / t.a * 100)}%` : '—'}
+            </div>
+            <div className="t-num text-[10px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>비중 {Math.round(t.a / total * 100)}%</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOpts }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick; total?: TotalLine; totalOpts?: TotalOpts }) {
   const myId = useContext(MyIdCtx)
   const [sortKey, setSortKey] = useState('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  // 리바 값을 누르면 모든 줄에 공·수, 야투 값을 누르면 줄마다 슛 종류 펼침(2026-11-15 운영진)
+  const [rebOpen, setRebOpen] = useState(false)
+  const [shotOpen, setShotOpen] = useState(false)
 
   const COLS: ColDef[] = [
     ...(showGP ? [{ key: 'gp', label: '경기', sortKey: 'gp' }] : []),
     { key: 'pts',     label: '득점',  sortKey: 'pts'  },
     { key: 'reb',     label: '리바',  sortKey: 'reb'  },
-    { key: 'oreb',    label: '공리',   sortKey: 'oreb' },
-    { key: 'dreb',    label: '수리',   sortKey: 'dreb' },
     { key: 'ast',     label: '어시',  sortKey: 'ast'  },
     { key: 'stl',     label: '스틸',  sortKey: 'stl'  },
     { key: 'blk',     label: '블록',  sortKey: 'blk'  },
@@ -350,8 +399,8 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
             const rr = r as PlayerRow & DailyStat
             const isMe = !!myId && rr.player_id === myId
             return (
+              <Fragment key={rr.player_id}>
               <tr
-                key={rr.player_id}
                 className={`transition-colors duration-200 hover:bg-[color:var(--mm-yellow-soft)] ${i % 2 === 0 ? 'bg-[color:var(--mm-panel)]' : 'bg-[color:var(--mm-panel-alt)]'}`}
                 style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { outline: MINE_OUTLINE, outlineOffset: -2 } : null) }}
                 data-me={isMe || undefined}
@@ -388,12 +437,32 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                     : undefined
                   return (
                     <td key={c.key} className={key ? 't-td-key' : 't-td'} style={color ? { color } : undefined}>
-                      {withSlashBreak(cellVal(rr, c.key))}
-                      <PctUnder rr={rr} k={c.key} />
+                      {c.key === 'reb' || c.key === 'fgm_fga' ? (
+                        <button type="button" onClick={() => (c.key === 'reb' ? setRebOpen(o => !o) : setShotOpen(o => !o))}
+                          aria-expanded={c.key === 'reb' ? rebOpen : shotOpen}
+                          title={c.key === 'reb' ? '공격·수비 리바운드 보기' : '슛 종류별 보기'}
+                          className="w-full underline decoration-dotted underline-offset-4 cursor-pointer"
+                          style={{ font: 'inherit', color: 'inherit', textDecorationColor: 'var(--mm-muted)' }}>
+                          {withSlashBreak(cellVal(rr, c.key))}
+                          <PctUnder rr={rr} k={c.key} />
+                          {c.key === 'reb' && rebOpen && <RebSplit r={rr} />}
+                        </button>
+                      ) : (<>
+                        {withSlashBreak(cellVal(rr, c.key))}
+                        <PctUnder rr={rr} k={c.key} />
+                      </>)}
                     </td>
                   )
                 })}
               </tr>
+              {shotOpen && (
+                <tr style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { outline: MINE_OUTLINE, outlineOffset: -2 } : null) }}>
+                  <td colSpan={COLS.length + 1} className="px-3 py-2" style={{ background: 'var(--mm-panel)' }}>
+                    <ShotBreakdown r={rr} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             )
           })}
         </tbody>
@@ -405,6 +474,7 @@ function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, totalOp
                 <td key={c.key} className="t-td-key" style={{ color: 'var(--mm-ink)' }}>
                   {c.key === 'gp' ? (totalOpts?.gp != null ? String(totalOpts.gp) : '') : withSlashBreak(cellVal(total, c.key))}
                   {c.key !== 'gp' && <PctUnder rr={total} k={c.key} />}
+                  {c.key === 'reb' && rebOpen && <RebSplit r={total} />}
                 </td>
               ))}
             </tr>
@@ -427,6 +497,7 @@ function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
   if (view === 'shoot') {
     const cells: [string, number, number][] = [['야투', r.fgm, r.fga], ['3점', r.fg3m, r.fg3a], ['자유투', r.ftm, r.fta]]
     return (
+      <div className="space-y-1.5">
       <div className="grid grid-cols-3 gap-1.5">
         {cells.map(([label, m, a]) => (
           <div key={label} className="text-center py-1.5" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
@@ -435,6 +506,8 @@ function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
             <div className="t-num text-xs font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>{a > 0 ? `${Math.round((m / a) * 1000) / 10}%` : '—'}</div>
           </div>
         ))}
+        </div>
+        <ShotBreakdown r={r} />
       </div>
     )
   }
@@ -445,6 +518,7 @@ function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
         <div key={label} className="text-center py-1.5" style={{ background: i === 0 ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
           <div className="text-[11px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
           <div className={`t-num leading-tight ${i === 0 ? 'text-lg font-bold' : 'text-base font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{v}</div>
+          {label === '리바' && <div className="t-num text-[10px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공{r.oreb ?? 0}·수{r.dreb ?? 0}</div>}
         </div>
       ))}
     </div>
@@ -483,7 +557,7 @@ function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, hideSort
         style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
         <Hand size={14} className="shrink-0 mt-px" aria-hidden />
         {view === 'basic'
-          ? <span className="break-keep">기록 칸을 누르면 <b style={{ color: 'var(--mm-ink)' }}>야투·3점·자유투</b> 성공 수와 성공률로 바뀌어요.<br />모든 선수가 같이 바뀌어요.</span>
+          ? <span className="break-keep">기록 칸을 누르면 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>과 슛 종류(레이업·골밑·미들·3점)로 바뀌어요.<br />모든 선수가 같이 바뀌어요.</span>
           : <span className="break-keep">지금은 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>이에요.<br />다시 누르면 득점·리바운드 같은 기본 기록으로 돌아와요.</span>}
       </p>
       {/* 선수마다 카드 한 장(2026-11-04) — 얇은 구분선만 있던 줄이 서로 섞여 보였다. 태블릿은 두 줄씩 */}

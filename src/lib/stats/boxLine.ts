@@ -9,11 +9,14 @@ export interface BoxLine {
   tov: number; pf: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
   /** 속공 득점(2026-11, 판정 정본 fastBreak.ts) */
   fb_pts: number
+  /** 슛 종류별 성공·시도(2026-11-15 운영진 — 박스스코어 「야투」 펼치기). 3점은 fg3m·fg3a */
+  lay_m: number; lay_a: number; post_m: number; post_a: number; mid_m: number; mid_a: number
 }
 
 export const emptyBoxLine = (): BoxLine => ({
   pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
   fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, fb_pts: 0,
+  lay_m: 0, lay_a: 0, post_m: 0, post_a: 0, mid_m: 0, mid_a: 0,
 })
 
 /** 야투(필드골) 이벤트 타입 — 자유투·앤드원 제외. 공격 유형 분석도 이 목록을 쓴다. */
@@ -34,10 +37,14 @@ export function applyEventToBoxLine(s: BoxLine, type: string, result: string | n
       s.fg3a++; s.fga++
       if (made) { s.fg3m++; s.fgm++; s.pts += pts }
       break
-    case 'shot_2p_mid': case 'shot_layup': case 'shot_post':
+    case 'shot_2p_mid': case 'shot_layup': case 'shot_post': {
       s.fga++
       if (made) { s.fgm++; s.pts += pts }
+      const k = type === 'shot_layup' ? 'lay' : type === 'shot_post' ? 'post' : 'mid'
+      s[`${k}_a`]++
+      if (made) s[`${k}_m`]++
       break
+    }
     case 'and_one':
       if (made) { s.pts += pts }
       break
