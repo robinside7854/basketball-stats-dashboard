@@ -195,6 +195,9 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 ### 글씨 최소 12px (2026-11-15 운영진)
 - 리그 회원 화면에서 `text-[10px]`·`text-[11px]` 를 쓰지 않는다 — 폰에서 안 읽혔다(일괄로 `text-[12px]` 로 올림, 기록 화면·입력 패드·CEO 콘솔·파란날개는 제외). 그림 안 글자(SVG `fontSize`)는 예외.
 
+### 큰 화면 파일 나눔 (2026-11-15)
+- 박스스코어 선수 표·카드·공용 조각 = `components/league/boxscore/statTable.tsx`(본체 `BoxscoreContent.tsx` 1,673→1,099줄). 선수 카드 타입·작은 조각(강점 고르기·통산 블록 등) = `components/league/player/quickViewParts.tsx`. 새 조각은 본체 대신 이 파일들에 둔다.
+
 ### 리그 화면 질감·깊이 (2026-10-16 Taste 리디자인)
 - 그림자는 `--mm-shadow-sm/md/lg` 만(바탕색 기운). `shadow-lg`·`rgba(0,0,0,…)` 그림자를 새로 쓰지 말 것.
 - 누르는 것은 `mm-press`, 눌러서 여는 카드는 `mm-lift`, 로딩 자리는 `mm-shimmer`. 정의는 `globals.css` 끝.
