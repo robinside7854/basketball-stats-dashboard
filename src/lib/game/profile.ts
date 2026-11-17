@@ -12,6 +12,17 @@ export const PROFILE_OPTIONS = {
   build: { normal: '보통', slim: '마름', sturdy: '건장' },
   speed: { auto: '기록대로', fast: '빠름', normal: '보통', slow: '느림' },
   athletic: { auto: '기록대로', high: '높음', normal: '보통', low: '낮음' },
+  // 선수 고유 스킬 1개(2026-11-17 사용자 지정). 동작은 게임 엔진이 id 로 붙인다
+  skill: {
+    ironScreen: '철벽스크린', trashTalk: '트래시토킹', rubberArm: '고무고무팔', ironMental: '강철멘탈',
+    pickpocket: '소매치기', clutch: '클러치', putbackMachine: '풋백머신', backdoor: '백도어', rimProtector: '림 프로텍터',
+    midHotHand: '미들핫핸드', fadeaway: '페이더웨이', threeHotHand: '3점핫핸드', catchShoot: '캐치앤슛', sliding: '슬라이딩',
+    shadowDefense: '그림자수비', fastBreak: '번개 속공', leech: '찰거머리', entryPass: '엔트리 패스',
+    plusOne: '플러스원', deepThree: '딥쓰리', isolation: '아이솔레이션', mounjaro: '마운자로', ballHawk: '볼호크',
+    openShot: '오픈샷 확신', pickRoll: '픽앤롤 마스터', ankleBreaker: '앵클브레이커', euroStep: '유로스텝',
+    hustleMachine: '허슬머신', stepBack: '스텝백', kickOut: '킥아웃패스', killPass: '킬패스', shotFake: '슛페이크',
+    buzzerBeater: '버저비터', laneCut: '패스길 차단', grit: '투지',
+  },
 } as const
 
 export type ProfileKey = keyof typeof PROFILE_OPTIONS
@@ -32,11 +43,12 @@ export function cleanProfile(raw: unknown): GameProfile | null {
 }
 
 /** 게임으로 보낼 때: 외모 칸(체형 포함)과 능력치 덮어쓰기를 나눈다 */
-export function splitProfile(p: GameProfile | null): { look: Omit<GameProfile, 'speed' | 'athletic'> | null; speed?: number; athletic?: number } {
-  if (!p) return { look: null }
-  const { speed, athletic, ...look } = p
+export function splitProfile(p: GameProfile | null): { look: Omit<GameProfile, 'speed' | 'athletic' | 'skill'> | null; skill: string | null; speed?: number; athletic?: number } {
+  if (!p) return { look: null, skill: null }
+  const { speed, athletic, skill, ...look } = p
   return {
     look: Object.keys(look).length ? look : null,
+    skill: skill ?? null,
     speed: speed && speed !== 'auto' ? TIER_RATING[speed] : undefined,
     athletic: athletic && athletic !== 'auto' ? TIER_RATING[athletic] : undefined,
   }

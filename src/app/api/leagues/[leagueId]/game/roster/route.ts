@@ -50,7 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
     const prof = Object.fromEntries((hs ?? []).map(h => [h.id, splitProfile((h as { appearance?: GameProfile | null }).appearance ?? null)]))
     const teams = await currentQuarterTeams(leagueId)
     return NextResponse.json(
-      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: { ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, look: pr?.look ?? null, team: teams[c.id] ?? null } }) },
+      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: { ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, look: pr?.look ?? null, skill: pr?.skill ?? null, team: teams[c.id] ?? null } }) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {

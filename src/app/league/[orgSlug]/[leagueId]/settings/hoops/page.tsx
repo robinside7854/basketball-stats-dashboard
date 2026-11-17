@@ -16,11 +16,12 @@ type Row = LeaguePlayer & { appearance?: GameProfile | null }
 type Draft = { height: string; profile: GameProfile }
 
 const GROUPS: { title: string; keys: ProfileKey[] }[] = [
+  { title: '스킬', keys: ['skill'] },
   { title: '몸 · 능력', keys: ['build', 'speed', 'athletic'] },
   { title: '외모', keys: ['hair', 'hairColor', 'skin', 'eyewear', 'facial'] },
 ]
 const LABEL: Record<ProfileKey, string> = {
-  build: '체형', speed: '스피드', athletic: '운동능력', hair: '머리 모양', hairColor: '머리 색', skin: '피부', eyewear: '안경', facial: '수염',
+  build: '체형', speed: '스피드', athletic: '운동능력', hair: '머리 모양', hairColor: '머리 색', skin: '피부', eyewear: '안경', facial: '수염', skill: '고유 스킬',
 }
 const FIELD = 'w-full min-h-11 rounded-none px-2.5 text-base bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--mm-ink)]'
 
@@ -88,7 +89,7 @@ export default function HoopsSettingsPage() {
       </Link>
       <div className="space-y-1">
         <h2 className="font-black text-3xl tracking-tight text-[color:var(--mm-ink)]">후프스 게임 설정</h2>
-        <p className="text-sm text-[color:var(--mm-ink-soft)]">선수마다 키·체형·스피드·운동능력·외모를 정해요.</p>
+        <p className="text-sm text-[color:var(--mm-ink-soft)]">선수마다 키·스킬·체형·스피드·운동능력·외모를 정해요.</p>
         <p className="text-sm text-[color:var(--mm-ink-soft)]">「기록대로」는 경기 기록으로 계산한 값을 써요.</p>
       </div>
 
@@ -102,7 +103,7 @@ export default function HoopsSettingsPage() {
         <ul className="space-y-2">
           {shown.map(p => {
             const d = cur(p), dirty = !same(d, draftOf(p))
-            const summary = [d.height && `${d.height}cm`, d.profile.build && PROFILE_OPTIONS.build[d.profile.build], d.profile.hair && PROFILE_OPTIONS.hair[d.profile.hair]].filter(Boolean).join(' · ')
+            const summary = [d.height && `${d.height}cm`, d.profile.build && PROFILE_OPTIONS.build[d.profile.build], d.profile.hair && PROFILE_OPTIONS.hair[d.profile.hair], d.profile.skill && PROFILE_OPTIONS.skill[d.profile.skill]].filter(Boolean).join(' · ')
             return (
               <li key={p.id}>
                 <details className="border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]">
