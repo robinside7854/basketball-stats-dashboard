@@ -49,8 +49,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
     // 운영진 게임 설정(lib/game/profile.ts): 외모·체형은 look 으로, 스피드·운동능력은 「정한 값이 우선」으로 능력치를 덮는다
     const prof = Object.fromEntries((hs ?? []).map(h => [h.id, splitProfile((h as { appearance?: GameProfile | null }).appearance ?? null)]))
     const teams = await currentQuarterTeams(leagueId)
+    // 픽셀 얼굴(2026-11-17, 프로필 사진을 줄여 그린 64px — 게임 공개 저장소엔 두지 않음): 저장소 player-photos/game-face/<리그>/<선수>.png 가 있으면 그 주소
+    const sb = createClient(), dir = `game-face/${leagueId}`
+    const { data: faceFiles } = await sb.storage.from('player-photos').list(dir, { limit: 1000 })
+    const faces = Object.fromEntries((faceFiles ?? []).map(f => [f.name.replace(/\.png$/, ''), `${sb.storage.from('player-photos').getPublicUrl(`${dir}/${f.name}`).data.publicUrl}?v=${Date.parse(f.updated_at ?? '') || 0}`]))
     return NextResponse.json(
-      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: { ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, look: pr?.look ?? null, skill: pr?.skill ?? null, team: teams[c.id] ?? null } }) },
+      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: { ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, look: pr?.look ?? null, skill: pr?.skill ?? null, face: faces[c.id] ?? null, team: teams[c.id] ?? null } }) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {
