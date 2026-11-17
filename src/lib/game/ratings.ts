@@ -49,6 +49,8 @@ export interface GamePlayerCard {
    * 하루 공격 기회(야투 + 0.44×자유투 + 턴오버) ÷ 리그 평균, 출전일 적으면 1 쪽으로. 0.5~2. 엔진이 「누가 공을 잡고 쏘나」에 쓴다.
    */
   usage: number
+  /** 실제 누적 기록(2026-11-17 시뮬레이션 대조용 — 슛당 득점 = pts / fga). gp 출전일. */
+  real: { gp: number; pts: number; fga: number; fgm: number }
 }
 export interface GameRosterExtras {
   clutch: Record<string, { gp: number; pts: number; fgm: number; fga: number; fg3m: number }>
@@ -217,7 +219,7 @@ export function buildGameRoster(stats: PlayerStat[], heights?: Record<string, nu
     // 유형 = 리그 안 순위(백분위)로 「이 사람이 상대적으로 뭘 잘하나」
     const off = best<OffType>({ shooter: (P.three[i] + P.mid[i]) / 2, slasher: (P.layup[i] + P.speed[i]) / 2, post: (P.post[i] + P.oreb[i]) / 2, passer: P.pass[i] })
     const def = best<DefType>({ thief: P.steal[i], rim: P.block[i], boards: P.dreb[i], perimeter: outsideP[i] })
-    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings: ratings[i], ovr: ovr[i], height: heights?.[p.player_id] ?? null, clutch, form, duo, duoCount, shotMix, passRate, shotRel, usage, off, def, provisional: p.gp < PROVISIONAL_DAYS }
+    return { id: p.player_id, name: p.name, num: p.number ?? 0, pos: toGamePos(p.position), ratings: ratings[i], ovr: ovr[i], height: heights?.[p.player_id] ?? null, clutch, form, duo, duoCount, shotMix, passRate, shotRel, usage, real: { gp: p.gp, pts: p.pts, fga: p.fga, fgm: p.fgm }, off, def, provisional: p.gp < PROVISIONAL_DAYS }
   })
 }
 
