@@ -5,7 +5,7 @@ import { getGameExtras } from '@/lib/game/extras'
 import { buildGameRoster } from '@/lib/game/ratings'
 import { canViewStats } from '@/lib/auth/guard'
 import { createClient } from '@/lib/supabase/admin'
-import { splitProfile, type GameProfile } from '@/lib/game/profile'
+import { splitProfile, applyTune, type GameProfile } from '@/lib/game/profile'
 
 // GET /api/leagues/[leagueId]/game/roster?t=<열쇠>  — 미라클 후프스(게임 저장소) 전용, 읽기만.
 // 숫자는 스탯 탭과 같은 캐시(getCachedLeagueStats) 한 번 읽기 → 능력치 식(lib/game/ratings.ts).
@@ -47,6 +47,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
     const heights = Object.fromEntries((hs ?? []).map(h => [h.id, h.height_cm as number | null]))
     // 외모(픽셀 캐릭터용, 프로필 사진에서 뽑은 특징 — 마이그레이션 137). 없으면 null → 게임 기본 캐릭터
     // 운영진 게임 설정(lib/game/profile.ts): 외모·체형은 look 으로, 스피드·운동능력은 「정한 값이 우선」으로 능력치를 덮는다
+    const raw = Object.fromEntries((hs ?? []).map(h => [h.id, (h as { appearance?: GameProfile | null }).appearance ?? null]))
     const prof = Object.fromEntries((hs ?? []).map(h => [h.id, splitProfile((h as { appearance?: GameProfile | null }).appearance ?? null)]))
     const teams = await currentQuarterTeams(leagueId)
     // 픽셀 얼굴(2026-11-17, 프로필 사진을 줄여 그린 64px — 게임 공개 저장소엔 두지 않음): 저장소 player-photos/game-face/<리그>/<선수>.png 가 있으면 그 주소
@@ -54,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
     const { data: faceFiles } = await sb.storage.from('player-photos').list(dir, { limit: 1000 })
     const faces = Object.fromEntries((faceFiles ?? []).map(f => [f.name.replace(/\.png$/, ''), `${sb.storage.from('player-photos').getPublicUrl(`${dir}/${f.name}`).data.publicUrl}?v=${Date.parse(f.updated_at ?? '') || 0}`]))
     return NextResponse.json(
-      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: { ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, look: pr?.look ?? null, skill: pr?.skill ?? null, face: faces[c.id] ?? null, team: teams[c.id] ?? null } }) },
+      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: applyTune({ ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, raw[c.id]), look: pr?.look ?? null, skill: pr?.skill ?? null, face: faces[c.id] ?? null, team: teams[c.id] ?? null } }) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {

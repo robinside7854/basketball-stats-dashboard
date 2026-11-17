@@ -26,7 +26,36 @@ export const PROFILE_OPTIONS = {
 } as const
 
 export type ProfileKey = keyof typeof PROFILE_OPTIONS
-export type GameProfile = { [K in ProfileKey]?: keyof (typeof PROFILE_OPTIONS)[K] }
+export type GameProfile = { [K in ProfileKey]?: keyof (typeof PROFILE_OPTIONS)[K] } & { tuneBy?: Tune; tuneTo?: Tune }
+
+// 운영진 능력치 손보기(2026-11-17 사용자 지시) — 게임 카드 게이지 단위(1칸 = 10점).
+//   tuneBy: 지금보다 몇 칸 올리고 내릴지(-4~4) · tuneTo: 몇 칸으로 맞출지(1~5). 게이지 하나가 능력치 둘이면 둘 다 바꾼다
+export const TUNE_FIELDS = {
+  inside: ['layup', 'post'], mid: ['mid'], three: ['three'], pass: ['pass'], handle: ['handle'],
+  board: ['oreb', 'dreb'], defense: ['steal', 'block'], speed: ['speed'], stamina: ['stamina'],
+} as const
+export type Tune = Partial<Record<keyof typeof TUNE_FIELDS, number>>
+function cleanTune(raw: unknown, lo: number, hi: number): Tune | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const out: Tune = {}
+  for (const k of Object.keys(TUNE_FIELDS) as (keyof Tune)[]) {
+    const v = (raw as Record<string, unknown>)[k]
+    if (typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi && v !== 0) out[k] = v
+  }
+  return Object.keys(out).length ? out : undefined
+}
+/** 능력치에 손보기를 적용 — 칸 n = (50+10n-5)점, 1~99 안 */
+export function applyTune<R extends Record<string, number>>(r: R, p: GameProfile | null): R {
+  if (!p?.tuneBy && !p?.tuneTo) return r
+  const out: Record<string, number> = { ...r }
+  for (const [k, fs] of Object.entries(TUNE_FIELDS) as [keyof Tune, readonly string[]][]) {
+    for (const f of fs) {
+      if (p.tuneTo?.[k]) out[f] = 45 + 10 * p.tuneTo[k]!
+      if (p.tuneBy?.[k]) out[f] = Math.min(99, Math.max(1, out[f] + 10 * p.tuneBy[k]!))
+    }
+  }
+  return out as R
+}
 
 /** 단계 → 능력치 (빠름·높음 90 / 보통 73 / 느림·낮음 56) */
 export const TIER_RATING: Record<string, number> = { fast: 90, high: 90, normal: 73, slow: 56, low: 56 }
@@ -39,13 +68,15 @@ export function cleanProfile(raw: unknown): GameProfile | null {
     const v = (raw as Record<string, unknown>)[k]
     if (typeof v === 'string' && v in PROFILE_OPTIONS[k]) out[k] = v
   }
-  return Object.keys(out).length ? (out as GameProfile) : null
+  const tuneBy = cleanTune((raw as Record<string, unknown>).tuneBy, -4, 4), tuneTo = cleanTune((raw as Record<string, unknown>).tuneTo, 1, 5)
+  const res: GameProfile = { ...(out as GameProfile), ...(tuneBy ? { tuneBy } : {}), ...(tuneTo ? { tuneTo } : {}) }
+  return Object.keys(res).length ? res : null
 }
 
 /** 게임으로 보낼 때: 외모 칸(체형 포함)과 능력치 덮어쓰기를 나눈다 */
 export function splitProfile(p: GameProfile | null): { look: Omit<GameProfile, 'speed' | 'athletic' | 'skill'> | null; skill: string | null; speed?: number; athletic?: number } {
   if (!p) return { look: null, skill: null }
-  const { speed, athletic, skill, ...look } = p
+  const { speed, athletic, skill, tuneBy: _b, tuneTo: _t, ...look } = p
   return {
     look: Object.keys(look).length ? look : null,
     skill: skill ?? null,
