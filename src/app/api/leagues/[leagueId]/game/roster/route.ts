@@ -55,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ leagueId
     const { data: faceFiles } = await sb.storage.from('player-photos').list(dir, { limit: 1000 })
     const faces = Object.fromEntries((faceFiles ?? []).map(f => [f.name.replace(/\.png$/, ''), `${sb.storage.from('player-photos').getPublicUrl(`${dir}/${f.name}`).data.publicUrl}?v=${Date.parse(f.updated_at ?? '') || 0}`]))
     return NextResponse.json(
-      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: applyTune({ ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, raw[c.id]), look: pr?.look ?? null, skill: pr?.skill ?? null, face: faces[c.id] ?? null, team: teams[c.id] ?? null } }) },
+      { players: buildGameRoster(players, heights, extras, recent).map(c => { const pr = prof[c.id]; return { ...c, ratings: applyTune({ ...c.ratings, ...(pr?.speed ? { speed: pr.speed } : {}), ...(pr?.athletic ? { athletic: pr.athletic } : {}) }, raw[c.id]), look: pr?.look ?? null, skill: pr?.skill ?? null, screenTune: raw[c.id]?.tuneBy?.screen ?? 0, face: faces[c.id] ?? null, team: teams[c.id] ?? null } }) },
       { headers: { ...CORS, 'Cache-Control': 'private, no-store' } },
     )
   } catch (err) {

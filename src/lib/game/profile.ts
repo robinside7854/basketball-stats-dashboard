@@ -34,11 +34,11 @@ export const TUNE_FIELDS = {
   inside: ['layup', 'post'], mid: ['mid'], three: ['three'], pass: ['pass'], handle: ['handle'],
   board: ['oreb', 'dreb'], defense: ['steal', 'block'], speed: ['speed'], stamina: ['stamina'],
 } as const
-export type Tune = Partial<Record<keyof typeof TUNE_FIELDS, number>>
+export type Tune = Partial<Record<keyof typeof TUNE_FIELDS | 'screen', number>>  // screen = 능력치 칸이 아니라 게임이 계산하는 스크린 게이지(카드 screenTune 으로 보냄)
 function cleanTune(raw: unknown, lo: number, hi: number): Tune | undefined {
   if (!raw || typeof raw !== 'object') return undefined
   const out: Tune = {}
-  for (const k of Object.keys(TUNE_FIELDS) as (keyof Tune)[]) {
+  for (const k of [...Object.keys(TUNE_FIELDS), 'screen'] as (keyof Tune)[]) {
     const v = (raw as Record<string, unknown>)[k]
     if (typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi && v !== 0) out[k] = v
   }
