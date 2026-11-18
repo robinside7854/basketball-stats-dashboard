@@ -74,9 +74,13 @@ export const viewport: import('next').Viewport = {
 //   그래서 하이드레이션보다 먼저 문서 레벨에서 이벤트를 붙잡아 window 에 보관하고,
 //   뒤늦게 마운트되는 버튼은 이 보관분을 읽어간다. 이미 마운트돼 있는 경우를 위해
 //   커스텀 이벤트도 함께 쏜다.
+// ⚠ e.preventDefault() 를 부르지 말 것 (2026-11-18 사용자 신고).
+//   그걸 부르면 크롬이 주소창·화면 아래에 스스로 띄우던 「앱 설치」 안내를 감춘다 —
+//   「예전엔 주소창에 앱 다운로드가 떴는데 지금은 없다」의 원인이었다.
+//   보관만 해 두면 크롬 안내도 그대로 뜨고, 우리 「앱으로 설치」 버튼도 같은 이벤트로 설치 창을 연다.
 const INSTALL_PROMPT_CAPTURE = `(function(){try{
 window.addEventListener('beforeinstallprompt',function(e){
-e.preventDefault();window.__onballInstallPrompt=e;
+window.__onballInstallPrompt=e;
 window.dispatchEvent(new Event('onball:installable'));
 });
 window.addEventListener('appinstalled',function(){

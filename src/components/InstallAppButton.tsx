@@ -66,12 +66,17 @@ export default function InstallAppButton() {
   const handleClick = async () => {
     const evt = window.__onballInstallPrompt
     if (!evt) { setShowGuide(true); return }
-    await evt.prompt()
-    const { outcome } = await evt.userChoice
     // 한 번 쓴 프롬프트는 재사용할 수 없다.
     window.__onballInstallPrompt = null
     setPromptReady(false)
-    if (outcome === 'accepted') setInstalled(true)
+    try {
+      // 크롬 자체 안내가 이미 이 이벤트를 써 버렸으면 prompt() 가 실패한다 → 손으로 설치하는 법을 보여 준다.
+      await evt.prompt()
+      const { outcome } = await evt.userChoice
+      if (outcome === 'accepted') setInstalled(true)
+    } catch {
+      setShowGuide(true)
+    }
   }
 
   return (
