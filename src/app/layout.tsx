@@ -3,6 +3,7 @@ import { Fira_Sans, Bebas_Neue, Barlow_Condensed } from 'next/font/google'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import PwaCheck from '@/components/PwaCheck'
 import ThemedToaster from '@/components/ThemedToaster'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
@@ -115,6 +116,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
             {/* PWA Service Worker 등록 — 안드로이드 PWA 설치 인식용 */}
             <ServiceWorkerRegister />
+            {/* 앱 설치 점검 — 주소에 ?pwa-check 가 있을 때만 뜬다 */}
+            <PwaCheck />
             {/* 토스트 위치 — top-center: 모바일/데스크탑 모두에서 하단 sticky CTA / 채팅 FAB / 픽 액션 패널을
                 덮지 않음. expand=false 로 스택이 위로 펼쳐지지 않게 하고 offset 으로 상단 헤더 영역 회피.
                 theme 은 next-themes 와 동기화 (ThemedToaster). */}
