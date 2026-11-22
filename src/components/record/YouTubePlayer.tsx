@@ -4,7 +4,14 @@ import { useEffect, useRef } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 
-interface Props { youtubeUrl: string; startOffset: number; resumeAt?: number }
+interface Props {
+  youtubeUrl: string
+  startOffset: number
+  resumeAt?: number
+  /** 폰에서 유튜브 자체 조작 막대·버튼을 끄고 영상 위 터치를 막는다(2026-11-22 운영진 — 기록 화면은 우리 버튼만).
+   *  만들 때의 화면 폭으로 정한다(폭이 바뀌어도 다시 만들지 않는다). 제목·로고가 잠깐 뜨는 것은 유튜브 규정상 못 끈다. */
+  bareOnMobile?: boolean
+}
 
 declare global {
   interface Window {
@@ -13,7 +20,7 @@ declare global {
   }
 }
 
-export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Props) {
+export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt, bareOnMobile = false }: Props) {
   const playerRef = useRef<HTMLDivElement>(null)
   const ytPlayerRef = useRef<YT.Player | null>(null)
   const setYtPlayer = useGameStore(s => s.setYtPlayer)
@@ -31,9 +38,13 @@ export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Pro
 
     function initPlayer() {
       if (!playerRef.current) return
+      const bare = bareOnMobile && window.matchMedia('(max-width: 1023.98px)').matches
       const player = new window.YT.Player(playerRef.current, {
         videoId: videoId as string,
-        playerVars: { start: Math.floor(resumeAt ?? startOffset), rel: 0, modestbranding: 1 },
+        playerVars: {
+          start: Math.floor(resumeAt ?? startOffset), rel: 0, modestbranding: 1,
+          ...(bare ? { controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3, playsinline: 1 } : {}),
+        },
         events: {
           onReady: () => {
             if (resumeAt && resumeAt > 1) player.seekTo(Math.floor(resumeAt), true)
@@ -78,8 +89,10 @@ export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Pro
   }
 
   return (
-    <div className="rounded-xl overflow-hidden aspect-video bg-black">
+    <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
       <div ref={playerRef} className="w-full h-full" />
+      {/* 폰: 영상 위 터치를 막아 유튜브 조작 막대·추천 칸이 뜨지 않게 — 재생·이동은 아래 우리 버튼으로 */}
+      {bareOnMobile && <div aria-hidden className="absolute inset-0 lg:hidden" />}
     </div>
   )
 }

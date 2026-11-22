@@ -110,6 +110,7 @@ export default function VideoColumn({
             key={activeVideo.url}
             youtubeUrl={activeVideo.url}
             startOffset={activeVideo.startOffset}
+            bareOnMobile
           />
           {/* 영상 조작 버튼 — PC(lg↑)는 영상 위 오버레이, 폰·태블릿은 영상 **아래** 줄(2026-11-07 운영진 — 폰에서 영상을 가렸다).
               lg 에서는 래퍼가 `contents` 라 두 묶음이 위 relative 박스 기준으로 영상 위에 뜬다. */}
