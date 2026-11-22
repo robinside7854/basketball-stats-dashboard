@@ -415,7 +415,7 @@ export default async function LeagueDetailPage({
         {logo ? (
           <>
             <Image src={logo} alt="" width={56} height={56} priority className="shrink-0 w-12 h-12 lg:w-14 lg:h-14" />
-            <h1 className="font-black break-keep leading-tight" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5.5vw, 26px)', letterSpacing: '-0.01em' }}>{l.name}</h1>
+            <h1 className="min-w-0 font-black break-keep leading-tight" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5.5vw, 26px)', letterSpacing: '-0.01em' }}>{l.name}</h1>
           </>
         ) : (
           <h1 className="sr-only">{l.name}</h1>
@@ -428,9 +428,12 @@ export default async function LeagueDetailPage({
           </a>
         )}
         <Link href={`/league/${orgSlug}/${leagueId}/guide`}
-          className={`mm-press ${instagram ? '' : 'ml-auto'} shrink-0 inline-flex items-center gap-1.5 min-h-10 px-3 text-sm font-bold whitespace-nowrap`}
+          aria-label="이용 가이드" title="이용 가이드"
+          // 폰(sm 아래)은 책 아이콘만 — 로고·이름·인스타·「이용 가이드」 글자가 한 줄에 다 안 들어가
+          //   화면이 옆으로 밀려 잘려 보였다(2026-11-22 운영진, 설치 앱 화면).
+          className={`mm-press ${instagram ? '' : 'ml-auto'} shrink-0 inline-flex items-center justify-center gap-1.5 min-h-10 min-w-10 px-2.5 sm:px-3 text-sm font-bold whitespace-nowrap`}
           style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink)' }}>
-          <BookOpen className="w-4 h-4" aria-hidden />이용 가이드
+          <BookOpen className="w-4 h-4" aria-hidden /><span className="hidden sm:inline">이용 가이드</span>
         </Link>
       </div>
 
