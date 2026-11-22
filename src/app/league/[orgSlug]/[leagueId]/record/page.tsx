@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
-import { Lock, Loader2, CalendarDays } from 'lucide-react'
+import { Lock, Loader2, CalendarDays, PlayCircle } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
@@ -397,14 +397,33 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
           {/* 영상 먼저 — 팀 미지정 시 절반 크기로 표시 (16:9 비율 유지) */}
           {activeVideo && !selectedSlot.home_team_id && (
-            <div className="mb-3 flex justify-center">
-              <div className="w-1/2 rounded-xl overflow-hidden bg-black">
+            // 팀을 고르려고 영상을 본다 — 폰에서는 꽉 차게(종전 절반 폭은 너무 작았고 재생 버튼이 잘 안 눌렸다, 2026-11-22 운영진).
+            // 영상 안 재생 버튼이 안 먹는 기기가 있어 아래에 우리 버튼을 따로 둔다.
+            <div className="mb-3 flex flex-col items-center gap-2">
+              <div className="w-full lg:w-1/2 rounded-xl overflow-hidden bg-black">
                 <YouTubePlayer
                   key={activeVideo.url + '-pre'}
                   youtubeUrl={activeVideo.url}
                   startOffset={activeVideo.startOffset}
                 />
               </div>
+              {ytPlayer && (
+                <div className="w-full lg:w-1/2 grid grid-cols-5 gap-1.5">
+                  {[
+                    { label: '−10', run: () => seekRelative(-10) },
+                    { label: '−5', run: () => seekRelative(-5) },
+                    { label: '재생 / 멈춤', run: togglePlay },
+                    { label: '+5', run: () => seekRelative(5) },
+                    { label: '+10', run: () => seekRelative(10) },
+                  ].map(b => (
+                    <button key={b.label} type="button" onClick={b.run}
+                      className={`min-h-11 rounded-lg text-sm font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] cursor-pointer ${b.label === '재생 / 멈춤' ? 'inline-flex items-center justify-center' : ''}`}
+                      aria-label={b.label === '재생 / 멈춤' ? b.label : `${b.label}초`}>
+                      {b.label === '재생 / 멈춤' ? <PlayCircle size={22} aria-hidden /> : b.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
