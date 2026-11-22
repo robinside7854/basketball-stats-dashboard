@@ -814,7 +814,7 @@ export default function LeagueEventInputPad({
         )}
         {/* 이름은 한 줄로만 — 폰 글자 크기를 키운 기기에서 「김성/현」처럼 글자 단위로 꺾였다(2026-11-22) */}
         <div className={`font-semibold leading-tight whitespace-nowrap tracking-tight ${p.number != null ? 'text-xs' : 'text-[13px] lg:text-sm'}`}>
-          {hasPossession ? `▶ ${p.name}` : p.name}
+          {p.name}
         </div>
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? (
           <span className="absolute top-0.5 right-1 text-[11px] font-black text-amber-500 leading-none">+1</span>
