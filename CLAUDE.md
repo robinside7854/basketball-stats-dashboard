@@ -181,6 +181,9 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - **팀 색을 칩·버튼 바탕으로 칠할 때**(2026-11-09): 글자색은 `textOnBg(color)`(흰 글자 고정 금지 — 흰색 팀 이름이 사라졌다) + `boxShadow: swatchEdge(color)`.
 - 좁은 칸에 든 큰 숫자 크기를 `vw` 로 정하지 말 것 — PC 에서 카드가 좁은 칸에 들어가면 숫자끼리 겹친다. 그 줄에 `containerType: 'inline-size'` 를 걸고 `cqw` 로(`MyLastDay`).
 
+### 앱 설치(PWA) — 매니페스트는 <head> 에 (2026-11-22) ⚠
+- `next.config.ts` 의 `htmlLimitedBots: /.*/` 를 지우지 말 것 — 지우면 리그 화면 메타 태그가 `<body>` 로 스트리밍돼 안드로이드 크롬이 「이 앱을 설치할 수 없습니다」를 띄운다. 폰 점검은 주소 끝 `?pwa-check`.
+
 ### 알림(토스트)은 화면마다 하나 (2026-11-09) ⚠
 - 루트 layout 의 `ThemedToaster` 와 리그·CEO 콘솔 레이아웃의 `<Toaster>` 가 같이 떠 **모든 알림이 두 개씩** 떴다(운영진 신고).
   `ThemedToaster` 는 `/league`·`/admin` 에서 그리지 않고, `(main)` 레이아웃의 Toaster 는 지웠다. **레이아웃에 Toaster 를 새로 달지 말 것.**
