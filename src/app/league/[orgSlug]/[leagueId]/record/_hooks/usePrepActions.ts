@@ -1,5 +1,4 @@
 import { toast } from 'sonner'
-import { QUARTER_OPTIONS } from '../_lib/constants'
 import type { GameSlot } from '../_lib/types'
 import type { RecordState } from './useRecordState'
 
@@ -23,7 +22,7 @@ export type UsePrepActionsCtx = Pick<RecordState,
 
 export function usePrepActions(ctx: UsePrepActionsCtx) {
   const { adhocTeams, currentQuarter, extraP1AllSlots, newTeamColor, newTeamName, pendingAway,
-    pendingHome, savingExtraP1, selectedDate, selectedSlotId, setAddingSlot, setCreatingTeam,
+    pendingHome, selectedDate, selectedSlotId, setAddingSlot, setCreatingTeam,
     setDeletingSlot, setDeletingTeamId, setLiveScore, setNewTeamName, setPendingAway,
     setPendingHome, setSavingExtraP1, setSavingTeam, setSelectedSlotId, setSlots, setStatsRefresh,
     setSwappingId, slots, teams, autoFillRotation, leagueHeaders, leagueId, loadAdhocTeams,
@@ -299,53 +298,6 @@ export function usePrepActions(ctx: UsePrepActionsCtx) {
     }
   }
 
-  // 이 경기 한정 +1 토글.
-  //   선수 목록의 +1 은 **전역 플래그**라 켜는 순간 과거 마감 경기까지 소급된다 —
-  //   그 선수의 과거 야투마다 점수가 올라가 순위·기록이 통째로 바뀐다. 그래서 "이번 경기만"은
-  //   반드시 경기 쪽(league_games.plus_one_extra_ids)에 담는다. 판정 정본은 scoring.ts isPlusOneFor().
-  /**
-   * 한 선수의 +1 을 특정 쿼터에서만 적용/해제 (113).
-   *
-   * 전반과 후반의 +1 선수가 다른 경기가 있다. 경기 단위 지정만으로는 둘 중 하나만 고를 수
-   * 있어 어느 쪽으로 정하든 절반이 틀린 점수가 된다.
-   * ⚠ 저장 후 반드시 recompute — 이미 기록된 이벤트의 저장 점수가 옛 판정으로 남으면
-   *   화면 집계(재계산)와 저장 스코어가 갈린다(2026-08-23 에 실제로 1건 어긋난 적이 있다).
-   */
-  async function togglePlusOneQuarter(playerId: string, quarter: number) {
-    if (!selectedSlot || savingExtraP1) return
-    const cur = (selectedSlot.plus_one_quarters ?? {}) as Record<string, number[]>
-    // 지정이 없으면 "전 쿼터" 다 — 거기서 한 쿼터를 끄면 나머지 전부가 남는다.
-    const base = cur[playerId] ?? QUARTER_OPTIONS.map(q => q.value)
-    const next = base.includes(quarter) ? base.filter(q => q !== quarter) : [...base, quarter].sort((a, b) => a - b)
-
-    const merged: Record<string, number[]> = { ...cur }
-    // 전 쿼터가 켜졌으면 제한이 없는 것과 같다 — 키를 지워 "제한 없음" 으로 되돌린다.
-    if (next.length === 0 || next.length === QUARTER_OPTIONS.length) delete merged[playerId]
-    else merged[playerId] = next
-
-    setSavingExtraP1(playerId)
-    try {
-      const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlot.id}`, {
-        method: 'PATCH',
-        headers: leagueHeaders,
-        body: JSON.stringify({ plus_one_quarters: Object.keys(merged).length > 0 ? merged : null }),
-      })
-      if (!r.ok) {
-        const b = await r.json().catch(() => ({}))
-        toast.error(b?.error ?? '쿼터별 +1 저장 실패')
-        return
-      }
-      const sc = await fetch(`/api/leagues/${leagueId}/games/${selectedSlot.id}/recompute`, {
-        method: 'POST', headers: { ...leagueHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-      }).then(res => res.ok ? res.json() : null).catch(() => null)
-      if (sc) setLiveScore({ home: sc.home_score ?? sc.home ?? 0, away: sc.away_score ?? sc.away ?? 0 })
-      await refreshSlots()
-      setStatsRefresh(v => v + 1)
-    } finally {
-      setSavingExtraP1(null)
-    }
-  }
-
   async function toggleExtraPlusOne(playerId: string, playerName: string) {
     if (!selectedSlot) return
     const cur = selectedSlot.plus_one_extra_ids ?? []
@@ -386,5 +338,5 @@ export function usePrepActions(ctx: UsePrepActionsCtx) {
     }
   }
 
-  return { toggleQuarterSides, teamOptions, teamNameById, createAdhocTeam, deleteAdhocTeam, saveTeams, swapSides, toggleExhibition, addSlot, deleteSlot, togglePlusOneQuarter, toggleExtraPlusOne }
+  return { toggleQuarterSides, teamOptions, teamNameById, createAdhocTeam, deleteAdhocTeam, saveTeams, swapSides, toggleExhibition, addSlot, deleteSlot, toggleExtraPlusOne }
 }

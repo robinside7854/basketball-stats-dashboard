@@ -9,7 +9,6 @@ import { Lock, Loader2, CalendarDays, PlayCircle } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
-import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
 import GameLogModal from '@/components/league/GameLogModal'
 
 import type { ActiveVideo } from './_lib/types'
@@ -101,8 +100,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const st = useRecordState()
   const {
     scheduleDates, selectedDate, slots, allPlayers, leagueYtChannel, selectedSlotId, loadingDates,
-    initializingSlots, ytSyncing, minutes, setMinutes, statsRefresh, setStatsRefresh, mobileTab,
-    setMobileTab, homeRoster, setHomeRoster, awayRoster, setAwayRoster, irregularRoster, rosterLoading,
+    initializingSlots, ytSyncing, minutes, setMinutes, statsRefresh, setStatsRefresh,
+    homeRoster, setHomeRoster, awayRoster, setAwayRoster, irregularRoster, rosterLoading,
     pendingIrregular, setPendingIrregular, addingIrregular, savingExtraP1, extraP1AllSlots,
     setExtraP1AllSlots, addingSlot, deletingSlot, ytInput, setYtInput, ytSaving, ytPickerOpen,
     setYtPickerOpen, ytList, ytListLoading, adhocTeams, newTeamName, setNewTeamName, newTeamColor,
@@ -196,7 +195,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   // ── 동작 묶음 (effect 없음) ─────────────────────────────────────────
   const {
     toggleQuarterSides, teamOptions, teamNameById, createAdhocTeam, deleteAdhocTeam, saveTeams, swapSides,
-    toggleExhibition, addSlot, deleteSlot, togglePlusOneQuarter, toggleExtraPlusOne,
+    toggleExhibition, addSlot, deleteSlot, toggleExtraPlusOne,
   } = usePrepActions({
     ...st, leagueId, leagueHeaders, selectedSlot, sidesFlipped, swappedQuarters, resetLineup,
     refreshSlots, autoFillRotation, loadRoster, loadAdhocTeams,
@@ -230,7 +229,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     el.classList.toggle('mm-rec-focus', recFocus)
     return () => el.classList.remove('mm-rec-focus')
   }, [recFocus])
-  const mobileTabShown = recFocus ? 'record' : st.mobileTab
 
   // 이미 홈/어웨이 명단에 들어있는지 체크
   const assignedIds = new Set([...homeRoster.map(p => p.id), ...awayRoster.map(p => p.id)])
@@ -372,7 +370,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 setExtraP1AllSlots={setExtraP1AllSlots}
                 savingExtraP1={savingExtraP1}
                 toggleExtraPlusOne={toggleExtraPlusOne}
-                togglePlusOneQuarter={togglePlusOneQuarter}
                 clearYoutubeUrl={clearYoutubeUrl}
                 deleteSlot={deleteSlot}
                 deletingSlot={deletingSlot}
@@ -453,21 +450,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
               {/* ── 우측: 기록 패널 ── */}
               <div className="mm-rec-panel space-y-3">
-                {/* 모바일 탭 */}
-                <div className="mm-rec-hide flex gap-1 lg:hidden">
-                  {(['record', 'stats'] as const).map(tab => (
-                    <button key={tab} onClick={() => setMobileTab(tab)}
-                      className="flex-1 py-2 text-xs font-bold transition-colors cursor-pointer min-h-[44px]"
-                      style={mobileTab === tab
-                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
-                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
-                      }>
-                      {tab === 'record' ? '기록' : '통계'}
-                    </button>
-                  ))}
-                </div>
-
-                <div className={mobileTabShown === 'record' ? '' : 'hidden lg:block'}>
+                {/* 폰의 「기록 | 통계」 탭은 2026-11-22 뺐다 — 「통계」는 점수줄 「스탯」 버튼과 같은 표였다. */}
+                <div>
                   {selectedSlot?.is_complete ? (
                     /* ── 마감된 경기 배너 ── */
                     <CompletedBanner
@@ -559,20 +543,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   )}
                 </div>
 
-                {/* 통계 (모바일) */}
-                <div className={mobileTabShown === 'stats' ? 'lg:hidden' : 'hidden'}>
-                  <LeagueStatsPanel
-                    leagueId={leagueId}
-                    gameId={selectedSlotId}
-                    players={allPlayers}
-                    refreshKey={statsRefresh}
-
-                    homePlayers={homeRoster}
-                    awayPlayers={awayRoster}
-                    homeTeam={selectedSlot?.home_team ?? undefined}
-                    awayTeam={selectedSlot?.away_team ?? undefined}
-                  />
-                </div>
               </div>
             </div>
 

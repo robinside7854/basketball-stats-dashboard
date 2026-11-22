@@ -1,14 +1,13 @@
 import { ChevronDown, Loader2, Trash2, Zap } from 'lucide-react'
-import { QUARTER_OPTIONS } from '../_lib/constants'
 import type { GameSlot, QuarterVideoMap, RosterPlayer, Setter } from '../_lib/types'
 
-// 고급 설정 — 접어 둔다. 실측(리그 282경기): 경기한정 +1 4% · 쿼터별 +1 0%.
+// 고급 설정 — 접어 둔다. 실측(리그 282경기): 경기한정 +1 4% · 쿼터별 +1 0%(2026-11-22 쿼터별 칸 삭제).
 //   96%의 경기에서 손대지 않는 것이 선수 수만큼 토글을 펼친 채 자리를 차지하고 있었다.
 //   기능을 없앤 것이 아니라 한 줄로 접었다 — 필요한 4%에서는 그대로 다 있다.
 export default function AdvancedPanel({
   selectedSlot, homeRoster, awayRoster, quarterVideos,
   advancedOpen, setAdvancedOpen, extraP1AllSlots, setExtraP1AllSlots, savingExtraP1,
-  toggleExtraPlusOne, togglePlusOneQuarter, clearYoutubeUrl, deleteSlot, deletingSlot,
+  toggleExtraPlusOne, clearYoutubeUrl, deleteSlot, deletingSlot,
 }: {
   selectedSlot: GameSlot
   homeRoster: RosterPlayer[]
@@ -20,7 +19,6 @@ export default function AdvancedPanel({
   setExtraP1AllSlots: Setter<boolean>
   savingExtraP1: string | null
   toggleExtraPlusOne: (playerId: string, playerName: string) => Promise<void>
-  togglePlusOneQuarter: (playerId: string, quarter: number) => Promise<void>
   clearYoutubeUrl: () => Promise<void>
   deleteSlot: () => Promise<void>
   deletingSlot: boolean
@@ -110,76 +108,7 @@ export default function AdvancedPanel({
           })}
         </ul>
 
-        {/* 쿼터별 +1 (113) — 전반과 후반의 +1 선수가 다른 경기가 있다.
-            +1 이 켜진 선수만 보여준다(꺼진 선수에겐 의미가 없다).
-            지정이 없으면 전 쿼터 적용이라 처음엔 네 칸이 다 켜져 보인다. */}
-        {(() => {
-          const active = [...homeRoster, ...awayRoster].filter(
-            pl => pl.plus_one || (selectedSlot.plus_one_extra_ids ?? []).includes(pl.id),
-          )
-          if (active.length === 0) return null
-          const limits = (selectedSlot.plus_one_quarters ?? {}) as Record<string, number[]>
-          return (
-            <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-              <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                <span className="t-label" style={{ color: 'var(--mm-muted)' }}>쿼터별 +1</span>
-                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                  전·후반 +1 선수가 다를 때 씁니다 · 끄면 그 쿼터에는 +1 이 붙지 않습니다
-                </span>
-              </div>
-              {/* 선수마다 한 칸 — 이름과 토글을 같은 줄에 두면 좁은 화면에서 감겨
-                  "연장2 전 쿼터" 가 누구 것인지 흐려진다(375px 실측). */}
-              <ul className="space-y-2 list-none p-0 m-0">
-                {active.map(pl => {
-                  const on = limits[pl.id] ?? QUARTER_OPTIONS.map(q => q.value)
-                  const busy = savingExtraP1 === pl.id
-                  const limited = !!limits[pl.id]
-                  return (
-                    <li
-                      key={pl.id}
-                      className="p-2"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                    >
-                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                        <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink)' }}>
-                          {pl.name}
-                        </span>
-                        <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                          {limited ? `${on.map(v => QUARTER_OPTIONS.find(q => q.value === v)?.label ?? v).join('·')} 만` : '전 쿼터'}
-                        </span>
-                        {busy && <Loader2 size={14} className="animate-spin" aria-hidden style={{ color: 'var(--mm-muted)' }} />}
-                      </div>
-                      <div className="flex gap-1 flex-wrap">
-                      {QUARTER_OPTIONS.map(q => {
-                        const active2 = on.includes(q.value)
-                        return (
-                          <button
-                            key={q.value}
-                            type="button"
-                            disabled={busy}
-                            onClick={() => togglePlusOneQuarter(pl.id, q.value)}
-                            aria-pressed={active2}
-                            aria-label={`${pl.name} ${q.label} +1 ${active2 ? '해제' : '적용'}`}
-                            className="inline-flex items-center justify-center min-h-11 min-w-11 px-2 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                            style={active2
-                              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
-                              : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                          >
-                            {q.label}
-                          </button>
-                        )
-                      })}
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-              <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-                이미 기록한 경기도 여기서 고치면 점수가 다시 계산됩니다.
-              </p>
-            </div>
-          )
-        })()}
+        {/* 쿼터별 +1 지정 칸은 2026-11-22 뺐다 — 리그 전체에서 쓴 경기가 1번(대회)뿐이었다. 저장된 값은 점수 계산이 계속 읽는다. */}
       </div>
     )}
 
