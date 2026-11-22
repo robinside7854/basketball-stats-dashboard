@@ -16,6 +16,7 @@ export type UseGameSessionCtx = Pick<RecordState,
   loadRoster: (slot: GameSlot) => Promise<void>
   refreshFoulEvents: () => void
   refreshSlots: (targetId?: string) => Promise<GameSlot[] | null>
+  autoFillRotation: (fresh: GameSlot[], opts?: { onlyEmpty?: boolean; afterComplete?: boolean }) => Promise<void>
   resumeSnapRef: React.MutableRefObject<ResumeSnap>
   selectSlot: (slot: GameSlot) => Promise<void>
   selectedSlot: GameSlot | null
@@ -28,7 +29,7 @@ export function useGameSession(ctx: UseGameSessionCtx) {
     setCompleting, setGameStarted, setLiveScore, setMinutes, setPendingIrregular,
     setPlusOneConflict, setReopening, setSavingOppScore, setShowComplete, setShowPlusOneModal,
     setStartingGame, setStatsRefresh, slots, completedIdsRef, leagueHeaders, leagueId, loadRoster,
-    refreshFoulEvents, refreshSlots, resumeSnapRef, selectSlot, selectedSlot, setLineup } = ctx
+    refreshFoulEvents, refreshSlots, autoFillRotation, resumeSnapRef, selectSlot, selectedSlot, setLineup } = ctx
   // 선발 체크된 선수만 onCourt + minutes INSERT (실제 로직)
   async function doStartGame(starterIds: string[]) {
     setStartingGame(true)
@@ -186,9 +187,19 @@ export function useGameSession(ctx: UseGameSessionCtx) {
       if (selectedSlotId) completedIdsRef.current.add(selectedSlotId)
       clearResume(leagueId, selectedSlotId)
       // 마감 → 다음 경기로 한 번에 (2026-10-11). 종전엔 위로 올라가 슬롯을 다시 골라야 했다.
-      const cur = slots.find(s => s.id === selectedSlotId)
+      let cur = slots.find(s => s.id === selectedSlotId)
+      let pool = slots
+      // 1경기를 마감하면 그 점수로 2경기부터 대진을 채우고(2026-11-22 운영진), 채운 팀으로 다음 경기를 연다.
+      if (cur?.slot_num === 1 && !isTournament) {
+        const fresh = await refreshSlots(selectedSlotId)
+        if (fresh) {
+          await autoFillRotation(fresh, { afterComplete: true })
+          pool = (await refreshSlots(selectedSlotId)) ?? fresh
+          cur = pool.find(s => s.id === selectedSlotId) ?? cur
+        }
+      }
       const next = cur
-        ? [...slots].filter(s => s.slot_num > cur.slot_num && !s.is_complete).sort((a, b) => a.slot_num - b.slot_num)[0]
+        ? [...pool].filter(s => s.slot_num > cur.slot_num && !s.is_complete).sort((a, b) => a.slot_num - b.slot_num)[0]
         : undefined
       // 2026-11-03(운영진): 토스트 버튼을 누르지 않아도 다음 경기를 바로 연다. 선발은 앞 경기 선발로
       //   **체크만** 된다(useAutoPrevStarters) — 시작은 기록원이 확인하고 누른다.

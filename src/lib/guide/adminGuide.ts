@@ -175,13 +175,13 @@ export const ADMIN_GUIDE: AdminSection[] = [
     ],
   },
   {
-    id: 'record', icon: 'pen', title: '경기 기록', summary: '1 · 2경기만 정하면 나머지는 저절로 채워져요.',
+    id: 'record', icon: 'pen', title: '경기 기록', summary: '1경기만 정하고 마감하면 나머지는 저절로 채워져요.',
     where: ['일정', '날짜 카드', '기록하기'],
     blocks: [
       {
         kind: 'flow', steps: [
           { icon: 'video', who: 'auto', title: '영상이 일정에', desc: '매일 밤 자동' },
-          { icon: 'users', who: 'admin', title: '1 · 2경기 팀', desc: '나머지 대진 자동' },
+          { icon: 'users', who: 'admin', title: '1경기 팀', desc: '마감하면 나머지 대진 자동' },
           { icon: 'swap', who: 'admin', title: '좌우 확인', desc: '경기마다 ⇄' },
           { icon: 'pen', who: 'admin', title: '기록 · 마감', desc: '「다음 경기 기록하기」' },
         ],

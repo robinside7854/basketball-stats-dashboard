@@ -84,3 +84,25 @@ export function rotationFromFirstTwo(
   if (loserId === restingId) return null
   return { winnerId, loserId, restingId }
 }
+
+/**
+ * 1경기 **결과**만으로 승자/패자/쉰 팀을 가린다 (2026-11-22 운영진 — 2경기 팀을 손으로 넣지 않게).
+ *
+ * 1경기를 마감하면 점수로 승자가 정해지고, 쉰 팀 = 상시 세 팀 중 1경기에 안 나온 팀이다.
+ * 상시 팀이 정확히 셋이 아니면(쉰 팀을 하나로 못 정하면) null. 무승부면 'tie' — 승자 잔류 규칙이 서지 않는다.
+ */
+export function rotationFromFirstGame(
+  g1: { home: string | null; away: string | null; homeScore: number | null; awayScore: number | null },
+  teamIds: string[],
+): { winnerId: string; loserId: string; restingId: string } | 'tie' | null {
+  if (!g1.home || !g1.away || g1.homeScore == null || g1.awayScore == null) return null
+  const others = [...new Set(teamIds)].filter(id => id !== g1.home && id !== g1.away)
+  if (others.length !== 1) return null
+  if (g1.homeScore === g1.awayScore) return 'tie'
+  const homeWon = g1.homeScore > g1.awayScore
+  return {
+    winnerId: homeWon ? g1.home : g1.away,
+    loserId: homeWon ? g1.away : g1.home,
+    restingId: others[0],
+  }
+}

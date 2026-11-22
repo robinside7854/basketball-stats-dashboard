@@ -209,7 +209,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     handleEventSaved, addIrregularToTeam,
   } = useGameSession({
     ...st, leagueId, leagueHeaders, selectedSlot, setLineup, refreshSlots, selectSlot, loadRoster,
-    refreshFoulEvents, resumeSnapRef, completedIdsRef,
+    refreshFoulEvents, resumeSnapRef, completedIdsRef, autoFillRotation,
   })
   const { toggleStarter, selectAllTeam, prevStarterSources, applyPrevStarters, handleDrop } = useStarterActions({
     ...st, leagueId, selectedSlot, addIrregularToTeam,

@@ -2,7 +2,7 @@ import { toast } from 'sonner'
 import { useClub } from '@/contexts/ClubContext'
 import type { LeaguePlayer } from '@/types/league'
 import type { Game } from '@/types/database'
-import { rotationFromFirstTwo, generateRotation } from '@/lib/league/rotation'
+import { rotationFromFirstTwo, rotationFromFirstGame, generateRotation } from '@/lib/league/rotation'
 import type { GameSlot, IrregularPlayer, MinRow, RosterPlayer } from '../_lib/types'
 import type { RecordState } from './useRecordState'
 
@@ -11,7 +11,7 @@ import type { RecordState } from './useRecordState'
 //   훅을 쓰지 않는다 — 분리 전처럼 **매 렌더 새로 만들어지는 함수**라 그 렌더의 값을 그대로 본다.
 //   딥링크(useDeepLink)와 다른 동작들이 이것을 부르므로 페이지에서 가장 먼저 만든다.
 export type UseSlotCoreCtx = Pick<RecordState,
-  'isTournament' | 'selectedDate' | 'selectedSlotId' | 'setAwayRoster' | 'setGameStarted' | 'setHomeRoster' | 'setInitializingSlots' | 'setIrregularRoster' | 'setLiveScore' | 'setMinutes' | 'setPendingAway' | 'setPendingHome' | 'setPlusOneConflict' | 'setRosterLoading' | 'setSelectedDate' | 'setSelectedSlotId' | 'setShowPlusOneModal' | 'setSlots'
+  'isTournament' | 'teams' | 'selectedDate' | 'selectedSlotId' | 'setAwayRoster' | 'setGameStarted' | 'setHomeRoster' | 'setInitializingSlots' | 'setIrregularRoster' | 'setLiveScore' | 'setMinutes' | 'setPendingAway' | 'setPendingHome' | 'setPlusOneConflict' | 'setRosterLoading' | 'setSelectedDate' | 'setSelectedSlotId' | 'setShowPlusOneModal' | 'setSlots'
 > & {
   leagueHeaders: Record<string, string>
   leagueId: string
@@ -22,7 +22,7 @@ export type UseSlotCoreCtx = Pick<RecordState,
 
 export function useSlotCore(ctx: UseSlotCoreCtx) {
   const clubSettings = useClub().settings
-  const { isTournament, selectedDate, selectedSlotId, setAwayRoster, setGameStarted, setHomeRoster,
+  const { isTournament, teams, selectedDate, selectedSlotId, setAwayRoster, setGameStarted, setHomeRoster,
     setInitializingSlots, setIrregularRoster, setLiveScore, setMinutes, setPendingAway,
     setPendingHome, setPlusOneConflict, setRosterLoading, setSelectedDate, setSelectedSlotId,
     setShowPlusOneModal, setSlots, leagueHeaders, leagueId, resetLineup, setCurrentGame, setLineup } = ctx
@@ -180,7 +180,7 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
   // ⚠ 이미 같은 대진이면 그대로 둔다 — 운영자가 좌우를 바꿔 둔 것을 1·2경기 재저장이 되돌리지 않게.
   // 친선전 날·대회에서는 돌지 않는다(대진이 그날 짠 팀이거나 상대가 외부 팀).
   //   onlyEmpty: 팀이 빈 칸만 채운다 — 1·2경기를 저장한 게 아니라 칸이 새로 생긴 경우(영상 연동).
-  async function autoFillRotation(fresh: GameSlot[], opts: { onlyEmpty?: boolean } = {}) {
+  async function autoFillRotation(fresh: GameSlot[], opts: { onlyEmpty?: boolean; afterComplete?: boolean } = {}) {
     if (isTournament) return
     // 동호회 운영 설정의 대진 방식이 「손으로」면 자동 배정하지 않는다(2026-11-10 플랫폼화 3단계)
     if (clubSettings.rotation !== 'winner_stays') return
@@ -191,11 +191,27 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
     // 1·2경기를 저장할 때만 — 다른 슬롯을 손으로 고친 것이 덮이지 않게
     const savedNum = fresh.find(x => x.id === selectedSlotId)?.slot_num
     if (!g1 || !g2) return
-    if (!opts.onlyEmpty && savedNum !== 1 && savedNum !== 2) return
-    const r = rotationFromFirstTwo(
+    if (!opts.onlyEmpty && !opts.afterComplete && savedNum !== 1 && savedNum !== 2) return
+    // 2경기 팀을 이미 넣었으면 종전처럼 1·2경기 대진으로, 아직 비어 있고 1경기가 마감됐으면
+    //   1경기 점수로 정한다(2026-11-22 운영진 — 1경기만 손으로 정하고 마감하면 2경기부터 자동).
+    const g2Set = !!(g2.home_team_id && g2.away_team_id)
+    let fromFirstGameOnly = false
+    let r = g2Set ? rotationFromFirstTwo(
       { home: g1.home_team_id ?? null, away: g1.away_team_id ?? null },
       { home: g2.home_team_id ?? null, away: g2.away_team_id ?? null },
-    )
+    ) : null
+    if (!g2Set && g1.is_complete) {
+      const permanent = teams.filter(t => !(t as { is_external?: boolean }).is_external && !t.exhibition_date).map(t => t.id)
+      const one = rotationFromFirstGame(
+        { home: g1.home_team_id ?? null, away: g1.away_team_id ?? null, homeScore: g1.home_score ?? null, awayScore: g1.away_score ?? null },
+        permanent,
+      )
+      if (one === 'tie') {
+        toast.info('1경기가 무승부라 2경기부터 자동 배정을 못 했어요', { description: '2경기 팀을 직접 정해 주세요. 저장하면 3경기부터 채워집니다' })
+        return
+      }
+      if (one) { r = one; fromFirstGameOnly = true }
+    }
     if (!r) {
       if (!opts.onlyEmpty && g1.home_team_id && g2.home_team_id) {
         toast.info('3경기 이후 자동 배정 안 함', {
@@ -204,7 +220,7 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
       }
       return
     }
-    const targets = ordered.filter(x => x.slot_num >= 3)
+    const targets = ordered.filter(x => x.slot_num >= (fromFirstGameOnly ? 2 : 3))
     if (targets.length === 0) return
     const seq = generateRotation(r.winnerId, r.loserId, r.restingId, targets[targets.length - 1].slot_num - 1)
     let filled = 0
@@ -226,7 +242,7 @@ export function useSlotCore(ctx: UseSlotCoreCtx) {
     if (filled > 0) {
       await refreshSlots()
       const last = targets[targets.length - 1].slot_num
-      toast.success(`3~${last}경기 대진 자동 배정 (${filled}경기)`, {
+      toast.success(`${fromFirstGameOnly ? 2 : 3}~${last}경기 대진 자동 배정 (${filled}경기)`, {
         description: '홈·원정이 다르면 경기마다 팀 선택 사이의 「홈↔원정」 버튼만 누르세요'
           + (skippedRecorded > 0 ? ` · 이미 기록된 ${skippedRecorded}경기는 그대로 뒀습니다` : ''),
         duration: 6000,
