@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
   },
+  // ⚠ 메타데이터 스트리밍 끄기 (2026-11-22 — 안드로이드 크롬 「이 앱을 설치할 수 없습니다」의 원인).
+  //   Next 는 generateMetadata 가 async 인 화면(리그 layout)에서 메타 태그를 <body> 로 늦게 흘려보낸다.
+  //   그런데 크롬은 <head> 안의 <link rel="manifest"> 만 읽는다 → 리그 화면이 「매니페스트 없음」이 되어
+  //   설치가 막히고 설치 안내(beforeinstallprompt)도 안 떴다. 모든 접속을 「봇」처럼 취급하면
+  //   메타 태그가 처음부터 <head> 에 들어간다. 되돌리지 말 것.
+  htmlLimitedBots: /.*/,
   // Supabase Storage 이미지 최적화 허용
   // 실제 프로젝트 호스트는 env(NEXT_PUBLIC_SUPABASE_URL) 로 접근하지만 hostname 은 와일드카드로 커버.
   // 선수 프로필: <Image fill sizes> 로 옵티마이저 통해 AVIF/WebP · 3배 밀도 대응까지 자동 서빙.
