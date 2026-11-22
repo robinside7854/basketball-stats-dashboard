@@ -28,8 +28,8 @@ export default function ScoreStrip({
     <div className="bg-[color:var(--mm-ground)] border border-[color:var(--mm-rule)] rounded-xl overflow-hidden">
       <div className="flex items-stretch min-h-11">
         {/* 좌우는 이 쿼터의 코트 배치를 따른다(위 스코어보드와 같은 sideView) */}
-        <div className="flex-1 py-2 px-3 flex items-center gap-2">
-          <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(leftSide).color) }}>
+        <div className="flex-1 min-w-0 py-1.5 px-2 lg:py-2 lg:px-3 flex items-center gap-1.5 lg:gap-2">
+          <span className="text-xs font-bold whitespace-nowrap" style={{ color: accentOrInk(sideView(leftSide).color) }}>
             {sideView(leftSide).team?.name ?? (leftSide === 'home' ? '홈팀' : '어웨이팀')}
           </span>
           <span className="text-2xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none ml-auto">
@@ -37,14 +37,14 @@ export default function ScoreStrip({
           </span>
         </div>
         <div className="flex flex-col items-center justify-center px-2 border-x border-[color:var(--mm-rule)] shrink-0">
-          <span className="text-xs text-green-400 font-bold tracking-widest">LIVE</span>
+          <span className="hidden sm:inline text-xs text-green-400 font-bold tracking-widest">LIVE</span>
           <span className="text-sm text-[color:var(--mm-muted)] font-black leading-none">:</span>
         </div>
-        <div className="flex-1 py-2 px-3 flex items-center gap-2">
+        <div className="flex-1 min-w-0 py-1.5 px-2 lg:py-2 lg:px-3 flex items-center gap-1.5 lg:gap-2">
           <span className="text-2xl font-black text-[color:var(--mm-ink)] tabular-nums leading-none mr-auto">
             {sideView(rightSide).score}
           </span>
-          <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(rightSide).color) }}>
+          <span className="text-xs font-bold whitespace-nowrap" style={{ color: accentOrInk(sideView(rightSide).color) }}>
             {sideView(rightSide).team?.name ?? (rightSide === 'home' ? '홈팀' : '어웨이팀')}
           </span>
         </div>

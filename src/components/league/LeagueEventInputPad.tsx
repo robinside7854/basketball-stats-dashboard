@@ -807,17 +807,18 @@ export default function LeagueEventInputPad({
             ? `shadow-lg ${hasPossession ? 'ring-2 ring-green-300 ring-offset-1 ring-offset-[color:var(--mm-panel)]' : ''}`
             : 'bg-[color:var(--mm-panel-alt)]/80 border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] hover:border-[color:var(--mm-muted)]'
         } ${(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? 'ring-1 ring-amber-400/60' : ''}`}
-        style={isSelected ? { backgroundColor: selectedBg, borderColor: selectedBg, color: selectedText } : {}}
+        // 선택 표시는 팀 색 바탕 + 진한 안쪽 테 — 흰색 팀(빅현욱)은 바탕만으로는 고른 티가 안 났다(2026-11-22 운영진)
+        style={isSelected ? { backgroundColor: selectedBg, borderColor: 'var(--mm-ink)', color: selectedText, boxShadow: 'inset 0 0 0 2px var(--mm-ink)' } : {}}
       >
         {p.number != null && (
           <div className="text-base font-black font-mono leading-none mb-0.5">#{p.number}</div>
         )}
-        <div className={`font-semibold leading-tight px-0.5 break-keep ${p.number != null ? 'text-xs' : 'text-sm'}`}
-          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+        {/* 이름은 한 줄로만 — 폰 글자 크기를 키운 기기에서 「김성/현」처럼 글자 단위로 꺾였다(2026-11-22) */}
+        <div className={`font-semibold leading-tight whitespace-nowrap tracking-tight ${p.number != null ? 'text-xs' : 'text-[13px] lg:text-sm'}`}>
           {hasPossession ? `▶ ${p.name}` : p.name}
         </div>
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? (
-          <span className="absolute top-1 right-1 text-xs font-black text-amber-300 leading-none">+1</span>
+          <span className="absolute top-0.5 right-1 text-[11px] font-black text-amber-500 leading-none">+1</span>
         ) : hotkey && <Kbd k={hotkey} />}
         {/* 개인 파울(F4·F5) 표시는 2026-11-09 운영진 결정으로 뺐다 — 미라클은 파울을 기록하지 않는다 */}
       </button>
@@ -886,13 +887,13 @@ export default function LeagueEventInputPad({
           const bg = selectedTeam?.color ?? '#3b82f6'
           const fg = textOnBg(bg)
           return (
-            <span className="shrink-0 px-3 py-1 rounded-lg text-sm font-bold"
-              style={{ backgroundColor: bg, color: fg }}>
+            <span className="hidden lg:inline shrink-0 px-3 py-1 rounded-lg text-sm font-bold whitespace-nowrap"
+              style={{ backgroundColor: bg, color: fg, boxShadow: 'inset 0 0 0 1px var(--mm-rule)' }}>
               {selectedObj.name}{selectedTeam ? ` · ${selectedTeam.name}` : ''}
             </span>
           )
         })() : (
-          <span className="shrink-0 px-3 py-1 rounded-lg bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] text-sm font-bold">
+          <span className="hidden lg:inline shrink-0 px-3 py-1 rounded-lg bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] text-sm font-bold whitespace-nowrap">
             선수를 선택하세요
           </span>
         )}
@@ -904,7 +905,7 @@ export default function LeagueEventInputPad({
         {lastEvent && (
           <button
             onClick={() => setShowLastMenu(v => !v)}
-            className="flex-1 min-h-11 text-xs text-[color:var(--mm-ink-soft)] truncate text-left hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors"
+            className="flex-1 min-w-0 min-h-11 text-xs break-keep text-[color:var(--mm-ink-soft)] text-left hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors"
           >
             {lastEvent.label}
           </button>
@@ -913,8 +914,8 @@ export default function LeagueEventInputPad({
         {/* 방금 장면 다시 보기 — 마지막 기록 4초 전부터 재생(PC 단축키 V) */}
         <button onClick={replayScene} disabled={sceneTs == null || !ytPlayer}
           aria-label="방금 장면 다시 보기"
-          className="relative shrink-0 inline-flex items-center gap-1 px-3 py-1.5 min-h-11 rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] cursor-pointer transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
-          <RotateCcw size={14} aria-hidden /> 다시 보기
+          className="relative shrink-0 inline-flex items-center gap-1 px-3 py-1.5 min-h-11 whitespace-nowrap rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] cursor-pointer transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
+          <RotateCcw size={14} aria-hidden /><span className="hidden sm:inline">다시 보기</span><span className="sm:hidden">다시</span>
           <Kbd k="V" />
         </button>
 
