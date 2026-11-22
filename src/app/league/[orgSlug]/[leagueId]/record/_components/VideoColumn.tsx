@@ -114,7 +114,7 @@ export default function VideoColumn({
           {/* 영상 조작 버튼 — PC(lg↑)는 영상 위 오버레이, 폰·태블릿은 영상 **아래** 줄(2026-11-07 운영진 — 폰에서 영상을 가렸다).
               lg 에서는 래퍼가 `contents` 라 두 묶음이 위 relative 박스 기준으로 영상 위에 뜬다. */}
           {ytPlayer && (
-          <div className="flex flex-wrap gap-2 mt-2 lg:mt-0 lg:contents">
+          <div className="mm-rec-topctl flex flex-wrap gap-2 mt-2 lg:mt-0 lg:contents">
           {/* 트랜스포트 컨트롤 — 영상 좌하단 (44px 터치 타겟) */}
           {ytPlayer && (
             <div className="flex items-center gap-1 rounded-xl px-1.5 py-1 max-lg:flex-1 max-lg:justify-between max-lg:border max-lg:border-[color:var(--mm-rule)] max-lg:bg-[color:var(--mm-panel-alt)] lg:absolute lg:bottom-2 lg:left-2 lg:z-20 lg:bg-black/75 lg:backdrop-blur-sm">

@@ -41,6 +41,7 @@ import VideoColumn from './_components/VideoColumn'
 import CompletedBanner from './_components/CompletedBanner'
 import ScoreStrip from './_components/ScoreStrip'
 import QuarterSelector from './_components/QuarterSelector'
+import RecBottomBar from './_components/RecBottomBar'
 import { QUARTER_OPTIONS } from './_lib/constants'
 import RecordingTools from './_components/RecordingTools'
 import StarterSelect from './_components/StarterSelect'
@@ -102,8 +103,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     scheduleDates, selectedDate, slots, allPlayers, leagueYtChannel, selectedSlotId, loadingDates,
     initializingSlots, ytSyncing, minutes, setMinutes, statsRefresh, setStatsRefresh,
     homeRoster, setHomeRoster, awayRoster, setAwayRoster, irregularRoster, rosterLoading,
-    pendingIrregular, setPendingIrregular, addingIrregular, savingExtraP1, extraP1AllSlots,
-    setExtraP1AllSlots, addingSlot, deletingSlot, ytInput, setYtInput, ytSaving, ytPickerOpen,
+    pendingIrregular, setPendingIrregular, addingIrregular,
+    addingSlot, deletingSlot, ytInput, setYtInput, ytSaving, ytPickerOpen,
     setYtPickerOpen, ytList, ytListLoading, adhocTeams, newTeamName, setNewTeamName, newTeamColor,
     setNewTeamColor, creatingTeam, deletingTeamId, pendingHome, setPendingHome, pendingAway,
     setPendingAway, savingTeam, videoPanelOpen, setVideoPanelOpen, advancedOpen, setAdvancedOpen,
@@ -195,7 +196,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   // ── 동작 묶음 (effect 없음) ─────────────────────────────────────────
   const {
     toggleQuarterSides, teamOptions, teamNameById, createAdhocTeam, deleteAdhocTeam, saveTeams, swapSides,
-    toggleExhibition, addSlot, deleteSlot, toggleExtraPlusOne,
+    addSlot, deleteSlot,
   } = usePrepActions({
     ...st, leagueId, leagueHeaders, selectedSlot, sidesFlipped, swappedQuarters, resetLineup,
     refreshSlots, autoFillRotation, loadRoster, loadAdhocTeams,
@@ -328,7 +329,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             savingTeam={savingTeam}
             swapSides={swapSides}
             swappingId={swappingId}
-            toggleExhibition={toggleExhibition}
             videoPanel={
               <VideoPanel
                 selectedSlot={selectedSlot}
@@ -361,15 +361,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             advancedPanel={
               <AdvancedPanel
                 selectedSlot={selectedSlot}
-                homeRoster={homeRoster}
-                awayRoster={awayRoster}
                 quarterVideos={quarterVideos}
                 advancedOpen={advancedOpen}
                 setAdvancedOpen={setAdvancedOpen}
-                extraP1AllSlots={extraP1AllSlots}
-                setExtraP1AllSlots={setExtraP1AllSlots}
-                savingExtraP1={savingExtraP1}
-                toggleExtraPlusOne={toggleExtraPlusOne}
                 clearYoutubeUrl={clearYoutubeUrl}
                 deleteSlot={deleteSlot}
                 deletingSlot={deletingSlot}
@@ -484,6 +478,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       {/* 쿼터 선택 — 영상 한 편이 곧 한 경기(한 쿼터)인 경기에서는 감춘다(singleSegment) */}
                       {!singleSegment && <QuarterSelector currentQuarter={currentQuarter} setCurrentQuarter={setCurrentQuarter} />}
 
+                      <RecBottomBar
+                        seekRelative={seekRelative}
+                        togglePlay={togglePlay}
+                        playbackRate={playbackRate}
+                        setPlaybackRate={setPlaybackRate}
+                        quarterPicker={!singleSegment ? { value: currentQuarter, onChange: setCurrentQuarter, options: QUARTER_OPTIONS } : undefined}
+                      />
                       {/* 입력 패드 · 상대 점수 안내(대회) · 실시간 요약 (게스트·타팀 임시 출전은 교체 모달 안) */}
                       <RecordingTools
                         leagueId={leagueId}

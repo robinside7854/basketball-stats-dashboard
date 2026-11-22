@@ -76,13 +76,6 @@ export default function RecordingTools({
       {/* 게스트·임시 선수 추가 · 타팀 임시 출전은 2026-11-03 부터 「교체」 모달 안에 있다(운영진 — 자주 있는 일이 아니다). */}
 
       {/* 실시간 요약 — 기록이 쌓이는 것이 바로 보이게(운영진 2026-11-03). 코트 위 선수만, 숫자 6개. */}
-      <LiveStatStrip
-        leagueId={leagueId}
-        gameId={selectedSlotId}
-        refreshKey={statsRefresh}
-        left={{ team: sideView(leftSide).team ?? undefined, players: sideView(leftSide).roster.filter(p => onCourt.includes(p.id)) }}
-        right={{ team: sideView(rightSide).team ?? undefined, players: sideView(rightSide).roster.filter(p => onCourt.includes(p.id)) }}
-      />
       {/* 폰 기록 집중 화면의 맨 아래 — 마감(경기당 한 번이라 스크롤해서 누른다)과 집중 화면 켜고 끄기.
           「경기 진행 중 · 마감」 상자는 집중 화면에서 숨겨지므로 마감은 여기서 한다. PC 는 영상 위 상자 그대로. */}
       <div className="lg:hidden grid grid-cols-3 gap-2 pt-1">
@@ -102,6 +95,19 @@ export default function RecordingTools({
           경기 마감
         </button>
       </div>
+      {/* 집중 화면에서는 접어 둔다(2026-11-22 운영진 — 기록 중엔 볼 일이 없다). PC·전체 화면에서는 펼친 채. */}
+      <details key={focusOn ? 'focus' : 'full'} open={!focusOn} className="group">
+        <summary className="flex items-center gap-1.5 min-h-11 px-1 text-xs font-bold cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden" style={{ color: 'var(--mm-muted)' }}>
+          <span className="transition-transform group-open:rotate-90">›</span> 실시간 기록 보기
+        </summary>
+      <LiveStatStrip
+          leagueId={leagueId}
+          gameId={selectedSlotId}
+          refreshKey={statsRefresh}
+          left={{ team: sideView(leftSide).team ?? undefined, players: sideView(leftSide).roster.filter(p => onCourt.includes(p.id)) }}
+          right={{ team: sideView(rightSide).team ?? undefined, players: sideView(rightSide).roster.filter(p => onCourt.includes(p.id)) }}
+        />
+      </details>
     </>
   )
 }

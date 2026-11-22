@@ -1083,3 +1083,12 @@
   html.mm-rec-focus .mm-rec-video [data-rec-sticky] { position: relative !important; top: 0 !important; margin: 0 !important; }
   html.mm-rec-focus .mm-rec-panel { height: 100dvh; overflow-y: auto; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom, 8px); }
 }
+
+
+/* 폰 기록 집중 화면 — 세로일 때 영상 조작 줄을 화면 맨 아래로(2026-11-22 운영진: 엄지가 위쪽 줄에 닿지 않았다). */
+.mm-rec-bottombar { display: none; }
+@media (max-width: 1023.98px) and (orientation: portrait) {
+  html.mm-rec-focus .mm-rec-bottombar { display: flex; }
+  html.mm-rec-focus .mm-rec-topctl { display: none !important; }
+  html.mm-rec-focus .mm-rec-nopad { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important; }
+}

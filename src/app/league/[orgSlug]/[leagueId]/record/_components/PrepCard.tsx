@@ -13,7 +13,7 @@ import type { GameSlot, Setter } from '../_lib/types'
 export default function PrepCard({
   selectedSlot, isTournament, gameStarted, teamOptions,
   pendingHome, pendingAway, setPendingHome, setPendingAway,
-  saveTeams, savingTeam, swapSides, swappingId, toggleExhibition,
+  saveTeams, savingTeam, swapSides, swappingId,
   videoPanel, advancedPanel, adhocPanel,
 }: {
   selectedSlot: GameSlot
@@ -28,7 +28,6 @@ export default function PrepCard({
   savingTeam: boolean
   swapSides: (slotId: string) => Promise<void>
   swappingId: string | null
-  toggleExhibition: () => Promise<void>
   videoPanel: React.ReactNode
   advancedPanel: React.ReactNode
   adhocPanel: React.ReactNode
@@ -55,37 +54,15 @@ export default function PrepCard({
           >
             대회 경기
           </span>
-        ) : (
-          <div className="inline-flex" role="group" aria-label="경기 종류">
-            {([
-              { ex: false, label: '정규전', title: '리그 순위·개인 스탯에 집계됩니다' },
-              { ex: true, label: '친선전', title: '리그 순위·개인 스탯에서 제외됩니다 (박스스코어·하이라이트에는 남습니다)' },
-            ] as const).map((opt, i) => {
-              const active = !!selectedSlot.is_exhibition === opt.ex
-              return (
-                <button
-                  key={opt.label}
-                  type="button"
-                  /* 이미 그 상태면 아무 일도 하지 않는다 — toggleExhibition 은 토글이라
-                     같은 값을 다시 누르면 반대로 뒤집힌다 */
-                  onClick={() => { if (!active) toggleExhibition() }}
-                  aria-pressed={active}
-                  title={opt.title}
-                  className="px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  style={{
-                    background: active ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
-                    color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                    border: `1px solid ${active ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
-                    borderRadius: i === 0 ? '4px 0 0 4px' : '0 4px 4px 0',
-                    marginLeft: i === 0 ? 0 : '-1px',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
+        ) : selectedSlot.is_exhibition ? (
+          /* 「친선전으로 표시」는 2026-11-22 운영진 결정으로 뺐다(두 달 0번). 이미 친선인 옛 경기만 표시한다. */
+          <span
+            className="text-xs font-bold px-2 min-h-11 inline-flex items-center"
+            style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+          >
+            친선전
+          </span>
+        ) : null}
         {selectedSlot.is_exhibition && (
           <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>순위·개인 스탯에서 빠집니다</span>
         )}

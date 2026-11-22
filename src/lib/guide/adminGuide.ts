@@ -189,7 +189,7 @@ export const ADMIN_GUIDE: AdminSection[] = [
       {
         kind: 'cards', items: [
           { icon: 'list', who: 'auto', title: '명단 자동', desc: '참가신청에서 배치한 사람이 그 팀으로' },
-          { icon: 'alert', who: 'admin', title: '친선전', desc: '「경기 종류」에서 고르면 순위에서 빠져요' },
+          { icon: 'video', who: 'admin', title: '폰 기록', desc: '영상 조작 버튼은 화면 맨 아래' },
         ],
       },
     ],

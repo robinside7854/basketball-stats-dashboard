@@ -95,8 +95,7 @@ const FT_CHOICES: (EventBtn & { hint: string })[] = [
   { type: 'ft_2pt',     label: '2점슛 파울', hint: '1구 · 2점',   color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true },
   { type: 'ft_3pt_1',   label: '3점슛 파울', hint: '2구 · 2+1점', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true },
   { type: 'and_one',    label: '앤드원',     hint: '1점 · 바로 저장', color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE },
-  // 정식 룰(1구 1점). 미라클 자체룰 경기와 한 화면에 공존하므로 라벨에 득점을 박아 둔다.
-  { type: 'free_throw', label: '정식 자유투', hint: '1구 · 1점',   color: NEUTRAL_BTN, activeColor: NEUTRAL_ACTIVE, needsResult: true },
+  // 「정식 자유투(1구 1점)」는 2026-11-22 운영진 결정으로 뺐다(두 달 1번). 옛 free_throw 기록은 점수 계산이 그대로 읽는다.
 ]
 // 드문 보정용 작은 줄(2026-11-03, 운영진 「불필요한 버튼」 검토). 실측: 리바운드 6,399건 중 96.5% 가 실패 슛 피커에서,
 //   블록 352건 중 89% 가 실패 슛 짝에서 찍힌다 — 직접 누르는 건 경기당 각각 0.7건·0.1건.
@@ -757,7 +756,7 @@ export default function LeagueEventInputPad({
       <div className="space-y-1.5">
         {renderShotBoxes(shots)}
         {ftChooser ? (
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${FT_CHOICES.length + 1}, minmax(0, 1fr))` }}>
             {FT_CHOICES.map(c => (
               <button key={c.type} onClick={() => { setFtChooser(false); if (c.needsResult) handleShotClick(c); else saveInstant(c) }}
                 className={`${cell} ${c.color}`}>
@@ -1119,7 +1118,7 @@ export default function LeagueEventInputPad({
                     ))}
                   </div>
                 ) : group.label === '자유투' && ftChooser ? (
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${FT_CHOICES.length}, minmax(0, 1fr))` }}>
                     {FT_CHOICES.map(c => (
                       <button key={c.type}
                         onClick={() => { setFtChooser(false); if (c.needsResult) handleShotClick(c); else saveInstant(c) }}
