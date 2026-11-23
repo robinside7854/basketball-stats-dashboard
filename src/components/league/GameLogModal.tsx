@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { extractYouTubeId } from '@/lib/youtube/utils'
 import { toast } from 'sonner'
 import { Loader2, Trash2, Pencil, Check, X, RotateCcw } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -19,6 +20,7 @@ type EventRow = {
   related_player_id: string | null
   team_id: string | null
   video_timestamp: number | null
+  quarter?: number | null
   created_at: string
 }
 
@@ -70,6 +72,8 @@ function eventColor(type: string, result: string | null) {
 }
 
 interface Props {
+  /** 이 경기·쿼터의 영상 주소 — 주면 시각을 눌렀을 때 이 창 안에서 재생한다(2026-11-23 운영진: 뒤 화면으로 가면 필터가 풀려 다시 찾아야 했다) */
+  videoForQuarter?: (quarter: number | null) => string | null
   gameId: string
   leagueId: string
   leagueHeaders: Record<string, string>
@@ -82,7 +86,7 @@ interface Props {
   awayTeam?: { id: string; name: string; color: string }
 }
 
-export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlayers, onCourtIds, isEditMode, onClose, onChanged, homeTeam, awayTeam }: Props) {
+export default function GameLogModal({ videoForQuarter, gameId, leagueId, leagueHeaders, allPlayers, onCourtIds, isEditMode, onClose, onChanged, homeTeam, awayTeam }: Props) {
   const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -114,6 +118,17 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
     return onCourt
   }
 
+  // 창 안 재생기 — 누른 기록의 2초 전부터 재생. 창을 닫지 않으니 필터가 그대로 남는다.
+  const [inline, setInline] = useState<{ vid: string; t: number; key: string } | null>(null)
+  function playInline(e: EventRow) {
+    if (e.video_timestamp == null || !videoForQuarter) return false
+    const url = videoForQuarter(e.quarter ?? null)
+    const vid = url ? extractYouTubeId(url) : null
+    if (!vid) return false
+    try { ytPlayer?.pauseVideo() } catch {}
+    setInline({ vid, t: Math.max(0, Math.floor(e.video_timestamp) - 2), key: e.id })
+    return true
+  }
   function seekToTimestamp(sec: number | null) {
     if (sec == null || !ytPlayer) return
     try { ytPlayer.seekTo(sec, true); ytPlayer.unMute(); ytPlayer.playVideo() } catch {}
@@ -331,6 +346,20 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
         </div>
 
         {/* Event list */}
+        {inline && (
+          <div className="shrink-0 px-4 pt-3">
+            <div className="relative w-full aspect-video overflow-hidden" style={{ background: '#000', borderRadius: 'var(--mm-radius-ctl)' }}>
+              <iframe key={`${inline.vid}-${inline.t}-${inline.key}`}
+                src={`https://www.youtube.com/embed/${inline.vid}?start=${inline.t}&autoplay=1&playsinline=1&rel=0`}
+                title="기록 장면" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen
+                className="absolute inset-0 w-full h-full" />
+            </div>
+            <div className="flex justify-end mt-1.5">
+              <button type="button" onClick={() => setInline(null)} className="text-xs font-bold px-2.5 py-1 cursor-pointer"
+                style={{ color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>영상 닫기</button>
+            </div>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-[color:var(--mm-muted)]" /></div>
@@ -410,9 +439,10 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 className="flex items-center gap-3 px-3 py-2.5 bg-[color:var(--mm-panel)]/60 border border-[color:var(--mm-rule)]/40 rounded-xl hover:border-[color:var(--mm-rule)]/60 transition-colors group">
                 {/* 타임스탬프 — 클릭 시 영상 해당 시간으로 이동 */}
                 <div className="shrink-0 w-10 text-center">
-                  {e.video_timestamp != null && ytPlayer ? (
+                  {e.video_timestamp != null && (ytPlayer || videoForQuarter) ? (
                     <button
-                      onClick={() => seekToTimestamp(e.video_timestamp)}
+                      onClick={() => { if (!playInline(e)) seekToTimestamp(e.video_timestamp) }}
+                      style={inline?.key === e.id ? { outline: '2px solid var(--mm-yellow-strong)', borderRadius: 4 } : undefined}
                       className="text-xs font-mono font-bold text-blue-500 hover:text-blue-300 tabular-nums cursor-pointer transition-colors hover:underline underline-offset-2"
                       title="클릭하여 해당 시간으로 이동"
                     >

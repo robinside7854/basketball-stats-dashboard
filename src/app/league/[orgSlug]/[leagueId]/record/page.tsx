@@ -632,6 +632,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       {/* 게임 이벤트 로그 모달 */}
       {showGameLog && selectedSlotId && (
         <GameLogModal
+          videoForQuarter={q => (q != null && quarterVideos[q]?.url) || selectedSlot?.youtube_url || null}
           gameId={selectedSlotId}
           leagueId={leagueId}
           leagueHeaders={leagueHeaders}
