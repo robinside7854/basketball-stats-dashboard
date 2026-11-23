@@ -78,10 +78,15 @@ async function approve(sb: SupabaseClient, teamId: string, requestId: string): P
   return !error
 }
 
-/** 알림에서 보낸 사람 이름 — 「… 2,000원 김로빈 → 모임통장(1363)」의 「김로빈」. 못 읽으면 null. */
+/** 알림에서 보낸 사람 이름 — 「… 2,000원 김로빈 → 모임통장(1363)」의 「김로빈」. 못 읽으면 null.
+ *  폰 자동화 앱이 제목·내용 순서를 바꿔 보내도 읽는다(2026-11-23 — 새 폰이 「김로빈 → 모임통장(1363)모임통장 입금 1,000원」으로 보냈다).
+ *  → 앞 글에서 「금액원」까지를 떼고 마지막 줄만 — 이름에 든 「원」(유승원)은 숫자 뒤가 아니라 그대로 남는다. */
 export function parseSenderName(text: string): string | null {
-  const m = text.normalize('NFC').match(/원\s*([^→\n\r]+?)\s*→/)
-  const name = m?.[1]?.trim() ?? ''
+  const t = text.normalize('NFC')
+  const at = t.indexOf('→')
+  if (at < 0) return null
+  const before = t.slice(0, at).replace(/^[\s\S]*\d\s*원/, '')
+  const name = (before.split(/[\r\n]/).pop() ?? '').trim()
   return name.length >= 2 && name.length <= 20 ? name : null
 }
 
