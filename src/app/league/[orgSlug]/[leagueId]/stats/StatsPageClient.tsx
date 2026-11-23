@@ -478,7 +478,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   const ADV_COLS: { key: AdvKey; label: string; term: string; desc: string }[] = [
     { key: 'at_ratio',  label: '어시/턴오버', term: 'A/T',  desc: '어시스트/턴오버 비율' },
     // 속공(2026-11-14 운영진 — 메인 지표가 아니라 고급으로). 정의 fastBreak.ts
-    { key: 'fb_pg',     label: '속공 득점',   term: '속공', desc: '하루 평균 속공 득점 · 수비 리바·스틸·상대 득점 뒤 7초 안에 넣은 득점' },
+    { key: 'fb_pg',     label: '속공 득점',   term: '속공', desc: '하루 평균 속공 득점 · 수비 리바·스틸·상대 득점 뒤 10초 안에 넣은 득점' },
     { key: 'fb_total',  label: '속공 누적',   term: '속공', desc: '속공 득점 누적' },
     // 2026-11-04 운영진 — 하루 합계 기준 「그런 날」 수(트리플더블인 날은 더블더블에 안 셈)
     { key: 'dd2_total', label: '더블더블',    term: '더블더블', desc: '더블더블 날 수 · 하루 합계로 득점·리바·어시·스틸·블록 중 2개가 두 자릿수' },

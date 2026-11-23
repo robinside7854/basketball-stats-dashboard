@@ -7,15 +7,15 @@ let n = 0
 const ev = (team: string, type: string, t: number | null, result: string | null = null, quarter = 1, game = 'g'): FastBreakEvent =>
   ({ id: ++n, league_game_id: game, quarter, video_timestamp: t, team_id: team, type, result })
 
-test('수비 리바운드 뒤 7초 안 득점은 속공', () => {
+test('수비 리바운드 뒤 10초 안 득점은 속공', () => {
   const a = ev('A', 'dreb', 100), b = ev('A', 'shot_layup', 106, 'made')
   assert.deepEqual([...fastBreakIds([a, b])], [String(b.id)])
 })
 
-test('7초가 넘으면 속공 아님 · 경계 7초는 포함', () => {
-  const late = [ev('A', 'steal', 10), ev('A', 'shot_layup', 17.5, 'made')]
+test('10초가 넘으면 속공 아님 · 경계 10초는 포함', () => {
+  const late = [ev('A', 'steal', 10), ev('A', 'shot_layup', 20.5, 'made')]
   assert.equal(fastBreakIds(late).size, 0)
-  const edge = [ev('A', 'steal', 10), ev('A', 'shot_3p', 17, 'made')]
+  const edge = [ev('A', 'steal', 10), ev('A', 'shot_3p', 20, 'made')]
   assert.equal(fastBreakIds(edge).size, 1)
 })
 
@@ -40,12 +40,12 @@ test('같은 초면 스틸이 먼저 · 앤드원도 속공', () => {
   assert.ok(ids.has(String(s.id)) && ids.has(String(a1.id)))
 })
 
-test('상대 팀 득점 뒤 7초 안 득점도 속공 (2026-11-08)', () => {
+test('상대 팀 득점 뒤 10초 안 득점도 속공 (2026-11-08)', () => {
   const a = ev('B', 'shot_2p', 100, 'made'), b = ev('A', 'shot_layup', 106, 'made')
   assert.deepEqual([...fastBreakIds([a, b])], [String(b.id)])
   const ft = [ev('B', 'free_throw', 200, 'made'), ev('A', 'shot_3p', 205, 'made')]
   assert.equal(fastBreakIds(ft).size, 1)
-  const late = [ev('B', 'shot_2p', 300, 'made'), ev('A', 'shot_layup', 308, 'made')]
+  const late = [ev('B', 'shot_2p', 300, 'made'), ev('A', 'shot_layup', 311, 'made')]
   assert.equal(fastBreakIds(late).size, 0)
 })
 

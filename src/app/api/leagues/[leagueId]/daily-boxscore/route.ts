@@ -32,7 +32,7 @@ export async function GET(
   //   요청마다 따로 한다 — 캐시에는 로그인과 무관한 리그 공용 데이터만 들어간다.
   const body = await unstable_cache(
     () => computeDailyBoxscore(leagueId, date),
-    ['daily-boxscore', leagueId, date, 'v6'],
+    ['daily-boxscore', leagueId, date, 'v7'],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )()
   return NextResponse.json(body, { headers: { 'Cache-Control': 'private, no-store' } })
@@ -92,7 +92,7 @@ async function computeDailyBoxscore(leagueId: string, date: string) {
     .order('id', { ascending: true })
     .range(from, to))
 
-  // 속공 판정 — 정본 fastBreak.ts(수비 리바운드·스틸 뒤 7초 안 득점)
+  // 속공 판정 — 정본 fastBreak.ts(수비 리바운드·스틸 뒤 10초 안 득점)
   const fbIds = fastBreakIds(events)
 
   // teamMap 제거 — identityResolver 로 대체 (Q3 override 반영)

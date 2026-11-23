@@ -191,7 +191,7 @@ export async function computeLeagueStats(
     ast: number; stl: number; blk: number
     tov: number; pf: number
     and_one: number
-    /** 속공 득점·속공 야투 성공 (fastBreak.ts — 수비 리바운드·스틸 뒤 7초 안) */
+    /** 속공 득점·속공 야투 성공 (fastBreak.ts — 수비 리바운드·스틸 뒤 10초 안) */
     fb_pts: number; fb_fgm: number
     ds_a: number; ds_m: number
     lu_a: number; lu_m: number
