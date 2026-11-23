@@ -243,7 +243,10 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
     else url.searchParams.set('tab', t)
     window.history.replaceState(window.history.state, '', url)
   }, [])
-  const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [teamFilter, setTeamFilterState] = useState<string>('all')
+  // 상대 칩(2026-11-23 운영진) — 팀을 고르면 그 팀이 그날 만난 상대별로 거른다. 팀이 바뀌면 「전체」로.
+  const [oppFilter, setOppFilter] = useState<string>('all')
+  const setTeamFilter = (id: string) => { setTeamFilterState(id); setOppFilter('all') }
   // 경기별 박스스코어는 경기 카드를 펼친 안에 팀별로 있다 — 선수 기록 탭은 하루 합산만 (2026-10-12).
   // 이름을 눌러 연 선수 카드. 탭·필터·스크롤 state 와 독립이라 닫으면 보던 화면 그대로다.
   // 선수 카드는 레이아웃의 전역 카드 하나로 연다(2026-10-14, contexts/PlayerCardContext)
@@ -253,7 +256,6 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
   // 하루 합산 판정 — 선수 기록 탭(하루 합산표)·스탯 리더·이날의 주인공에만 붙인다.
   //   경기별 표는 GameBoxscore 가 그 경기 한 줄로 따로 판정한다.
   const ddKinds: DdMap = ddMapOf(dailyStats)
-  const hasDd = ddKinds.size > 0
 
   // ?me=1 — 다 그린 뒤 내 줄로 한 번 스크롤
   const scrolledToMe = useRef(false)
@@ -765,16 +767,63 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                   .map(d => [d.team_id!, { id: d.team_id!, name: d.team_name!, color: d.team_color }])
               ).values()
             )
+            // 상대 칩 — 고른 팀이 그날 맞붙은 팀과 그 전적(마감된 경기만 셈, 무승부 따로)
+            const opponents = teamFilter === 'all' ? [] : (() => {
+              const m = new Map<string, { id: string; name: string; color: string | null; w: number; l: number; d: number }>()
+              for (const g of games) {
+                if (!g.home_team || !g.away_team) continue
+                const mine = g.home_team.id === teamFilter ? 'home' : g.away_team.id === teamFilter ? 'away' : null
+                if (!mine) continue
+                const opp = mine === 'home' ? g.away_team : g.home_team
+                const o = m.get(opp.id) ?? { id: opp.id, name: opp.name, color: opp.color, w: 0, l: 0, d: 0 }
+                if (g.is_complete) {
+                  const my = mine === 'home' ? g.home_score : g.away_score
+                  const op = mine === 'home' ? g.away_score : g.home_score
+                  if (my > op) o.w++; else if (my < op) o.l++; else o.d++
+                }
+                m.set(opp.id, o)
+              }
+              return [...m.values()]
+            })()
+            const opp = opponents.find(o => o.id === oppFilter) ?? null
+            // 상대를 골랐으면 그 대진 경기의 경기별 줄을 선수마다 더한다(% 는 합에서 다시).
+            const vsGames = opp
+              ? games.filter(g => [g.home_team?.id, g.away_team?.id].includes(teamFilter) && [g.home_team?.id, g.away_team?.id].includes(opp.id))
+              : []
+            const vsStats: DailyStat[] = (() => {
+              if (!opp) return []
+              const photo = new Map(dailyStats.map(d => [d.player_id, d.photo_url]))
+              const acc = new Map<string, DailyStat>()
+              const keys = ['pts','reb','oreb','dreb','ast','stl','blk','tov','pf','fgm','fga','fg3m','fg3a','ftm','fta','fb_pts'] as const
+              for (const g of vsGames) for (const p of g.players) {
+                if (p.team_id !== teamFilter) continue
+                let a = acc.get(p.player_id)
+                if (!a) {
+                  a = { ...p, photo_url: p.photo_url ?? photo.get(p.player_id) ?? null, gp: 0 } as DailyStat
+                  for (const k of keys) (a as Record<string, unknown>)[k] = 0
+                  acc.set(p.player_id, a)
+                }
+                a.gp++
+                for (const k of keys) (a as Record<string, unknown>)[k] = ((a as Record<string, unknown>)[k] as number ?? 0) + (p[k] ?? 0)
+              }
+              return [...acc.values()].map(a => ({
+                ...a,
+                fg_pct: a.fga > 0 ? Math.round((a.fgm / a.fga) * 1000) / 10 : null,
+                fg3_pct: a.fg3a > 0 ? Math.round((a.fg3m / a.fg3a) * 1000) / 10 : null,
+              })).sort((x, y) => y.pts - x.pts)
+            })()
             const filteredStats = teamFilter === 'all'
               ? dailyStats
-              : dailyStats.filter(d => d.team_id === teamFilter)
+              : opp ? vsStats : dailyStats.filter(d => d.team_id === teamFilter)
             // 합계 줄 — 숫자는 더하고 % 는 합에서 다시 낸다(선수 % 의 평균이 아니다).
             //   G 칸은 그날 경기 수(팀을 고르면 그 팀이 뛴 경기 수) — 선수 G 의 합은 의미가 없다.
             const filteredTeam = teamList.find(t => t.id === teamFilter)
+            // 더블더블 칩 — 상대를 골랐으면 그 대진 합계로 판정(하루 합계 칩을 붙이면 틀린다)
+            const shownDd: DdMap = opp ? ddMapOf(vsStats) : ddKinds
             const dayTotal = sumLine(filteredStats)
             const totalOpts: TotalOpts = {
-              label: filteredTeam ? `${filteredTeam.name} 합계` : '합계',
-              gp: filteredTeam
+              label: filteredTeam ? `${filteredTeam.name} 합계${opp ? ` · vs ${opp.name}` : ''}` : '합계',
+              gp: opp ? vsGames.length : filteredTeam
                 ? games.filter(g => g.home_team?.id === filteredTeam.id || g.away_team?.id === filteredTeam.id).length
                 : games.length,
             }
@@ -816,18 +865,47 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                 </div>
               )}
 
+              {/* 상대 칩 — 팀을 골랐을 때만. 칩마다 그날 그 상대와의 전적 */}
+              {opponents.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="상대 팀으로 거르기">
+                  <span className="text-xs font-bold break-keep mr-0.5" style={{ color: 'var(--mm-muted)' }}>상대</span>
+                  {[{ id: 'all', name: '전체', color: null as string | null, rec: '' }, ...opponents.map(o => ({
+                    id: o.id, name: `vs ${o.name}`, color: o.color,
+                    rec: o.w + o.l + o.d > 0 ? `${o.w}승 ${o.l}패${o.d ? ` ${o.d}무` : ''}` : '',
+                  }))].map(o => {
+                    const on = oppFilter === o.id
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setOppFilter(o.id)}
+                        aria-pressed={on}
+                        className="mm-press px-3 py-1.5 text-xs font-bold cursor-pointer min-h-11 inline-flex items-center gap-1.5 break-keep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+                        style={on
+                          ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', borderRadius: 'var(--mm-radius-chip)' }
+                          : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
+                      >
+                        {o.color && <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: o.color, boxShadow: swatchEdge(o.color) }} />}
+                        <span>{o.name}</span>
+                        {o.rec && <span className="font-semibold tabular-nums whitespace-nowrap" style={{ opacity: 0.75 }}>{o.rec}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               {filteredStats.length > 0
                 ? (
                   <>
                     <div className="hidden lg:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}>
-                      <StatTable rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
+                      <StatTable rows={filteredStats} showGP ddKinds={shownDd} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
                     </div>
                     {/* 모바일 카드 뷰 */}
                     <div className="lg:hidden">
-                      <MobileStatCards rows={filteredStats} showGP ddKinds={ddKinds} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
+                      <MobileStatCards rows={filteredStats} showGP ddKinds={shownDd} onPlayerPick={pickPlayer} total={dayTotal} totalOpts={totalOpts} />
                     </div>
                     {/* 약어는 처음 보는 사람에게 읽히지 않는다 — 표 바로 아래 한 줄 범례 */}
-                    {hasDd && <DdLegend />}
+                    {shownDd.size > 0 && <DdLegend />}
                   </>
                 )
                 : <EmptyState variant="compact" icon={UserX} title="집계된 스탯이 없어요" framed />}
