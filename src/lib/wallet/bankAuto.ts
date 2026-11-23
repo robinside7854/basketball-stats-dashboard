@@ -116,13 +116,14 @@ async function settleGuestFee(sb: SupabaseClient, leagueId: string, sender: stri
 }
 
 /** 요청 없이 이름으로 충전 — 명단(게스트 아님·활동 중)에 그 이름이 딱 한 명일 때. 충전 요청 행을 만들고 승인한다(보너스 포함). */
-async function chargeByName(sb: SupabaseClient, teamId: string, sender: string, amount: number): Promise<{ requestId: string; name: string } | null> {
+async function chargeByName(sb: SupabaseClient, teamId: string, sender: string, amount: number): Promise<{ requestId: string; name: string } | { skip: string } | null> {
   const { data } = await sb.from('league_players').select('id, name, is_guest, is_active').eq('team_id', teamId)
   const who = squash(sender)
   const hits = ((data ?? []) as { id: string; name: string; is_guest: boolean | null; is_active: boolean | null }[])
     .filter(p => !p.is_guest && p.is_active !== false && squash(p.name) === who)
   if (hits.length !== 1) return null
-  if (await chargedRecently(sb, teamId, hits[0].id)) return null
+  // 10분 안에 충전된 사람 — 매칭 불가로 남기되 이유를 적는다(2026-11-23: 이유가 비어 원인을 몰랐다)
+  if (await chargedRecently(sb, teamId, hits[0].id)) return { skip: `${hits[0].name} 님이 10분 안에 충전돼서 자동 충전을 건너뛰었어요 — 실제 입금이면 「이 회원에게 충전」` }
   const { data: req, error } = await sb.from('wallet_charge_requests').insert({
     team_id: teamId, league_player_id: hits[0].id, kind: 'charge', amount, depositor_name: sender,
   }).select('id').single()
@@ -173,7 +174,8 @@ export async function handleBankNotification(sb: SupabaseClient, teamId: string,
         if (fee) { status = 'guest_fee'; note = fee }
         else {
           const c = await chargeByName(sb, teamId, sender, amount)
-          if (c) { status = 'charged'; requestId = c.requestId; note = `${c.name} 님 자동 충전` }
+          if (c && 'skip' in c) note = c.skip
+          else if (c) { status = 'charged'; requestId = c.requestId; note = `${c.name} 님 자동 충전` }
         }
       }
     }
