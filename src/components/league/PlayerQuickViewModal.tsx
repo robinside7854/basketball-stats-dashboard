@@ -19,6 +19,7 @@ import DynamicDuoPanel from '@/components/league/player/DynamicDuoPanel'
 import LastPlayedLine from '@/components/league/ui/LastPlayedLine'
 import { shouldShowLastPlayed } from '@/lib/format/lastPlayed'
 import QuarterTable from '@/components/league/player/QuarterTable'
+import QuarterTrend from '@/components/league/player/QuarterTrend'
 import PlayerTeamLine, { PlayerTeamHistory } from '@/components/league/player/PlayerTeamLine'
 import type { PercentileBarsResult } from '@/lib/stats/percentileBars'
 import type { HexRadarResult } from '@/lib/stats/hexRadar'
@@ -1606,19 +1607,14 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
                       ? <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
                       : quarterRows.length > 0
                         ? <>
-                            {/* 분기별 그림 (2026-11-08 운영진) — 월별과 같은 막대. 분기가 둘 이상일 때만 */}
-                            {quarterRows.length >= 2 && (
-                              <MonthlyStatsChart
-                                title="분기별 성장지표"
-                                data={quarterRows.map(r => ({
-                                  month: r.quarter_id, label: r.label, gp: r.values.gp ?? 0,
-                                  ppg: r.values.ppg ?? 0, rpg: r.values.rpg ?? 0, apg: r.values.apg ?? 0,
-                                  spg: r.values.spg ?? 0, bpg: r.values.bpg ?? 0,
-                                  fg_pct: r.values.fg_pct, fg3_pct: r.values.fg3_pct,
-                                }))}
-                              />
-                            )}
-                            <QuarterTable rows={quarterRows} total={quarterTotal} />
+                            {/* 분기별 흐름 꺾은선 + 요약(2026-11-23 운영진 — 표 중심이라 안 읽혔다). 표는 「표로 보기」 안 */}
+                            <QuarterTrend rows={quarterRows} />
+                            <details className="group">
+                              <summary className="px-5 py-2 text-xs font-bold cursor-pointer list-none" style={{ color: 'var(--mm-muted)' }}>
+                                <span className="group-open:hidden">표로 보기 ▾</span><span className="hidden group-open:inline">표 접기 ▴</span>
+                              </summary>
+                              <QuarterTable rows={quarterRows} total={quarterTotal} />
+                            </details>
                           </>
                         : <div className="px-5 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>분기별 기록이 아직 없어요</div>
                   )}
