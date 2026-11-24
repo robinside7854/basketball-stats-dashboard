@@ -1,4 +1,5 @@
 'use client'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import PlayerName from '@/components/league/ui/PlayerName'
 // 「나」(/me) 개인 화면 — **나에게만 있는 것만** (2026-10-15 정리)
@@ -18,7 +19,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import {
   Film, User as UserIcon, ChevronRight, IdCard, Flame, X, KeyRound, AtSign,
-  CalendarCheck, Pin, Play, AlertCircle, LogOut,
+  CalendarCheck, Pin, Play, AlertCircle, LogOut, Eye,
 } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
@@ -274,6 +275,7 @@ const NEUTRAL_BTN =
 
 export function AccountCard({ leagueId, className = '' }: { leagueId: string; className?: string }) {
   const { user, refresh, logout } = useCurrentUser()
+  const { canPreview, memberPreview, setMemberPreview } = useLeagueEditMode()
   const [pwOpen, setPwOpen] = useState(false)
   const [idOpen, setIdOpen] = useState(false)
   return (
@@ -324,11 +326,19 @@ export function AccountCard({ leagueId, className = '' }: { leagueId: string; cl
         )}
         {/* 앱 설치 — 설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다 */}
         <InstallAppButton />
+        {canPreview && (
+          <button type="button" onClick={() => setMemberPreview(!memberPreview)}
+            className={`${NEUTRAL_BTN} sm:ml-auto`}
+            style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
+            <Eye size={16} aria-hidden />
+            {memberPreview ? '운영진 화면으로' : '회원 화면으로 보기'}
+          </button>
+        )}
         {user && (
           <button
             type="button"
             onClick={() => logout()}
-            className={`${NEUTRAL_BTN} sm:ml-auto`}
+            className={`${NEUTRAL_BTN} ${canPreview ? '' : 'sm:ml-auto'}`}
             style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
             <LogOut size={16} aria-hidden />

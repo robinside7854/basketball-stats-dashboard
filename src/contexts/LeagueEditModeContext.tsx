@@ -7,7 +7,7 @@
 //
 //   isEditMode 는 UI 노출 판단일 뿐이다. 실제 인가는 서버의 canEditLeague 가 매 요청
 //   DB 를 재조회해 판정한다(src/lib/auth/leagueAdmin.ts).
-import { createContext, useCallback, useContext, useMemo } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
 interface LeagueEditModeCtx {
@@ -22,7 +22,13 @@ interface LeagueEditModeCtx {
   leagueHeaders: Record<string, string>
   /** 로그인 창 열기 — 편집이 필요한 화면의 "어드민 로그인" 버튼이 부른다 */
   openLogin: () => void
+  /** 어드민·CEO 가 「회원 화면으로 보기」를 켰는가(2026-11-24 운영진) — 켜면 위 세 값이 모두 false 로 보인다 */
+  memberPreview: boolean
+  /** 진짜 운영진인가(미리보기와 무관) — 「회원 화면으로 보기」 단추를 그릴지 */
+  canPreview: boolean
+  setMemberPreview: (on: boolean) => void
 }
+const PREVIEW_KEY = 'mm_member_preview'
 
 const HEADERS = { 'Content-Type': 'application/json' }
 
@@ -33,6 +39,9 @@ const LeagueEditModeContext = createContext<LeagueEditModeCtx>({
   isCeo: false,
   leagueHeaders: HEADERS,
   openLogin: () => {},
+  memberPreview: false,
+  canPreview: false,
+  setMemberPreview: () => {},
 })
 
 export function useLeagueEditMode() { return useContext(LeagueEditModeContext) }
@@ -47,18 +56,39 @@ export function LeagueEditModeProvider({ children }: { children: React.ReactNode
   const openLogin = useCallback(() => { window.dispatchEvent(new Event('mm-open-login')) }, [])
 
   // 값 객체를 고정한다 — 레이아웃이 다시 그려질 때마다 새 객체가 나가면 이 컨텍스트를 읽는 화면 전체가 다시 그려진다.
+  // 회원 화면 미리보기 — 화면 표시만 바꾼다(서버 인가는 그대로). 이 탭에서만 유지(sessionStorage).
+  const [preview, setPreview] = useState(false)
+  useEffect(() => { try { setPreview(sessionStorage.getItem(PREVIEW_KEY) === '1') } catch {} }, [])
+  const setMemberPreview = useCallback((on: boolean) => {
+    setPreview(on)
+    try { if (on) sessionStorage.setItem(PREVIEW_KEY, '1'); else sessionStorage.removeItem(PREVIEW_KEY) } catch {}
+  }, [])
+  const canPreview = isAdminSession || isCeo
+  const p = preview && canPreview
+
   const value = useMemo<LeagueEditModeCtx>(() => ({
-    isEditMode: isAdminSession || isCeo,
+    isEditMode: !p && (isAdminSession || isCeo),
     isInitialized: !authLoading,
-    isAdminSession,
-    isCeo,
+    isAdminSession: !p && isAdminSession,
+    isCeo: !p && isCeo,
     leagueHeaders: HEADERS,
     openLogin,
-  }), [isAdminSession, isCeo, authLoading, openLogin])
+    memberPreview: p,
+    canPreview,
+    setMemberPreview,
+  }), [isAdminSession, isCeo, authLoading, openLogin, p, canPreview, setMemberPreview])
 
   return (
     <LeagueEditModeContext.Provider value={value}>
       {children}
+      {p && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-20 lg:bottom-6 z-[90] flex items-center gap-2 px-3 py-2 text-sm font-bold break-keep"
+          style={{ background: 'var(--mm-black)', color: '#fff', borderRadius: 'var(--mm-radius-chip)', boxShadow: 'var(--mm-shadow-lg)' }}>
+          <span>회원 화면으로 보는 중</span>
+          <button type="button" onClick={() => setMemberPreview(false)} className="px-2.5 py-1 cursor-pointer"
+            style={{ background: 'var(--mm-yellow)', color: '#1C1A17', borderRadius: 'var(--mm-radius-chip)' }}>운영진 화면으로</button>
+        </div>
+      )}
     </LeagueEditModeContext.Provider>
   )
 }

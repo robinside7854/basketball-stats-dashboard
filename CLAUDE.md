@@ -106,6 +106,7 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
   또는 리그 `/settings` → 회원 패널 머리의 **「어드민 지정」 버튼**(2026-11-09 — 줄마다 붙던 지정 버튼은 없앴다. 거의 안 쓰는 일)
 - 프론트: `useLeagueEditMode()`의 `isEditMode`(= 어드민 role ∥ CEO) / `isAdminSession` / `isCeo` / `openLogin()`
   - CEO 여부는 `GET /api/auth/ceo-session` 으로 안다(화면 표시용 — 인가는 서버가 재확인)
+  - **회원 화면으로 보기(2026-11-24 운영진)**: 「나 → 계정」 로그아웃 옆 단추(운영진·CEO 에게만). 켜면 `useLeagueEditMode()` 의 `isEditMode`·`isAdminSession`·`isCeo` 가 모두 false 로 보이고 화면 아래 「회원 화면으로 보는 중 · 운영진 화면으로」 띠가 뜬다. 화면 표시만 바꾸며 서버 권한은 그대로 · 이 탭에서만 유지(sessionStorage `mm_member_preview`). 새 운영진 전용 화면은 `user.role` 을 직접 보지 말고 이 컨텍스트를 거칠 것.
   - `LeagueAuthProvider`가 `LeagueEditModeProvider`보다 **바깥**이어야 함 (role을 읽어야 하므로)
 
 ### PIN 폐지 (2026-08-10 방침 · 2026-10-11 리그 완료) ⚠
