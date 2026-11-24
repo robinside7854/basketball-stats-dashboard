@@ -93,9 +93,10 @@ export async function POST(
   )
   const points = scorePoints(body.type, body.result, isPlusOne, scoringRules)
 
-  const { data, error } = await supabase
-    .from('league_game_events')
-    .insert({
+  // 기록한 기기(2026-11-24 운영진 — PC·폰 속도 비교용). 칸이 아직 없으면 빼고 다시 넣는다.
+  const ua = req.headers.get('user-agent') ?? ''
+  const device = /Mobi|Android|iPhone|iPad/i.test(ua) ? 'mobile' : 'pc'
+  const row = {
       league_game_id: body.league_game_id,
       quarter: body.quarter,
       video_timestamp: body.video_timestamp ?? null,
@@ -106,9 +107,11 @@ export async function POST(
       related_player_id: body.related_player_id ?? null,
       points,
       shot_zone: body.shot_zone ?? null,
-    })
-    .select()
-    .single()
+  }
+  let { data, error } = await supabase.from('league_game_events').insert({ ...row, device }).select().single()
+  if (error && /device/.test(error.message)) {
+    ({ data, error } = await supabase.from('league_game_events').insert(row).select().single())
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)

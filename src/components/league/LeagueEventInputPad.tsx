@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Handshake, CircleDashed, Crosshair, UserPlus, RotateCcw } from 'lucide-react'
+import { Handshake, CircleDashed, Crosshair, UserPlus, RotateCcw, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
@@ -172,6 +172,22 @@ export default function LeagueEventInputPad({
       ytPlayer.unMute()
       ytPlayer.playVideo()
     } catch { /* 플레이어가 준비 전이면 무시 */ }
+  }
+
+  // ── 숏폼 장면 저장 (2026-11-24 운영진) ─────────────────────────────
+  //   기록하다 「이건 숏폼감」인 장면에서 ★ 를 누르면 지금 영상 시각을 저장한다(PC 단축키 M).
+  //   폰 집중 화면은 완료 알림을 숨기므로 버튼 위 숫자로 저장된 걸 보여 준다.
+  const [markCount, setMarkCount] = useState(0)
+  async function saveMark() {
+    const ts = getCurrentTimestamp()
+    let url: string | null = null
+    try { url = (ytPlayer as unknown as { getVideoUrl?: () => string } | null)?.getVideoUrl?.() ?? null } catch { /* 준비 전 */ }
+    const r = await fetch(`/api/leagues/${leagueId}/games/${gameId}/marks`, {
+      method: 'POST', headers: leagueHeaders,
+      body: JSON.stringify({ quarter: currentQuarter, video_timestamp: ts, youtube_url: url }),
+    }).catch(() => null)
+    if (!r?.ok) { toast.error('장면 저장 실패'); return }
+    setMarkCount(c => c + 1)
   }
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
@@ -679,6 +695,7 @@ export default function LeagueEventInputPad({
     const tag = t?.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+    if (e.key === 'm' || e.key === 'M') { e.preventDefault(); void saveMark(); return }
     if (e.key === 'v' || e.key === 'V') { if (sceneTs != null) { e.preventDefault(); replayScene() } return }
     const k = e.key
     // 선수 번호
@@ -916,6 +933,14 @@ export default function LeagueEventInputPad({
           className="relative shrink-0 inline-flex items-center gap-1 px-3 py-1.5 min-h-11 whitespace-nowrap rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] cursor-pointer transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
           <RotateCcw size={14} aria-hidden /><span className="hidden sm:inline">다시 보기</span><span className="sm:hidden">다시</span>
           <Kbd k="V" />
+        </button>
+
+        {/* 숏폼 장면 저장 — 지금 영상 시각을 남긴다(PC 단축키 M) */}
+        <button onClick={() => void saveMark()} aria-label="숏폼 장면 저장"
+          className="relative shrink-0 inline-flex items-center gap-1 px-3 py-1.5 min-h-11 whitespace-nowrap rounded-lg text-xs font-bold border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-rule)] cursor-pointer transition-colors">
+          <Star size={14} aria-hidden className={markCount > 0 ? 'fill-yellow-400 text-yellow-500' : ''} />
+          <span>{markCount > 0 ? `숏폼 ${markCount}` : '숏폼'}</span>
+          <Kbd k="M" />
         </button>
 
         {/* Phase 1-D: Undo — lastEvent 있으면 오렌지로 강조 */}
