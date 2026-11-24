@@ -104,7 +104,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   //   두 경로 모두 우측 액션 영역에서 닿으므로 진입 자체가 사라진 건 아니다.
   const clubFeatures = useClub().features
   const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
-    { href: base, label: '홈', match: [] },
+    // 2026-11-24 운영진: 순서 경기 · 스탯 · 홈 · 하이라이트(옛 기록·영상 이름 바꿈)
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
     // 선수 명단 탭 부활(2026-10-16 사용자 요청) — 경기와 스탯 사이
     // 리뉴얼 R2 (2026-10-31): 「스탯」 탭을 「선수」에 합쳤다 — 선수 탭이 명단 + 순위. 옛 스탯·팀·기록실 화면은
@@ -112,9 +112,10 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     //   되돌리기: docs/renewal-rollback.md (R2).
     // 2026-11 운영진: 「선수」 → 「기록」(서브탭 리더보드 · 선수 · 팀). 기록실(/records)은 운영진 전용 「영상」 서브탭.
     // 2026-11-04: 기록실(/records, 운영진)은 다시 「기록」 탭 안 — 서브탭 명단 · 리더보드 · 팀 · 기록실
-    { href: `${base}/players`, label: '기록', match: [`${base}/players`, `${base}/stats`, `${base}/teams`, `${base}/records`] },
+    { href: `${base}/players`, label: '스탯', match: [`${base}/players`, `${base}/stats`, `${base}/teams`, `${base}/records`] },
     // 영상·드래프트는 동호회 기능 스위치로(2026-11-10 플랫폼화 3단계)
-    ...(clubFeatures.youtube ? [{ href: `${base}/highlights`, label: '영상', match: [`${base}/highlights`] }] : []),
+    { href: base, label: '홈', match: [] },
+    ...(clubFeatures.youtube ? [{ href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] }] : []),
     // 드래프트는 주장·운영진 전용 절차다(2026-10-12) — 일반 회원 탭 줄에는 띄우지 않는다.
     ...(showDraft && isEditMode && clubFeatures.draft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
   ]
@@ -322,7 +323,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                     <UserIcon size={16} aria-hidden />
                   )}
                 </span>
-                <span className="truncate max-w-[120px] text-sm font-bold" title={meLabel}>{meLabel}</span>
+                <span className="truncate max-w-[120px] text-sm font-bold" title={meLabel}>{user ? "프로필" : meLabel}</span>
               </Link>
             )}
           </div>
@@ -358,11 +359,12 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   //   설정은 헤더의 톱니 버튼(어드민·CEO, 위 「어드민 설정 진입점」) 하나로만 닿는다 — /me 에는 설정 바로가기가 없다.
   const clubFeatures = useClub().features
   const mainTabs: { href: string; label: string; Icon: typeof Home; ariaLabel?: string }[] = [
-    { href: base,                  label: '홈',      Icon: Home },
+    // 2026-11-24 운영진: 경기 · 스탯 · 홈(가운데, 둥근 큰 단추) · 하이라이트 · 프로필
     { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
-    { href: `${base}/players`,     label: '기록',     Icon: Users },
-    ...(clubFeatures.youtube ? [{ href: `${base}/highlights`, label: '영상', Icon: PlayCircle }] : []),
-    { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
+    { href: `${base}/players`,     label: '스탯',     Icon: Users },
+    { href: base,                  label: '홈',      Icon: Home },
+    ...(clubFeatures.youtube ? [{ href: `${base}/highlights`, label: '하이라이트', Icon: PlayCircle }] : []),
+    { href: `${base}/me`,          label: user ? '프로필' : '가입하기', Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
   ]
 
   // 스탯 우산 매칭 — /stats 뿐 아니라 /teams(팀)도 스탯 탭 활성(2026-08-08; 옛 /awards·/roster 는
@@ -400,7 +402,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
               하나를 미끄러뜨리면 "어디에서 어디로 왔는지"가 남는다(연속성).
               6개 탭(2026-10-16 「선수」 추가)이 flex-1 로 동일 폭이라 인덱스 × 100% 만으로 정확히 맞는다 —
               탭 개수가 바뀌면 이 계산도 같이 봐야 한다. */}
-          {activeTabIdx >= 0 && (
+          {activeTabIdx >= 0 && mainTabs[activeTabIdx].href !== base && (
             <span
               aria-hidden
               className="pointer-events-none absolute top-0 left-0 flex justify-center"
@@ -417,6 +419,17 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
           {mainTabs.map(({ href, label, Icon, ariaLabel }) => {
             const active = isActive(href)
             const isMeTab = href === `${base}/me`
+            if (href === base) return (
+              // 홈 = 가운데 둥근 단추(2026-11-24 운영진) — 탭 줄 위로 살짝 떠 있다. 켜지면 노랑, 아니면 검정.
+              <Link key={href} href={href} aria-label="홈" aria-current={active ? 'page' : undefined}
+                className="mm-press relative flex-1 min-w-0 flex flex-col items-center justify-end pb-[9px] min-h-[56px]">
+                <span className="-mt-5 flex items-center justify-center w-12 h-12 rounded-full"
+                  style={{ background: active ? 'var(--mm-yellow)' : 'var(--mm-black)', color: active ? '#1C1A17' : '#fff', boxShadow: 'var(--mm-shadow-md), 0 0 0 4px var(--mm-panel)' }}>
+                  <Icon size={22} strokeWidth={2.5} />
+                </span>
+                <span className={`text-[12px] sm:text-xs leading-tight whitespace-nowrap ${active ? 'font-bold text-[color:var(--mm-ink)]' : 'font-medium text-[color:var(--mm-muted)]'}`}>{label}</span>
+              </Link>
+            )
             return (
               <Link
                 key={href}

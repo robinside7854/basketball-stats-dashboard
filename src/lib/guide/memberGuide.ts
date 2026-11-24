@@ -126,7 +126,7 @@ export const MEMBER_GUIDE: GuideSection[] = [
   {
     id: 'me', icon: 'user',
     title: '내 기록 보기',
-    summary: '홈 · 박스스코어 · 「나」 탭 · 선수 카드에서 봐요.',
+    summary: '홈 · 박스스코어 · 「프로필」 탭 · 선수 카드에서 봐요.',
     groups: [
       {
         image: 'last-day', caption: '지난 토요일 나', title: '지난 토요일 나',
@@ -142,9 +142,9 @@ export const MEMBER_GUIDE: GuideSection[] = [
         ],
       },
       {
-        image: 'me', caption: '「나」 탭', title: '「나」 탭',
+        image: 'me', caption: '「프로필」 탭', title: '「프로필」 탭',
         lines: [
-          { t: '「나」 탭에 내 기록 · 월렛 · 계정이 있어요.', icon: 'user' },
+          { t: '「프로필」 탭에 내 기록 · 월렛 · 계정이 있어요.', icon: 'user' },
         ],
       },
       {
@@ -168,7 +168,7 @@ export const MEMBER_GUIDE: GuideSection[] = [
         image: 'leaderboard', caption: '리더보드', title: '경기 결과와 순위',
         lines: [
           { t: '「경기」 탭에서 날짜별 결과를 봐요.', icon: 'calendar' },
-          { t: '「기록」 탭에는 명단 · 리더보드 · 팀이 있어요.', icon: 'list' },
+          { t: '「스탯」 탭에는 명단 · 리더보드 · 팀이 있어요.', icon: 'list' },
           { t: '리더보드에서 분기별 상위 선수를 봐요.', icon: 'trophy' },
         ],
       },
@@ -183,14 +183,14 @@ export const MEMBER_GUIDE: GuideSection[] = [
       {
         image: 'highlights', caption: '하이라이트', title: '하이라이트',
         lines: [
-          { t: '「영상」 탭에서 내 플레이를 다시 볼 수 있어요.', icon: 'video' },
+          { t: '「하이라이트」 탭에서 내 플레이를 다시 볼 수 있어요.', icon: 'video' },
           { t: '맨 위 「바로 재생」은 지난 경기 장면을 이어서 틀어요.', icon: 'video' },
           { t: '박스스코어 이름 옆 ▶ 를 누르면 그 선수 장면으로 가요.', icon: 'video' },
           { t: '기록 시각 기준이라 몇 초 어긋날 수 있어요.', icon: 'clock', tip: true },
           { t: '전체화면으로도 볼 수 있어요.', icon: 'expand' },
           { t: '링크 버튼으로 그 클립을 팀원에게 보내요.', icon: 'link' },
           { t: '인생샷은 「베스트샷 핀」으로 저장해 두세요.', icon: 'star' },
-          { t: '「나」 화면에서 언제든 다시 볼 수 있어요.', icon: 'user' },
+          { t: '「프로필」 화면에서 언제든 다시 볼 수 있어요.', icon: 'user' },
         ],
       },
     ],
@@ -210,7 +210,7 @@ export const MEMBER_GUIDE: GuideSection[] = [
       { cat: '기록 · 영상', q: '순위에 제 이름이 없어요.', a: ['열린 날의 30% 이상 나와야 해요.', '프로농구도 같은 방식이에요.'] },
       { cat: '기록 · 영상', q: '영상이 검은 화면이에요.', a: ['몇 초 기다리면 다시 켜져요.', '그래도 안 되면 새로고침해 주세요.'] },
       { cat: '계정', q: '비밀번호를 잊었어요.', a: ['운영진에게 초기화를 요청해 주세요.', '초기 비밀번호는 123456 이에요.'] },
-      { cat: '계정', q: '예전에 실명으로 가입했어요.', a: ['지금 아이디는 실명 그대로예요.', '「나」 탭 계정에서 아이디를 바꿀 수 있어요.'] },
+      { cat: '계정', q: '예전에 실명으로 가입했어요.', a: ['지금 아이디는 실명 그대로예요.', '「프로필」 탭 계정에서 아이디를 바꿀 수 있어요.'] },
     ],
   },
 ]

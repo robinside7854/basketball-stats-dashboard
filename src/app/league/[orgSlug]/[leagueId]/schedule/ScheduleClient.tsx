@@ -460,7 +460,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
   }
 
   const filteredSortedDates = [...dates]
-    .filter(sd => !isEditMode || selectedQFilter === 'all' || quarterOf(sd.date) === selectedQFilter)
+    .filter(sd => selectedQFilter === 'all' || quarterOf(sd.date) === selectedQFilter)
     .sort((a, b) => b.date.localeCompare(a.date))
   const visibleDates = filteredSortedDates.slice(0, visibleCount)
   const hasMoreDates = filteredSortedDates.length > visibleCount
@@ -510,8 +510,8 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
         ) : null}
         </div>
         {/* 분기 필터 — 제목 카드 안으로 (배경 위에 칩만 떠 있지 않게, 2026-10-13) */}
-        {/* 리뉴얼 R4 (2026-10-31): 분기 칩은 운영진에게만 — 회원은 최신 날짜부터 스크롤한다 */}
-        {isEditMode && !loading && dates.length > 0 && quarters.length > 0 && (
+        {/* 리뉴얼 R4 (2026-10-31): 분기 칩은 운영진에게만 → 2026-11-24 운영진: 회원도 분기로 본다 */}
+        {!loading && dates.length > 0 && quarters.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap pt-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
             {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => {
               return (
@@ -695,9 +695,10 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
                   {!sd.is_skipped && (
                     <button
                       onClick={() => setRosterDate(rosterDate === sd.date ? null : sd.date)}
-                      className="inline-flex items-center justify-center gap-1.5 text-sm font-bold whitespace-nowrap px-3 py-2 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
-                      style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
+                      className="inline-flex items-center justify-center gap-1.5 text-sm font-bold whitespace-nowrap px-2 min-h-[44px] cursor-pointer underline underline-offset-4 decoration-1"
+                      style={{ color: 'var(--mm-ink)' }}
                       aria-expanded={rosterDate === sd.date}
+                      // 박스 대신 밑줄(2026-11-24 운영진 — 「기록하기」·「박스스코어」 버튼과 모양이 겹쳤다)
                     >
                       <ClipboardList size={14} aria-hidden />
                       참가 명단
