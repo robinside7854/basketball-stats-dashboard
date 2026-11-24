@@ -40,7 +40,7 @@ const SHOTS = [
 
 export default function TeamBoard({ teams, games, shots }: { teams: BoardTeam[]; games: BoardGame[]; shots: ShotMix | null }) {
   const metrics = useMemo(() => new Map(teams.map(t => [t.key, teamMetrics(t)])), [teams])
-  if (teams.length === 0) return <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>이 기간에 팀 기록이 아직 없어요.</p>
+  if (teams.length === 0) return <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>이 기간 팀 기록 없음.</p>
 
   return (
     <div className="space-y-6">
@@ -339,7 +339,7 @@ function WinTrend({ teams, games }: { teams: BoardTeam[]; games: BoardGame[] }) 
             </button>
           </li>
         ))}
-        <li className="self-center font-semibold" style={{ color: 'var(--mm-muted)' }}>팀을 누르면 그 팀만 보여요</li>
+        <li className="self-center font-semibold" style={{ color: 'var(--mm-muted)' }}>팀 클릭 시 그 팀만</li>
       </ul>
     </div>
   )

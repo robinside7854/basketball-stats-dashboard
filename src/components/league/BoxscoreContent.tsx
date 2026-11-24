@@ -374,8 +374,8 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
       ) : error ? (
         <EmptyState
           icon={CloudOff}
-          title="기록을 불러오지 못했어요"
-          description="잠시 뒤 다시 시도해 주세요."
+          title="기록 불러오기 실패"
+          description="잠시 뒤 재시도."
           action={
             <button
               type="button"
@@ -386,7 +386,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
           }
         />
       ) : games.length === 0 ? (
-        <EmptyState icon={CalendarX} title="이 날 기록된 경기가 없어요" />
+        <EmptyState icon={CalendarX} title="이날 경기 기록 없음" />
       ) : (
         <div>
 
@@ -739,7 +739,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                           <div className="px-4 sm:px-5 pb-4">
                             {g.players.length > 0
                               ? <GameBoxscore game={g} onPlayerPick={pickPlayer} />
-                              : <EmptyState variant="compact" icon={UserX} title="기록된 선수 데이터가 없어요" />}
+                              : <EmptyState variant="compact" icon={UserX} title="선수 기록 없음" />}
                           </div>
                         </div>
                       )}
@@ -908,7 +908,7 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
                     {shownDd.size > 0 && <DdLegend />}
                   </>
                 )
-                : <EmptyState variant="compact" icon={UserX} title="집계된 스탯이 없어요" framed />}
+                : <EmptyState variant="compact" icon={UserX} title="스탯 없음" framed />}
             </div>
             )
           })()}
@@ -1084,7 +1084,7 @@ function TeamComparePanel({ games }: { games: GameData[] }) {
 
   if (pairs.length === 0) {
     return (
-      <EmptyState variant="compact" icon={Swords} title="이날 두 팀이 맞붙은 기록이 없어요." framed />
+      <EmptyState variant="compact" icon={Swords} title="이날 맞대결 기록 없음." framed />
     )
   }
 
@@ -1106,7 +1106,7 @@ function TeamComparePanel({ games }: { games: GameData[] }) {
           style={{ color: 'var(--mm-ink)', background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-ctl)' }}
         >
           <AlertTriangle size={14} aria-hidden className="shrink-0 mt-px" style={{ color: 'var(--mm-yellow-strong)' }} />
-          <span>아직 마감 안 된 경기가 있어서, 숫자는 마감 뒤에 확정돼요.</span>
+          <span>미마감 경기 있음. 마감 후 확정.</span>
         </div>
       )}
 
@@ -1156,7 +1156,7 @@ function TeamComparePanel({ games }: { games: GameData[] }) {
             <span style={{ color: 'var(--mm-ink)' }}>{A.name}</span>
             {' vs '}
             <span style={{ color: 'var(--mm-ink)' }}>{B.name}</span>
-            {', 이 날짜에 맞붙은 경기가 없어요.'}
+            {', 이날 맞대결 없음.'}
           </>}
           description="두 팀이 실제로 맞붙은 경기 기록만 세요."
         />

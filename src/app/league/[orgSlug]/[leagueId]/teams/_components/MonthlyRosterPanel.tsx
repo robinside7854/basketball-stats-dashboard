@@ -99,7 +99,7 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
     const res = await fetch(`/api/leagues/${leagueId}/month-uniforms`, {
       method: 'PUT', headers, body: JSON.stringify({ month, team_id: teamId, uniform: nextVal }),
     }).catch(() => null)
-    if (!res?.ok) { setUniforms(prev); toast.error('유니폼 색을 저장하지 못했어요'); return }
+    if (!res?.ok) { setUniforms(prev); toast.error('유니폼 색 저장 실패'); return }
     onChanged?.()
   }
 
@@ -161,7 +161,7 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
     if (!res?.ok) {
       // 그 선수 한 명만 되돌린다 — 그사이 옮겨 저장된 다른 사람까지 화면에서 되돌아가지 않게(2026-11-10)
       setRows(prev => prev.map(x => x.id === r.id ? r : x))
-      toast.error('옮기지 못했어요. 다시 해 주세요')
+      toast.error('이동 실패. 재시도 필요')
       return
     }
     onChanged?.()
@@ -241,7 +241,7 @@ export default function MonthlyRosterPanel({ leagueId, quarters, teams, teamOver
         <p className="text-sm text-[var(--mm-muted)] mt-1">
           달을 고르고 선수 이름을 끌어 다른 팀 칸에 놓으면 그 달만 옮겨져요. 노란 테두리가 이 달만 바꾼 사람이고, ↺ 를 누르면 분기 소속으로 돌아가요. 이름에 마우스를 올려 왕관을 누르면 팀장이 돼요.
         </p>
-        <p className="lg:hidden text-sm font-bold text-[var(--mm-ink-soft)] mt-1">끌어 옮기기는 PC 에서 해 주세요.</p>
+        <p className="lg:hidden text-sm font-bold text-[var(--mm-ink-soft)] mt-1">끌어 옮기기는 PC 전용.</p>
       </div>
 
       <div className="flex flex-wrap gap-2">

@@ -175,10 +175,10 @@ export default function DayHighlightsLauncher({
           {authLoading ? (
             <div role="status" aria-label="불러오는 중이에요" className="space-y-2.5"><div className="mm-shimmer h-11 w-full" style={{ borderRadius: 'var(--mm-radius-ctl)' }} /><div className="mm-shimmer h-12 w-full" style={{ borderRadius: 'var(--mm-radius-chip)' }} /></div>
           ) : !canView || state === 'login' ? (
-            <p className="text-sm px-1" style={{ color: 'var(--mm-muted)' }}>로그인한 회원만 볼 수 있어요.</p>
+            <p className="text-sm px-1" style={{ color: 'var(--mm-muted)' }}>로그인 회원 전용.</p>
           ) : state === 'error' ? (
             <div className="flex items-center gap-2 px-1">
-              <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>하이라이트를 불러오지 못했어요.</p>
+              <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>하이라이트 불러오기 실패.</p>
               <button
                 type="button"
                 onClick={() => void load()}
@@ -191,7 +191,7 @@ export default function DayHighlightsLauncher({
           ) : !ready ? (
             <div role="status" aria-label="불러오는 중이에요" className="space-y-2.5"><div className="mm-shimmer h-11 w-full" style={{ borderRadius: 'var(--mm-radius-ctl)' }} /><div className="mm-shimmer h-12 w-full" style={{ borderRadius: 'var(--mm-radius-chip)' }} /></div>
           ) : lists.all.length === 0 ? (
-            <p className="text-sm px-1" style={{ color: 'var(--mm-muted)' }}>이날은 아직 하이라이트가 없어요.</p>
+            <p className="text-sm px-1" style={{ color: 'var(--mm-muted)' }}>이날 하이라이트 없음.</p>
           ) : (
             <>
               <SegmentedTabs
@@ -208,7 +208,7 @@ export default function DayHighlightsLauncher({
               />
               {teamHint && (
                 <p className="text-xs px-1" style={{ color: 'var(--mm-muted)' }}>
-                  {!user ? '우리 팀 · 내 기록은 로그인한 회원만 볼 수 있어요.' : '이날 출전 기록이 없어요 — 우리 팀은 고를 수 없어요.'}
+                  {!user ? '우리 팀 · 내 기록은 로그인 회원 전용.' : '이날 출전 기록 없음 · 우리 팀 선택 불가.'}
                 </p>
               )}
               <button

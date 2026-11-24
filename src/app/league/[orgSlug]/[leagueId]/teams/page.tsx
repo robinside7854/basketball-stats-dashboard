@@ -544,7 +544,7 @@ function TeamDetailPanel({
       {/* 낱말 가운데서 꺾지 않는다(「효/율」 — 2026-11-09 패널 점검) — 안쪽 TeamInsights 까지 물려받는다 */}
       <div className="px-4 py-4 pl-5 lg:px-6 lg:py-5 space-y-6 break-keep">
         {players.length === 0 ? (
-          <p className="text-sm text-center py-6" style={{ color: 'var(--mm-muted)' }}>이 기간에 이 팀 기록이 아직 없어요</p>
+          <p className="text-sm text-center py-6" style={{ color: 'var(--mm-muted)' }}>이 기간 팀 기록 없음</p>
         ) : (
           <>
             {/* B. 팀 스탯 — 득점·실점은 한 막대로 맞대고, 나머지는 타일 (2026-10-12) */}
@@ -599,7 +599,7 @@ function TeamDetailPanel({
                       </div>
                     ))}
                     <p className="col-span-2 text-xs leading-snug" style={{ color: 'var(--mm-muted)' }}>
-                      공격 한 번 = 슛·턴오버·자유투로 끝난 공격이에요.<br />우리 규칙(+1 등)으로 매긴 숫자라 팀끼리만 비교해요.
+                      공격 한 번 = 슛·턴오버·자유투로 끝난 공격이에요.<br />+1 규칙 반영 수치. 팀끼리만 비교.
                     </p>
                   </div>
                 )}
@@ -1042,7 +1042,7 @@ function LeagueTeamsPageInner() {
         // 401 — 선수 기록은 승인 회원만(리그 비공개 유지). 빈 화면 대신 한 줄 안내
         <SectionCard variant="standalone">
           <div className="text-center py-10 space-y-3">
-            <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>팀 기록은 로그인한 회원만 볼 수 있어요</p>
+            <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>팀 기록은 로그인 회원 전용</p>
             <button type="button" onClick={openLogin}
               className="mm-press inline-flex items-center justify-center min-h-11 px-4 text-sm font-bold cursor-pointer"
               style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>
@@ -1052,7 +1052,7 @@ function LeagueTeamsPageInner() {
         </SectionCard>
       ) : status === 'error' ? (
         <SectionCard variant="standalone">
-          <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>팀 기록을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>
+          <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>팀 기록 불러오기 실패. 잠시 뒤 재시도.</p>
         </SectionCard>
       ) : dataLoading ? (
         <TeamsSkeleton />
@@ -1074,7 +1074,7 @@ function LeagueTeamsPageInner() {
         {data?.locked ? (
           <SectionCard variant="standalone">
             <div className="text-center py-8 space-y-3">
-              <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>팀별 선수 기록은 로그인한 회원만 볼 수 있어요</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>팀별 선수 기록은 로그인 회원 전용</p>
               <button type="button" onClick={openLogin}
                 className="mm-press inline-flex items-center justify-center min-h-11 px-4 text-sm font-bold cursor-pointer"
                 style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: 'var(--mm-radius-ctl)' }}>
@@ -1089,7 +1089,7 @@ function LeagueTeamsPageInner() {
           <SectionCard variant="standalone" pad="none" ariaLabel="팀별 선수">
           <SectionHeader
             title="선수 표"
-            description="팀을 골라 선수 기록을 봐요"
+            description="팀 선택 시 선수 기록 표시"
           />
           <div className="px-4 py-3 lg:px-6 lg:py-4 space-y-3">
             {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
@@ -1202,7 +1202,7 @@ function LeagueTeamsPageInner() {
             <SectionCard variant="standalone" pad="none" ariaLabel="비정규 선수">
               <SectionHeader
                 title={`비정규 선수${scopeSuffix}`}
-                description="팀을 정하지 않고 경기에 나온 선수예요"
+                description="팀 없이 출전한 선수"
               />
               <div className="px-4 py-3 lg:px-6 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>

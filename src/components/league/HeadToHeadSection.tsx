@@ -75,7 +75,7 @@ export default function HeadToHeadSection({ leagueId, quarterId, myTeamKey = nul
         {pairs === null ? (
           <ShimmerRows rows={4} height={40} />
         ) : !shown || shown.length === 0 || !active ? (
-          <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 기간에 끝난 맞대결이 아직 없어요.</p>
+          <p className="text-sm text-center py-8" style={{ color: 'var(--mm-muted)' }}>이 기간 맞대결 없음.</p>
         ) : (
           <>
             <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>

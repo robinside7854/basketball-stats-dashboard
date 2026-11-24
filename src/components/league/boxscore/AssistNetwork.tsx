@@ -53,7 +53,7 @@ const chipStyle = (on: boolean): CSSProperties => on
 type Edge = { from: string; to: string; count: number }
 type TeamNet = { key: string; name: string; color: string | null; edges: Edge[]; total: number }
 
-export default function AssistNetwork({ links, games, players, emptyTitle = '이날 기록된 어시스트가 없어요.' }: {
+export default function AssistNetwork({ links, games, players, emptyTitle = '이날 어시스트 기록 없음.' }: {
   links: AssistLink[]
   games: AssistGame[]
   players: Map<string, AssistPlayer>

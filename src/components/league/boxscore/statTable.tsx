@@ -529,8 +529,8 @@ export function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, h
         style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
         <Hand size={14} className="shrink-0 mt-px" aria-hidden />
         {view === 'basic'
-          ? <span className="break-keep">기록 칸을 누르면 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>과 슛 종류(레이업·골밑·미들·3점)로 바뀌어요.<br />모든 선수가 같이 바뀌어요.</span>
-          : <span className="break-keep">지금은 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>이에요.<br />다시 누르면 득점·리바운드 같은 기본 기록으로 돌아와요.</span>}
+          ? <span className="break-keep">기록 칸 클릭 시 <b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b>·슛 종류로 전환.</span>
+          : <span className="break-keep"><b style={{ color: 'var(--mm-ink)' }}>슈팅 기록</b> 보기 중. 다시 클릭 시 기본 기록.</span>}
       </p>
       {/* 선수마다 카드 한 장(2026-11-04) — 얇은 구분선만 있던 줄이 서로 섞여 보였다. 태블릿은 두 줄씩 */}
       <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2">

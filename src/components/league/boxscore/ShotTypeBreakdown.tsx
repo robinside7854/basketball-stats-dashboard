@@ -132,7 +132,7 @@ function TeamCard({ title, color, counts }: { title: string; color: string | nul
   )
 }
 
-export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTitle = '이날 기록된 야투가 없어요.', overallTitle }: {
+export default function ShotTypeBreakdown({ rows, games, teams, players, emptyTitle = '이날 야투 기록 없음.', overallTitle }: {
   rows: ShotTypeRow[]
   games: ShotGame[]
   /** 그날 출전한 팀(이름·색) — 팀 id 로 이름을 찾는다 */
