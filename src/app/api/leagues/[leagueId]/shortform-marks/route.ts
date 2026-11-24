@@ -25,11 +25,14 @@ export async function POST(req: Request, { params }: Ctx) {
     .select('id, quarter, video_timestamp, league_game_id, league_games!inner(league_id)')
     .eq('id', body.event_id).eq('league_games.league_id', leagueId).maybeSingle()
   if (!ev) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const { error } = await sb.from('league_game_marks').upsert({
+  // 이미 담긴 장면이면 그대로(유일 인덱스가 부분 인덱스라 upsert 의 onConflict 를 못 쓴다)
+  const { data: had } = await sb.from('league_game_marks').select('id').eq('league_game_event_id', ev.id).maybeSingle()
+  if (had) return NextResponse.json({ ok: true })
+  const { error } = await sb.from('league_game_marks').insert({
     league_id: leagueId, league_game_id: ev.league_game_id, league_game_event_id: ev.id,
     quarter: ev.quarter, video_timestamp: ev.video_timestamp,
     youtube_url: typeof body.youtube_url === 'string' ? body.youtube_url.slice(0, 300) : null,
-  }, { onConflict: 'league_game_event_id' })
+  })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true }, { status: 201 })
 }
