@@ -104,7 +104,8 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   //   두 경로 모두 우측 액션 영역에서 닿으므로 진입 자체가 사라진 건 아니다.
   const clubFeatures = useClub().features
   const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
-    // 2026-11-24 운영진: 순서 경기 · 스탯 · 홈 · 하이라이트(옛 기록·영상 이름 바꿈)
+    // 2026-11-24 운영진: PC 는 홈 · 경기 · 스탯 · 하이라이트(홈이 맨 왼쪽 — 폰만 홈이 가운데)
+    { href: base, label: '홈', match: [] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
     // 선수 명단 탭 부활(2026-10-16 사용자 요청) — 경기와 스탯 사이
     // 리뉴얼 R2 (2026-10-31): 「스탯」 탭을 「선수」에 합쳤다 — 선수 탭이 명단 + 순위. 옛 스탯·팀·기록실 화면은
@@ -114,7 +115,6 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     // 2026-11-04: 기록실(/records, 운영진)은 다시 「기록」 탭 안 — 서브탭 명단 · 리더보드 · 팀 · 기록실
     { href: `${base}/players`, label: '스탯', match: [`${base}/players`, `${base}/stats`, `${base}/teams`, `${base}/records`] },
     // 영상·드래프트는 동호회 기능 스위치로(2026-11-10 플랫폼화 3단계)
-    { href: base, label: '홈', match: [] },
     ...(clubFeatures.youtube ? [{ href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] }] : []),
     // 드래프트는 주장·운영진 전용 절차다(2026-10-12) — 일반 회원 탭 줄에는 띄우지 않는다.
     ...(showDraft && isEditMode && clubFeatures.draft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
