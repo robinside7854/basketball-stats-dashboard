@@ -14,7 +14,7 @@ import PlayerHighlightsPlaylist from './PlayerHighlightsPlaylist'
 import PinBestShotToolbar from './PinBestShotToolbar'
 import {
   categoryOfType,
-  clipMatchesCategory,
+  clipMatchesCategory, hiddenByDefault,
   parseShotCategory,
   SHOT_CATEGORY_OPTIONS,
   type HighlightFilterCategory,
@@ -84,7 +84,7 @@ export default function PlayerHighlightsBrowser({
   // ── 축별 술어 (교차 필터링의 기본 단위) ────────────────────────
   // 각 축의 선택지 개수는 "자기 축을 뺀 나머지 필터"만 적용해 센다.
   const matchCategory = useCallback((c: HighlightClip) => {
-    if (!category) return true
+    if (!category) return !hiddenByDefault(c)   // 스틸은 「수비」 필터에서만(2026-11-24)
     if (category === 'clutch') return !!c.is_clutch
     return clipMatchesCategory(c, category)
   }, [category])

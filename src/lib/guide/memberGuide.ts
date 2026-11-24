@@ -186,6 +186,8 @@ export const MEMBER_GUIDE: GuideSection[] = [
           { t: '「하이라이트」 탭에서 내 플레이를 다시 볼 수 있어요.', icon: 'video' },
           { t: '맨 위 「바로 재생」은 지난 경기 장면을 이어서 틀어요.', icon: 'video' },
           { t: '박스스코어 이름 옆 ▶ 를 누르면 그 선수 장면으로 가요.', icon: 'video' },
+          { t: '블록 장면도 목록에 같이 나와요.', icon: 'shield' },
+          { t: '스틸은 「필터 → 수비」에서 볼 수 있어요.', icon: 'shield' },
           { t: '기록 시각 기준이라 몇 초 어긋날 수 있어요.', icon: 'clock', tip: true },
           { t: '전체화면으로도 볼 수 있어요.', icon: 'expand' },
           { t: '링크 버튼으로 그 클립을 팀원에게 보내요.', icon: 'link' },

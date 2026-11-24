@@ -104,14 +104,14 @@ const getLandingCached = (leagueId: string) =>
 const getRoundCached = (leagueId: string, date: string) =>
   unstable_cache(
     async () => loadRoundDetail(createClient(), leagueId, date),
-    ['highlights-round-detail', leagueId, date],
+    ['highlights-round-detail-v2', leagueId, date],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 3600 },
   )
 
 const getPlayerCached = (leagueId: string, playerId: string) =>
   unstable_cache(
     async () => loadPlayerHighlights(createClient(), leagueId, playerId),
-    ['highlights-player-page', leagueId, playerId],
+    ['highlights-player-page-v2', leagueId, playerId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-events`, `league-${leagueId}-players-${playerId}`], revalidate: 3600 },
   )
 
@@ -398,13 +398,13 @@ export default async function HighlightsFeedPage({
 
 /** 선수 피드에서 「가장 최근 경기일 · 그날 클립 수 · 썸네일 영상」 — 클립이 없으면 null */
 function summarizeMyClips(
-  data: { clips: Array<{ game_date?: string; video_id: string }> } | null,
+  data: { clips: Array<{ game_date?: string; video_id: string; shot_type?: string }> } | null,
 ): { date: string; count: number; thumbVideoId: string | null } | null {
   if (!data) return null
   let date: string | null = null
   for (const c of data.clips) if (c.game_date && (!date || c.game_date > date)) date = c.game_date
   if (!date) return null
-  const day = data.clips.filter(c => c.game_date === date)
+  const day = data.clips.filter(c => c.game_date === date && c.shot_type !== 'steal')   // 스틸은 「수비」 필터 전용(2026-11-24)
   return { date, count: day.length, thumbVideoId: day.find(c => c.video_id)?.video_id ?? null }
 }
 

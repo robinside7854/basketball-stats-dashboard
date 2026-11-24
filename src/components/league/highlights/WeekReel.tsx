@@ -36,7 +36,7 @@ export default function WeekReel({ leagueId, date, href, thumbVideoId }: { leagu
   }, [leagueId, date])
 
   const reel = useMemo(() => {
-    const playable = (clips ?? []).filter(c => !!c.video_id && !c.shot_type.startsWith('ft_') && c.shot_type !== 'free_throw').map((c, i) => ({ c, i }))
+    const playable = (clips ?? []).filter(c => !!c.video_id && !c.shot_type.startsWith('ft_') && c.shot_type !== 'free_throw' && c.shot_type !== 'steal').map((c, i) => ({ c, i }))
     const picked = [...playable].sort((a, b) => score(b.c) - score(a.c) || a.i - b.i).slice(0, REEL_MAX)
     return picked.sort((a, b) => a.i - b.i).map(x => x.c)
   }, [clips])

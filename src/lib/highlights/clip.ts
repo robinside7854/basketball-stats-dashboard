@@ -20,11 +20,21 @@ const CLIP_BOUNDS: Record<string, { before: number; after: number }> = {
   ft_2pt:        { before: 10, after: 6 },
   ft_3pt_1:      { before: 10, after: 6 },
   ft_3pt_2:      { before: 10, after: 6 },
+  block:         { before: 7, after: 5 },
+  steal:         { before: 7, after: 6 },
 }
 
 export function isHighlightShot(type: string): boolean {
   return HIGHLIGHT_SHOT_TYPES.has(type)
 }
+
+/** 수비 장면(2026-11-24 운영진) — 블록은 목록에 늘 보이고, 스틸은 「수비」 필터를 골랐을 때만 보인다(수가 많아 득점 장면이 묻힌다). */
+const DEFENSE_TYPES = new Set(['block', 'steal'])
+export function isDefensePlay(type: string): boolean { return DEFENSE_TYPES.has(type) }
+/** 하이라이트 클립이 되는 기록 — 성공한 슛 + 수비(블록·스틸) */
+export function isHighlightPlay(type: string): boolean { return HIGHLIGHT_SHOT_TYPES.has(type) || DEFENSE_TYPES.has(type) }
+/** 필터를 안 골랐을 때 목록에서 숨기는 클립 — 스틸(「수비」 필터 전용) */
+export function hiddenByDefault(clip: { shot_type: string }): boolean { return clip.shot_type === 'steal' }
 
 export function getClipBounds(type: string, timestamp: number): { start: number; end: number } {
   const bounds = CLIP_BOUNDS[type] ?? { before: 10, after: 8 }
@@ -37,7 +47,7 @@ export function getClipBounds(type: string, timestamp: number): { start: number;
 // 슛 유형 카테고리 매핑 (필터바에서 사용)
 // 2점은 기록 단계에서 레이업/골밑/미들로 구분 입력하므로 필터도 동일하게 세분화
 // 앤드원(and_one)은 파울과 함께 성공한 야투 상황(플러스 자유투) — 자유투와 구분되는 하이라이트
-export type ShotCategory = 'threes' | 'layups' | 'posts' | 'mids' | 'freethrows' | 'andones'
+export type ShotCategory = 'threes' | 'layups' | 'posts' | 'mids' | 'freethrows' | 'andones' | 'defense'
 
 // 필터바 칩 목록 (표시 순서 그대로)
 export const SHOT_CATEGORY_OPTIONS: { key: ShotCategory; label: string }[] = [
@@ -47,6 +57,7 @@ export const SHOT_CATEGORY_OPTIONS: { key: ShotCategory; label: string }[] = [
   { key: 'mids',       label: '미들슛' },
   { key: 'freethrows', label: '자유투' },
   { key: 'andones',    label: '앤드원' },
+  { key: 'defense',    label: '수비' },
 ]
 
 // URL 쿼리 값 → ShotCategory (유효하지 않으면 null = 전체)
@@ -78,6 +89,7 @@ export function categoryOfType(type: string): ShotCategory | null {
   if (type === 'shot_2p_mid') return 'mids'
   if (type === 'and_one') return 'andones'
   if (type === 'ft_2pt' || type === 'ft_3pt_1' || type === 'ft_3pt_2' || type === 'free_throw') return 'freethrows'
+  if (type === 'block' || type === 'steal') return 'defense'
   return null
 }
 
@@ -136,7 +148,7 @@ export function mergeAndOneClips<T extends {
 // 어시스트 표시가 유의미한 슛 유형만 true (자유투/앤드원은 제외 — 파울 상황이라 어시스트 개념 없음)
 export function shouldShowAssist(type: string): boolean {
   const cat = categoryOfType(type)
-  return cat !== null && cat !== 'freethrows' && cat !== 'andones'
+  return cat !== null && cat !== 'freethrows' && cat !== 'andones' && cat !== 'defense'
 }
 
 export const SHOT_TYPE_LABEL: Record<string, string> = {
@@ -149,4 +161,6 @@ export const SHOT_TYPE_LABEL: Record<string, string> = {
   ft_3pt_1:      '3P파울 FT',
   ft_3pt_2:      '3P파울 FT',
   free_throw:    '자유투',
+  block:         '블록',
+  steal:         '스틸',
 }

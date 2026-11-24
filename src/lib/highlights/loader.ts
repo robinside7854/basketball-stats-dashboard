@@ -4,7 +4,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 import { fetchQuarterVideos, resolveGameVideo } from '@/lib/youtube/gameVideo'
-import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist, mergeAndOneClips } from './clip'
+import { isHighlightShot, isHighlightPlay, isDefensePlay, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist, mergeAndOneClips } from './clip'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 // 러닝 스코어(홈/원정 누적 점수) 계산 — 저장된 points 컬럼이 아니라 리그 채점 룰로 재계산한다.
 // 이유: 클러치 판정은 게임 내 이벤트를 순서대로 훑으며 누적하는 구조라, 값 하나가 룰과
@@ -281,7 +281,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       .from('league_game_events')
       .select('id, league_game_id, league_player_id, team_id, related_player_id, type, result, points, video_timestamp, quarter, created_at')
       .in('league_game_id', gameIds)
-      .eq('result', 'made')
+      .or('result.eq.made,type.in.(block,steal)')   // 수비 장면(블록·스틸)은 result 가 비어 있다(2026-11-24)
       .not('video_timestamp', 'is', null)
       .order('created_at', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
@@ -370,7 +370,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   const teamCounts: Record<string, HighlightTeamOption> = {}
 
   for (const ev of eventRows) {
-    if (!isHighlightShot(ev.type)) continue
+    if (!isHighlightPlay(ev.type)) continue
     const game = gameMap[ev.league_game_id]
     if (!game) continue
     // 이 이벤트의 쿼터 영상 → 없으면 경기 대표 영상. 판정은 gameVideo.ts 하나뿐이다.
@@ -433,7 +433,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
-      is_clutch: meta?.is_clutch ?? false,
+      is_clutch: !isDefensePlay(ev.type) && (meta?.is_clutch ?? false),
       score_home_before: meta?.hb ?? 0,
       score_away_before: meta?.ab ?? 0,
       score_home_after: meta?.ha ?? 0,
@@ -591,7 +591,7 @@ export async function loadPlayerHighlights(
       .select('id, league_game_id, team_id, related_player_id, type, result, points, video_timestamp, quarter, created_at')
       .eq('league_player_id', playerId)
       .in('league_game_id', gameIds)
-      .eq('result', 'made')
+      .or('result.eq.made,type.in.(block,steal)')   // 수비 장면(블록·스틸)은 result 가 비어 있다(2026-11-24)
       .not('video_timestamp', 'is', null)
       .order('created_at', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
@@ -696,7 +696,7 @@ export async function loadPlayerHighlights(
   const shotTypeCount: Record<string, number> = {}
 
   for (const ev of events) {
-    if (!isHighlightShot(ev.type)) continue
+    if (!isHighlightPlay(ev.type)) continue
     const game = gameMap[ev.league_game_id]
     if (!game) continue
     // 이 이벤트의 쿼터 영상 → 없으면 경기 대표 영상(gameVideo.ts).
@@ -766,7 +766,7 @@ export async function loadPlayerHighlights(
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
-      is_clutch: meta?.is_clutch ?? false,
+      is_clutch: !isDefensePlay(ev.type) && (meta?.is_clutch ?? false),
       score_home_before: meta?.hb ?? 0,
       score_away_before: meta?.ab ?? 0,
       score_home_after: meta?.ha ?? 0,

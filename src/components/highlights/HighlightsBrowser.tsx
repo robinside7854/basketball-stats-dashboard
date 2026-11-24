@@ -12,7 +12,7 @@ import HighlightsPlayer, { type HighlightsPlayerHandle } from './HighlightsPlaye
 import ImmersivePlayButton from './ImmersivePlayButton'
 import HighlightsPlaylist from './HighlightsPlaylist'
 import HighlightsFilterBar, { type FilterState, type FilterCounts } from './HighlightsFilterBar'
-import { categoryOfType, clipMatchesCategory, parseShotCategory, SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
+import { categoryOfType, clipMatchesCategory, hiddenByDefault, parseShotCategory, SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
 import { availabilityCounts, availabilityCountsBy, gameQuarterLabel } from '@/lib/highlights/crossFilter'
 import { shortenUrl } from '@/lib/shortUrl'
 import YouTubeOpenLink from './YouTubeOpenLink'
@@ -61,7 +61,7 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
   const matchPlayer   = useCallback((c: HighlightClip) => !filter.playerId || c.player_id === filter.playerId, [filter.playerId])
   const matchQuarter  = useCallback((c: HighlightClip) => filter.quarter == null || c.game_quarter === filter.quarter, [filter.quarter])
   const matchCategory = useCallback((c: HighlightClip) => {
-    if (!filter.category) return true
+    if (!filter.category) return !hiddenByDefault(c)   // 스틸은 「수비」 필터에서만(2026-11-24)
     if (filter.category === 'clutch') return !!c.is_clutch
     return clipMatchesCategory(c, filter.category)
   }, [filter.category])
