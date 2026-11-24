@@ -76,24 +76,21 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
           </h2>
         </div>
       </div>
-      {/* 정원 칸(인벤토리) — 칸 하나 = 한 명(2026-11-24 운영진 「숫자 대신 도식」). 정규 검정 · 비정규 노랑 · 게스트 회색 · 빈 칸 점선 */}
+      {/* 정원 칸(인벤토리) — 공 하나 = 한 자리(2026-11-24 운영진). 주황 농구공 = 참석 · 검정 농구공 = 남은 자리.
+          종전 검정·노랑 네모는 검정이 오히려 빈 칸처럼 보였다. 정원을 넘으면 넘친 공에 빨간 테. */}
       {(() => {
-        const cap = Math.max(data.capacity ?? 0, yes.length)
-        const fill = [...Array(counts.regular).fill('r'), ...Array(counts.non_regular).fill('n'), ...Array(counts.guest).fill('g')]
-        const bg = { r: 'var(--mm-black)', n: 'var(--mm-yellow)', g: 'var(--mm-muted)' } as const
+        const capN = data.capacity ?? yes.length
+        const cap = Math.max(capN, yes.length)
+        const left = Math.max(0, capN - yes.length)
         return (
           <div className="mt-3">
-            <div className="grid grid-cols-9 gap-1" role="img" aria-label={`참 ${yes.length}명, 정원 ${data.capacity}명`}>
-              {Array.from({ length: cap }, (_, i) => {
-                const k = fill[i] as keyof typeof bg | undefined
-                const overSlot = i >= (data.capacity ?? cap)
-                return <span key={i} className="aspect-square" style={{ borderRadius: 4, background: k ? bg[k] : 'transparent', border: k ? (overSlot ? '2px solid var(--mm-live-bg)' : 'none') : '1.5px dashed var(--mm-rule)' }} />
-              })}
+            <div className="grid grid-cols-9 gap-1" role="img" aria-label={`참 ${yes.length}명, 남은 자리 ${left}`}>
+              {Array.from({ length: cap }, (_, i) => <Ball key={i} on={i < yes.length} over={i >= capN} />)}
             </div>
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: 'var(--mm-muted)' }}>
-              {([['r', '정규', counts.regular], ['n', '비정규', counts.non_regular], ['g', '게스트', counts.guest]] as const).map(([k, l, c]) => (
-                <span key={k} className="inline-flex items-center gap-1 whitespace-nowrap"><span className="w-2.5 h-2.5 inline-block" style={{ borderRadius: 2, background: bg[k] }} />{l} {c}</span>
-              ))}
+              <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="w-3.5 inline-block"><Ball on /></span>참석 {yes.length}</span>
+              <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="w-3.5 inline-block"><Ball on={false} /></span>남은 자리 {left}</span>
+              <span className="whitespace-nowrap">정규 {counts.regular} · 비정규 {counts.non_regular} · 게스트 {counts.guest}</span>
             </div>
           </div>
         )
@@ -178,5 +175,20 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
       </div>
       {me && <GuestRequestSheet leagueId={leagueId} open={guestOpen} onClose={() => setGuestOpen(false)} onDone={load} pool={data.guest_pool ?? []} guestPrice={data.guest_price ?? null} myBalance={data.my_balance ?? null} />}
     </SectionCard>
+  )
+}
+
+/** 농구공 한 개 — on = 주황(참석) · off = 검정(남은 자리) */
+function Ball({ on, over = false }: { on: boolean; over?: boolean }) {
+  const fill = on ? '#F08A24' : '#2A2622'
+  const line = on ? '#7A3B0C' : '#5C5650'
+  return (
+    <svg viewBox="0 0 24 24" className="block w-full h-auto" aria-hidden>
+      <circle cx="12" cy="12" r="10.5" fill={fill} stroke={over ? 'var(--mm-live-bg)' : line} strokeWidth={over ? 2.5 : 1.2} />
+      <g fill="none" stroke={line} strokeWidth="1.2">
+        <path d="M1.5 12h21M12 1.5v21" />
+        <path d="M5 4.5c3 2.2 3 12.8 0 15M19 4.5c-3 2.2-3 12.8 0 15" />
+      </g>
+    </svg>
   )
 }
