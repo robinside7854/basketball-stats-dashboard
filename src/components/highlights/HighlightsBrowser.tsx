@@ -16,6 +16,7 @@ import { categoryOfType, clipMatchesCategory, parseShotCategory, SHOT_CATEGORY_O
 import { availabilityCounts, availabilityCountsBy, gameQuarterLabel } from '@/lib/highlights/crossFilter'
 import { shortenUrl } from '@/lib/shortUrl'
 import YouTubeOpenLink from './YouTubeOpenLink'
+import ShortformMarkButton from './ShortformMarkButton'
 import { FEED_LIST_COL, FEED_LIST_SCROLL, FEED_PLAYER_COL, replaceFeedUrl, type HighlightsFeedOptions } from './feed'
 import type { HighlightClip, HighlightRoundDetail, HighlightGameQuarterOption } from '@/lib/highlights/types'
 
@@ -189,9 +190,10 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
               onIndexChange={onSelectIdx}
               onImmersiveChange={setImmersiveOpen}
             />
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex">
+            <div className="flex flex-wrap gap-2 [&>*:first-child]:flex-1">
               <ImmersivePlayButton playerRef={playerHandleRef} disabled={!filteredClips[currentIdx]?.video_id} />
               <YouTubeOpenLink clip={filteredClips[currentIdx]} />
+              <ShortformMarkButton clip={filteredClips[currentIdx]} />
             </div>
           </div>
           <div className={FEED_LIST_COL}>
