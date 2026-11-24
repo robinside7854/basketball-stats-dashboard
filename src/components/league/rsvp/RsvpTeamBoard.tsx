@@ -221,7 +221,7 @@ export default function RsvpTeamBoard({
     <li
       draggable={admin}
       onDragStart={admin ? (ev => { ev.dataTransfer.setData('text/plain', m.player_id); ev.dataTransfer.effectAllowed = 'move' }) : undefined}
-      className={`flex items-baseline gap-x-1.5 sm:gap-x-2 gap-y-1 flex-wrap ${m.kind === 'guest' || (m.kind === 'non_regular' && !m.placed_team_id) ? '' : '@[18rem]:flex-nowrap'} ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+      className={`flex items-center gap-x-1.5 sm:gap-x-2 gap-y-1 flex-wrap ${m.kind === 'guest' || (m.kind === 'non_regular' && !m.placed_team_id) ? '' : '@[18rem]:flex-nowrap'} ${admin ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
       title={admin ? '끌어서 다른 팀이나 대기명단에 놓기' : undefined}
       // 게스트 줄·대기명단 비정규 줄은 넘기게 둔다 — 「입금」·「포인트로 자동」·「운영진」·「취소」가 칸 밖으로 삐져나왔다(2026-11-09 · 11-11 폰 360)
     >
@@ -278,7 +278,7 @@ export default function RsvpTeamBoard({
       {admin && m.kind === 'non_regular' && !m.placed_team_id && (
         // 티켓이 없어도 포인트가 있으면 배치 때 자동 발행(2026-11-10) — 막히는 사람만 빨갛게
         <span className="text-xs whitespace-nowrap" style={{ color: m.tickets_left > 0 || m.can_pay !== false ? 'var(--mm-muted)' : 'var(--mm-live-bg)' }}>
-          {m.tickets_left > 0 ? `티켓 ${m.tickets_left}장` : m.can_pay !== false ? '포인트로 자동' : '포인트 부족'}
+          {m.tickets_left > 0 ? `티켓 ${m.tickets_left}장` : m.can_pay !== false ? '' : '포인트 부족'}
         </span>
       )}
       {/* 부른 회원의 「취소」 — 어드민 화면에는 어드민 「✕ 취소」가 있으니 하나만(2026-11-09 운영진 — 두 개 보이던 오류) */}
@@ -302,7 +302,7 @@ export default function RsvpTeamBoard({
       )}
       {admin && m.kind !== 'regular' && !m.placed_team_id && (
         <button type="button" disabled={busy} onClick={() => adminCancel(m)} aria-label={`${m.name} 참가 취소`}
-          className="mm-press inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-bold whitespace-nowrap border disabled:opacity-50 self-center"
+          className="mm-press ml-auto inline-flex items-center gap-0.5 min-h-8 px-1.5 text-xs font-bold whitespace-nowrap border disabled:opacity-50 self-center"
           style={{ borderColor: 'color-mix(in srgb, var(--mm-live-bg) 40%, transparent)', color: 'var(--mm-live-bg)', borderRadius: 'var(--mm-radius-chip)' }}>
           <X size={12} strokeWidth={3} aria-hidden />취소
         </button>
@@ -315,7 +315,7 @@ export default function RsvpTeamBoard({
     <div className="space-y-2 @container">
       {admin && (
         <p className="text-xs hidden lg:block" style={{ color: 'var(--mm-muted)' }}>
-          대기명단의 이름을 끌어 팀 카드에 놓으면 배치돼요(비정규는 그때 티켓 1장). 팀에서 대기명단으로 끌면 배치가 풀려요.
+          이름을 팀 카드로 끌면 배치. 대기명단으로 끌면 해제.
         </p>
       )}
       <div className={`grid gap-2 ${compact ? '@[40rem]:grid-cols-3' : '@[40rem]:grid-cols-2 @[52rem]:grid-cols-3'}`}>
@@ -396,7 +396,7 @@ export default function RsvpTeamBoard({
             <div className="min-w-0">
               <div className="text-sm font-black" style={{ color: 'var(--mm-ink-soft)' }}>{title} <span className="tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rows.length}명</span></div>
               {rows.length === 0 ? <p className="text-sm mt-1" style={{ color: 'var(--mm-muted)' }}>없어요</p> : (
-                <ul className="mt-1 space-y-1.5">{rows.map(m => <Person key={m.player_id} m={m} showKind={false} />)}</ul>
+                <ul className="mt-1 divide-y [&>li]:py-1.5" style={{ borderColor: "var(--mm-rule)" }}>{rows.map(m => <Person key={m.player_id} m={m} showKind={false} />)}</ul>
               )}
             </div>
           )

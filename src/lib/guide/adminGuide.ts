@@ -80,7 +80,7 @@ export const ADMIN_GUIDE: AdminSection[] = [
       {
         kind: 'status', title: '대기명단 이름 옆 표시', items: [
           { tone: 'ok', title: '티켓 N장', desc: '남은 티켓이 있어요', action: '그냥 배치하면 돼요' },
-          { tone: 'ok', title: '포인트로 자동', desc: '티켓은 없지만 포인트가 있어요', action: '마감 때 저절로 1장 사요' },
+          { tone: 'ok', title: '표시 없음', desc: '티켓은 없지만 포인트가 있어요', action: '마감 때 저절로 1장 사요' },
           { tone: 'bad', title: '포인트 부족', desc: '티켓도 포인트도 모자라요', action: '회원에게 충전을 부탁해요' },
         ],
       },

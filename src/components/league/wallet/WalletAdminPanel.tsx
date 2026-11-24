@@ -186,7 +186,7 @@ export default function WalletAdminPanel({ leagueId, onChanged }: { leagueId: st
         <h3 className="font-black text-lg break-keep" style={{ color: 'var(--mm-ink)' }}>어드민 · 충전·환불 확인</h3>
         <p className="text-xs mb-3 break-keep" style={{ color: 'var(--mm-muted)' }}>충전은 입금자명·금액이 맞으면 승인해요. 5만원 이상이면 보너스는 자동이에요. 환불은 회원 계좌로 송금한 뒤 「송금했어요」를 눌러요. 처리한 사람은 기록에 남아요.</p>
         {data.pending.length === 0 ? (
-          <p className="text-sm py-2" style={{ color: 'var(--mm-ink-soft)' }}>확인을 기다리는 요청이 없어요</p>
+          <p className="text-sm py-2" style={{ color: 'var(--mm-ink-soft)' }}>대기 중인 요청 없음</p>
         ) : (
           <ul>
             {data.pending.map(r => (

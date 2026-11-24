@@ -151,7 +151,7 @@ export function LastRoundTimeline({ round, orgSlug, leagueId }: { round: RoundSu
       <DayTeams teams={round.teams} />
 
       {games.length === 0 ? (
-        <p className="px-4 lg:px-5 py-6 text-sm text-center" style={{ color: 'var(--mm-muted)' }}>경기별 기록은 박스스코어에서 볼 수 있어요.</p>
+        <p className="px-4 lg:px-5 py-6 text-sm text-center" style={{ color: 'var(--mm-muted)' }}>경기별 기록은 박스스코어에서.</p>
       ) : (
         // 경기 타일 격자 (2026-10-13 사용자 요청) — 종전 세로 타임라인은 9경기면 모바일에서 두 화면을 넘겼다.
         //   모바일 2열 · sm+ 3열. 타일 하나 ≈ 76px 이라 9경기 = 5줄 ≈ 410px(머리 포함 한 화면 안).

@@ -14,7 +14,7 @@ interface Props {
 
 export default function StatGate({
   title = '회원 전용 콘텐츠입니다',
-  description = '가입 승인된 회원만 볼 수 있어요. 로그인하거나 가입을 요청해 주세요.',
+  description = '승인 회원 전용. 로그인 또는 가입 요청.',
   fullPage = false,
 }: Props) {
   const body = (

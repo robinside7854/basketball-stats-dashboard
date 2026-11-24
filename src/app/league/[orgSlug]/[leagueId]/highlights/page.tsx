@@ -161,8 +161,8 @@ function one(v: string | string[] | undefined): string | null {
 }
 
 const GATE_COPY: Record<Exclude<FeedKind, 'best'>, { title: string; description: string }> = {
-  all:        { title: '하이라이트는 회원 전용', description: '클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요.' },
-  classics:   { title: '명경기는 회원 전용',     description: '월별 명경기와 선정 이유는 가입 승인된 회원만 볼 수 있어요.' },
+  all:        { title: '하이라이트는 회원 전용', description: '클러치샷·경기 클립 영상은 승인 회원 전용.' },
+  classics:   { title: '명경기는 회원 전용',     description: '월별 명경기와 선정 이유는 승인 회원 전용.' },
 }
 
 export default async function HighlightsFeedPage({

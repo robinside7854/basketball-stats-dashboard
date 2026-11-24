@@ -106,7 +106,7 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
   또는 리그 `/settings` → 회원 패널 머리의 **「어드민 지정」 버튼**(2026-11-09 — 줄마다 붙던 지정 버튼은 없앴다. 거의 안 쓰는 일)
 - 프론트: `useLeagueEditMode()`의 `isEditMode`(= 어드민 role ∥ CEO) / `isAdminSession` / `isCeo` / `openLogin()`
   - CEO 여부는 `GET /api/auth/ceo-session` 으로 안다(화면 표시용 — 인가는 서버가 재확인)
-  - **회원 화면으로 보기(2026-11-24 운영진)**: 「나 → 계정」 로그아웃 옆 단추(운영진·CEO 에게만). 켜면 `useLeagueEditMode()` 의 `isEditMode`·`isAdminSession`·`isCeo` 가 모두 false 로 보이고 화면 아래 「회원 화면으로 보는 중 · 운영진 화면으로」 띠가 뜬다. 화면 표시만 바꾸며 서버 권한은 그대로 · 이 탭에서만 유지(sessionStorage `mm_member_preview`). 새 운영진 전용 화면은 `user.role` 을 직접 보지 말고 이 컨텍스트를 거칠 것.
+  - **회원 화면으로 보기(2026-11-24 운영진)**: 「나 → 계정」 로그아웃 옆 단추(운영진·CEO 에게만). 켜면 `useLeagueEditMode()` 의 `isEditMode`·`isAdminSession`·`isCeo` 가 모두 false 로 보이고 화면 오른쪽 아래 「회원 | 운영진」 토글이 뜬다(누르면 운영진으로 · 계정 칸 단추도 같은 토글, 2026-11-24). 참가신청 화면·홈 카드의 배치 조작도 미리보기면 회원과 같이 잠긴다(`!memberPreview`). 화면 표시만 바꾸며 서버 권한은 그대로 · 이 탭에서만 유지(sessionStorage `mm_member_preview`). 새 운영진 전용 화면은 `user.role` 을 직접 보지 말고 이 컨텍스트를 거칠 것.
   - `LeagueAuthProvider`가 `LeagueEditModeProvider`보다 **바깥**이어야 함 (role을 읽어야 하므로)
 
 ### PIN 폐지 (2026-08-10 방침 · 2026-10-11 리그 완료) ⚠
@@ -168,6 +168,11 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
   layout 이 잠금 때 **이름 칸 하나만** 읽어 넘긴다. 기록·명단 등 안쪽 데이터는 여전히 보내지 않는다.
 - **탭 제목에도 동호회 이름**(2026-11-10 운영진) — `lib/league/clubName.ts` 의 `getClubName`(React cache)을 layout·guide·boxscore 가 같이 쓴다. 잠금 상태면 「이름 — 회원 전용」.
   링크 미리보기(openGraph 제목·`opengraph-image` 그림)의 중립화는 **그대로**다 — 바꾸려면 운영진에게 먼저 묻는다.
+
+### 문장은 짧게 · 어절째 넘기기 (2026-11-24 운영진)
+- 안내 문구는 짧은 명사형으로 쓴다 — 「락다운 배치 완료. 불참 시 마감 전 「불」 클릭.」처럼(「~했어요. ~해 주세요」 두 문장 금지). 참가신청·월렛·로그인 문구를 이렇게 바꿨다.
+- `.mm-shell` 전체에 `word-break: keep-all; overflow-wrap: break-word`(globals.css 끝) — `anywhere` 로 바꾸지 말 것(좁은 칸에서 이름이 한 글자씩 쪼개진다).
+- 대기명단 줄 = 가운데 정렬 · 줄 사이 구분선 · 「✕ 취소」는 줄 오른쪽 끝. 「포인트로 자동」 표시는 뺐다(티켓 N장·포인트 부족만).
 
 ### 말줄임(「…」) 금지 (2026-11-07 운영진) ⚠
 - **글자를 「…」로 자르지 않는다.** `globals.css` 끝 블록이 `truncate`·`line-clamp-*` 를 「다음 줄로 넘기기」로 바꿔 둔다(173곳 일괄).

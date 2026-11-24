@@ -29,8 +29,8 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
   const submit = useCallback(async () => {
     if (saving) return
     if (!cur) { toast.error('현재 비밀번호를 입력하세요'); return }
-    if (nw.length < 4) { toast.error('새 비밀번호는 4자 이상이어야 해요'); return }
-    if (nw !== confirm) { toast.error('새 비밀번호 확인이 일치하지 않아요'); return }
+    if (nw.length < 4) { toast.error('새 비밀번호는 4자 이상'); return }
+    if (nw !== confirm) { toast.error('새 비밀번호 확인 불일치'); return }
     if (nw === cur) { toast.error('현재 비밀번호와 다른 비밀번호를 사용하세요'); return }
     setSaving(true)
     try {

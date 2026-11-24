@@ -6,6 +6,7 @@
 //   정원은 안내만 — 넘쳐도 막지 않는다(팀장·총무 회의).
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { toast } from 'sonner'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Loader2, Wand2, Lock } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
@@ -32,6 +33,7 @@ function shift(ymd: string, days: number): string {
 
 export default function RsvpPageClient({ leagueId, base, initialDate = null, embedded = false }: { leagueId: string; base: string; initialDate?: string | null; embedded?: boolean }) {
   const [date, setDate] = useState<string | null>(initialDate)
+  const { memberPreview } = useLeagueEditMode()
   const [data, setData] = useState<RsvpRes | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [addPid, setAddPid] = useState('')
@@ -57,7 +59,8 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   if (embedded && (data.entries ?? []).length === 0 && !data.closure) return <p className="text-sm py-2" style={{ color: 'var(--mm-muted)' }}>이 날짜에는 참가신청 기록이 없어요.</p>
   // 신청 현황 화면 — 회원은 보기만, 어드민만 배치·수정(2026-11-09 운영진). 참/불은 홈 카드에서.
   if (!data.me && !data.isAdmin) return <LoginTeaser />
-  const admin = !!data.isAdmin
+  // 「회원 화면으로 보기」 중이면 운영진 손잡이를 감춘다(2026-11-24 — 남의 참석을 바꿀 수 있었다)
+  const admin = !!data.isAdmin && !memberPreview
 
   async function act(body: Record<string, unknown>, tag: string, ok?: string) {
     if (actInFlight.current) { toast('앞의 변경을 저장하는 중이에요. 잠시 뒤 다시 해 주세요.'); return }   // 끌어 놓기·버튼을 빠르게 연달아 해도 요청이 겹치지 않게(2026-11-10)
@@ -118,7 +121,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
                 <span className="text-base font-bold" style={{ color: 'var(--mm-muted)' }}>/ 정원 {data.capacity}명</span>
               </div>
               <div className="mt-1.5 text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>정규 {counts.regular} · 비정규 {counts.non_regular} · 게스트 {counts.guest}</div>
-              {over && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>정원을 넘었어요 — 팀장·총무가 협의해 정해요(7명 팀 등).</p>}
+              {over && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>정원 초과 · 팀장·총무 협의.</p>}
               {locked && <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-ink-soft)' }}>그날 기록이 시작돼 명단은 더 고칠 수 없어요.</p>}
               {admin && !locked && (
                 <div className="mt-3 space-y-2">

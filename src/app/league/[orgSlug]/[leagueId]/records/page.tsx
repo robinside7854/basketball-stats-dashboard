@@ -36,7 +36,7 @@ export default function LeagueRecordsPage() {
   }, [leagueId])
 
   if (gated) {
-    return <StatGate fullPage title="기록실은 회원 전용" description="통산 기록은 가입 승인된 회원만 볼 수 있어요." />
+    return <StatGate fullPage title="기록실은 회원 전용" description="통산 기록은 승인 회원 전용." />
   }
 
   const base = `/league/${orgSlug}/${leagueId}`

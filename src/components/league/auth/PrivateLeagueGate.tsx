@@ -124,7 +124,7 @@ export default function PrivateLeagueGate({ leagueId, leagueName, logo }: Props)
             className="font-black text-xl sm:text-2xl mb-2"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
-            {mode === 'returning' ? '다시 로그인해 주세요' : mode === 'pending' ? '가입 승인을 기다리고 있어요' : '회원 전용 페이지예요'}
+            {mode === 'returning' ? '다시 로그인해 주세요' : mode === 'pending' ? '가입 승인 대기 중' : '회원 전용 페이지예요'}
           </h1>
           <p
             className="text-sm leading-relaxed break-keep"
@@ -133,9 +133,9 @@ export default function PrivateLeagueGate({ leagueId, leagueName, logo }: Props)
             {mode === 'returning' ? (
               <>로그인이 풀렸어요. 로그인하면 보던 화면이 그대로 열려요.</>
             ) : mode === 'pending' ? (
-              <>운영진이 승인하면 <b>이름</b>과 <b>생년월일 6자리</b>로 로그인할 수 있어요.<br />승인이 늦으면 운영진에게 알려 주세요.</>
+              <>운영진이 승인하면 <b>이름</b>과 <b>생년월일 6자리</b>로 로그인할 수 있어요.<br />승인이 늦으면 운영진에게 연락.</>
             ) : (
-              <>가입 승인된 회원만 볼 수 있어요.<br />로그인하거나 가입을 요청해 주세요.</>
+              <>승인 회원 전용.<br />로그인 또는 가입 요청.</>
             )}
           </p>
 

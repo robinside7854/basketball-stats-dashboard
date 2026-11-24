@@ -932,7 +932,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
   )
 
   if (gated) {
-    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드는 가입 승인된 회원만 볼 수 있어요." />
+    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드는 승인 회원 전용." />
   }
 
   return (

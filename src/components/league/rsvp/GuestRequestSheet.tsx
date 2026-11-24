@@ -71,7 +71,7 @@ export default function GuestRequestSheet({ leagueId, open, onClose, onDone, poo
               ))}
             </div>
             {pay === 'points' && myBalance != null && myBalance < guestPrice! && (
-              <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>지금 포인트가 모자라요 — 배치 전까지 충전해야 팀에 들어갈 수 있어요.</p>
+              <p className="text-xs font-bold mt-1" style={{ color: 'var(--mm-live-bg)' }}>포인트 부족. 배치 전 충전 필요.</p>
             )}
           </div>
         )}
@@ -93,7 +93,7 @@ export default function GuestRequestSheet({ leagueId, open, onClose, onDone, poo
             <div className="mt-3 text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>새 게스트</div>
           </div>
         )}
-        <p className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>함께 올 게스트를 적어 주세요. 대기명단에 들어가고 어드민이 팀을 정해요.{pay === 'bank' ? ' 게스트비는 같은 통장으로 보내 주세요.' : ''}</p>
+        <p className="text-sm" style={{ color: 'var(--mm-ink-soft)' }}>게스트 정보 입력. 대기명단 등록 후 운영진이 팀 배치.{pay === 'bank' ? ' 게스트비는 같은 통장으로 보내 주세요.' : ''}</p>
         <label className="block text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>이름
           <input value={name} onChange={e => setName(e.target.value)} maxLength={30} className={INPUT} placeholder="예: 홍길동" />
         </label>

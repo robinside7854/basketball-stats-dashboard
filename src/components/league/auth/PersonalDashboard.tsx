@@ -327,11 +327,14 @@ export function AccountCard({ leagueId, className = '' }: { leagueId: string; cl
         {/* 앱 설치 — 설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다 */}
         <InstallAppButton />
         {canPreview && (
-          <button type="button" onClick={() => setMemberPreview(!memberPreview)}
-            className={`${NEUTRAL_BTN} sm:ml-auto`}
-            style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}>
-            <Eye size={16} aria-hidden />
-            {memberPreview ? '운영진 화면으로' : '회원 화면으로 보기'}
+          <button type="button" onClick={() => setMemberPreview(!memberPreview)} aria-pressed={memberPreview}
+            aria-label={memberPreview ? '운영진 화면으로 바꾸기' : '회원 화면으로 바꾸기'}
+            className="sm:ml-auto inline-flex items-center p-0.5 text-sm font-bold border cursor-pointer self-start"
+            style={{ borderColor: 'var(--mm-rule)', borderRadius: 999 }}>
+            {(['회원', '운영진'] as const).map(l => {
+              const on = (l === '회원') === memberPreview
+              return <span key={l} className="px-3 py-1.5" style={{ borderRadius: 999, background: on ? 'var(--mm-black)' : 'transparent', color: on ? '#fff' : 'var(--mm-muted)' }}>{l}</span>
+            })}
           </button>
         )}
         {user && (
@@ -600,7 +603,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
           {/* 폰에서 「출석/률」처럼 단어 중간에서 꺾였고, 두 문장이 「확인하세요.아직」으로 붙었다(2026-11-08) */}
           <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)', wordBreak: 'keep-all' }}>
             우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>내 선수 카드</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>베스트샷</b>을 확인하세요.
-            {' '}<br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
+            {' '}<br className="hidden sm:block" />회원이 아니면 가입 신청 먼저.
           </p>
           <button
             type="button"

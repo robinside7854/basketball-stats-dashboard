@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Check, X, ChevronRight, CalendarCheck, UserPlus } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import type { RsvpRes } from './rsvpTypes'
@@ -14,6 +15,7 @@ import { dateLabel, countByKind } from './rsvpTypes'
 import GuestRequestSheet from './GuestRequestSheet'
 
 export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; base: string }) {
+  const { memberPreview } = useLeagueEditMode()
   const [data, setData] = useState<RsvpRes | null>(null)
   const [busy, setBusy] = useState(false)
   // 화면이 다시 그려지기 전의 빠른 두 번 누르기도 막는다(버튼 disabled 는 다음 그리기부터 먹는다)
@@ -50,7 +52,7 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
       const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answer: a }) })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(j.error ?? '저장하지 못했어요'); return }
-      toast.success(a === 'yes' ? (j.ticket_bought ? '참가로 표시했어요 — 포인트로 비정규 티켓 1장을 샀어요' : '참가로 표시했어요') : j.ticket_returned ? '참가를 취소했어요 — 티켓 1장은 내 월렛에 남아요' : '불참으로 표시했어요')
+      toast.success(a === 'yes' ? (j.ticket_bought ? '참가 완료 · 티켓 1장 구매' : '참가 완료') : j.ticket_returned ? '참가 취소 · 티켓은 월렛에 남음' : '불참 완료')
       await load()
     } finally { setBusy(false); inFlight.current = false }
   }
@@ -98,15 +100,15 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
             </button>
           </div>
           <p className="text-sm mt-2" style={{ color: 'var(--mm-ink-soft)' }}>
-            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b>팀으로 배치됐어요.{open ? (locked && me.kind === 'non_regular' ? ' 못 나오게 되면 마감 전에 「불」 — 티켓은 내 월렛에 남아요.' : ' 못 나오게 되면 마감 전에 「불」로 바꿔 주세요.') : ''}</>
+            {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b> 배치 완료.{open ? (locked && me.kind === 'non_regular' ? ' 불참 시 마감 전 「불」. 티켓은 월렛에 남음.' : ' 불참 시 마감 전 「불」 클릭.') : ''}</>
               : me.answer === 'yes'
-                ? (me.kind === 'regular' ? '정규권이 있어요 — 팀 배치를 기다려 주세요.'
-                  : me.kind === 'guest' ? '게스트 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 정해요. 게스트비는 같은 통장으로.'
-                    : me.tickets_left > 0 ? `비정규 참가 — 대기명단에 들어갔어요. 어드민이 팀 수요에 맞춰 배치하고, 그때 티켓 1장을 써요 (남은 티켓 ${me.tickets_left}장).`
-                      : canPayByPoints ? `비정규 참가 — 대기명단에 들어갔어요. 포인트로 티켓 1장(${(data.ticket_price ?? 0).toLocaleString()}P)이 자동으로 준비돼요.`
+                ? (me.kind === 'regular' ? '정규권 확인. 팀 배치 대기 중.'
+                  : me.kind === 'guest' ? '대기명단 등록. 운영진이 팀 배치. 게스트비는 같은 통장으로.'
+                    : me.tickets_left > 0 ? `대기명단 등록. 운영진이 팀 배치. 티켓 ${me.tickets_left}장 보유.`
+                      : canPayByPoints ? `대기명단 등록. 마감 때 포인트 ${(data.ticket_price ?? 0).toLocaleString()}P 차감.`
                         : null)
-                : me.answer === 'no' ? '불참으로 표시했어요. 마감 전에는 언제든 바꿀 수 있어요.'
-                  : open ? (me.kind === 'regular' ? '정규 멤버는 참·불 중 하나를 꼭 눌러 주세요.' : '비정규는 나올 때만 「참」을 누르면 돼요.') : '이번 주는 답하지 않았어요.'}
+                : me.answer === 'no' ? '불참 완료. 마감 전 변경 가능.'
+                  : open ? (me.kind === 'regular' ? '정규 멤버는 참·불 필수.' : '비정규는 나올 때만 「참」.') : '이번 주 미응답.'}
           </p>
           {me.kind === 'non_regular' && me.month_team_id && (() => {
             // 정규권은 운영진이 판매를 열 때만(130, 2026-11-10 운영진)
@@ -127,7 +129,7 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
               <div className="font-bold">포인트 부족 · {(data.ticket_price ?? 0).toLocaleString()}P 필요</div>
               {data.auto_charge ? (
                 <>
-                  <div>본인 이름으로 입금하면 1분 안에 자동 충전돼요.</div>
+                  <div>본인 이름 입금 시 1분 안 자동 충전.</div>
                   {data.wallet_bank && (
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="font-bold">{data.wallet_bank}</span>
@@ -153,10 +155,10 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
             <UserPlus size={16} aria-hidden />게스트 신청
           </button>
         )}
-        {over && <span className="text-xs font-bold" style={{ color: 'var(--mm-live-bg)' }}>정원을 넘었어요 — 팀장·총무가 정해요</span>}
+        {over && <span className="text-xs font-bold" style={{ color: 'var(--mm-live-bg)' }}>정원 초과 · 팀장·총무 협의</span>}
         {/* 홈은 내 신청만 — 팀별 현황은 「신청 현황」 화면(회원 보기 전용 · 어드민만 배치·수정, 2026-11-09 운영진) */}
         <Link href={`${base}/rsvp`} className="mm-press ml-auto inline-flex items-center gap-1 min-h-11 text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
-          {data.isAdmin ? '신청 현황 · 팀 배치' : '신청 현황 보기'} <ChevronRight size={16} aria-hidden />
+          {data.isAdmin && !memberPreview ? '신청 현황 · 팀 배치' : '신청 현황 보기'} <ChevronRight size={16} aria-hidden />
         </Link>
       </div>
       {me && <GuestRequestSheet leagueId={leagueId} open={guestOpen} onClose={() => setGuestOpen(false)} onDone={load} pool={data.guest_pool ?? []} guestPrice={data.guest_price ?? null} myBalance={data.my_balance ?? null} />}

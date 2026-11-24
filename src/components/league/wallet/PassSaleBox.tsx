@@ -96,7 +96,7 @@ export default function PassSaleBox({ leagueId }: { leagueId: string }) {
           </button>
         )}
       </div>
-      <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>판매 중에만 회원이 정규권을 살 수 있어요. 정원이 차면 저절로 마감돼요.</p>
+      <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>판매 중에만 구매 가능. 정원이 차면 자동 마감.</p>
 
       {form && (
         <div className="mt-3 p-3 space-y-2" style={{ border: '2px solid var(--mm-yellow)', borderRadius: 'var(--mm-radius-card)', background: 'var(--mm-yellow-soft)' }}>

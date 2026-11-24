@@ -224,7 +224,7 @@ function History({ rows, fill = false }: { rows: Row[]; fill?: boolean }) {
             const newDay = i === 0 || kstDay(arr[i - 1].at) !== day
             return (
               <li key={r.id} className="flex items-center gap-3 py-2.5" style={{ borderTop: i === 0 ? undefined : '1px solid var(--mm-rule)' }}>
-                <span className="shrink-0 w-9 text-xs font-bold tabular-nums" style={{ color: newDay ? 'var(--mm-ink-soft)' : 'transparent' }}>{day}</span>
+                <span className="shrink-0 w-10 whitespace-nowrap text-xs font-bold tabular-nums" style={{ color: newDay ? 'var(--mm-ink-soft)' : 'transparent' }}>{day}</span>
                 <RowIcon tone={r.tone} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -322,7 +322,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(j.error ?? '처리하지 못했어요'); return false }
       // 입금이 먼저 와 있어 바로 승인됐으면 그렇게 알린다(2026-11-10 리뷰 — 늘 「어드민이 확인하면」이라고 떴다)
-      toast.success(j.auto_approved ? '입금이 확인돼 바로 충전됐어요' : ok)
+      toast.success(j.auto_approved ? '입금 확인 · 충전 완료' : ok)
       await load()
       return true
     } finally { setBusy(false) }
@@ -358,8 +358,8 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
   async function requestRefund() {
     if (!me) return
     const acct = refundAccount.replace(/[^\d-]/g, '')
-    if (!refundBank.trim() || !acct || !refundHolder.trim()) { toast.error('은행 · 계좌번호 · 예금주를 모두 적어 주세요'); return }
-    if (acct.replace(/-/g, '').length < 8) { toast.error('계좌번호를 다시 확인해 주세요'); return }
+    if (!refundBank.trim() || !acct || !refundHolder.trim()) { toast.error('은행 · 계좌번호 · 예금주 모두 입력'); return }
+    if (acct.replace(/-/g, '').length < 8) { toast.error('계좌번호 재확인 필요'); return }
     const lost = me.balance - me.refundable
     if (!confirm(`${me.refundable.toLocaleString()}원 환불을 요청할까요?${lost > 0 ? `\n환불하면 남은 ${fmtP(lost)}(보너스 등)는 사라지고 잔액이 0P 가 돼요.` : ''}`)) return
     if (await post({ action: 'refund', holder: refundHolder.trim(), account: `${refundBank.trim()} ${acct}` },
@@ -507,8 +507,8 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
           {buyKind === 'regular_pass' ? (
             openMonths.length === 0 ? (
               <div className="p-3 text-sm break-keep space-y-0.5" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-ctl)', color: 'var(--mm-ink-soft)' }}>
-                <div className="font-bold" style={{ color: 'var(--mm-ink)' }}>지금은 정규권을 팔지 않아요</div>
-                <div>운영진이 판매를 열면 살 수 있어요.</div>
+                <div className="font-bold" style={{ color: 'var(--mm-ink)' }}>정규권 판매 기간 아님</div>
+                <div>판매가 열리면 구매 가능.</div>
                 {sales.filter(x => x.state === 'upcoming').map(x => <div key={x.month}>{mon(x.month)} 정규권 · {whenKst(x.opens_at)} 판매 시작</div>)}
               </div>
             ) : (
@@ -558,7 +558,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
             <dt className="font-bold" style={{ color: 'var(--mm-ink)' }}>남는 포인트</dt>
             <dd className="text-right tabular-nums font-black" style={{ color: afterBuy < 0 ? 'var(--mm-live-bg)' : 'var(--mm-ink)' }}>{fmtP(afterBuy)}</dd>
           </dl>
-          {buyKind === 'non_regular' && <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>한 달에 2번 이상 나온다면 정규권을 추천해요.</p>}
+          {buyKind === 'non_regular' && <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>월 2회 이상 참가 시 정규권 추천.</p>}
 
           {buyKind === 'regular_pass' && openMonths.length === 0 ? null : afterBuy < 0 ? (
             <button type="button" onClick={() => setSheet('charge')} className="mm-press w-full min-h-12 font-black" style={BTN_PRIMARY}>
@@ -601,7 +601,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
               {/* 한 줄 한 문장 — 「보내/도 돼요」처럼 어절 한가운데서 꺾이지 않게(2026-11-10 운영진) */}
               <div className="mt-1.5 text-sm break-keep space-y-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
                 <div>꼭 <b style={{ color: 'var(--mm-ink)' }}>본인 이름{user?.name ? `(${user.name})` : ''}</b>으로 보내 주세요</div>
-                <div>충전 요청은 안 보내도 돼요</div>
+                <div>충전 요청 불필요</div>
               </div>
             </div>
             {data.bank && (
@@ -617,13 +617,13 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
                 {(rules.bonus_min / 10000).toLocaleString()}만원 이상 {rules.bonus_pct}% 보너스 · <span className="whitespace-nowrap">5만원 → {fmtP(50000 + bonusOf(50000, rules))}</span>
               </p>
             )}
-            <p className="text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>들어오면 잔액이 바로 늘어나요.<br />1~2분이 지나도 그대로면 어드민에게 알려 주세요.</p>
+            <p className="text-xs break-keep" style={{ color: 'var(--mm-muted)' }}>들어오면 잔액이 바로 늘어나요.<br />2분 지나도 그대로면 운영진에게 연락.</p>
             <button type="button" onClick={() => setOtherName(true)} className="mm-press w-full min-h-11 text-sm font-bold underline underline-offset-2" style={{ color: 'var(--mm-ink-soft)' }}>
               다른 이름으로 입금했어요
             </button>
           </div>
         ) : pending ? (
-          <p className="text-sm" style={{ color: 'var(--mm-ink)' }}>확인을 기다리는 요청이 있어요. 요청은 하나씩만 보낼 수 있어요 — 포인트 카드의 「취소」로 지우고 다시 보낼 수 있어요.</p>
+          <p className="text-sm" style={{ color: 'var(--mm-ink)' }}>대기 중인 요청 있음. 요청은 한 번에 하나. 포인트 카드 「취소」 후 재요청.</p>
         ) : (
           <div className="space-y-3">
             {rules?.bonus_min != null && rules.bonus_pct > 0 && (
@@ -714,7 +714,7 @@ export default function WalletPageClient({ leagueId, initialTab = 'me' }: { leag
               </>
             ) : (
               <p className="text-sm font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
-                {pending ? '확인을 기다리는 요청이 있어 지금은 환불을 요청할 수 없어요.' : '지금은 환불받을 금액이 없어요.'}
+                {pending ? '대기 중인 요청이 있어 환불 요청 불가.' : '환불 가능 금액 없음.'}
               </p>
             )}
           </div>

@@ -82,12 +82,13 @@ export function LeagueEditModeProvider({ children }: { children: React.ReactNode
     <LeagueEditModeContext.Provider value={value}>
       {children}
       {p && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-20 lg:bottom-6 z-[90] flex items-center gap-2 px-3 py-2 text-sm font-bold break-keep"
-          style={{ background: 'var(--mm-black)', color: '#fff', borderRadius: 'var(--mm-radius-chip)', boxShadow: 'var(--mm-shadow-lg)' }}>
-          <span>회원 화면으로 보는 중</span>
-          <button type="button" onClick={() => setMemberPreview(false)} className="px-2.5 py-1 cursor-pointer"
-            style={{ background: 'var(--mm-yellow)', color: '#1C1A17', borderRadius: 'var(--mm-radius-chip)' }}>운영진 화면으로</button>
-        </div>
+        // 짧은 토글(2026-11-24 운영진 — 글이 길었다): 「회원 | 운영진」 한 번 눌러 돌아간다
+        <button type="button" onClick={() => setMemberPreview(false)} aria-label="운영진 화면으로 돌아가기"
+          className="fixed right-3 bottom-20 lg:bottom-6 z-[90] inline-flex items-center p-0.5 text-sm font-bold cursor-pointer"
+          style={{ background: 'var(--mm-black)', borderRadius: 999, boxShadow: 'var(--mm-shadow-lg)' }}>
+          <span className="px-3 py-1" style={{ background: 'var(--mm-yellow)', color: '#1C1A17', borderRadius: 999 }}>회원</span>
+          <span className="px-3 py-1" style={{ color: '#fff' }}>운영진</span>
+        </button>
       )}
     </LeagueEditModeContext.Provider>
   )

@@ -1092,3 +1092,7 @@
   html.mm-rec-focus .mm-rec-topctl { display: none !important; }
   html.mm-rec-focus .mm-rec-nopad { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important; }
 }
+
+/* 리그 화면 전체 — 한국어 문장·이름을 어절 가운데서 꺾지 않는다(2026-11-24 운영진 「모바일에서 이름·문장이 쪼개진다」).
+   아주 긴 값만 break-word 로 받는다(anywhere 는 좁은 칸에서 이름을 한 글자씩 쪼갠다). */
+.mm-shell { word-break: keep-all; overflow-wrap: break-word; }

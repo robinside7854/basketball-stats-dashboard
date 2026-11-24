@@ -850,7 +850,7 @@ function PlayerQuickViewInner({ leagueId, playerId, playerName, onClose, isEditM
               상세 스탯은 회원 전용
             </p>
             <p className="text-sm mt-1.5 leading-relaxed max-w-xs break-keep" style={{ color: 'var(--mm-muted)' }}>
-              선수별 시즌 기록·차트는 가입 승인된 회원만 볼 수 있어요.
+              선수별 시즌 기록·차트는 승인 회원 전용.
             </p>
             <button
               type="button"
