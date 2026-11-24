@@ -1117,7 +1117,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   <tr style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
-                    <th scope="col" className="t-th text-left px-1 w-[5.5rem]" style={{ color: 'var(--mm-ink)' }}>소속</th>
+                    <th scope="col" className="t-th text-left px-1 w-[7rem]" style={{ color: "var(--mm-ink)" }}>소속</th>
                     {COLS.map(({ key, label, term }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(sortKey === key, sortDir)}
                         // 누적 보기의 성공/시도 세 칸(「329/794」)은 다른 칸보다 넓게 — 똑같이 나누면 옆 칸과 겹쳤다(2026-11-04)
@@ -1224,7 +1224,7 @@ function LeagueStatsPageInner({ initial }: { initial: StatsInitial | null }) {
                   <tr style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
                     <th scope="col" className="t-th text-right pl-2 pr-1 w-11" style={{ color: 'var(--mm-ink)' }}>#</th>
                     <th scope="col" className="t-th text-left px-2 w-[7.5rem] xl:w-36" style={{ color: 'var(--mm-ink)' }}>선수</th>
-                    <th scope="col" className="t-th text-left px-1 w-[5.5rem]" style={{ color: 'var(--mm-ink)' }}>소속</th>
+                    <th scope="col" className="t-th text-left px-1 w-[7rem]" style={{ color: "var(--mm-ink)" }}>소속</th>
                     <th scope="col" className="t-th"><StatHeader term="R" label="출전" /></th>
                     {ADV_COLS.map(({ key, label, term, desc }) => (
                       <th key={key} scope="col" aria-sort={ariaSort(advSortKey === key, advSortDir)} title={desc}

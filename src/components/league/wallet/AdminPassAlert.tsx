@@ -55,22 +55,19 @@ export default function AdminPassAlert({ leagueId, base }: { leagueId: string; b
   if (!isEditMode || !home) return null
   // 다음 달은 판매(134)가 맡는다 — 「안 산 사람」 목록은 이번 달만
   const show = home.months.slice(0, 1).filter(m => m.regulars > 0 && m.missing.length > 0)
-  const next = home.months[1]   // 20일부터만 온다
-  const nextSale = next ? home.sales.find(x => x.month === next.month) : undefined
   const walletAdmin = `${base}/wallet?tab=admin`
   const bars: React.ReactNode[] = []
   if (home.stale) bars.push(<Bar key="stale" tone="red" icon={<BellOff size={18} />} href={`${walletAdmin}#bank`} action="확인"
     title={`입금 알림이 ${home.stale.hours}시간째 안 와요`} sub="충전 요청이 기다리고 있어요. 통장 폰과 자동화 앱을 확인해 주세요." />)
   if (home.unmatched > 0) bars.push(<Bar key="unmatched" tone="red" icon={<Landmark size={18} />} href={`${walletAdmin}#bank`} action="처리"
     title={`입금 매칭 불가 ${home.unmatched}건`} sub="누구 돈인지 골라 충전해 주세요." />)
-  for (const x of home.sales.filter(x => x.state !== 'closed')) {
+  for (const x of home.sales.filter(x => x.state === 'open') /* 판매가 열리기 전(예정·안 엶)은 홈에 안 띄운다 — 2026-11-24 운영진 */) {
     const label = `${Number(x.month.slice(5, 7))}월`
     bars.push(<Bar key={x.id} tone="yellow" icon={<Crown size={18} />} href={walletAdmin} action="보기"
       title={x.state === 'open' ? (x.sold >= x.capacity ? `${label} 정규권 정원 마감 ${x.sold}/${x.capacity}명` : `${label} 정규권 판매 중 ${x.sold}/${x.capacity}명`) : `${label} 정규권 판매 예정`}
       sub={x.state === 'open' ? `${when(x.closes_at)} 마감` : `${when(x.opens_at)} 판매 시작`} />)
   }
-  if (next && !nextSale) bars.push(<Bar key="open-next" tone="yellow" icon={<Crown size={18} />} href={walletAdmin} action="열기"
-    title={`${next.label} 정규권 판매를 아직 안 열었어요`} sub="월렛 어드민 「정규권 판매」에서 기간과 정원을 정해요." />)
+  // 다음 달 판매를 아직 안 열었다는 알림은 뺐다(2026-11-24 운영진 — 판매 전엔 홈에 안 띄움)
   if (show.length === 0 && bars.length === 0) return null
 
   async function copy(m: PassMonth) {

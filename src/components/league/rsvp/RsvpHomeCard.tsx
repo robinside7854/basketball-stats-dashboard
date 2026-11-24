@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-import { Check, X, ChevronRight, CalendarCheck, UserPlus } from 'lucide-react'
+import { Check, X, ChevronRight, UserPlus } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
 import type { RsvpRes } from './rsvpTypes'
 import { dateLabel, countByKind } from './rsvpTypes'
@@ -71,18 +71,33 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
     <SectionCard variant="standalone" emphasized>
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div>
-          <div className="text-xs font-black inline-flex items-center gap-1" style={{ color: 'var(--mm-muted)' }}>
-            <CalendarCheck size={14} aria-hidden />{open ? `참가신청 · ${dateLabel(win.closesAt!)} 밤까지` : '참가신청 마감'}
-          </div>
           <h2 className="font-black text-xl leading-tight mt-0.5" style={{ color: 'var(--mm-ink)' }}>
             {open ? `이번 주 ${dateLabel(win.gameDate)} 나오나요?` : `${dateLabel(win.gameDate)} 참가 명단`}
           </h2>
         </div>
-        <div className="text-right">
-          <div className="font-black text-lg tabular-nums" style={{ color: over ? 'var(--mm-live-bg)' : 'var(--mm-ink)' }}>참 {yes.length}명 / {data.capacity}</div>
-          <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>정규 {counts.regular} · 비정규 {counts.non_regular} · 게스트 {counts.guest}</div>
-        </div>
       </div>
+      {/* 정원 칸(인벤토리) — 칸 하나 = 한 명(2026-11-24 운영진 「숫자 대신 도식」). 정규 검정 · 비정규 노랑 · 게스트 회색 · 빈 칸 점선 */}
+      {(() => {
+        const cap = Math.max(data.capacity ?? 0, yes.length)
+        const fill = [...Array(counts.regular).fill('r'), ...Array(counts.non_regular).fill('n'), ...Array(counts.guest).fill('g')]
+        const bg = { r: 'var(--mm-black)', n: 'var(--mm-yellow)', g: 'var(--mm-muted)' } as const
+        return (
+          <div className="mt-3">
+            <div className="grid grid-cols-9 gap-1" role="img" aria-label={`참 ${yes.length}명, 정원 ${data.capacity}명`}>
+              {Array.from({ length: cap }, (_, i) => {
+                const k = fill[i] as keyof typeof bg | undefined
+                const overSlot = i >= (data.capacity ?? cap)
+                return <span key={i} className="aspect-square" style={{ borderRadius: 4, background: k ? bg[k] : 'transparent', border: k ? (overSlot ? '2px solid var(--mm-live-bg)' : 'none') : '1.5px dashed var(--mm-rule)' }} />
+              })}
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: 'var(--mm-muted)' }}>
+              {([['r', '정규', counts.regular], ['n', '비정규', counts.non_regular], ['g', '게스트', counts.guest]] as const).map(([k, l, c]) => (
+                <span key={k} className="inline-flex items-center gap-1 whitespace-nowrap"><span className="w-2.5 h-2.5 inline-block" style={{ borderRadius: 2, background: bg[k] }} />{l} {c}</span>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {me && (
         <>
@@ -99,7 +114,7 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
               <X size={20} aria-hidden />불
             </button>
           </div>
-          <p className="text-sm mt-2" style={{ color: 'var(--mm-ink-soft)' }}>
+          <p className="text-xs mt-2" style={{ color: 'var(--mm-ink-soft)' }}>
             {myTeam ? <>✅ <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b> 배치 완료.{open ? (locked && me.kind === 'non_regular' ? ' 불참 시 마감 전 「불」. 티켓은 월렛에 남음.' : ' 불참 시 마감 전 「불」 클릭.') : ''}</>
               : me.answer === 'yes'
                 ? (me.kind === 'regular' ? '정규권 확인. 팀 배치 대기 중.'

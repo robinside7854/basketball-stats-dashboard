@@ -42,7 +42,7 @@ function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
     // 막대 칸 최소 7rem — 승·패·무 세 칸(칸마다 최소 2.25rem)이 다 들어가야 한다. 360px 에서 「1무」가 잘려 안 보였다(2026-11-08)
     <ul aria-label="그날 팀 성적" className="px-4 lg:px-5 py-3 space-y-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
       {teams.map((t, i) => (
-        <li key={t.key} className="grid items-center gap-2 sm:gap-3" style={{ gridTemplateColumns: 'auto minmax(3.5rem, 7rem) minmax(7rem, 1fr) auto' }}>
+        <li key={t.key} className="grid items-center gap-2 sm:gap-3" style={{ gridTemplateColumns: 'auto auto minmax(6.75rem, 1fr) auto' }}>
           {/* 그날 순위 배지(2026-11-04) — 박스스코어·경기 탭과 같은 금·은·동. 종전엔 1위에만 트로피 */}
           <span className="t-num inline-flex items-center justify-center h-6 min-w-8 px-1 text-xs font-bold"
             style={{ ...(dayRank(teams, i) <= 3 ? { background: `var(--rank-${dayRank(teams, i)}-bg)`, color: `var(--rank-${dayRank(teams, i)}-fg)` } : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)' }), borderRadius: 'var(--mm-radius-chip)' }}>
@@ -50,7 +50,7 @@ function DayTeams({ teams }: { teams: RoundSummary['teams'] }) {
           </span>
           <span className="flex items-center gap-1.5 min-w-0">
             <span aria-hidden className="block h-4 w-1.5 rounded-sm shrink-0" style={{ background: t.color, boxShadow: swatchEdge(t.color) }} />
-            <span className="min-w-0 truncate font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
+            <span className="whitespace-nowrap font-black text-sm" style={{ color: accentOrInk(t.color) }} title={t.name}>
               {t.name}
             </span>
           </span>
