@@ -43,7 +43,7 @@ export default function RsvpPageClient({ leagueId, base, initialDate = null, emb
   const api = `/api/leagues/${leagueId}/rsvp`
 
   const load = useCallback(async () => {
-    const res = await fetch(date ? `${api}?standings=1&date=${date}` : `${api}?standings=1`, { cache: 'no-store' }).catch(() => null)
+    const res = await fetch(date ? `${api}?date=${date}` : api, { cache: 'no-store' }).catch(() => null)
     if (res?.ok) setData(await res.json())
     else setData({ enabled: false, window: null, capacity: 0, me: null })
   }, [api, date])

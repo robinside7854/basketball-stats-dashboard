@@ -11,7 +11,6 @@ import { positionShortOf } from '@/lib/league/positionGroup'
 import { UNIFORM_FILL, dateLabel, type RsvpEntryView, type RsvpRes } from './rsvpTypes'
 
 type Team = NonNullable<RsvpRes['teams']>[number]
-type Standing = NonNullable<NonNullable<RsvpRes['standings']>['teams']>[number]
 
 const KIND_ORDER = { regular: 0, non_regular: 1, guest: 2 } as const
 
@@ -29,52 +28,7 @@ function buildTeams(teams: Team[], entries: RsvpEntryView[], standings: RsvpRes[
         })
       return { ...t, members, standing: st.get(t.id) ?? null }
     })
-    .sort((a, b) => (a.standing?.rank ?? 99) - (b.standing?.rank ?? 99) || a.name.localeCompare(b.name, 'ko'))
-}
-
-/** 「26.4Q」 → 「4분기」 */
-function quarterWord(label: string | undefined): string {
-  const m = label?.match(/\.(\d)Q$/)
-  return m ? `${m[1]}분기` : ''
-}
-
-function recordLine(s: Standing | null): string | null {
-  if (!s) return null
-  return `${s.W}승 ${s.L}패 ${s.D}무 · 현재 ${s.rank}위`
-}
-
-const MEDAL: Record<number, { bg: string; fg: string; ring: string }> = {
-  1: { bg: '#fde68a', fg: '#78350f', ring: '#f59e0b' },
-  2: { bg: '#e5e7eb', fg: '#374151', ring: '#9ca3af' },
-  3: { bg: '#fed7aa', fg: '#7c2d12', ring: '#ea580c' },
-}
-function RankMedal({ rank }: { rank: number }) {
-  const m = MEDAL[rank] ?? { bg: '#f3f4f6', fg: '#4b5563', ring: '#d1d5db' }
-  return (
-    <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 1, padding: '3px 9px', borderRadius: 999, background: m.bg, color: m.fg, boxShadow: `inset 0 0 0 1.5px ${m.ring}`, fontWeight: 900 }}>
-      <span style={{ fontSize: 17 }}>{rank}</span><span style={{ fontSize: 11 }}>위</span>
-    </span>
-  )
-}
-function RecordTile({ n, label, fg, bg }: { n: number; label: string; fg: string; bg: string }) {
-  return (
-    <div style={{ background: bg, borderRadius: 8, padding: '5px 0', textAlign: 'center' }}>
-      <div style={{ fontSize: 20, fontWeight: 900, color: fg, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{n}</div>
-      <div style={{ fontSize: 11, fontWeight: 800, color: fg, opacity: 0.8 }}>{label}</div>
-    </div>
-  )
-}
-/** 승·무·패 비율 막대 — 숫자를 그림으로 한 번 더 */
-function WinBar({ w, l, d }: { w: number; l: number; d: number }) {
-  const t = w + l + d
-  if (t === 0) return null
-  return (
-    <div style={{ display: 'flex', height: 5, borderRadius: 999, overflow: 'hidden', marginTop: 6, background: '#f3f4f6' }}>
-      <span style={{ width: `${(w / t) * 100}%`, background: '#22c55e' }} />
-      <span style={{ width: `${(d / t) * 100}%`, background: '#9ca3af' }} />
-      <span style={{ width: `${(l / t) * 100}%`, background: '#ef4444' }} />
-    </div>
-  )
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))   // 순위 순서도 쓰지 않는다(2026-11-26)
 }
 
 export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
@@ -91,8 +45,6 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
     const lines = [`[${title}] 총 ${total}명`]
     for (const t of rows) {
       lines.push('', `TEAM ${t.name} (${t.members.length}명)`)
-      const rec = recordLine(t.standing)
-      if (rec) lines.push(`${quarterWord(standings?.label)} ${rec}`.trim())
       for (const m of t.members) {
         const pos = positionShortOf(m.position)
         const tag = m.player_id === t.leader_id ? ' (팀장)' : m.kind === 'guest' ? ' (게스트)' : m.kind === 'non_regular' ? ' (비정규)' : ''
@@ -164,23 +116,7 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
                     <span style={{ display: 'block', fontSize: 19, fontWeight: 900, whiteSpace: 'nowrap' }}>{t.name}</span>
                   </span>
                 </div>
-                {/* 전적 = 승·패·무 숫자 칸 셋 + 승률 막대 */}
-                {t.standing ? (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: '#9ca3af' }}>{quarterWord(standings?.label) || '이번 분기'} 전적</span>
-                      <RankMedal rank={t.standing.rank} />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                      <RecordTile n={t.standing.W} label="승" fg="#15803d" bg="#ecfdf3" />
-                      <RecordTile n={t.standing.L} label="패" fg="#b91c1c" bg="#fef2f2" />
-                      <RecordTile n={t.standing.D} label="무" fg="#4b5563" bg="#f3f4f6" />
-                    </div>
-                    <WinBar w={t.standing.W} l={t.standing.L} d={t.standing.D} />
-                  </div>
-                ) : (
-                  <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: '#9ca3af' }}>이번 분기 첫 경기</div>
-                )}
+                {/* 전적·순위는 뺐다(2026-11-26 운영진 — 경쟁을 부추긴다) · 명단만 */}
                 <div style={{ height: 1, background: '#e5e7eb', margin: '10px 0' }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {t.members.map(m => {
