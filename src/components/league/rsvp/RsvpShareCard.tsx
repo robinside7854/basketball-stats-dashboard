@@ -1,12 +1,12 @@
 'use client'
-// 참가 명단 단톡방 공유 (2026-11-11 운영진) — 「이미지 저장」 · 「글 복사」
+// 참가 명단 단톡방 공유 (2026-11-11 운영진) — 「이미지 복사」(클립보드) · 「글 복사」
 //   · 팀 순서 = 그 분기 현재 순위(1·2·3위 순). 순위가 없는 팀(분기 첫 주)은 이름순으로 뒤에.
 //   · 팀 이름 아래 = 「N승 N패 N무 · 현재 N위」(정본 lib/stats/quarterStandings — 박스스코어 누적 순위와 같은 숫자).
 //   · 사람 = 그 팀에 배치된 「참」만(팀장 먼저 · 정규 → 비정규 → 게스트 · 이름순). 대기명단은 「팀 정하는 중 N명」 한 줄.
 //   · 그림은 테마와 무관하게 밝은 고정 색으로 그린다(어두운 화면에서 저장해도 단톡방에서 같은 모양).
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Copy, Download, Loader2 } from 'lucide-react'
+import { Copy, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { positionShortOf } from '@/lib/league/positionGroup'
 import { UNIFORM_FILL, dateLabel, type RsvpEntryView, type RsvpRes } from './rsvpTypes'
 
@@ -56,16 +56,29 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
     catch { toast.error('복사하지 못했어요') }
   }
 
-  async function saveImage() {
+  // 그림을 클립보드에 바로 복사(2026-11-26 운영진 — 앨범에 저장하지 않고 카톡에 붙여 넣기).
+  //   iOS 사파리는 클릭 순간 ClipboardItem 을 만들어야 해서 그림은 약속(Promise)으로 넘긴다.
+  //   클립보드가 안 되는 브라우저만 공유 창 → 내려받기로 물러난다.
+  function makeBlob(): Promise<Blob> {
+    return import('html-to-image').then(({ toBlob }) => toBlob(ref.current!, { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true }))
+      .then(b => { if (!b) throw new Error('빈 그림'); return b })
+  }
+  async function copyImage() {
     if (!ref.current) return
     setBusy(true)
+    const blobP = makeBlob()
     try {
-      const { toBlob } = await import('html-to-image')
-      const blob = await toBlob(ref.current, { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true })
-      if (!blob) throw new Error('빈 그림')
+      const CI = (window as unknown as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem
+      if (CI && navigator.clipboard?.write) {
+        try {
+          await navigator.clipboard.write([new CI({ 'image/png': blobP })])
+          toast.success('명단 그림 복사 완료. 카톡에 붙여 넣기.')
+          return
+        } catch (e) { console.warn('[rsvp-share] 클립보드 복사 실패 — 다른 방법으로', e) }
+      }
+      const blob = await blobP
       const name = `참가명단-${gameDate}.png`
       const file = new File([blob], name, { type: 'image/png' })
-      // 폰은 공유 창(카카오톡 바로 보내기)이 먼저 — 안 되면 내려받기
       const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
       if (nav.canShare?.({ files: [file] }) && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
         try { await nav.share({ files: [file], title }); return }
@@ -76,10 +89,10 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
       a.href = url; a.download = name
       document.body.appendChild(a); a.click(); a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 2000)
-      toast.success('명단 그림을 저장했어요')
+      toast.success('복사가 안 되는 브라우저라 그림을 내려받았어요')
     } catch (e) {
-      console.error('[rsvp-share] 그림 저장 실패', e)
-      toast.error('그림을 만들지 못했어요. 「글 복사」를 써 주세요.')
+      console.error('[rsvp-share] 그림 만들기 실패', e)
+      toast.error('그림 만들기 실패. 「글 복사」 사용.')
     } finally { setBusy(false) }
   }
 
@@ -90,8 +103,8 @@ export default function RsvpShareCard({ gameDate, teams, entries, standings }: {
     <div className="break-keep">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-black mr-1" style={{ color: 'var(--mm-ink)' }}>단톡방 공유</span>
-        <button type="button" onClick={saveImage} disabled={busy || total === 0} className={`${btn} disabled:opacity-50`} style={btnStyle}>
-          {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Download size={15} aria-hidden />}이미지 저장
+        <button type="button" onClick={copyImage} disabled={busy || total === 0} className={`${btn} disabled:opacity-50`} style={btnStyle}>
+          {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <ImageIcon size={15} aria-hidden />}이미지 복사
         </button>
         <button type="button" onClick={copyText} disabled={total === 0} className={`${btn} disabled:opacity-50`} style={btnStyle}>
           <Copy size={15} aria-hidden />글 복사
