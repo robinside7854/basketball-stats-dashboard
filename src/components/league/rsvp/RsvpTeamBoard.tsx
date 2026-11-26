@@ -356,7 +356,8 @@ export default function RsvpTeamBoard({
                 const inTeam = new Set(members.map(m => m.player_id))
                 // 이번 달 이 팀 정규 중 아직 이 팀에 「참」으로 들어오지 않은 사람 — ? 답 안 함 · ✕ 불참
                 //   (「참」인데 다른 팀·대기명단에 있으면 거기서 보이므로 여기선 뺀다)
-                const rest = closed ? [] : (t.regulars ?? []).filter(r => !inTeam.has(r.player_id) && answerOf.get(r.player_id) !== 'yes')
+                const rest = closed && !(admin && adminVote) ? [] :   // 마감 뒤에도 운영진에게는 ? · ✕ 정규 줄을 남긴다 — V 로 다시 넣을 수 있게(2026-11-26)
+                   (t.regulars ?? []).filter(r => !inTeam.has(r.player_id) && answerOf.get(r.player_id) !== 'yes')
                   .map(r => ({ ...r, mark: answerOf.get(r.player_id) === 'no' ? 'no' as const : 'unknown' as const }))
                   .sort((a, b) => (a.mark === b.mark ? a.name.localeCompare(b.name, 'ko') : a.mark === 'unknown' ? -1 : 1))
                 if (members.length === 0 && rest.length === 0) {
