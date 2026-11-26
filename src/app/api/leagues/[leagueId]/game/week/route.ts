@@ -14,6 +14,9 @@ import { getCachedLeagueStats } from '@/lib/stats/cachedLeagueStats'
 //   응답엔 사진·나이·키·티켓·포인트·게스트비가 없다 — 게임에 필요한 id·이름·구분·답·포지션뿐.
 // 판정(정규/비정규/게스트, 이번 주 경기일)은 lib/rsvp/weekly.ts 정본을 그대로 쓴다 — 다시 쓰면 홈 카드와 사람 수가 갈린다.
 
+// 2026-11-26 사용자 결정: 미라클은 접속키 없이 공개(게임을 누구나 열 수 있게). 다른 리그는 열쇠·승인 회원만.
+const PUBLIC_LEAGUES = new Set(['8eda8257-8907-4bf3-a7de-e5e7fde54a89']) // 미라클모닝농구단
+
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'x-game-token' }
 
 function tokenOk(req: Request): boolean {
@@ -29,7 +32,7 @@ export function OPTIONS() {
 
 export async function GET(req: Request, { params }: { params: Promise<{ leagueId: string }> }) {
   const { leagueId } = await params
-  if (!tokenOk(req) && !(await canViewStats(req, leagueId))) {
+  if (!PUBLIC_LEAGUES.has(leagueId) && !tokenOk(req) && !(await canViewStats(req, leagueId))) {
     return NextResponse.json({ error: 'login_required' }, { status: 401, headers: CORS })
   }
   try {
