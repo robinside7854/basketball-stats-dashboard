@@ -31,7 +31,10 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
   useEffect(() => { void load() }, [load])
 
   // 마감되면(어드민 마감 · 경기일) 홈에서 사라진다 — 2026-11-09 운영진. 명단은 일정 탭에서.
-  if (!data?.enabled || !data.window || data.window.phase !== 'open' || (!data.me && !data.isAdmin)) return null
+  if (!data?.enabled || !data.window || (!data.me && !data.isAdmin)) return null
+  // 이번 주인데 마감됐으면(운영진 마감·경기일) 참/불 대신 UPCOMING 만 — 종전엔 카드가 통째로 사라졌다(2026-11-26 운영진)
+  const closedThisWeek = data.window.phase !== 'open' && !!data.window.opensAt
+  if (data.window.phase !== 'open' && !closedThisWeek) return null
   const win = data.window
   const open = win.phase === 'open'
   const yes = (data.entries ?? []).filter(e => e.answer === 'yes')
@@ -70,7 +73,7 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
 
   // 대기명단까지 전부 팀에 배치되면 참/불 대신 UPCOMING EVENT 바로가기(2026-11-26 운영진 — 마감 없이 명단만 보면 된다)
   const allPlaced = yes.length > 0 && yes.every(e => !!e.placed_team_id)
-  if (allPlaced && !showVote) {
+  if (closedThisWeek || (allPlaced && !showVote)) {
     return (
       <SectionCard variant="standalone" emphasized>
         <Link href={`${base}/rsvp`} className="mm-press flex items-center gap-3 -m-1 p-1">
@@ -78,12 +81,12 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
             <span className="block text-xs font-black tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>UPCOMING EVENT</span>
             <span className="block font-black text-xl leading-tight mt-0.5" style={{ color: 'var(--mm-ink)' }}>{dateLabel(win.gameDate)} 참가 명단</span>
             <span className="block text-sm mt-1" style={{ color: 'var(--mm-ink-soft)' }}>
-              {myTeam ? <>내 팀 <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b> · </> : null}참가 {yes.length}명 · 팀 배치 완료
+              {myTeam ? <>내 팀 <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b> · </> : null}참가 {yes.length}명 · {allPlaced ? '팀 배치 완료' : '팀 배치 중'}
             </span>
           </span>
           <ChevronRight size={22} aria-hidden style={{ color: 'var(--mm-ink)' }} />
         </Link>
-        {me && (
+        {me && !closedThisWeek && (
           <button type="button" onClick={() => setShowVote(true)} className="mm-press mt-2 min-h-9 text-xs font-bold underline underline-offset-4" style={{ color: 'var(--mm-muted)' }}>
             참·불 바꾸기
           </button>

@@ -190,7 +190,7 @@ export async function reconcileScheduleWithVideos(
   const candidates = ((sdAfter ?? []) as Array<{ date: string }>)
     .map(r => r.date)
     .filter(d => !videoDates.has(d))                 // 영상이 올라온 날은 대상 아님
-    .filter(d => d > today || d < graceFrom)         // 앞날(예정) 또는 유예 지난 과거
+    .filter(d => d < graceFrom)   // 유예 지난 과거만 — 앞날은 미리 등록한 일정이라 지우지 않는다(2026-11-26 운영진)
   // 참가신청을 마감해 만든 날짜(126)는 영상이 없어도 지우지 않는다 — 표가 없으면(마이그레이션 전) 그냥 넘어간다.
   if (candidates.length > 0) {
     const { data: closed, error: closedErr } = await supabase.from('weekly_rsvp_closures').select('game_date').eq('league_id', leagueId).in('game_date', candidates)

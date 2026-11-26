@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff, PenLine, ClipboardList } from 'lucide-react'
+import { CalendarDays, Trash2, Loader2, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff, PenLine, ClipboardList } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
@@ -223,9 +223,6 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
 
   const [dates, setDates] = useState<ScheduleDate[]>([])
   const [loading, setLoading] = useState(true)
-  const [newDate, setNewDate] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [autoGenerating, setAutoGenerating] = useState(false)
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
   const [datesWithStats, setDatesWithStats] = useState<Set<string>>(new Set())
   // 분기 목록은 LeagueQuarterContext 하나에서 받는다(2026-10-12 리뉴얼 5단계 — 종전엔 여기서 `/quarters` 를 또 불렀다).
@@ -281,70 +278,6 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
 
   // 분기 필터를 바꾸면 이전 필터 기준으로 늘려둔 "더 보기" 상태를 초기값으로 되돌린다.
   useEffect(() => { setVisibleCount(INITIAL_VISIBLE) }, [selectedQFilter])
-
-  // 영상으로 일정 맞추기 (2026-10-12 운영진 결정 — 「영상이 올라온 날 = 경기한 날」).
-  //   영상이 올라온 날짜를 일정에 넣고 영상을 붙이며, 아무 흔적 없는 날짜(예정·영상 없는 지난 날)는
-  //   빈 슬롯째 지운다. 지우는 일이라 먼저 미리보기(dryRun)로 무엇이 바뀌는지 보여 주고 확인받는다.
-  //   매일 밤 자동으로도 돈다(/api/cron/video-schedule) — 이 버튼은 「지금 바로」용이다.
-  async function autoGenerate() {
-    setAutoGenerating(true)
-    try {
-      const call = (dryRun: boolean) => fetch(`/api/leagues/${leagueId}/schedule-dates/video-sync`, {
-        method: 'POST',
-        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dryRun }),
-      })
-      const pre = await call(true)
-      const plan = await pre.json()
-      if (!pre.ok) { toast.error(plan.error ?? '확인 실패'); return }
-      const added: string[] = plan.added ?? []
-      const synced: Array<{ date: string }> = plan.synced ?? []
-      const pruned: Array<{ date: string; future: boolean }> = plan.pruned ?? []
-      if (added.length === 0 && synced.length === 0 && pruned.length === 0) {
-        toast.success(plan.error ? `변경 없음 · ${plan.error}` : '변경 없음 — 이미 영상과 맞습니다')
-        return
-      }
-      const fmt = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`
-      const lines: string[] = []
-      if (added.length) lines.push(`추가: ${added.map(fmt).join(', ')}`)
-      if (synced.length) lines.push(`영상 연동: ${synced.map(x => fmt(x.date)).join(', ')}`)
-      if (pruned.length) lines.push(`삭제(경기 없음): ${pruned.map(x => fmt(x.date) + (x.future ? '(예정)' : '')).join(', ')}`)
-      if (!window.confirm(`영상 기준으로 일정을 맞춥니다.\n\n${lines.join('\n')}\n\n기록이나 영상이 있는 날짜는 지우지 않습니다. 진행할까요?`)) return
-      const res = await call(false)
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? '실패'); return }
-      const mapped = (data.synced ?? []).reduce((s: number, x: { mapped: number }) => s + (x.mapped ?? 0), 0)
-      const parts: string[] = []
-      if (data.added?.length) parts.push(`${data.added.length}일 추가`)
-      if (mapped > 0) parts.push(`영상 ${mapped}개 연동`)
-      if (data.pruned?.length) parts.push(`${data.pruned.length}일 삭제`)
-      toast.success(parts.join(' · ') || '완료')
-      load()
-    } catch {
-      toast.error('네트워크 오류')
-    } finally {
-      setAutoGenerating(false)
-    }
-  }
-
-  async function addDate() {
-    if (!newDate) { toast.error('날짜를 선택하세요'); return }
-    setAdding(true)
-    const res = await fetch(`/api/leagues/${leagueId}/schedule-dates`, {
-      method: 'POST',
-      headers: leagueHeaders,
-      body: JSON.stringify({ date: newDate }),
-    })
-    setAdding(false)
-    if (res.ok) {
-      toast.success('일정 날짜 추가 완료')
-      setNewDate('')
-      load()
-    } else {
-      const d = await res.json()
-      toast.error(d.error ?? '추가 실패')
-    }
-  }
 
   // 시간·장소·정원 저장 — 예정 일정에만 쓴다.
   async function saveDetails(date: string, patch: { start_time: string; place: string; capacity: string }) {
@@ -494,20 +427,6 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
             {isEditMode ? `총 ${dates.length}개 날짜 등록됨` : null}
           </p>
         </div>
-        {isEditMode ? (
-          <button
-            onClick={autoGenerate}
-            disabled={autoGenerating}
-            className="inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
-            style={{
-              background: 'var(--mm-yellow)',
-              color: 'var(--mm-black)',
-            }}
-          >
-            {autoGenerating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-            영상으로 일정 맞추기
-          </button>
-        ) : null}
         </div>
         {/* 분기 필터 — 제목 카드 안으로 (배경 위에 칩만 떠 있지 않게, 2026-10-13) */}
         {/* 리뉴얼 R4 (2026-10-31): 분기 칩은 운영진에게만 → 2026-11-24 운영진: 회원도 분기로 본다 */}
@@ -531,51 +450,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
         )}
       </div>
 
-      {/* 날짜 추가 */}
-      {isEditMode && (
-        <div
-          className="px-4 py-4 lg:px-6 lg:py-5 flex flex-wrap items-end gap-2 sm:gap-3"
-          style={{
-            background: 'var(--mm-panel-alt)',
-            border: '1px solid var(--mm-rule)',
-            borderRadius: 'var(--mm-radius-card)',
-          }}
-        >
-          <div className="flex-1 min-w-[220px] space-y-1.5">
-            <label
-              className="t-label font-medium"
-            >
-              경기 날짜 추가
-            </label>
-            <Input
-              type="date"
-              value={newDate}
-              onChange={e => setNewDate(e.target.value)}
-              className="min-h-[44px]"
-              style={{
-                background: 'var(--mm-panel)',
-                border: '1px solid var(--mm-rule)',
-                color: 'var(--mm-ink)',
-                borderRadius: 0,
-              }}
-            />
-          </div>
-          {/* 폰: 날짜 칸(최소 220px) 옆에 안 들어가 버튼만 아랫줄 왼쪽에 덩그러니 남았다 → 폰에서는 꽉 찬 폭 */}
-          <button
-            onClick={addDate}
-            disabled={adding}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
-            style={{
-              background: 'var(--mm-ink)',
-              color: 'var(--mm-panel)',
-            }}
-          >
-            {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-            정규전 추가
-          </button>
-        </div>
-      )}
-
+      {/* 「영상으로 일정 맞추기」·「경기 날짜 추가」는 뺐다(2026-11-26 운영진 — 일정은 미리 등록한다) */}
       {/* 날짜 목록 */}
       {loading ? (
         <div className="flex justify-center py-12">
@@ -587,7 +462,7 @@ function ScheduleContent({ venueDefaults }: { venueDefaults: VenueDefaults | nul
           title="등록된 일정이 없습니다"
           description="경기 일정을 추가하면 여기에 목록으로 표시됩니다."
           isEditMode={isEditMode}
-          editorHint="영상이 올라오면 매일 밤 자동으로 등록됩니다. 지금 바로 하려면 「영상으로 일정 맞추기」를 누르세요"
+          editorHint="참가신청 날짜가 일정으로 등록돼요."
         />
       ) : (
         <>
