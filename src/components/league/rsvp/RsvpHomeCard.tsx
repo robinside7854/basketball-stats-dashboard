@@ -17,6 +17,7 @@ import GuestRequestSheet from './GuestRequestSheet'
 export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; base: string }) {
   const { memberPreview } = useLeagueEditMode()
   const [data, setData] = useState<RsvpRes | null>(null)
+  const [showVote, setShowVote] = useState(false)   // UPCOMING 카드에서 「참·불 바꾸기」를 눌렀을 때만 참/불 화면
   const [busy, setBusy] = useState(false)
   // 화면이 다시 그려지기 전의 빠른 두 번 누르기도 막는다(버튼 disabled 는 다음 그리기부터 먹는다)
   const inFlight = useRef(false)
@@ -65,6 +66,30 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
       color: on ? (a === 'yes' ? 'var(--mm-black)' : 'var(--mm-panel)') : (a === 'yes' ? '#059669' : 'var(--mm-live-bg)'),
       border: `2px solid ${on ? (a === 'yes' ? 'var(--mm-black)' : 'var(--mm-ink)') : (a === 'yes' ? '#05966966' : 'color-mix(in srgb, var(--mm-live-bg) 40%, transparent)')}`,
     }
+  }
+
+  // 대기명단까지 전부 팀에 배치되면 참/불 대신 UPCOMING EVENT 바로가기(2026-11-26 운영진 — 마감 없이 명단만 보면 된다)
+  const allPlaced = yes.length > 0 && yes.every(e => !!e.placed_team_id)
+  if (allPlaced && !showVote) {
+    return (
+      <SectionCard variant="standalone" emphasized>
+        <Link href={`${base}/rsvp`} className="mm-press flex items-center gap-3 -m-1 p-1">
+          <span className="flex-1 min-w-0">
+            <span className="block text-xs font-black tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>UPCOMING EVENT</span>
+            <span className="block font-black text-xl leading-tight mt-0.5" style={{ color: 'var(--mm-ink)' }}>{dateLabel(win.gameDate)} 참가 명단</span>
+            <span className="block text-sm mt-1" style={{ color: 'var(--mm-ink-soft)' }}>
+              {myTeam ? <>내 팀 <b style={{ color: 'var(--mm-ink)' }}>{myTeam.name}</b> · </> : null}참가 {yes.length}명 · 팀 배치 완료
+            </span>
+          </span>
+          <ChevronRight size={22} aria-hidden style={{ color: 'var(--mm-ink)' }} />
+        </Link>
+        {me && (
+          <button type="button" onClick={() => setShowVote(true)} className="mm-press mt-2 min-h-9 text-xs font-bold underline underline-offset-4" style={{ color: 'var(--mm-muted)' }}>
+            참·불 바꾸기
+          </button>
+        )}
+      </SectionCard>
+    )
   }
 
   return (

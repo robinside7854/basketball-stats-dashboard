@@ -72,6 +72,7 @@ export const MEMBER_GUIDE: GuideSection[] = [
           { t: '비정규 멤버는 대기명단에 들어가요.', icon: 'list' },
           { t: '운영진이 팀마다 필요한 인원에 맞춰 배정해요.', icon: 'users' },
           { t: '보통 수요일에서 금요일 사이에 배정돼요.', icon: 'calendar' },
+          { t: '모두 배정되면 홈에 「UPCOMING EVENT」 카드가 떠요.', icon: 'list' },
         ],
       },
       {
