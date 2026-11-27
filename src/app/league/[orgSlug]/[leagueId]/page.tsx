@@ -405,7 +405,12 @@ export default async function LeagueDetailPage({
   const latestRound = recentRounds[0] ?? null
 
   return (
-    <div className="space-y-4 lg:space-y-5">
+    <div className="mm-gym space-y-4 lg:space-y-5">
+      {/* 체육관 스킨 시즌 띠(2026-11-27 운영진 — G1+ 시안) · 색은 globals.css 「홈 체육관 스킨」 */}
+      <div className="mm-gym-strip" aria-hidden>
+        <span>{new Date(Date.now() + 9 * 3600_000).getUTCFullYear()} SEASON</span>
+        <span>{latestRound ? `FINAL · ${latestRound.weekLabel}` : 'MATCHDAY'}</span>
+      </div>
       {/* 헤더 카드(팀 이름 · 멤버 수 · 공유)는 2026-10-26 뺐다(점검 MVP 1) — 첫 화면 1/5 을 쓰면서 정보가 없었다.
           그 자리에 회원 본인의 「지난 토요일 나」(MyLastDay)를 둔다. 공유 버튼은 맨 아래 줄로. */}
       {/* 동호회 로고 + 이름 한 줄(2026-11-08 운영진 — 미라클 로고). 10/26 에 뺀 큰 헤더 카드와 달리 한 줄(약 56px)만 쓴다.

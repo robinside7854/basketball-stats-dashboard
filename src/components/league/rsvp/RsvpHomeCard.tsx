@@ -97,6 +97,11 @@ export default function RsvpHomeCard({ leagueId, base }: { leagueId: string; bas
 
   return (
     <SectionCard variant="standalone" emphasized>
+      {/* MATCHDAY 머리띠(2026-11-27 운영진 — 체육관 스킨) */}
+      <div className="-mx-4 -mt-4 lg:-mx-6 lg:-mt-5 mb-3 px-4 lg:px-6 py-2 flex items-center justify-between gap-2 text-sm font-black"
+        style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
+        <span className="tracking-[0.14em]">MATCHDAY</span><span className="whitespace-nowrap">{dateLabel(win.gameDate)}</span>
+      </div>
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div>
           <h2 className="font-black text-xl leading-tight mt-0.5" style={{ color: 'var(--mm-ink)' }}>
