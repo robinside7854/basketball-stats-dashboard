@@ -69,6 +69,18 @@ const FONT_JERSEY = "'Barlow Condensed', 'Bebas Neue', system-ui, -apple-system,
 
 // DD/TD 칩 — 판정은 화면과 같은 doubleDouble.ts 를 쓴다.
 //   색만 인라인인 이유: html-to-image 로 굽는 화면이라 CSS 변수를 읽지 못한다(이 파일의 기존 방식).
+// 더블더블 = 두 자릿수 칸을 노란 동그라미로(2026-11-27 운영진 — 이름 옆 칩 대신, 화면 표와 같게)
+function DdNum({ v, on }: { v: number; on: boolean }) {
+  if (!on || v < 10) return <>{v}</>
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      minWidth: '26px', height: '26px', padding: '0 4px', borderRadius: '999px',
+      backgroundColor: '#F2C230', color: '#1B2A4A', fontWeight: 900,
+    }}>{v}</span>
+  )
+}
+
 function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
   return (
     <span style={{
@@ -309,7 +321,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                     color: C.ink, letterSpacing: '-0.005em', textTransform: 'uppercase',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     lineHeight: 1.1,
-                  }}>{player.name}{ddKinds.get(player.player_id) && <DdChip kind={ddKinds.get(player.player_id)!} />}</div>
+                  }}>{player.name}</div>
                   <div style={{
                     fontFamily: FONT_JERSEY, fontSize: '16px', fontWeight: 900,
                     color: C.yellowStrong, fontVariantNumeric: 'tabular-nums',
@@ -374,7 +386,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                           <div style={{
                             fontFamily: FONT_JERSEY, fontSize: '14px', fontWeight: 900,
                             color: C.ink, textTransform: 'uppercase', letterSpacing: '-0.005em',
-                          }}>{p.name}{ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}</div>
+                          }}>{p.name}</div>
                           {p.team_name && (
                             <div style={{ fontSize: '11px', color: C.muted, lineHeight: 1, marginTop: '2px' }}>{p.team_name}</div>
                           )}
@@ -382,13 +394,13 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                       </div>
                     </td>
                     <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.gp ?? '—'}</td>
-                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.ink,     fontFamily: FONT_JERSEY, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{p.pts}</td>
-                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.reb}</td>
+                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.ink,     fontFamily: FONT_JERSEY, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}><DdNum v={p.pts} on={!!ddKinds.get(p.player_id)} /></td>
+                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}><DdNum v={p.reb} on={!!ddKinds.get(p.player_id)} /></td>
                     <td style={{ padding: '9px 8px', textAlign: 'center', color: C.orAccent, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.oreb}</td>
                     <td style={{ padding: '9px 8px', textAlign: 'center', color: C.drAccent, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.dreb}</td>
-                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.ast}</td>
-                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.stl}</td>
-                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.blk}</td>
+                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}><DdNum v={p.ast} on={!!ddKinds.get(p.player_id)} /></td>
+                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}><DdNum v={p.stl} on={!!ddKinds.get(p.player_id)} /></td>
+                    <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}><DdNum v={p.blk} on={!!ddKinds.get(p.player_id)} /></td>
                     <td style={{ padding: '9px 8px', textAlign: 'center', color: C.muted,   fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.tov}</td>
                     <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{p.fgm}/{p.fga}</td>
                     <td style={{ padding: '9px 8px', textAlign: 'center', color: C.inkSoft, fontFamily: FONT_JERSEY, fontVariantNumeric: 'tabular-nums' }}>{fgPct != null ? `${fgPct}%` : '—'}</td>
