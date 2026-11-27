@@ -420,8 +420,14 @@ export default async function LeagueDetailPage({
       {/* 체육관 스킨 시즌 띠(2026-11-27 운영진 — G1+ 시안) · 색은 globals.css 「홈 체육관 스킨」 */}
       <div className="mm-gym-strip" aria-label={`시즌 ${seasonPct ?? 0}% 진행${quarterPct != null ? ` · 이번 분기 ${quarterPct}% 진행` : ''}`}>
         <span>{seasonYear} SEASON{seasonPct != null ? ` · ${seasonPct}%` : ''}</span>
-        <span className="relative">{quarterPct != null && <i aria-hidden className="absolute left-0 bottom-0 h-[3px]" style={{ width: `${quarterPct}%`, background: '#F2C230' }} />}{curQ && quarterPct != null ? `${curQ.quarter}분기 진행 ${quarterPct}%` : latestRound ? `FINAL · ${latestRound.weekLabel}` : 'MATCHDAY'}</span>
+        <span>{curQ && quarterPct != null ? `${curQ.quarter}분기 진행 ${quarterPct}%` : latestRound ? `FINAL · ${latestRound.weekLabel}` : 'MATCHDAY'}</span>
       </div>
+      {/* 분기 진행 막대 — 띠 안의 얇은 줄은 남색 위에서 안 보였다(2026-11-27 운영진) · 띠 바로 아래 따로 */}
+      {quarterPct != null && (
+        <div aria-hidden className="-mt-2 lg:-mt-3 h-2 rounded-full overflow-hidden" style={{ background: 'var(--mm-panel)', boxShadow: 'inset 0 0 0 1px #1B2A4A' }}>
+          <div className="h-full rounded-full" style={{ width: `${quarterPct}%`, background: '#F2C230', boxShadow: 'inset 0 0 0 1px #1B2A4A' }} />
+        </div>
+      )}
       {/* 헤더 카드(팀 이름 · 멤버 수 · 공유)는 2026-10-26 뺐다(점검 MVP 1) — 첫 화면 1/5 을 쓰면서 정보가 없었다.
           그 자리에 회원 본인의 「지난 토요일 나」(MyLastDay)를 둔다. 공유 버튼은 맨 아래 줄로. */}
       {/* 동호회 로고 + 이름 한 줄(2026-11-08 운영진 — 미라클 로고). 10/26 에 뺀 큰 헤더 카드와 달리 한 줄(약 56px)만 쓴다.
