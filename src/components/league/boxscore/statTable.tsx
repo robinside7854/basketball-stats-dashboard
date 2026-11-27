@@ -142,6 +142,8 @@ export function PlayerName({ row, onPlayerPick, className = 'whitespace-nowrap' 
 
 // 「▶ 장면」 — 그날 이 선수 하이라이트로 바로 간다(2026-11-10 운영진 — 사람들이 가장 많이 보는 화면이 박스스코어라
 //   하이라이트 탭을 따로 찾아오지 않아도 영상으로 넘어가게). 클립은 득점·어시스트 장면이라 둘 다 0 이면 그리지 않는다.
+const DD_KEYS = new Set(['pts', 'reb', 'ast', 'stl', 'blk'])
+
 export function ClipLink({ row }: { row: PlayerRow | DailyStat }) {
   const { orgSlug, leagueId, date } = useParams<{ orgSlug: string; leagueId: string; date: string }>()
   const r = row as PlayerRow
@@ -335,7 +337,11 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
               className="t-th text-left p-0 px-3 w-[7.5rem] xl:w-44"
             >
               {/* 다른 열과 같은 두 줄 틀 — 아래 아이콘 줄 자리만 비워 이름 줄 높이를 맞춘다 */}
-              <span className="h-14 flex flex-col justify-end gap-0.5 py-2"><span className="whitespace-nowrap">선수 / 팀</span><span className="h-3.5 shrink-0" aria-hidden /></span>
+              <span className="h-14 flex flex-col justify-end gap-0.5 py-2"><span className="whitespace-nowrap">선수</span><span className="h-3.5 shrink-0" aria-hidden /></span>
+            </th>
+            {/* 소속은 따로 열(2026-11-27 운영진 — 이름 칸에 이름·소속·재생·더블더블이 몰렸다) */}
+            <th scope="col" className="t-th text-left p-0 px-2 w-[5.5rem]">
+              <span className="h-14 flex flex-col justify-end gap-0.5 py-2"><span className="whitespace-nowrap">소속</span><span className="h-3.5 shrink-0" aria-hidden /></span>
             </th>
             {COLS.map(c => {
               const isActive = sortKey === c.sortKey
@@ -388,16 +394,10 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
                         {isMe && <MeTag />}
                         <ClipLink row={rr} />
                       </span>
-                      {/* 칩은 팀 이름 줄 오른쪽 — 따로 줄을 두면 행이 세로로 길어졌다(2026-11-11) */}
-                      {(rr.team_name || ddKinds?.get(rr.player_id)) && (
-                        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-                          {rr.team_name && <span className="whitespace-nowrap">{rr.team_name}</span>}
-                          {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </th>
+                <td className="t-td text-left px-2 whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>{rr.team_name ?? '—'}</td>
                 {COLS.map(c => {
                   const isActive = sortKey === c.sortKey
                   // 강조는 굵기(t-td-key = 700)로만. 예전엔 인라인 900 이라 토큰 하향을 안 탔다.
@@ -409,6 +409,12 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
                     : undefined
                   return (
                     <td key={c.key} className={key ? 't-td-key' : 't-td'} style={color ? { color } : undefined}>
+                      {/* 더블더블 = 칩 대신 두 자릿수 칸을 노란 동그라미로(2026-11-27 운영진) */}
+                      {ddKinds?.get(rr.player_id) && DD_KEYS.has(c.key) && Number((rr as unknown as Record<string, unknown>)[c.key] ?? 0) >= 10 ? (
+                        <span className="inline-flex items-center justify-center min-w-[2rem] h-8 px-1.5 rounded-full font-black"
+                          title={ddKinds.get(rr.player_id) === 'TD' ? '트리플더블' : '더블더블'}
+                          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>{cellVal(rr, c.key)}</span>
+                      ) : <>
                       {c.key === 'reb' || c.key === 'fgm_fga' ? (
                         <button type="button" onClick={() => (c.key === 'reb' ? setRebOpen(o => !o) : setShotOpen(o => !o))}
                           aria-expanded={c.key === 'reb' ? rebOpen : shotOpen}
@@ -423,13 +429,14 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
                         {withSlashBreak(cellVal(rr, c.key))}
                         <PctUnder rr={rr} k={c.key} />
                       </>)}
+                      </>}
                     </td>
                   )
                 })}
               </tr>
               {shotOpen && (
                 <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <td colSpan={COLS.length + 1} className="px-3 py-2" style={{ background: 'var(--mm-panel)' }}>
+                  <td colSpan={COLS.length + 2} className="px-3 py-2" style={{ background: 'var(--mm-panel)' }}>
                     <ShotBreakdown r={rr} />
                   </td>
                 </tr>
@@ -441,7 +448,7 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
         {total && (
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
-              <th scope="row" className="t-th text-left px-3" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</th>
+              <th scope="row" colSpan={2} className="t-th text-left px-3" style={{ color: 'var(--mm-ink)' }}>{totalOpts?.label ?? '팀 합계'}</th>
               {COLS.map(c => (
                 <td key={c.key} className="t-td-key" style={{ color: 'var(--mm-ink)' }}>
                   {c.key === 'gp' ? (totalOpts?.gp != null ? String(totalOpts.gp) : '') : withSlashBreak(cellVal(total, c.key))}
