@@ -1097,10 +1097,10 @@
    아주 긴 값만 break-word 로 받는다(anywhere 는 좁은 칸에서 이름을 한 글자씩 쪼갠다). */
 .mm-shell { word-break: keep-all; overflow-wrap: break-word; }
 
-/* ── 홈 「체육관」 스킨 (2026-11-27 운영진 — G1+ 시안: 나무 바닥 · 크림 카드 · 남색 · 미라클 노랑) ──
-   홈 화면에 .mm-gym 이 있을 때만 리그 화면 전체(상단·하단 메뉴 포함)의 색 변수를 바꾼다.
-   검은 바탕을 쓰지 않으므로 다크 모드에서도 이 색 그대로다. 주황은 참가 인원 농구공에만 남는다. */
-.mm-shell:has(.mm-gym) {
+/* ── 「우드톤」 디자인 (2026-11-27 운영진 — 시안 G1+: 나무 바닥 · 크림 카드 · 남색 · 미라클 노랑) ──
+   리그 화면 전체에 건다. 변수를 html 에 두어 body 로 빠지는 팝업 창(Sheet·모달)도 같은 색을 받는다.
+   주황은 참가 인원 농구공에만 남는다. 다크 모드는 폐지(forcedTheme light). */
+html:has(.mm-shell) {
   --mm-ground: #E9C48E;
   --mm-panel: #FFF8EC;
   --mm-panel-alt: #F6E9D2;
@@ -1116,6 +1116,8 @@
   --mm-shadow-md: 0 4px 0 #9A5A26;
   --mm-shadow-lg: 0 5px 0 #9A5A26;
   color-scheme: light;
+}
+.mm-shell {
   background: #E9C48E repeating-linear-gradient(90deg, transparent 0 46px, rgba(122, 74, 30, .12) 46px 48px);
 }
 .mm-gym-strip { display: flex; min-height: 30px; font-size: 12px; font-weight: 900; color: #fff; border-radius: 10px; overflow: hidden; }
