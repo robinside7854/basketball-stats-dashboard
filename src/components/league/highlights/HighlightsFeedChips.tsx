@@ -198,11 +198,14 @@ export default function HighlightsFeedChips({ leagueId, days: allDays, knownPlay
           <ChevronDown size={14} aria-hidden />
         </Chip>
 
-        <Chip as="button" size="md" icon={special?.Icon} selected={!!special} onClick={() => setMoreOpen(true)}
-          ariaLabel={special ? `${special.label} — 바꾸기` : '베스트샷 · 명경기 · 마일스톤'}>
-          {special ? special.label : '더 보기'}
-          <ChevronDown size={14} aria-hidden />
-        </Chip>
+        {/* 베스트샷·명경기는 「더 보기」 시트 안에 숨어 아무도 안 눌렀다(2026-11-27 운영진) — 칩으로 꺼냄 · 다시 누르면 해제 */}
+        {SPECIAL.map(({ key, label, Icon }) => (
+          <Chip key={key} as="button" size="md" icon={Icon} selected={kind === key}
+            onClick={() => go({ f: kind === key ? 'all' : key, date: null, ...(key === 'best' ? {} : { player: null }) })}
+            ariaLabel={kind === key ? `${label} — 해제` : label}>
+            {label}
+          </Chip>
+        ))}
       </div>
 
       {/* 날짜 — 클립이 있는 날만. 고르면 클립 보기로(베스트샷·명경기·마일스톤에서 빠져나온다) */}
