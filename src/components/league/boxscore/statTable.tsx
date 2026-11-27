@@ -475,7 +475,7 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
 //   기본 = 득점·리바·어시·스틸·블록·턴오버 6칸. 기록 칸을 누르면 슈팅(야투·3점·자유투 성공/시도 + %)으로 바뀐다 —
 //   한 카드를 누르면 모든 카드가 같이 바뀐다(같은 줄끼리 비교하라고). 파울(PF)은 기록을 안 해 뺐고, 성공률 막대도 뺐다.
 export type LineView = 'basic' | 'shoot'
-export function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
+export function LineGrid({ r, view, dd }: { r: TotalLine; view: LineView; dd?: 'DD' | 'TD' }) {
   if (view === 'shoot') {
     const cells: [string, number, number][] = [['야투', r.fgm, r.fga], ['3점', r.fg3m, r.fg3a], ['자유투', r.ftm, r.fta]]
     return (
@@ -496,13 +496,23 @@ export function LineGrid({ r, view }: { r: TotalLine; view: LineView }) {
   const cells: [string, number][] = [['득점', r.pts], ['리바', r.reb], ['어시', r.ast], ['스틸', r.stl], ['블록', r.blk], ['턴오버', r.tov]]
   return (
     <div className="grid grid-cols-6 gap-1">
-      {cells.map(([label, v], i) => (
+      {cells.map(([label, v], i) => {
+        // 더블더블 = 두 자릿수 칸을 노란 동그라미로(2026-11-27 운영진 — 칩 대신, PC 표와 같게 · 턴오버는 제외)
+        const ring = !!dd && label !== '턴오버' && v >= 10
+        return (
         <div key={label} className="text-center py-1.5" style={{ background: i === 0 ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
           <div className="text-[12px] font-semibold" style={{ color: 'var(--mm-muted)' }}>{label}</div>
+          {ring ? (
+            <span className="t-num inline-flex items-center justify-center min-w-[1.9rem] h-[1.9rem] px-1 rounded-full font-black leading-none"
+              title={dd === 'TD' ? '트리플더블' : '더블더블'}
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>{v}</span>
+          ) : (
           <div className={`t-num leading-tight ${i === 0 ? 'text-lg font-bold' : 'text-base font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{v}</div>
+          )}
           {label === '리바' && <div className="t-num text-[12px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공{r.oreb ?? 0}·수{r.dreb ?? 0}</div>}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -567,13 +577,12 @@ export function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, h
                     </span>
                   )}
                 </span>
-                {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
               </div>
             </div>
             {/* 기록 칸 아무 데나 누르면 기본 ↔ 슈팅 */}
             <div role="button" tabIndex={0} onClick={flip} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip() } }}
               aria-label={view === 'basic' ? '눌러서 슈팅 기록 보기' : '눌러서 기본 기록 보기'} className="cursor-pointer">
-              <LineGrid r={rr} view={view} />
+              <LineGrid r={rr} view={view} dd={ddKinds?.get(rr.player_id)} />
             </div>
           </div>
         )
