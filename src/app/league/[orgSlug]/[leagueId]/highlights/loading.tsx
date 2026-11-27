@@ -1,3 +1,4 @@
+import BouncingBall from '@/components/league/ui/BouncingBall'
 // 하이라이트 불러오는 중 — 실제 화면 모양(제목 · 칩 줄 · 본문)을 그대로 비춘다.
 // 공용 SubTabLoadingSkeleton 은 표·목록 모양이라 영상 카드가 뜰 때 자리가 크게 흔들렸다.
 // 본문 모양은 주소로 고른다(2026-10-26): ?date= · ?player= · ?f=best 는 재생기(16:9) + 클립 목록,
@@ -8,6 +9,7 @@ import HighlightsLoadingBody, { CardGridSkeleton } from '@/components/league/hig
 export default function Loading() {
   return (
     <div className="space-y-4 mm-brand" role="status" aria-busy="true" aria-label="하이라이트 불러오는 중">
+      <BouncingBall />
       <div className="space-y-3" aria-hidden>
         {/* 제목 */}
         <div className="flex items-center gap-3">

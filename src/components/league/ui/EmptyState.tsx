@@ -27,7 +27,7 @@ interface Props {
 }
 
 export default function EmptyState({
-  icon: Icon, title, description, action, variant = 'default', framed = false, className = '',
+  title, description, action, variant = 'default', framed = false, className = '',
 }: Props) {
   const compact = variant === 'compact'
   return (
@@ -36,15 +36,8 @@ export default function EmptyState({
       className={`flex flex-col items-center text-center px-4 ${compact ? 'py-8 gap-1.5' : 'py-16 gap-2'} ${className}`}
       style={framed ? { border: '1px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' } : undefined}
     >
-      {Icon && (
-        <Icon
-          size={compact ? 22 : 28}
-          strokeWidth={1.75}
-          aria-hidden
-          className={compact ? 'mb-0.5' : 'mb-1'}
-          style={{ color: 'var(--mm-muted)' }}
-        />
-      )}
+      {/* 빈 골대 그림(2026-11-27 운영진 「우드톤」 농구 소품) — 화면마다 고른 아이콘 대신 늘 같은 골대 */}
+      <Hoop size={compact ? 30 : 44} />
       <p className={`${compact ? 'text-sm' : 'text-base'} font-semibold break-keep`} style={{ color: 'var(--mm-ink-soft)' }}>
         {title}
       </p>
@@ -55,5 +48,16 @@ export default function EmptyState({
       )}
       {action && <div className={compact ? 'mt-2' : 'mt-3'}>{action}</div>}
     </div>
+  )
+}
+
+function Hoop({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden className="mb-1" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="8" y="4" width="32" height="20" rx="2" stroke="var(--mm-muted)" strokeWidth="2" />
+      <rect x="18" y="12" width="12" height="9" stroke="var(--mm-muted)" strokeWidth="1.6" />
+      <path d="M14 25h20" stroke="#F08A24" strokeWidth="2.6" />
+      <path d="M15.5 25l3 14M32.5 25l-3 14M19 25l3.5 14M29 25l-3.5 14M24 25v14M17 31h14M18.5 37h11" stroke="var(--mm-muted)" strokeWidth="1.2" />
+    </svg>
   )
 }

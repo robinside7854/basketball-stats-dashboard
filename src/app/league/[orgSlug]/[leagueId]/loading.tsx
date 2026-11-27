@@ -1,3 +1,4 @@
+import BouncingBall from '@/components/league/ui/BouncingBall'
 // 리그 홈 로딩 스켈레톤 — 캐시 미스(배포 직후·태그 무효화 직후) 시 빈 화면 대신 즉시 뼈대를 보여줘 체감 대기를 줄인다.
 // (2026-10-26) 실제 홈 순서와 맞췄다: 「지난 토요일 나」 → 경기일 카드 → 이번 분기(순위 · 리더).
 export default function LeagueHomeLoading() {
@@ -6,6 +7,7 @@ export default function LeagueHomeLoading() {
   const radius = { borderRadius: 'var(--mm-radius-card)' }
   return (
     <div className="space-y-4 lg:space-y-5" aria-hidden>
+      <BouncingBall />
       {/* 지난 토요일 나 */}
       <div className={card} style={radius}>
         <div className={`${box} h-4 w-28`} />

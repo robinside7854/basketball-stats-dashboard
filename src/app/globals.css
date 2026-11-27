@@ -1118,8 +1118,20 @@ html:has(.mm-shell) {
   color-scheme: light;
 }
 .mm-shell {
-  background: #E9C48E repeating-linear-gradient(90deg, transparent 0 46px, rgba(122, 74, 30, .12) 46px 48px);
+  /* 맨 위 = 흰 코트 선(센터 서클·하프 라인·자유투 구역·3점 호, 아주 옅게 · 화면에 붙박이), 그 아래 = 나무 바닥 */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='xMidYMid slice'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.5' stroke-width='4'%3E%3Cpath d='M0 500h1000'/%3E%3Ccircle cx='500' cy='500' r='90'/%3E%3Cpath d='M380 0v190h240V0M380 1000V810h240v190'/%3E%3Ccircle cx='500' cy='190' r='60'/%3E%3Ccircle cx='500' cy='810' r='60'/%3E%3Cpath d='M180 0v60a320 320 0 0 0 640 0V0M180 1000v-60a320 320 0 0 1 640 0v60'/%3E%3C/g%3E%3C/svg%3E") center / cover no-repeat fixed,
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(122, 74, 30, .12) 46px 48px),
+    #E9C48E;
 }
+/* 구분선 = 흰 코트 라인 */
+.mm-shell hr { border: 0; border-top: 2px solid rgba(255, 255, 255, .85); }
+/* 튀는 농구공(불러오는 중) */
+@keyframes mm-bounce { 0%, 100% { translate: 0 0; } 50% { translate: 0 -14px; } }
+@keyframes mm-bounce-shadow { 0%, 100% { scale: 1; opacity: .9; } 50% { scale: .6; opacity: .4; } }
+.mm-bounce-ball { animation: mm-bounce .7s cubic-bezier(.5, 0, .5, 1) infinite; }
+.mm-bounce-shadow { animation: mm-bounce-shadow .7s cubic-bezier(.5, 0, .5, 1) infinite; }
+@media (prefers-reduced-motion: reduce) { .mm-bounce-ball, .mm-bounce-shadow { animation: none; } }
 .mm-gym-strip { display: flex; min-height: 30px; font-size: 12px; font-weight: 900; color: #fff; border-radius: 10px; overflow: hidden; }
 .mm-gym-strip > :first-child { background: #1B2A4A; padding: 0 12px; display: flex; align-items: center; letter-spacing: .08em; }
 .mm-gym-strip > :last-child { flex: 1; background: #2B3D66; padding: 0 12px; display: flex; align-items: center; justify-content: flex-end; }
