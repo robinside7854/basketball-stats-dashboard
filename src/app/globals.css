@@ -1100,8 +1100,7 @@
 /* ── 홈 「체육관」 스킨 (2026-11-27 운영진 — G1+ 시안: 나무 바닥 · 크림 카드 · 남색 · 미라클 노랑) ──
    홈 화면에 .mm-gym 이 있을 때만 리그 화면 전체(상단·하단 메뉴 포함)의 색 변수를 바꾼다.
    검은 바탕을 쓰지 않으므로 다크 모드에서도 이 색 그대로다. 주황은 참가 인원 농구공에만 남는다. */
-.mm-shell:has(.mm-gym),
-.dark .mm-shell:has(.mm-gym) {
+.mm-shell:has(.mm-gym) {
   --mm-ground: #E9C48E;
   --mm-panel: #FFF8EC;
   --mm-panel-alt: #F6E9D2;

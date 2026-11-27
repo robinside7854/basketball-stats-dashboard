@@ -111,6 +111,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           defaultTheme="light"
           storageKey="mm-theme-v2"
           enableSystem={false}
+          // 2026-11-27 운영진: 다크/라이트 구분 없이 밝은 화면 하나로 — 저장된 「다크」 선택도 무시한다
+          forcedTheme="light"
         >
           <TooltipProvider>
             {children}
