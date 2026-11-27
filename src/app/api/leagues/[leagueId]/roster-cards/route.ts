@@ -24,7 +24,7 @@ import { loadMonthRoster, monthOf } from '@/lib/league/monthlyRoster'
 import { loadPeriodStatsMany, quarterPeriod, pickPlayerRow } from '@/lib/stats/playerTotals'
 import type { LeagueStatsResult } from '@/lib/stats/leagueStats'
 
-export type RosterCardAttendance = { gp: number; rate: number }
+export type RosterCardAttendance = { gp: number; rate: number; total?: number }
 
 // 기록 숫자(옛 `line`)는 2026-11-10 응답에서 뺐다 — 명단 화면은 출석만 쓰고, 순위는 리더보드 한 곳이다.
 
@@ -52,9 +52,11 @@ export type RosterCardsResponse = {
 
 function att(res: LeagueStatsResult | null, playerId: string): RosterCardAttendance | null {
   if (!res) return null
-  const total = res.total_rounds ?? 0
-  const gp = pickPlayerRow(res, playerId)?.gp ?? 0
-  return { gp, rate: total > 0 ? gp / total : 0 }
+  // 분모 = 처음 뛴 날부터 열린 날(2026-11-27 운영진). 옛 캐시 행이면 리그 전체 열린 날
+  const row = pickPlayerRow(res, playerId) as ({ gp?: number; rounds_since_join?: number } | null | undefined)
+  const gp = row?.gp ?? 0
+  const total = row?.rounds_since_join ?? res.total_rounds ?? 0
+  return { gp, total, rate: total > 0 ? Math.min(1, gp / total) : 0 }
 }
 
 

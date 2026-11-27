@@ -143,6 +143,7 @@ export async function computeLeagueStats(
   // 기간 내 열린 라운드 수 = 경기일(date) 유니크 카운트.
   // 최소 출전 자격을 "리그 최다 출전자 대비"가 아니라 "실제 열린 라운드 대비"로 계산하기 위함.
   const totalRounds = new Set(Object.values(gameToDate)).size
+  const allRoundDates = [...new Set(Object.values(gameToDate))]
   const gameToQuarter: Record<string, string | null> = {}
   for (const g of (games ?? [])) gameToQuarter[g.id] = ((g as Record<string, unknown>).quarter_id as string | null) ?? null
 
@@ -563,9 +564,13 @@ export async function computeLeagueStats(
         if (k === 'TD') td3++
         else if (k === 'DD') dd2++
       }
+      // 출석률 분모 = 이 선수가 처음 뛴 날부터 열린 날 수(2026-11-27 운영진 — 늦게 들어온 선수가 손해 보지 않게)
+      const myDates = [...(gpMap[s.player_id] ?? [])].sort()
+      const first = myDates[0]
+      const rounds_since_join = first ? allRoundDates.filter(d => d >= first).length : 0
       return {
         ...s,
-        dd2, td3,
+        dd2, td3, rounds_since_join,
         tov_pct: tovPct(s),
         name:     ((meta as Record<string,unknown>).name as string) ?? '알 수 없음',
         number:   ((meta as Record<string,unknown>).number as number | null) ?? null,

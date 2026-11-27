@@ -62,7 +62,10 @@ const getCached = (leagueId: string) =>
       const perPlayer: Record<string, { rounds: number; rate: number }> = {}
       for (const [pid, dates] of Object.entries(perPlayerDates)) {
         const rounds = dates.size
-        const rate = totalRounds > 0 ? Math.round((rounds / totalRounds) * 1000) / 10  // 소수 1자리
+        // 분모 = 처음 뛴 날부터 열린 날(2026-11-27 운영진 — 늦게 들어온 선수)
+        const first = [...dates].sort()[0]
+        const since = [...dateSet].filter(d => d >= first).length
+        const rate = since > 0 ? Math.round((rounds / since) * 1000) / 10  // 소수 1자리
           : 0
         perPlayer[pid] = { rounds, rate }
       }

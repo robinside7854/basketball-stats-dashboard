@@ -281,7 +281,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
             const rank = order === 'attendance' ? (rankOf.get(p.id) ?? null) : null
             const a = attOf(p)
             const main = totalRounds === 0 ? '–' : `${Math.round(a.rate * 100)}%`
-            const sub = totalRounds === 0 ? null : `출석 ${a.gp}/${totalRounds}일`
+            const sub = totalRounds === 0 ? null : `출석 ${a.gp}/${a.total ?? totalRounds}일`
             return (
               <li key={p.id} style={{ borderTop: i === 0 ? undefined : '1px solid var(--mm-rule)' }}>
                 <PlayerRow p={p} rank={rank} label="출석" main={main} sub={sub}
@@ -303,6 +303,7 @@ export default function PlayersPageClient({ leagueId }: { leagueId: string }) {
               gp={attOf(p).gp}
               rate={attOf(p).rate}
               stat={null}
+              total={attOf(p).total}
               totalRounds={totalRounds}
               priority={i < 4}
               onOpen={openCard ? () => openCard({
@@ -392,8 +393,8 @@ function CardGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 lg:gap-3">{children}</div>
 }
 
-function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen, stat }: {
-  p: RosterCard; gp: number; rate: number; totalRounds: number; priority: boolean; onOpen?: () => void
+function PlayerCardTile({ p, gp, rate, total, totalRounds, priority, onOpen, stat }: {
+  p: RosterCard; gp: number; rate: number; total?: number; totalRounds: number; priority: boolean; onOpen?: () => void
   /** 고른 순위 지표 — 없으면(출석·이름 정렬) 종전처럼 출석만 */
   stat: { label: string; main: string; sub: string | null; rank: number | null } | null
 }) {
@@ -470,7 +471,7 @@ function PlayerCardTile({ p, gp, rate, totalRounds, priority, onOpen, stat }: {
           </div>
         ) : (
           <p className="mt-auto text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>
-            출석 {noRounds ? '–' : <>{gp}/{totalRounds}일 · <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{pct}%</span></>}
+            출석 {noRounds ? '–' : <>{gp}/{total ?? totalRounds}일 · <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{pct}%</span></>}
           </p>
         )}
       </div>

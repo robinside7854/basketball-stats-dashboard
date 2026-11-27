@@ -403,13 +403,24 @@ export default async function LeagueDetailPage({
   const isMember = !!approvedSession
   // 「지난 토요일」 = 기록이 있는 최근 경기일(최근 라운드 첫 카드와 같은 날)
   const latestRound = recentRounds[0] ?? null
+  // 시즌·분기 진행률(2026-11-27 운영진) — 날짜 기준(KST). 시즌 = 올해 1/1~12/31, 분기 = 지금 분기 시작~끝 날짜
+  const todayKst = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+  const pctBetween = (from: string, to: string) => {
+    const a = Date.parse(from), b = Date.parse(to), t = Date.parse(todayKst)
+    if (!(b > a)) return null
+    return Math.max(0, Math.min(100, Math.round(((t - a) / (b - a)) * 100)))
+  }
+  const seasonYear = todayKst.slice(0, 4)
+  const seasonPct = pctBetween(`${seasonYear}-01-01`, `${seasonYear}-12-31`)
+  const curQ = await loadCurrentQuarter(createClient(), leagueId).catch(() => null)
+  const quarterPct = curQ?.start_date && curQ?.end_date ? pctBetween(curQ.start_date, curQ.end_date) : null
 
   return (
     <div className="mm-gym space-y-4 lg:space-y-5">
       {/* 체육관 스킨 시즌 띠(2026-11-27 운영진 — G1+ 시안) · 색은 globals.css 「홈 체육관 스킨」 */}
-      <div className="mm-gym-strip" aria-hidden>
-        <span>{new Date(Date.now() + 9 * 3600_000).getUTCFullYear()} SEASON</span>
-        <span>{latestRound ? `FINAL · ${latestRound.weekLabel}` : 'MATCHDAY'}</span>
+      <div className="mm-gym-strip" aria-label={`시즌 ${seasonPct ?? 0}% 진행${quarterPct != null ? ` · 이번 분기 ${quarterPct}% 진행` : ''}`}>
+        <span>{seasonYear} SEASON{seasonPct != null ? ` · ${seasonPct}%` : ''}</span>
+        <span className="relative">{quarterPct != null && <i aria-hidden className="absolute left-0 bottom-0 h-[3px]" style={{ width: `${quarterPct}%`, background: '#F2C230' }} />}{curQ && quarterPct != null ? `${curQ.quarter}분기 진행 ${quarterPct}%` : latestRound ? `FINAL · ${latestRound.weekLabel}` : 'MATCHDAY'}</span>
       </div>
       {/* 헤더 카드(팀 이름 · 멤버 수 · 공유)는 2026-10-26 뺐다(점검 MVP 1) — 첫 화면 1/5 을 쓰면서 정보가 없었다.
           그 자리에 회원 본인의 「지난 토요일 나」(MyLastDay)를 둔다. 공유 버튼은 맨 아래 줄로. */}
