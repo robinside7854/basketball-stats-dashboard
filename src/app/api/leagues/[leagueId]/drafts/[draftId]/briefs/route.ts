@@ -92,8 +92,10 @@ function toBrief(
   seasonRounds: number,
 ): DraftPlayerBrief {
   const gp = stat?.gp ?? 0
+  // 분모 = 그 선수가 처음 뛴 날부터 열린 날 수(명단 탭과 같은 규칙). 없으면 시즌 전체.
+  const total = (stat as { rounds_since_join?: number } | undefined)?.rounds_since_join || seasonRounds
   // gp 는 라운드(경기일) 단위이고 분모도 같은 필터의 경기일 유니크라 100% 를 넘을 수 없다.
-  const attendance = seasonRounds > 0 ? r1(Math.min(100, (gp / seasonRounds) * 100)) : 0
+  const attendance = total > 0 ? r1(Math.min(100, (gp / total) * 100)) : 0
   if (!stat || gp <= 0) {
     return {
       ...base, prev_team_name: prevTeamName,
@@ -106,7 +108,7 @@ function toBrief(
     ...base,
     prev_team_name: prevTeamName,
     gp,
-    season_rounds: seasonRounds,
+    season_rounds: total,
     attendance_pct: attendance,
     ppg: r1(stat.ppg),
     rpg: r1(stat.rpg),
