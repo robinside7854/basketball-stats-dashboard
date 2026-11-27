@@ -251,7 +251,7 @@ export function ShotBreakdown({ r }: { r: TotalLine }) {
       <ShotDonut parts={types.map((t, i) => ({ v: t.a, color: SHOT_COLORS[i] }))} total={total} />
       <div className="grid grid-cols-4 gap-1 flex-1 min-w-0">
         {types.map((t, i) => (
-          <div key={t.label} className="text-center py-1" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+          <div key={t.label} className="text-center py-1 px-0.5 min-w-0 overflow-hidden" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
             <div className="flex items-center justify-center gap-1 text-[12px] font-semibold break-keep" style={{ color: 'var(--mm-muted)' }}>
               <span className="w-2 h-2 shrink-0" style={{ background: SHOT_COLORS[i], borderRadius: 999 }} aria-hidden />{t.label}
             </div>
@@ -259,7 +259,10 @@ export function ShotBreakdown({ r }: { r: TotalLine }) {
             <div className="t-num text-[12px] font-semibold" style={{ color: 'var(--mm-ink-soft)' }}>
               {t.a > 0 ? `${Math.round(t.m / t.a * 100)}%` : '—'}
             </div>
-            <div className="t-num text-[12px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>비중 {Math.round(t.a / total * 100)}%</div>
+            {/* 「비중 23%」를 한 줄로 두면 폰 좁은 칸 밖으로 튀어나왔다(2026-11-27 운영진) — 글자와 숫자를 두 줄로 */}
+            <div className="t-num text-[12px] font-semibold leading-tight" style={{ color: 'var(--mm-muted)' }}>
+              <span className="block">비중</span><span className="block">{Math.round(t.a / total * 100)}%</span>
+            </div>
           </div>
         ))}
       </div>
