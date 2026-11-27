@@ -2,6 +2,7 @@
 import { useOpenPlayerCard } from '@/contexts/PlayerCardContext'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Search, X, User as UserIcon } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import type { LeaguePlayer } from '@/types/league'
 import { positionLabelOf } from '@/lib/league/positionGroup'
 
@@ -151,7 +152,8 @@ export default function PlayerSearch({ leagueId }: { leagueId: string }) {
         <kbd className="hidden xl:inline text-[12px] font-mono px-1.5 py-0.5 rounded border border-[color:var(--mm-rule)]">/</kbd>
       </button>
 
-      {open && (
+      {/* 창은 body 로 띄운다(2026-11-27 운영진) — 상단 메뉴 안에 두면 메뉴의 흐림 효과 때문에 메뉴 칸만 흐려지고 아래 화면은 그대로였다 */}
+      {open && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[70] flex items-start justify-center px-4 pt-[10vh] mm-fade-in"
           role="dialog"
@@ -159,10 +161,10 @@ export default function PlayerSearch({ leagueId }: { leagueId: string }) {
           aria-label="선수 검색"
           onClick={e => { if (e.target === e.currentTarget) close() }}
         >
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={close} />
+          <div className="absolute inset-0" style={{ background: 'rgba(27,42,74,0.35)' }} onClick={close} />
           <div
             className="relative z-10 w-full max-w-md rounded-md overflow-hidden"
-            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', boxShadow: '0 24px 60px -12px rgba(0,0,0,0.55)' }}
+            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', boxShadow: 'var(--mm-shadow-lg)' }}
           >
             <div className="flex items-center gap-2 px-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <Search size={18} aria-hidden style={{ color: 'var(--mm-muted)' }} />
@@ -257,7 +259,7 @@ export default function PlayerSearch({ leagueId }: { leagueId: string }) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
     </>
   )
