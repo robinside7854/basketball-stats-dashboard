@@ -509,7 +509,7 @@ export function LineGrid({ r, view, dd }: { r: TotalLine; view: LineView; dd?: '
           ) : (
           <div className={`t-num leading-tight ${i === 0 ? 'text-lg font-bold' : 'text-base font-semibold'}`} style={{ color: 'var(--mm-ink)' }}>{v}</div>
           )}
-          {label === '리바' && <div className="t-num text-[12px] font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>공{r.oreb ?? 0}·수{r.dreb ?? 0}</div>}
+          {label === '리바' && <div className="t-num text-[12px] font-semibold leading-tight" style={{ color: 'var(--mm-muted)' }}><div className="whitespace-nowrap">공 {r.oreb ?? 0}</div><div className="whitespace-nowrap">수 {r.dreb ?? 0}</div></div>}
         </div>
         )
       })}
