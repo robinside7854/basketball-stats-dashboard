@@ -578,6 +578,13 @@ export function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, h
                   )}
                 </span>
               </div>
+              {/* 슈팅 보기에서도 득점은 오른쪽 위에 남긴다(2026-11-28 운영진) */}
+              {view === 'shoot' && (
+                <span className="shrink-0 flex flex-col items-end leading-none">
+                  <span className="t-num text-2xl font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{rr.pts ?? 0}</span>
+                  <span className="text-[12px] font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>득점</span>
+                </span>
+              )}
             </div>
             {/* 기록 칸 아무 데나 누르면 기본 ↔ 슈팅 */}
             <div role="button" tabIndex={0} onClick={flip} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip() } }}
