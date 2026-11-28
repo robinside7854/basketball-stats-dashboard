@@ -231,6 +231,8 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
     // ?me=1 (홈 「지난 토요일 나」 → 그날 기록표) — 선수 기록 탭으로 연다
     if (initialMe) return 'players'
     if (typeof window === 'undefined') return 'result'
+    // ?player= (선수 링크 공유) — 선수 기록 탭으로
+    try { if (new URLSearchParams(window.location.search).get('player')) return 'players' } catch { /* 무시 */ }
     try { const v = sessionStorage.getItem(BOX_TAB_KEY); return v === 'players' ? 'players' : 'result' } catch { return 'result' }
   })
   // 탭을 바꾸면 주소(?tab=)도 바꾼다 — 공유·새로고침에 남게. replaceState 라 뒤로가기 기록이 쌓이지 않고,
@@ -263,6 +265,22 @@ export default function BoxscoreContent({ leagueId, date, initialGameId, initial
     if (!initialMe || loading || scrolledToMe.current || !myId) return
     const el = document.querySelector('[data-me="true"]')
     if (el) { scrolledToMe.current = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
+  })
+
+  // ?player= (선수 링크 공유, 2026-11-28 운영진) — 다 그린 뒤 그 선수 카드·줄로 한 번 스크롤 + 잠깐 노란 테
+  const scrolledToPlayer = useRef(false)
+  useEffect(() => {
+    if (loading || scrolledToPlayer.current) return
+    const pid = new URLSearchParams(window.location.search).get('player')
+    if (!pid) { scrolledToPlayer.current = true; return }
+    const els = Array.from(document.querySelectorAll<HTMLElement>(`[data-pid="${CSS.escape(pid)}"]`)).filter(el => el.offsetParent !== null)
+    const el = els[0]
+    if (!el) return
+    scrolledToPlayer.current = true
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const prev = el.style.boxShadow
+    el.style.boxShadow = '0 0 0 3px var(--mm-yellow)'
+    setTimeout(() => { el.style.boxShadow = prev }, 2500)
   })
 
   // 팀 전적 (경기결과 탭 요약) — 정본 lib/stats/dayRecord.ts. 홈·일정·하이라이트와 같은 규칙:

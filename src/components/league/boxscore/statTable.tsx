@@ -7,7 +7,8 @@ import Avatar from '@/components/league/ui/Avatar'
 import SortSelect from '@/components/league/ui/SortSelect'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { Play } from 'lucide-react'
+import { Play, Link2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 // 박스스코어 선수 표·카드와 공용 조각 — BoxscoreContent.tsx 에서 나눔(2026-11-15). 화면 모양은 그대로.
 
@@ -158,6 +159,36 @@ export function ClipLink({ row }: { row: PlayerRow | DailyStat }) {
     >
       <Play size={11} fill="currentColor" className="ml-px" aria-hidden />
     </Link>
+  )
+}
+
+// 선수 링크 공유(2026-11-28 운영진) — 그날 박스스코어 「선수 기록」 탭에서 이 선수 카드로 바로 가는 주소.
+//   폰은 공유 창(카톡 등), 공유 창이 없으면 링크 복사. 받은 쪽은 BoxscoreContent 가 ?player= 를 읽어 스크롤한다.
+export function PlayerShareLink({ row }: { row: PlayerRow | DailyStat }) {
+  if (!row.player_id) return null
+  async function share(e: React.MouseEvent) {
+    e.stopPropagation()
+    const u = new URL(window.location.href)
+    u.search = ''
+    u.searchParams.set('tab', 'players')
+    u.searchParams.set('player', row.player_id)
+    const url = u.toString()
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches
+    if (coarse && typeof navigator.share === 'function') {
+      try { await navigator.share({ url, title: `${row.name} 기록` }); return } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+      }
+    }
+    try { await navigator.clipboard.writeText(url); toast.success('링크 복사 완료. 카톡방에 붙여 넣기.') }
+    catch { window.prompt('아래 링크를 복사하세요', url) }
+  }
+  return (
+    <button type="button" onClick={share}
+      className="mm-press shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full cursor-pointer"
+      style={{ color: 'var(--mm-ink)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+      aria-label={`${row.name} 기록 링크 공유`} title="링크 공유">
+      <Link2 size={13} aria-hidden />
+    </button>
   )
 }
 
@@ -385,6 +416,7 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
                 className={`transition-colors duration-200 hover:bg-[color:var(--mm-yellow-soft)] ${i % 2 === 0 ? 'bg-[color:var(--mm-panel)]' : 'bg-[color:var(--mm-panel-alt)]'}`}
                 style={{ borderBottom: '1px solid var(--mm-rule)', ...(isMe ? { outline: MINE_OUTLINE, outlineOffset: -2 } : null) }}
                 data-me={isMe || undefined}
+                data-pid={rr.player_id}
               >
                 <th scope="row" className="py-2 px-3 text-left font-normal">
                   <div className="flex items-center gap-2">
@@ -396,6 +428,7 @@ export function StatTable({ rows, showGP = false, ddKinds, onPlayerPick, total, 
                         <PlayerName row={rr} onPlayerPick={onPlayerPick} />
                         {isMe && <MeTag />}
                         <ClipLink row={rr} />
+                        <PlayerShareLink row={rr} />
                       </span>
                     </div>
                   </div>
@@ -558,7 +591,7 @@ export function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, h
         const rr = r as PlayerRow & DailyStat
         const isMe = !!myId && rr.player_id === myId
         return (
-          <div key={rr.player_id} className="p-3" data-me={isMe || undefined}
+          <div key={rr.player_id} className="p-3" data-me={isMe || undefined} data-pid={rr.player_id}
             style={{ background: 'var(--mm-panel)', border: isMe ? MINE_OUTLINE : '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)' }}>
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -569,6 +602,7 @@ export function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick, h
                     <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0 leading-tight" />
                     {isMe && <MeTag />}
                     <ClipLink row={rr} />
+                        <PlayerShareLink row={rr} />
                   </span>
                   {(rr.team_name || showGP) && (
                     <span className="flex items-center gap-1.5 min-w-0 text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>
