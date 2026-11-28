@@ -12,20 +12,23 @@ import type { HighlightClip } from '@/lib/highlights/types'
 export default function ShortformMarkButton({ clip }: { clip: HighlightClip | null | undefined }) {
   const { leagueId } = useParams<{ leagueId: string }>()
   const { isEditMode } = useLeagueEditMode()
-  const [saved, setSaved] = useState<Set<string> | null>(null)
+  // 담긴 장면 → 경기 날짜. 개수는 지금 클립 날짜 것만 센다(날짜가 바뀌면 처음부터, 2026-11-28 운영진)
+  const [saved, setSaved] = useState<Map<string, string | null> | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!isEditMode || !leagueId) return
     let alive = true
     fetch(`/api/leagues/${leagueId}/shortform-marks`).then(r => r.ok ? r.json() : null).then(d => {
-      if (alive && d) setSaved(new Set(d.event_ids as string[]))
+      if (alive && d) setSaved(new Map(((d.marks ?? []) as Array<{ event_id: string; date: string | null }>).map(m => [m.event_id, m.date])))
     }).catch(() => {})
     return () => { alive = false }
   }, [isEditMode, leagueId])
 
   if (!isEditMode || !clip || !saved) return null
   const on = saved.has(clip.event_id)
+  const day = clip.game_date ?? null
+  const dayCount = [...saved.values()].filter(d => d === day).length
 
   async function toggle() {
     if (!clip || busy) return
@@ -39,7 +42,7 @@ export default function ShortformMarkButton({ clip }: { clip: HighlightClip | nu
         }).catch(() => null)
     setBusy(false)
     if (!r?.ok) { toast.error('숏폼 저장 실패'); return }
-    setSaved(prev => { const n = new Set(prev); if (on) n.delete(id); else n.add(id); return n })
+    setSaved(prev => { const n = new Map(prev); if (on) n.delete(id); else n.set(id, clip.game_date ?? null); return n })
   }
 
   return (
@@ -50,7 +53,7 @@ export default function ShortformMarkButton({ clip }: { clip: HighlightClip | nu
         border: `1px solid ${on ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`, borderRadius: 'var(--mm-radius-chip)',
       }}>
       <Star size={16} aria-hidden fill={on ? 'currentColor' : 'none'} />
-      {on ? `숏폼 담김 · ${saved.size}` : '숏폼에 담기'}
+      {on ? `숏폼 담김 · ${dayCount}` : '숏폼에 담기'}
     </button>
   )
 }

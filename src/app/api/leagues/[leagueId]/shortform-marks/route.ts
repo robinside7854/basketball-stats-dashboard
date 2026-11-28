@@ -10,9 +10,14 @@ export async function GET(req: Request, { params }: Ctx) {
   const { leagueId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { data, error } = await createClient().from('league_game_marks')
-    .select('league_game_event_id').eq('league_id', leagueId).not('league_game_event_id', 'is', null)
+    .select('league_game_event_id, league_games(date)').eq('league_id', leagueId).not('league_game_event_id', 'is', null)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ event_ids: (data ?? []).map(r => r.league_game_event_id) })
+  // 담긴 장면마다 경기 날짜를 같이 준다 — 화면은 그 날짜 것만 센다(2026-11-28 운영진)
+  const rows = (data ?? []) as unknown as Array<{ league_game_event_id: string; league_games: { date: string | null } | null }>
+  return NextResponse.json({
+    event_ids: rows.map(r => r.league_game_event_id),
+    marks: rows.map(r => ({ event_id: r.league_game_event_id, date: r.league_games?.date ?? null })),
+  })
 }
 
 export async function POST(req: Request, { params }: Ctx) {
