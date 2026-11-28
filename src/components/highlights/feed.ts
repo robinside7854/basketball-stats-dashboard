@@ -16,7 +16,9 @@ export type HighlightsFeedOptions = {
  *  top 은 리그 상단 바(44px) 바로 아래. 배경을 깔아 고정된 재생기 밑으로 목록이 비치지 않게 한다. */
 export const FEED_PLAYER_COL =
   'lg:col-span-7 space-y-2 z-[5] -mx-4 px-4 py-2 lg:mx-0 lg:px-0 lg:py-0 ' +
-  '[@media(min-height:560px)]:sticky [@media(min-height:560px)]:top-[44px] lg:sticky lg:top-[60px]'
+  'lg:sticky lg:top-[60px]'
+// (2026-11-28 운영진) 폰에서는 재생기를 고정하지 않는다 — 재생기·스코어·버튼 줄이 화면을 거의 다 차지해
+// 아래 목록이 몇 줄밖에 안 보였다. 목록 상자는 화면 높이의 70% 로 넉넉하게.
 
 export const FEED_LIST_COL = 'lg:col-span-5'
 
@@ -25,7 +27,7 @@ export const FEED_LIST_COL = 'lg:col-span-5'
  *  날짜 머리줄의 sticky 는 상자 안에서 그대로 붙는다. */
 export const FEED_LIST_SCROLL =
   'overflow-y-auto overscroll-contain pr-1 [&_[data-clip-idx]]:scroll-mt-0 ' +
-  'max-h-[max(260px,calc(100dvh-460px))] lg:max-h-[calc(100dvh-140px)]'
+  'max-h-[70dvh] lg:max-h-[calc(100dvh-140px)]'
 
 /** 피드 모드의 URL 동기화 — 보존 키는 현재 주소에서 가져오고, 브라우저 자기 키만 덮어쓴다. */
 export function replaceFeedUrl(own: URLSearchParams, preserve: string[]) {
